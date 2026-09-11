@@ -86,12 +86,12 @@ def _prepare_user_constraints(user, language=None):
     # =========================================
     user_ignored_sources = UserActivityData.get_sources_ignored_by_user(user)
 
-    # 8. Regional variety, if the learner asked for one
+    # 8. Regional variety, if the learner asked their feed be narrowed to one
     # =========================================
     # Per (user, language), so it follows the language being recommended for
     # rather than the one persisted on the user -- the same reason `language` is
     # a parameter here.
-    variety = UserLanguage.variety_for(user, language)
+    feed_variety = UserLanguage.feed_variety_for(user, language)
 
     return (
         language,
@@ -100,7 +100,7 @@ def _prepare_user_constraints(user, language=None):
         _list_to_string(wanted_user_searches),
         _list_to_string(unwanted_user_searches),
         user_ignored_sources,
-        variety,
+        feed_variety,
     )
 
 
@@ -148,7 +148,7 @@ def article_recommendations_for_user(
         wanted_user_searches,
         unwanted_user_searches,
         user_ignored_sources,
-        variety,
+        feed_variety,
     ) = _prepare_user_constraints(user, language)
 
     if topics_override is not None:
@@ -175,7 +175,7 @@ def article_recommendations_for_user(
         topics_to_include=topics_to_include,
         topics_to_exclude=topics_to_exclude,
         user_ignored_sources=user_ignored_sources,
-        variety=variety,
+        feed_variety=feed_variety,
         articles_to_exclude=articles_to_exclude,
         filter_disturbing=filter_disturbing,
         page=page,

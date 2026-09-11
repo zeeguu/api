@@ -11,9 +11,9 @@ from zeeguu.core.test.rules.user_rule import UserRule
 db_session = zeeguu.core.model.db.session
 
 
-def a_query(variety=None):
+def a_query(feed_variety=None):
     return build_elastic_recommender_query(
-        10, "", "", None, "1d", "1d", 0.6, "", "", [], variety=variety
+        10, "", "", None, "1d", "1d", 0.6, "", "", [], feed_variety=feed_variety
     )
 
 
@@ -65,26 +65,26 @@ class VarietyForTest(ModelTestMixIn, TestCase):
         self.language = LanguageRule().fr
 
     def test_no_row_means_no_preference(self):
-        assert UserLanguage.variety_for(self.user, self.language) is None
+        assert UserLanguage.feed_variety_for(self.user, self.language) is None
 
     def test_a_row_without_a_variety_means_no_preference(self):
         UserLanguage.find_or_create(db_session, self.user, self.language)
 
-        assert UserLanguage.variety_for(self.user, self.language) is None
+        assert UserLanguage.feed_variety_for(self.user, self.language) is None
 
     def test_the_stored_variety_is_what_comes_back(self):
         row = UserLanguage.find_or_create(db_session, self.user, self.language)
-        row.variety = "BE"
+        row.feed_variety = "BE"
         db_session.add(row)
         db_session.commit()
 
-        assert UserLanguage.variety_for(self.user, self.language) == "BE"
+        assert UserLanguage.feed_variety_for(self.user, self.language) == "BE"
 
     def test_a_variety_belongs_to_one_language_only(self):
         row = UserLanguage.find_or_create(db_session, self.user, self.language)
-        row.variety = "BE"
+        row.feed_variety = "BE"
         db_session.add(row)
         db_session.commit()
 
         other = LanguageRule().de
-        assert UserLanguage.variety_for(self.user, other) is None
+        assert UserLanguage.feed_variety_for(self.user, other) is None

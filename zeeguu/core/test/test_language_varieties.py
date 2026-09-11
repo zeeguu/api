@@ -57,25 +57,25 @@ class LanguageVarietiesTest(TestCase):
 
 class ValidatedVarietyTest(TestCase):
     def test_a_variety_is_stored_uppercased(self):
-        assert User.validated_variety("nl", "be") == "BE"
+        assert User.validated_feed_variety("nl", "be") == "BE"
 
     def test_empty_means_no_preference_rather_than_a_rejected_save(self):
-        assert User.validated_variety("nl", "") is None
-        assert User.validated_variety("nl", "   ") is None
+        assert User.validated_feed_variety("nl", "") is None
+        assert User.validated_feed_variety("nl", "   ") is None
 
     def test_a_variety_the_language_does_not_have_is_refused(self):
         # Storing it would leave the settings screen showing a preference that
         # nothing downstream honours.
         for unsupported in ["MX", "FR", "ZZ"]:
             try:
-                User.validated_variety("nl", unsupported)
+                User.validated_feed_variety("nl", unsupported)
                 assert False, f"{unsupported} should not be a variety of Dutch"
             except ValueError:
                 pass
 
     def test_a_language_with_no_varieties_accepts_none_of_them(self):
         try:
-            User.validated_variety("da", "DK")
+            User.validated_feed_variety("da", "DK")
             assert False, "Danish has no varieties"
         except ValueError:
             pass

@@ -53,16 +53,19 @@ class UserLanguage(db.Model):
 
     cefr_level = Column(Integer)
 
-    # The regional variety of this language the learner wants, as the ISO 3166-1
-    # alpha-2 country it belongs to: ('nl', 'BE') is Flemish. NULL -- the default,
-    # and what every existing row has -- means no preference, which has to keep
-    # behaving exactly as it did before varieties existed.
-    variety = Column(String(2))
+    # Which country's sources the learner wants in their feed, as the ISO 3166-1
+    # alpha-2 country the variety belongs to: ('nl', 'BE') is Flemish. NULL -- the
+    # default, and what every existing row has -- means no preference, which has
+    # to keep behaving exactly as it did before varieties existed.
+    #
+    # Named for the feed rather than left bare: this row carries two variety
+    # preferences, and an unqualified one would not say which question it answers.
+    feed_variety = Column(String(2))
 
     # The variety the audio lesson should be READ in, which is a different
     # question from which country's news to show. "Everywhere" is a coherent
     # answer to the second and an incoherent one to the first: nobody speaks in
-    # no particular accent. Kept apart from `variety` so that picking a Brazilian
+    # no particular accent. Kept apart from `feed_variety` so picking a Brazilian
     # voice does not silently narrow the feed to Brazilian sources.
     #
     # NULL -- the default, and what every existing row has -- means the language
@@ -121,9 +124,9 @@ class UserLanguage(db.Model):
         return f'User language (uid: {self.user_id}, language:"{self.Language}")'
 
     @classmethod
-    def variety_for(cls, user, language):
+    def feed_variety_for(cls, user, language):
         """
-        The regional variety this learner asked for in this language, or None.
+        The country whose sources this learner wants in their feed, or None.
 
         None is by far the common answer -- it is what every row held before
         varieties existed -- and it has to keep meaning "show me everything".
@@ -131,14 +134,14 @@ class UserLanguage(db.Model):
         if user is None or language is None:
             return None
         row = cls.query.filter(cls.user == user).filter(cls.language == language).first()
-        return row.variety if row else None
+        return row.feed_variety if row else None
 
     @classmethod
     def voice_variety_for(cls, user, language):
         """
         The variety this learner asked to be READ in, or None for "no preference".
 
-        Deliberately does not fall back to `variety`: the feed preference answers
+        Deliberately does not fall back to `feed_variety`: that preference answers
         a different question, and a learner who picked Belgian sources has not
         thereby asked for a Flemish voice.
         """

@@ -319,7 +319,7 @@ class User(db.Model):
             result[each.language.code + "_reading"] = each.reading_news
             result[each.language.code + "_exercises"] = each.doing_exercises
             result[each.language.code + "_cefr_level"] = each.cefr_level
-            result[each.language.code + "_variety"] = each.variety
+            result[each.language.code + "_feed_variety"] = each.feed_variety
             result[each.language.code + "_voice_variety"] = each.voice_variety
 
         return result
@@ -356,14 +356,16 @@ class User(db.Model):
         language_code: str,
         cefr_level: int = None,
         session=None,
-        variety: str = None,
+        feed_variety: str = None,
     ):
         # Validated before anything is mutated. UserLanguage.find_or_create below
         # commits, so a variety rejected after that point would leave the language
         # already switched and the previous one's reading and exercises already
         # disabled -- committed, past the caller's rollback, behind a 400.
-        variety_to_store = (
-            self.validated_variety(language_code, variety) if variety is not None else None
+        feed_variety_to_store = (
+            self.validated_feed_variety(language_code, feed_variety)
+            if feed_variety is not None
+            else None
         )
 
         self.learned_language = Language.find(language_code)
@@ -390,26 +392,28 @@ class User(db.Model):
 
         # Unlike the level, a variety is cleared by sending it empty: "no
         # preference" is a choice a learner can go back to.
-        if variety is not None:
-            language.variety = variety_to_store
+        if feed_variety is not None:
+            language.feed_variety = feed_variety_to_store
 
         if session:
             session.add(language)
 
-    def set_learned_language_variety(self, variety: str, session=None):
+    def set_learned_language_feed_variety(self, feed_variety: str, session=None):
         """
-        Change only the variety, leaving the learned language as it is -- what a
-        client sends when the learner changed their mind about Flemish but not
-        about Dutch. Going through set_learned_language instead would rewrite
+        Change only the feed variety, leaving the learned language as it is --
+        what a client sends when the learner changed their mind about Flemish but
+        not about Dutch. Going through set_learned_language instead would rewrite
         reading_news and doing_exercises as a side effect of saving a preference.
         """
         from zeeguu.core.model import UserLanguage
 
         # Validated first, for the same reason as in set_learned_language.
-        variety_to_store = self.validated_variety(self.learned_language.code, variety)
+        feed_variety_to_store = self.validated_feed_variety(
+            self.learned_language.code, feed_variety
+        )
 
         language = UserLanguage.find_or_create(session, self, self.learned_language)
-        language.variety = variety_to_store
+        language.feed_variety = feed_variety_to_store
 
         if session:
             session.add(language)
@@ -418,7 +422,7 @@ class User(db.Model):
         """
         Change only the accent the audio lessons are read in.
 
-        A sibling of set_learned_language_variety rather than a parameter on it:
+        A sibling of set_learned_language_feed_variety rather than a parameter:
         the two answer different questions (which country's news, which country's
         accent) and a learner who changes one has said nothing about the other.
         """
@@ -456,9 +460,9 @@ class User(db.Model):
         return variety
 
     @staticmethod
-    def validated_variety(language_code: str, variety: str):
+    def validated_feed_variety(language_code: str, variety: str):
         """
-        The variety to store for a language: None for "no preference", and a
+        The feed variety to store for a language: None for "no preference", and a
         ValueError for anything the catalogue does not offer -- a variety that
         silently fails to apply is worse than a rejected save, because the
         settings screen would go on showing a preference that nothing honours.

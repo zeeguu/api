@@ -169,7 +169,7 @@ class VoiceVarietyPreferenceTest(ModelTestMixIn):
         # Two settings, two questions. A learner who picked Belgian sources has
         # not thereby asked to be read to in Flemish.
         user_language = UserLanguage.find_or_create(db_session, self.user, self.dutch)
-        user_language.variety = "BE"
+        user_language.feed_variety = "BE"
         db_session.commit()
 
         assert UserLanguage.voice_variety_for(self.user, self.dutch) is None

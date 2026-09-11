@@ -51,12 +51,12 @@ class TestVoiceVarietyRoundTrip:
         # Picking a Brazilian voice must not narrow the feed to Brazilian sources,
         # and picking Belgian sources must not change the accent.
         lc = logged_in(app, client, "twosettings@zeeguu.test")
-        save_settings(lc, learned_language="nl", variety="BE")
+        save_settings(lc, learned_language="nl", feed_variety="BE")
 
         assert save_settings(lc, voice_variety="NL").status_code == 200
 
         details = user_details(lc)
-        assert details["nl_variety"] == "BE"
+        assert details["nl_feed_variety"] == "BE"
         assert details["nl_voice_variety"] == "NL"
 
     def test_a_variety_with_no_voice_is_refused(self, app, client):

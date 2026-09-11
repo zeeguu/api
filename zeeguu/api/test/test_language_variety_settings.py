@@ -22,7 +22,7 @@ def stored_user(app, email):
         return dict(
             learned_language=user.learned_language.code,
             varieties={
-                each.language.code: each.variety
+                each.language.code: each.feed_variety
                 for each in UserLanguage.query.filter_by(user=user)
             },
         )
@@ -44,33 +44,33 @@ class TestLanguageVarietyRoundTrip:
 
     def test_a_variety_saved_comes_back_under_its_language(self, app, client):
         lc = logged_in(app, client, "flemish@zeeguu.test")
-        assert save_settings(lc, learned_language="nl", variety="BE").status_code == 200
-        assert user_details(lc)["nl_variety"] == "BE"
+        assert save_settings(lc, learned_language="nl", feed_variety="BE").status_code == 200
+        assert user_details(lc)["nl_feed_variety"] == "BE"
 
     def test_no_variety_is_the_default_and_stays_null(self, app, client):
         lc = logged_in(app, client, "novariety@zeeguu.test")
         assert save_settings(lc, learned_language="nl").status_code == 200
-        assert user_details(lc)["nl_variety"] is None
+        assert user_details(lc)["nl_feed_variety"] is None
 
     def test_an_empty_variety_clears_a_preference(self, app, client):
         # "No preference" has to be reachable again, or a learner who picks one
         # by accident can never get back to the full feed.
         lc = logged_in(app, client, "clearing@zeeguu.test")
-        save_settings(lc, learned_language="nl", variety="BE")
-        assert save_settings(lc, learned_language="nl", variety="").status_code == 200
-        assert user_details(lc)["nl_variety"] is None
+        save_settings(lc, learned_language="nl", feed_variety="BE")
+        assert save_settings(lc, learned_language="nl", feed_variety="").status_code == 200
+        assert user_details(lc)["nl_feed_variety"] is None
 
     def test_omitting_the_variety_leaves_an_existing_one_alone(self, app, client):
         # Every client that saves settings today sends no variety at all; none of
         # them should silently wipe one.
         lc = logged_in(app, client, "untouched@zeeguu.test")
-        save_settings(lc, learned_language="nl", variety="BE")
+        save_settings(lc, learned_language="nl", feed_variety="BE")
         assert save_settings(lc, learned_language="nl", cefr_level="3").status_code == 200
-        assert user_details(lc)["nl_variety"] == "BE"
+        assert user_details(lc)["nl_feed_variety"] == "BE"
 
     def test_a_variety_the_language_does_not_have_is_refused(self, app, client):
         lc = logged_in(app, client, "wrongvariety@zeeguu.test")
-        response = save_settings(lc, learned_language="nl", variety="MX")
+        response = save_settings(lc, learned_language="nl", feed_variety="MX")
         assert response.status_code == 400
 
     def test_a_refused_variety_changes_nothing_at_all(self, app, client):
@@ -80,10 +80,10 @@ class TestLanguageVarietyRoundTrip:
         # -- and only for a language the user has no row for yet, which is exactly
         # when someone picks a variety.
         lc = logged_in(app, client, "nopartial@zeeguu.test")
-        save_settings(lc, learned_language="nl", variety="BE")
+        save_settings(lc, learned_language="nl", feed_variety="BE")
         before = stored_user(app, "nopartial@zeeguu.test")
 
-        response = save_settings(lc, learned_language="pt", variety="MX")
+        response = save_settings(lc, learned_language="pt", feed_variety="MX")
 
         assert response.status_code == 400
         assert stored_user(app, "nopartial@zeeguu.test") == before
@@ -98,29 +98,29 @@ class TestVarietyWithoutALanguageChange:
         lc = logged_in(app, client, "lone@zeeguu.test")
         save_settings(lc, learned_language="nl")
 
-        assert save_settings(lc, variety="BE").status_code == 200
-        assert user_details(lc)["nl_variety"] == "BE"
+        assert save_settings(lc, feed_variety="BE").status_code == 200
+        assert user_details(lc)["nl_feed_variety"] == "BE"
 
     def test_a_lone_variety_can_clear_the_preference(self, app, client):
         lc = logged_in(app, client, "loneclear@zeeguu.test")
-        save_settings(lc, learned_language="nl", variety="BE")
+        save_settings(lc, learned_language="nl", feed_variety="BE")
 
-        assert save_settings(lc, variety="").status_code == 200
-        assert user_details(lc)["nl_variety"] is None
+        assert save_settings(lc, feed_variety="").status_code == 200
+        assert user_details(lc)["nl_feed_variety"] is None
 
     def test_a_lone_variety_of_another_language_is_refused(self, app, client):
         lc = logged_in(app, client, "lonewrong@zeeguu.test")
         save_settings(lc, learned_language="nl")
 
-        assert save_settings(lc, variety="BR").status_code == 400
-        assert user_details(lc)["nl_variety"] is None
+        assert save_settings(lc, feed_variety="BR").status_code == 400
+        assert user_details(lc)["nl_feed_variety"] is None
 
     def test_saving_something_else_leaves_the_variety_alone(self, app, client):
         lc = logged_in(app, client, "othersave@zeeguu.test")
-        save_settings(lc, learned_language="nl", variety="BE")
+        save_settings(lc, learned_language="nl", feed_variety="BE")
 
         assert save_settings(lc, name="Renamed").status_code == 200
-        assert user_details(lc)["nl_variety"] == "BE"
+        assert user_details(lc)["nl_feed_variety"] == "BE"
 
     def test_the_catalogue_is_served_to_the_client(self, app, client):
         varieties = json.loads(client.get("/system_languages").data)["varieties"]
@@ -134,9 +134,9 @@ class TestVarietyWithoutALanguageChange:
         # both store "BE" and must not be told they mean the same thing.
         lc = logged_in(app, client, "bilingual@zeeguu.test")
 
-        save_settings(lc, learned_language="nl", variety="BE")
-        save_settings(lc, learned_language="fr", variety="BE")
+        save_settings(lc, learned_language="nl", feed_variety="BE")
+        save_settings(lc, learned_language="fr", feed_variety="BE")
 
         details = user_details(lc)
-        assert details["nl_variety"] == "BE"
-        assert details["fr_variety"] == "BE"
+        assert details["nl_feed_variety"] == "BE"
+        assert details["fr_feed_variety"] == "BE"
