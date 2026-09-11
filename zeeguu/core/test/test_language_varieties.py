@@ -7,7 +7,15 @@ from zeeguu.core.language.varieties import (
     variety_name,
     varieties_for,
 )
+from zeeguu.core.model import Feed
 from zeeguu.core.model.user import User
+from zeeguu.core.test.model_test_mixin import ModelTestMixIn
+from zeeguu.core.test.rules.language_rule import LanguageRule
+from zeeguu.core.test.rules.url_rule import UrlRule
+
+import zeeguu.core
+
+db_session = zeeguu.core.model.db.session
 
 
 class LanguageVarietiesTest(TestCase):
@@ -36,12 +44,6 @@ class LanguageVarietiesTest(TestCase):
 
     def test_an_unknown_variety_falls_back_to_the_language_name(self):
         assert variety_name("nl", "ZZ") == "Dutch"
-
-    def test_catalogue_carries_every_variety_with_its_name(self):
-        assert catalogue()["nl"] == [
-            dict(country="NL", name="Dutch from the Netherlands"),
-            dict(country="BE", name="Belgian Dutch"),
-        ]
 
     def test_is_supported_rejects_a_country_of_another_language(self):
         assert is_supported("nl", "BE")
@@ -79,3 +81,62 @@ class ValidatedVarietyTest(TestCase):
             assert False, "Danish has no varieties"
         except ValueError:
             pass
+
+
+class OfferedCatalogueTest(ModelTestMixIn, TestCase):
+    """
+    What can be offered is a fixed list; what IS offered is whatever some feed
+    publishes from. A variety with nothing behind it is a trap -- picked, it
+    empties the feed and reads as a broken app.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.dutch = LanguageRule().get_or_create_language("nl")
+
+    def _feed(self, title, language, country):
+        return Feed.find_or_create(
+            db_session,
+            UrlRule().url,
+            title,
+            "a description",
+            icon_name="icon.png",
+            language=language,
+            feed_type=0,
+            country=country,
+        )
+
+    def test_a_variety_nobody_publishes_from_is_not_offered(self):
+        # No feed at all: no language has a variety worth showing.
+        assert catalogue() == {}
+
+    def test_a_variety_appears_as_soon_as_a_feed_does(self):
+        self._feed("A Flemish feed", self.dutch, "BE")
+
+        assert catalogue()["nl"] == [dict(country="BE", name="Belgian Dutch")]
+
+    def test_the_other_variety_of_the_same_language_stays_hidden(self):
+        self._feed("A Flemish feed", self.dutch, "BE")
+
+        offered = [each["country"] for each in catalogue()["nl"]]
+        assert "NL" not in offered
+
+    def test_a_deactivated_feed_does_not_keep_a_variety_alive(self):
+        feed = self._feed("A Flemish feed", self.dutch, "BE")
+        feed.deactivated = 1
+        db_session.add(feed)
+        db_session.commit()
+
+        assert catalogue() == {}
+
+    def test_an_untagged_feed_offers_nothing(self):
+        self._feed("An untagged feed", self.dutch, None)
+
+        assert catalogue() == {}
+
+    def test_a_saved_preference_is_still_validated_against_the_full_list(self):
+        # Losing its last feed must not make a stored variety invalid: the
+        # learner keeps the setting they chose, and the empty feed explains
+        # itself rather than a save being rejected.
+        assert catalogue() == {}
+        assert User.validated_variety("pt", "BR") == "BR"

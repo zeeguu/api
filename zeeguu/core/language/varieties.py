@@ -23,6 +23,10 @@ question.
 Belgium appears twice, under Dutch and under French, which is the country being
 bilingual rather than a mistake: a learner of either can want to read the half of
 Belgium that speaks theirs.
+
+What is listed here is what CAN be offered. What IS offered is narrower: see
+catalogue(), which asks the feeds. A variety nobody publishes from is a trap, and
+one that appears the day a feed is added needs nobody to remember it.
 """
 
 # language code -> the countries whose variety a learner can ask for.
@@ -72,18 +76,60 @@ def variety_name(language_code: str, country: str) -> str:
     return VARIETY_NAMES.get((language_code, country)) or language_name(language_code)
 
 
+def countries_with_feeds():
+    """
+    {"nl": {"NL", "BE"}, ...} -- the countries some live feed actually publishes
+    from, per language. Deactivated feeds do not count: they keep no content
+    coming, so a variety resting on one is a variety with nothing behind it.
+    """
+    from zeeguu.core.model.db import db
+    from zeeguu.core.model.feed import Feed
+    from zeeguu.core.model.language import Language
+
+    rows = (
+        db.session.query(Language.code, Feed.country)
+        .join(Feed, Feed.language_id == Language.id)
+        .filter(Feed.country.isnot(None))
+        .filter(Feed.deactivated == 0)
+        .distinct()
+        .all()
+    )
+
+    supplied = {}
+    for language_code, country in rows:
+        supplied.setdefault(language_code, set()).add(country)
+    return supplied
+
+
 def catalogue():
     """
-    The whole table, shaped for the client that renders the variety control:
-    {"nl": [{"country": "NL", "name": "Netherlands Dutch"}, ...], ...}
+    The varieties worth offering, shaped for the client that renders the control:
+    {"nl": [{"country": "NL", "name": "Belgian Dutch"}, ...], ...}
 
-    Served from here so the web app does not keep a second copy of a list that
-    has to agree with what the feeds are tagged with.
+    A variety appears here only once some feed publishes from that country, and
+    stops appearing when none does. Offering one with nothing behind it is a trap
+    -- a learner picks it, gets an empty feed, and concludes the app is broken --
+    and the alternative, remembering to switch it on the day a feed is added, is
+    a step nobody will remember. Brazilian Portuguese is the live example: named
+    here, unofferable until somebody adds a Brazilian feed, offered the moment
+    they do, without a deploy.
+
+    Availability comes from the feeds; the NAMES stay in VARIETY_NAMES, because
+    "Brazilian Portuguese" is knowledge the database does not have.
+
+    This is deliberately NOT what validates a saved preference. is_supported()
+    still answers from VARIETIES, so a learner whose country loses its last feed
+    keeps the setting they chose rather than having a save rejected; their feed
+    goes empty, and the client explains that and offers the way back.
     """
-    return {
-        language_code: [
-            dict(country=country, name=variety_name(language_code, country))
-            for country in countries
-        ]
-        for language_code, countries in VARIETIES.items()
-    }
+    supplied = countries_with_feeds()
+
+    offered = {}
+    for language_code, countries in VARIETIES.items():
+        available = [c for c in countries if c in supplied.get(language_code, set())]
+        if available:
+            offered[language_code] = [
+                dict(country=country, name=variety_name(language_code, country))
+                for country in available
+            ]
+    return offered
