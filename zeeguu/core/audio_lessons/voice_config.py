@@ -146,6 +146,28 @@ def locale_for(language_code: str, variety: str = None) -> str:
     return DEFAULT_LOCALE[language_code]
 
 
+def distinguishing_variety(language_code: str, variety: str = None) -> str:
+    """
+    The variety insofar as it changes the voice, and None when it does not.
+
+    A preference that resolves to the language's default locale is not a
+    different accent, and must not reach a cache key as though it were. The
+    voice control offers "European Portuguese" precisely because Brazilian
+    exists beside it, so a learner can pick the variety they already had: that
+    resolves to pt-PT, which is what every row generated before varieties was
+    voiced in. Keeping 'PT' in the key would miss all of them and regenerate the
+    whole Portuguese cache to produce the same audio in a second copy.
+
+    Same for a variety that has no voice at all -- fr/BE reads as fr-FR -- which
+    the validator rejects today and would not if Google ever shipped one.
+    """
+    if not variety or language_code not in DEFAULT_LOCALE:
+        return None
+
+    is_the_default = locale_for(language_code, variety) == DEFAULT_LOCALE[language_code]
+    return None if is_the_default else variety
+
+
 def countries_with_voices(language_code: str) -> tuple:
     """
     The varieties of this language a learner can actually be read in -- the

@@ -5,6 +5,7 @@ from zeeguu.core.audio_lessons.voice_config import (
     DEFAULT_LOCALE,
     VOICE_CONFIG,
     countries_with_voices,
+    distinguishing_variety,
     get_voice_id,
     has_voice,
     locale_for,
@@ -65,6 +66,34 @@ class LocaleMapTest(TestCase):
     def test_the_voice_id_follows_the_variety(self):
         assert get_voice_id("nl", "woman").startswith("nl-NL")
         assert get_voice_id("nl", "woman", "BE").startswith("nl-BE")
+
+
+class DistinguishingVarietyTest(TestCase):
+    """
+    Which preferences may reach a cache key. Only the ones that change the voice:
+    the rest would fork the shared cache into a second, identical copy.
+    """
+
+    def test_a_variety_that_changes_the_voice_is_kept(self):
+        assert distinguishing_variety("nl", "BE") == "BE"
+        assert distinguishing_variety("pt", "BR") == "BR"
+
+    def test_choosing_the_accent_already_in_effect_is_not_a_choice(self):
+        # The control has to offer European Portuguese -- Brazilian sits beside
+        # it -- and picking it changes nothing that can be heard.
+        assert distinguishing_variety("pt", "PT") is None
+        assert distinguishing_variety("nl", "NL") is None
+
+    def test_a_variety_with_no_voice_does_not_fork_the_cache(self):
+        # fr/BE reads as fr-FR, so it must key like fr-FR and not like itself.
+        assert distinguishing_variety("fr", "BE") is None
+
+    def test_no_preference_stays_no_preference(self):
+        assert distinguishing_variety("nl", None) is None
+        assert distinguishing_variety("nl", "") is None
+
+    def test_a_language_with_no_voices_at_all_is_not_an_error(self):
+        assert distinguishing_variety("zz", "BE") is None
 
 
 class VoiceAvailabilityTest(TestCase):
@@ -176,6 +205,17 @@ class AudioLessonCacheKeyTest(ModelTestMixIn):
         assert AudioLessonMeaning.find(
             meaning=self.meaning, teacher_language=self.english
         ) is None
+
+    def test_the_default_variety_finds_the_row_generated_without_one(self):
+        # A learner who picks the accent they already had must not miss every
+        # row in the cache and regenerate the lot to hear the same thing.
+        without = self._lesson(variety=None)
+
+        assert AudioLessonMeaning.find(
+            meaning=self.meaning,
+            teacher_language=self.english,
+            variety=distinguishing_variety("nl", "NL"),
+        ).id == without.id
 
     def test_each_variety_finds_its_own(self):
         without = self._lesson(variety=None)

@@ -1,5 +1,11 @@
 -- The regional variety the audio lesson is READ in.
 --
+-- RUN THIS BEFORE DEPLOYING THE API, not after. The serializer behind
+-- /get_user_details reads user_language.voice_variety for every row it returns,
+-- so an API running ahead of this migration answers 500 to every user on every
+-- request -- not only to users with a voice preference, and not only on the
+-- audio-lesson path.
+--
 -- Three columns, one idea. `user_language.voice_variety` is the learner's
 -- preference; the two `variety` columns record what a cached row was actually
 -- voiced in, and are part of its cache key. Both lesson tables are shared across

@@ -46,6 +46,7 @@ from collections import defaultdict
 
 from zeeguu.core.model import User, db, AudioLessonMeaning, UserLanguage
 from zeeguu.core.model.user_activitiy_data import UserActivityData
+from zeeguu.core.audio_lessons.voice_config import distinguishing_variety
 from zeeguu.core.audio_lessons.word_selector import (
     select_words_for_audio_lesson,
 )
@@ -80,6 +81,13 @@ def output(text=""):
     output_capture.write(text + "\n")
 
 
+def voice_variety_for_language(user, language):
+    """The accent to voice this language in for this user, or None."""
+    return distinguishing_variety(
+        language.code, UserLanguage.voice_variety_for(user, language)
+    )
+
+
 def get_precomputed_meanings_count(user, language):
     """
     Get the count of already precomputed audio lesson meanings
@@ -99,13 +107,18 @@ def get_precomputed_meanings_count(user, language):
         # User doesn't have enough words for a lesson anyway
         return (-1, next_words)  # Return -1 to indicate "not enough words"
 
+    # The accent for THIS language: the caller loops over every language the user
+    # has words in, and the learned language is only one of them. Asking for a
+    # Dutch lesson with the Portuguese preference's country matches nothing, ever.
+    voice_variety = voice_variety_for_language(user, language)
+
     # Check how many of these next words already have precomputed audio lessons
     precomputed_count = 0
     for user_word in next_words:
         existing_lesson = AudioLessonMeaning.find(
             meaning=user_word.meaning,
             teacher_language=user.native_language,
-            variety=UserLanguage.voice_variety_for(user, user.learned_language),
+            variety=voice_variety,
         )
         if existing_lesson:
             precomputed_count += 1
@@ -166,11 +179,15 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
                 status = "scheduled" if scheduled else "unscheduled"
         return rank, status
 
+    # The accent for the language this meaning is IN, which need not be the
+    # user's current learned language.
+    voice_variety = voice_variety_for_language(user, meaning.origin.language)
+
     # Check if audio lesson already exists for this meaning and native language
     existing_lesson = AudioLessonMeaning.find(
         meaning=meaning,
         teacher_language=user.native_language,
-        variety=UserLanguage.voice_variety_for(user, user.learned_language),
+        variety=voice_variety,
     )
     if existing_lesson:
         if SHOW_DETAILS:
@@ -207,6 +224,10 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
                 origin_language,
                 translation_language,
                 cefr_level,
+                # Without this the row is written with variety=NULL, the lookup
+                # above never matches it, and this tool regenerates the same
+                # lesson on every run for every learner with a preference.
+                voice_variety=voice_variety,
             )
 
             db.session.commit()

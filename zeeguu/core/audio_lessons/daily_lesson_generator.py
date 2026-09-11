@@ -10,6 +10,10 @@ from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
 from zeeguu.core.audio_lessons.script_generator import generate_lesson_script, generate_dialogue_script
 from zeeguu.core.model.ai_generator import AIGenerator
+from zeeguu.core.audio_lessons.voice_config import (
+    distinguishing_variety,
+    is_language_supported_for_audio,
+)
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
 from zeeguu.core.model import (
@@ -111,11 +115,14 @@ class DailyLessonGenerator:
 
         # Which accent to read this learner in. Resolved here, next to the other
         # two languages, so the background thread is handed a value rather than a
-        # user to look it up on.
-        voice_variety = UserLanguage.voice_variety_for(user, user.learned_language)
+        # user to look it up on -- and narrowed to a variety that actually changes
+        # the voice, so that picking the one already in effect does not fork the
+        # shared cache into a second identical copy.
+        voice_variety = distinguishing_variety(
+            origin_language, UserLanguage.voice_variety_for(user, user.learned_language)
+        )
 
         # Check if language is supported for audio generation
-        from zeeguu.core.audio_lessons.voice_config import is_language_supported_for_audio
         if not is_language_supported_for_audio(origin_language):
             return {
                 "error": f"Audio lessons are not yet available for {user.learned_language.name}",
