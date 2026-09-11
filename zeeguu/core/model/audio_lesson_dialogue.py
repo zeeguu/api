@@ -36,8 +36,10 @@ class AudioLessonDialogue(db.Model):
     )
 
     # The regional variety this dialogue was voiced in. Same reasoning as on
-    # audio_lesson_meaning: general dialogues are reused across users, so the
-    # accent has to be part of what "already exists for this topic" means.
+    # audio_lesson_meaning, including the part about it being the learner's
+    # dialect narrowed to what changes the voice rather than the dialect itself:
+    # general dialogues are reused across users, so the accent has to be part of
+    # what "already exists for this topic" means.
     variety = Column(String(2))
 
     duration_seconds = Column(Integer)

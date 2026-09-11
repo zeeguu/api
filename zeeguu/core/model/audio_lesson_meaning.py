@@ -39,8 +39,12 @@ class AudioLessonMeaning(db.Model):
     # these rows are shared across ALL users, so without it whoever generated the
     # lesson first would decide which accent every other learner hears.
     #
-    # NULL means "generated before anyone expressed a preference", and is the
-    # right answer to serve a learner who has expressed none.
+    # Deliberately NOT user_language.dialect, and not named after it. This is that
+    # dialect put through distinguishing_variety() -- the variety insofar as it
+    # changes the voice -- so a learner whose dialect is the language's default
+    # lands here as NULL and shares the rows generated before dialects existed.
+    # 'PT' and 'NL' therefore never appear in this column; asking for them finds
+    # nothing, and asking with NULL is what finds their lessons.
     variety = Column(String(2))
 
     duration_seconds = Column(Integer)
