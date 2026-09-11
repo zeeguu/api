@@ -68,6 +68,7 @@ class Feed(db.Model):
         language=None,
         feed_type=0,
         feed_handler=None,
+        country=None,
     ):
         self.url = url
         self.image_url = image_url
@@ -79,6 +80,7 @@ class Feed(db.Model):
         self.deactivated = 0
         self.feed_type = feed_type
         self.feed_handler = feed_handler
+        self.country = country
 
     def __str__(self):
         language = "unknown"
@@ -218,6 +220,7 @@ class Feed(db.Model):
         icon_name,
         language: Language,
         feed_type,
+        country=None,
     ):
         try:
             result = (
@@ -237,6 +240,7 @@ class Feed(db.Model):
                 icon_name=icon_name,
                 language=language,
                 feed_type=feed_type,
+                country=country,
             )
             session.add(new)
             session.commit()
