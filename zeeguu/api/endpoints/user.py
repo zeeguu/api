@@ -238,7 +238,7 @@ def user_settings():
             - name
             - username (must be unique)
             - native_language
-            - learned_language (with optional CEFR level)
+            - learned_language (with optional CEFR level and regional variety)
             - email (must be unique)
             - password
             - avatar (image name, character color, background color)
@@ -274,10 +274,21 @@ def user_settings():
 
         cefr_level = data.get("cefr_level", None)
         submitted_learned_language_code = data.get("learned_language", None)
+        # Absent means "leave the variety alone"; empty means "no preference".
+        submitted_variety = data.get("variety", None)
 
         if submitted_learned_language_code:
             user.set_learned_language(
-                submitted_learned_language_code, cefr_level, zeeguu.core.model.db.session
+                submitted_learned_language_code,
+                cefr_level,
+                zeeguu.core.model.db.session,
+                variety=submitted_variety,
+            )
+        elif submitted_variety is not None:
+            # A client that changed only the variety sends only the variety; without
+            # this it would get a 200 and no save.
+            user.set_learned_language_variety(
+                submitted_variety, zeeguu.core.model.db.session
             )
 
         submitted_email = data.get("email", None)

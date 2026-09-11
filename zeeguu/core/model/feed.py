@@ -41,6 +41,12 @@ class Feed(db.Model):
 
     feed_type = db.Column(db.Integer)
 
+    # ISO 3166-1 alpha-2 of the country this feed publishes from, which is what
+    # a learner's variety preference is matched against (see
+    # zeeguu/core/language/varieties.py). NULL means untagged, and untagged must
+    # never be filtered out.
+    country = db.Column(db.String(2))
+
     # 'perennial' | 'ephemeral' | 'unknown' — drives the article-pruning
     # retention window (see docs/future-work/article-retention-perennial-vs-ephemeral.md)
     retention_class = db.Column(
