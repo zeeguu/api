@@ -44,7 +44,7 @@ app.app_context().push()
 import time
 from collections import defaultdict
 
-from zeeguu.core.model import User, db, AudioLessonMeaning
+from zeeguu.core.model import User, db, AudioLessonMeaning, UserLanguage
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.audio_lessons.word_selector import (
     select_words_for_audio_lesson,
@@ -103,7 +103,9 @@ def get_precomputed_meanings_count(user, language):
     precomputed_count = 0
     for user_word in next_words:
         existing_lesson = AudioLessonMeaning.find(
-            meaning=user_word.meaning, teacher_language=user.native_language
+            meaning=user_word.meaning,
+            teacher_language=user.native_language,
+            variety=UserLanguage.voice_variety_for(user, user.learned_language),
         )
         if existing_lesson:
             precomputed_count += 1
@@ -166,7 +168,9 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
 
     # Check if audio lesson already exists for this meaning and native language
     existing_lesson = AudioLessonMeaning.find(
-        meaning=meaning, teacher_language=user.native_language
+        meaning=meaning,
+        teacher_language=user.native_language,
+        variety=UserLanguage.voice_variety_for(user, user.learned_language),
     )
     if existing_lesson:
         if SHOW_DETAILS:

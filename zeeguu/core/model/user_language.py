@@ -59,6 +59,16 @@ class UserLanguage(db.Model):
     # behaving exactly as it did before varieties existed.
     variety = Column(String(2))
 
+    # The variety the audio lesson should be READ in, which is a different
+    # question from which country's news to show. "Everywhere" is a coherent
+    # answer to the second and an incoherent one to the first: nobody speaks in
+    # no particular accent. Kept apart from `variety` so that picking a Brazilian
+    # voice does not silently narrow the feed to Brazilian sources.
+    #
+    # NULL -- the default, and what every existing row has -- means the language
+    # is read in whatever locale it was read in before varieties existed.
+    voice_variety = Column(String(2))
+
     last_practiced = Column(DateTime, nullable=True)
     daily_streak = Column(Integer, default=0)
     max_streak = Column(Integer, default=0)
@@ -122,6 +132,20 @@ class UserLanguage(db.Model):
             return None
         row = cls.query.filter(cls.user == user).filter(cls.language == language).first()
         return row.variety if row else None
+
+    @classmethod
+    def voice_variety_for(cls, user, language):
+        """
+        The variety this learner asked to be READ in, or None for "no preference".
+
+        Deliberately does not fall back to `variety`: the feed preference answers
+        a different question, and a learner who picked Belgian sources has not
+        thereby asked for a Flemish voice.
+        """
+        if user is None or language is None:
+            return None
+        row = cls.query.filter(cls.user == user).filter(cls.language == language).first()
+        return row.voice_variety if row else None
 
     @classmethod
     def find_or_create(cls, session, user, language):

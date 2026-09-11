@@ -34,6 +34,12 @@ class AudioLessonDialogue(db.Model):
     difficulty_level = Column(
         Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
     )
+
+    # The regional variety this dialogue was voiced in. Same reasoning as on
+    # audio_lesson_meaning: general dialogues are reused across users, so the
+    # accent has to be part of what "already exists for this topic" means.
+    variety = Column(String(2))
+
     duration_seconds = Column(Integer)
     is_general = Column(db.Boolean, default=False)
 
@@ -59,6 +65,7 @@ class AudioLessonDialogue(db.Model):
         is_general=False,
         title=None,
         ai_generator=None,
+        variety=None,
     ):
         self.script = script
         self.canonical_suggestion = canonical_suggestion
@@ -66,6 +73,7 @@ class AudioLessonDialogue(db.Model):
         self.title = title
         self.language_id = language.id
         self.difficulty_level = difficulty_level
+        self.variety = variety
         self.duration_seconds = duration_seconds
         self.is_general = is_general
         if teacher_language:
@@ -82,7 +90,7 @@ class AudioLessonDialogue(db.Model):
         return f"/audio/lessons/dialogue-{self.id}-{lang_code}.mp3"
 
     @classmethod
-    def past_titles_for(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level):
+    def past_titles_for(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level, variety=None):
         """Get all existing titles for this topic combination."""
         results = cls.query.filter_by(
             canonical_suggestion=canonical_suggestion,
@@ -90,11 +98,13 @@ class AudioLessonDialogue(db.Model):
             language_id=language.id,
             teacher_language_id=teacher_language.id,
             difficulty_level=difficulty_level,
+        ).filter(
+            cls.variety == variety if variety else cls.variety.is_(None)
         ).filter(cls.title.isnot(None)).with_entities(cls.title).limit(10).all()
         return [r.title for r in results]
 
     @classmethod
-    def find_unheard(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level, user, only_general=False):
+    def find_unheard(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level, user, only_general=False, variety=None):
         """
         Find an existing dialogue the user hasn't heard yet.
         Returns None if all matching dialogues have been heard (or none exist).
@@ -125,6 +135,8 @@ class AudioLessonDialogue(db.Model):
         ).filter(
             cls.id.notin_(heard_ids),
             cls.deprecated_at.is_(None),
+            # IS NULL, not `= NULL`: see AudioLessonMeaning.find.
+            cls.variety == variety if variety else cls.variety.is_(None),
         )
 
         if only_general:

@@ -320,6 +320,7 @@ class User(db.Model):
             result[each.language.code + "_exercises"] = each.doing_exercises
             result[each.language.code + "_cefr_level"] = each.cefr_level
             result[each.language.code + "_variety"] = each.variety
+            result[each.language.code + "_voice_variety"] = each.voice_variety
 
         return result
 
@@ -412,6 +413,47 @@ class User(db.Model):
 
         if session:
             session.add(language)
+
+    def set_learned_language_voice_variety(self, variety: str, session=None):
+        """
+        Change only the accent the audio lessons are read in.
+
+        A sibling of set_learned_language_variety rather than a parameter on it:
+        the two answer different questions (which country's news, which country's
+        accent) and a learner who changes one has said nothing about the other.
+        """
+        from zeeguu.core.model import UserLanguage
+
+        # Validated first, for the same reason as in set_learned_language.
+        variety_to_store = self.validated_voice_variety(
+            self.learned_language.code, variety
+        )
+
+        language = UserLanguage.find_or_create(session, self, self.learned_language)
+        language.voice_variety = variety_to_store
+
+        if session:
+            session.add(language)
+
+    @staticmethod
+    def validated_voice_variety(language_code: str, variety: str):
+        """
+        The voice variety to store: None for "no preference", a ValueError for
+        anything no voice can read.
+
+        Checked against the voices rather than against the catalogue of
+        varieties. Belgian French is a real variety with real feeds and no Google
+        voice at all, so storing BE here would leave the settings screen showing
+        an accent the learner will never hear.
+        """
+        from zeeguu.core.audio_lessons.voice_config import countries_with_voices
+
+        variety = (variety or "").strip().upper()
+        if not variety:
+            return None
+        if variety not in countries_with_voices(language_code):
+            raise ValueError(f"{language_code} has no voice for {variety}")
+        return variety
 
     @staticmethod
     def validated_variety(language_code: str, variety: str):

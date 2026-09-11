@@ -21,6 +21,7 @@ from zeeguu.core.model import (
     AudioLessonGenerationProgress,
 )
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
+from zeeguu.core.model.user_language import UserLanguage
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
 
@@ -108,6 +109,11 @@ class DailyLessonGenerator:
         translation_language = user.native_language.code
         cefr_level = user.cefr_level_for_learned_language()
 
+        # Which accent to read this learner in. Resolved here, next to the other
+        # two languages, so the background thread is handed a value rather than a
+        # user to look it up on.
+        voice_variety = UserLanguage.voice_variety_for(user, user.learned_language)
+
         # Check if language is supported for audio generation
         from zeeguu.core.audio_lessons.voice_config import is_language_supported_for_audio
         if not is_language_supported_for_audio(origin_language):
@@ -148,6 +154,7 @@ class DailyLessonGenerator:
             "origin_language": origin_language,
             "translation_language": translation_language,
             "cefr_level": cefr_level,
+            "voice_variety": voice_variety,
             "progress_id": progress.id,
             "canonical_suggestion": canonical_suggestion,
             "lesson_type": lesson_type,
@@ -179,6 +186,7 @@ class DailyLessonGenerator:
         cefr_level,
         *,
         progress=None,
+        voice_variety=None,
     ):
         """
         Generate an AudioLessonMeaning for a specific user word.
@@ -188,7 +196,7 @@ class DailyLessonGenerator:
         teacher_lang = Language.find_or_create(translation_language)
 
         existing_lesson = AudioLessonMeaning.find(
-            meaning=meaning, teacher_language=teacher_lang
+            meaning=meaning, teacher_language=teacher_lang, variety=voice_variety
         )
         if existing_lesson:
             fs_path = ZEEGUU_DATA_FOLDER + existing_lesson.audio_file_path
@@ -203,6 +211,7 @@ class DailyLessonGenerator:
                 script=existing_lesson.script,
                 language_code=origin_language,
                 cefr_level=cefr_level,
+                variety=voice_variety,
             )
             return existing_lesson
 
@@ -231,6 +240,7 @@ class DailyLessonGenerator:
             difficulty_level=cefr_level,
             teacher_language=teacher_lang,
             ai_generator=_ai_generator_for(generated),
+            variety=voice_variety,
         )
         db.session.add(audio_lesson_meaning)
         db.session.flush()  # Get the ID
@@ -249,6 +259,7 @@ class DailyLessonGenerator:
             language_code=origin_language,
             cefr_level=cefr_level,
             on_progress=on_audio_progress if progress else None,
+            variety=voice_variety,
         )
 
         # Update progress: combining
@@ -274,6 +285,7 @@ class DailyLessonGenerator:
         progress=None,
         is_general=False,
         raw_suggestion=None,
+        voice_variety=None,
     ):
         """
         Generate an AudioLessonDialogue — one flowing conversation about a topic/situation.
@@ -297,6 +309,7 @@ class DailyLessonGenerator:
             difficulty_level=cefr_level,
             user=user,
             only_general=True,
+            variety=voice_variety,
         )
         if existing:
             return existing
@@ -314,6 +327,7 @@ class DailyLessonGenerator:
             language=learned_lang,
             teacher_language=teacher_lang,
             difficulty_level=cefr_level,
+            variety=voice_variety,
         )
 
         # Drive content from the raw user input so specific details are preserved.
@@ -344,6 +358,7 @@ class DailyLessonGenerator:
             is_general=is_general,
             title=title,
             ai_generator=_ai_generator_for(generated),
+            variety=voice_variety,
         )
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
@@ -362,6 +377,7 @@ class DailyLessonGenerator:
             language_code=origin_language,
             cefr_level=cefr_level,
             on_progress=on_audio_progress if progress else None,
+            variety=voice_variety,
         )
 
         if progress:
@@ -385,6 +401,7 @@ class DailyLessonGenerator:
         canonical_suggestion: str = None,
         lesson_type: str = None,
         is_general: bool = False,
+        voice_variety: str = None,
     ) -> dict:
         """
         Generate a daily audio lesson for the given user with specific words.
@@ -396,6 +413,9 @@ class DailyLessonGenerator:
             origin_language: Language code for the words being learned (e.g. 'es', 'da')
             translation_language: Language code for translations (e.g. 'en')
             cefr_level: CEFR level for the lesson (e.g. 'A1', 'B2')
+            voice_variety: Optional ISO 3166-1 alpha-2 country of the variety to
+                read the lesson in (e.g. 'BE' for Flemish); None reads it in the
+                language's default locale
             canonical_suggestion: Optional short topic hint for the LLM
             lesson_type: Optional type ("topic" or "situation")
 
@@ -442,6 +462,7 @@ class DailyLessonGenerator:
                         progress=progress,
                         is_general=is_general,
                         raw_suggestion=raw_suggestion,
+                        voice_variety=voice_variety,
                     )
                 except Exception as e:
                     log(f"[generate_daily_lesson] Failed to generate dialogue: {str(e)}")
@@ -472,6 +493,7 @@ class DailyLessonGenerator:
                         audio_lesson_meaning = self.generate_audio_lesson_meaning(
                             user_word, origin_language, translation_language, cefr_level,
                             progress=progress,
+                            voice_variety=voice_variety,
                         )
                     except Exception as e:
                         log(
