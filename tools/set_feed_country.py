@@ -26,6 +26,7 @@ import os
 os.environ["PRELOAD_STANZA"] = "false"
 
 import argparse
+import time
 from datetime import datetime, timedelta
 
 from zeeguu.api.app import create_app_for_scripts
@@ -50,6 +51,30 @@ def say(message):
     # Unbuffered: this runs inside docker compose run, where a buffered stdout
     # turns steady progress into a blank screen.
     print(message, flush=True)
+
+
+def reindex_with_retry(article_id, attempts=3):
+    """
+    Re-index one article, retrying a version conflict.
+
+    create_or_update_article reads the document and writes it back, so anything
+    else touching the same document in between -- a crawl, a simplification, a
+    second copy of this tool -- makes Elasticsearch reject the write with a 409.
+    It is a conflict, not a failure: the next read sees the newer document and
+    the write lands. Measured on a French backfill, about 2% of articles hit one.
+    """
+    from elasticsearch.exceptions import ConflictError
+
+    from zeeguu.core.elastic.indexing import create_or_update_article
+
+    for attempt in range(attempts):
+        try:
+            create_or_update_article(Article.find_by_id(article_id), db.session)
+            return
+        except ConflictError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.2 * (attempt + 1))
 
 
 def main():
@@ -106,14 +131,10 @@ def main():
         db.session.add(feed)
         db.session.commit()
 
-        # Imported here so a dry run never pays for the Elasticsearch client.
-        from zeeguu.core.elastic.indexing import create_or_update_article
-
         reindexed, failed = 0, 0
         for i, article_id in enumerate(article_ids, start=1):
             try:
-                article = Article.find_by_id(article_id)
-                create_or_update_article(article, db.session)
+                reindex_with_retry(article_id)
                 reindexed += 1
             except Exception as e:
                 failed += 1
