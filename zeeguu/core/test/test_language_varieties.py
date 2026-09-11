@@ -145,4 +145,4 @@ class OfferedCatalogueTest(ModelTestMixIn, TestCase):
         # learner keeps the setting they chose, and the empty feed explains
         # itself rather than a save being rejected.
         assert catalogue() == {}
-        assert User.validated_variety("pt", "BR") == "BR"
+        assert User.validated_feed_variety("pt", "BR") == "BR"

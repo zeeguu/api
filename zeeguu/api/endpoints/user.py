@@ -261,7 +261,7 @@ def _validated_settings(user, data):
             _validated_language(submitted_language_code)
 
     # Absent means "leave the feed variety alone"; empty means "no preference".
-    submitted_feed_variety = data.get("feed_variety", None)
+    submitted_feed_variety = _submitted_feed_variety(data)
     if submitted_feed_variety is not None:
         # set_learned_language and set_learned_language_feed_variety validate this
         # again on their way to storing it; here it only has to reject early.
@@ -280,6 +280,30 @@ def _validated_settings(user, data):
         User.validated_dialect(dialect_language_code, submitted_dialect)
 
     return validated
+
+
+def _submitted_feed_variety(data):
+    """
+    The feed variety this request carries, under either of its two names.
+
+    `variety` is what the field was called before it became feed_variety, and the
+    native apps cannot be updated in step with the API: capacitor bakes the web
+    bundle into the binary, so app 1.3.3 -- in App Store review when feed_variety
+    went out -- still sends the old name. Without this fallback those builds post
+    a key the endpoint ignores, so the variety silently fails to save and a
+    learner cannot clear one they already have.
+
+    Absent under both names still means "leave it alone", and empty under either
+    still means "no preference"; only the spelling is forgiving.
+
+    A 1.3.4 follows as soon as 1.3.3 clears review, so this is a bridge over one
+    release and its rollout rather than a compatibility layer to keep. Drop it
+    once 1.3.3's install base has drained; the tests named for this fallback are
+    what make that a decision rather than an accident.
+    """
+    if "feed_variety" in data:
+        return data.get("feed_variety")
+    return data.get("variety", None)
 
 
 def _validated_username(user, submitted_username):
@@ -374,7 +398,7 @@ def user_settings():
         cefr_level = data.get("cefr_level", None)
         submitted_learned_language_code = data.get("learned_language", None)
         # Absent means "leave the feed variety alone"; empty means "no preference".
-        submitted_feed_variety = data.get("feed_variety", None)
+        submitted_feed_variety = _submitted_feed_variety(data)
         submitted_dialect = data.get("dialect", None)
 
         if submitted_learned_language_code:
