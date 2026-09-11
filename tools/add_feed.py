@@ -25,6 +25,8 @@ def main():
     parser.add_argument('--description', help='Feed description')
     parser.add_argument('--icon', help='Icon filename')
     parser.add_argument('--language', help='Language code (e.g., fr, en)')
+    parser.add_argument('--country', help='ISO 3166-1 alpha-2 country this feed publishes from, e.g. BE. '
+                                          'Matched against a learner\'s variety preference; leave empty for untagged')
     parser.add_argument('--test', action='store_true', help='Test parsing the feed')
 
     args = parser.parse_args()
@@ -74,6 +76,16 @@ def main():
         _language = input("Language code (e.g. en): ")
     print(f"= {_language}")
 
+    # Untagged is a valid answer -- most feeds are -- and an untagged feed is
+    # never filtered out. Only a country a variety can actually be asked for is
+    # worth setting; anything else would be a tag nothing ever matches.
+    if args.country is not None:
+        country = args.country
+    else:
+        country = input("Country code (e.g. BE; Enter for none): ")
+    country = (country or "").strip().upper() or None
+    print(f"= {country or 'untagged'}")
+
     feed_url = Url.find_or_create(zeeguu.core.model.db.session, _feed_url)
     language = Language.find_or_create(_language)
 
@@ -85,6 +97,7 @@ def main():
         icon_name=icon_name,
         language=language,
         feed_type=feed_type,
+        country=country,
     )
 
     print("Done: ")
@@ -92,6 +105,7 @@ def main():
     print(feed.description)
     print(feed.language_id)
     print(feed.url.as_string())
+    print(f"country: {feed.country or 'untagged'}")
 
 
 if __name__ == "__main__":
