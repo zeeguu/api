@@ -28,6 +28,7 @@ from zeeguu.core.model import (
     UserArticle,
     UserVideo,
     Language,
+    UserLanguage,
     UserPreference,
 )
 from zeeguu.core.model.user_activitiy_data import UserActivityData
@@ -85,6 +86,13 @@ def _prepare_user_constraints(user, language=None):
     # =========================================
     user_ignored_sources = UserActivityData.get_sources_ignored_by_user(user)
 
+    # 8. Regional variety, if the learner asked for one
+    # =========================================
+    # Per (user, language), so it follows the language being recommended for
+    # rather than the one persisted on the user -- the same reason `language` is
+    # a parameter here.
+    variety = UserLanguage.variety_for(user, language)
+
     return (
         language,
         _topics_to_string(topics_to_include),
@@ -92,6 +100,7 @@ def _prepare_user_constraints(user, language=None):
         _list_to_string(wanted_user_searches),
         _list_to_string(unwanted_user_searches),
         user_ignored_sources,
+        variety,
     )
 
 
@@ -139,6 +148,7 @@ def article_recommendations_for_user(
         wanted_user_searches,
         unwanted_user_searches,
         user_ignored_sources,
+        variety,
     ) = _prepare_user_constraints(user, language)
 
     if topics_override is not None:
@@ -165,6 +175,7 @@ def article_recommendations_for_user(
         topics_to_include=topics_to_include,
         topics_to_exclude=topics_to_exclude,
         user_ignored_sources=user_ignored_sources,
+        variety=variety,
         articles_to_exclude=articles_to_exclude,
         filter_disturbing=filter_disturbing,
         page=page,
@@ -273,6 +284,7 @@ def video_recommendations_for_user(
         wanted_user_searches,
         unwanted_user_searches,
         user_ignored_sources,
+        _,  # videos carry no country: document_from_video has no feed to ask
     ) = _prepare_user_constraints(user)
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -313,6 +325,7 @@ def article_and_video_search_for_user(
         topics_to_exclude,
         wanted_user_searches,
         unwanted_user_searches,
+        _,
         _,
     ) = _prepare_user_constraints(user, language)
 

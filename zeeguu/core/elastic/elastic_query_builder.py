@@ -82,6 +82,7 @@ def build_elastic_recommender_query(
     articles_to_exclude=None,
     filter_disturbing=False,
     page=0,
+    variety=None,
 ):
     """
     Builds an elastic search query for article recommendations.
@@ -119,6 +120,25 @@ def build_elastic_recommender_query(
 
     if language:
         must.append(match("language", language.name))
+
+    # A variety preference means it: asked for Belgian Dutch, a learner gets
+    # articles from Belgian feeds and no others. Ranking them higher instead
+    # would leave the feed looking untouched, and a setting that visibly does
+    # nothing reads as a broken app rather than a mild preference.
+    #
+    # This can empty a feed -- thinly supplied language, narrow topic
+    # subscriptions -- and that is handled where it can be explained, in the
+    # client, which knows the preference is set and can send the learner back to
+    # the setting that relaxes it. It must never be handled by quietly ignoring
+    # what they asked for.
+    #
+    # Videos are exempt. This query serves both (see the article_id/video_id
+    # clause below), and document_from_video writes no country at all -- a
+    # YouTube channel has no feed to take one from. Filtering them on it would
+    # delete every video from the feed of anyone who picked a variety, which is
+    # not what a setting about news sources should mean.
+    if variety:
+        must.append({"bool": {"should": [match("country", variety), exists("video_id")]}})
 
     if not user_topics:
         user_topics = ""
