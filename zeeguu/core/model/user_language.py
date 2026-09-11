@@ -2,7 +2,7 @@ import datetime
 
 from MySQLdb import IntegrityError
 import sqlalchemy
-from sqlalchemy import Column, Integer, ForeignKey, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model import User
@@ -46,6 +46,12 @@ class UserLanguage(db.Model):
     doing_exercises = Column(Boolean)
 
     cefr_level = Column(Integer)
+
+    # The regional variety of this language the learner wants, as the ISO 3166-1
+    # alpha-2 country it belongs to: ('nl', 'BE') is Flemish. NULL -- the default,
+    # and what every existing row has -- means no preference, which has to keep
+    # behaving exactly as it did before varieties existed.
+    variety = Column(String(2))
 
     last_practiced = Column(DateTime, nullable=True)
     daily_streak = Column(Integer, default=0)

@@ -3,12 +3,17 @@ import json
 from . import api
 from zeeguu.api.utils.route_wrappers import cross_domain
 from zeeguu.core.model import Language
+from zeeguu.core.language.varieties import catalogue as variety_catalogue
 
 
 @api.route("/system_languages", methods=["GET"])
 @cross_domain
 def system_languages():
     result = dict()
+    # Which languages offer a regional variety, and what each is called. Served
+    # from here so the client does not keep a second copy of a list that has to
+    # agree with how the feeds are tagged.
+    result["varieties"] = variety_catalogue()
     result["learnable_languages"] = list(
         map((lambda x: dict(name=x.name, code=x.code)), Language.available_languages())
     )

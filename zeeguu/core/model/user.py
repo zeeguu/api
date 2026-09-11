@@ -319,6 +319,7 @@ class User(db.Model):
             result[each.language.code + "_reading"] = each.reading_news
             result[each.language.code + "_exercises"] = each.doing_exercises
             result[each.language.code + "_cefr_level"] = each.cefr_level
+            result[each.language.code + "_variety"] = each.variety
 
         return result
 
@@ -350,7 +351,11 @@ class User(db.Model):
         self.native_language = Language.find(code)
 
     def set_learned_language(
-        self, language_code: str, cefr_level: int = None, session=None
+        self,
+        language_code: str,
+        cefr_level: int = None,
+        session=None,
+        variety: str = None,
     ):
         self.learned_language = Language.find(language_code)
 
@@ -374,8 +379,30 @@ class User(db.Model):
         if cefr_level:
             language.cefr_level = cefr_level
 
+        # Unlike the level, a variety is cleared by sending it empty: "no
+        # preference" is a choice a learner can go back to.
+        if variety is not None:
+            language.variety = self.validated_variety(language_code, variety)
+
         if session:
             session.add(language)
+
+    @staticmethod
+    def validated_variety(language_code: str, variety: str):
+        """
+        The variety to store for a language: None for "no preference", and a
+        ValueError for anything the catalogue does not offer -- a variety that
+        silently fails to apply is worse than a rejected save, because the
+        settings screen would go on showing a preference that nothing honours.
+        """
+        from zeeguu.core.language.varieties import is_supported
+
+        variety = (variety or "").strip().upper()
+        if not variety:
+            return None
+        if not is_supported(language_code, variety):
+            raise ValueError(f"{variety} is not a variety of {language_code}")
+        return variety
 
     def set_learned_language_level(
         self, language_code: str, cefr_level: str, session=None
