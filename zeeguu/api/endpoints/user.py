@@ -260,15 +260,24 @@ def _validated_settings(user, data):
         if submitted_language_code:
             _validated_language(submitted_language_code)
 
-    # Absent means "leave the variety alone"; empty means "no preference".
-    submitted_variety = data.get("variety", None)
-    if submitted_variety is not None:
-        # set_learned_language and set_learned_language_variety validate this
+    # Absent means "leave the feed variety alone"; empty means "no preference".
+    submitted_feed_variety = data.get("feed_variety", None)
+    if submitted_feed_variety is not None:
+        # set_learned_language and set_learned_language_feed_variety validate this
         # again on their way to storing it; here it only has to reject early.
-        variety_language_code = (
+        feed_variety_language_code = (
             data.get("learned_language", None) or user.learned_language.code
         )
-        User.validated_variety(variety_language_code, submitted_variety)
+        User.validated_feed_variety(feed_variety_language_code, submitted_feed_variety)
+
+    # Same shape as the feed variety above, and a separate setting: which dialect
+    # you are learning is not the same question as which country's news to read.
+    submitted_dialect = data.get("dialect", None)
+    if submitted_dialect is not None:
+        dialect_language_code = (
+            data.get("learned_language", None) or user.learned_language.code
+        )
+        User.validated_dialect(dialect_language_code, submitted_dialect)
 
     return validated
 
@@ -316,7 +325,8 @@ def user_settings():
             - name
             - username (must be unique)
             - native_language
-            - learned_language (with optional CEFR level and regional variety)
+            - learned_language (with optional CEFR level and feed variety)
+            - dialect (which variety of the learned language is being studied)
             - email (must be unique)
             - password
             - avatar (image name, character color, background color)
@@ -363,21 +373,29 @@ def user_settings():
 
         cefr_level = data.get("cefr_level", None)
         submitted_learned_language_code = data.get("learned_language", None)
-        # Absent means "leave the variety alone"; empty means "no preference".
-        submitted_variety = data.get("variety", None)
+        # Absent means "leave the feed variety alone"; empty means "no preference".
+        submitted_feed_variety = data.get("feed_variety", None)
+        submitted_dialect = data.get("dialect", None)
 
         if submitted_learned_language_code:
             user.set_learned_language(
                 submitted_learned_language_code,
                 cefr_level,
                 zeeguu.core.model.db.session,
-                variety=submitted_variety,
+                feed_variety=submitted_feed_variety,
             )
-        elif submitted_variety is not None:
-            # A client that changed only the variety sends only the variety; without
+        elif submitted_feed_variety is not None:
+            # A client that changed only the feed variety sends only that; without
             # this it would get a 200 and no save.
-            user.set_learned_language_variety(
-                submitted_variety, zeeguu.core.model.db.session
+            user.set_learned_language_feed_variety(
+                submitted_feed_variety, zeeguu.core.model.db.session
+            )
+
+        # After the language switch above, so that a request carrying both writes
+        # the dialect onto the language the learner just moved to.
+        if submitted_dialect is not None:
+            user.set_learned_language_dialect(
+                submitted_dialect, zeeguu.core.model.db.session
             )
 
         zeeguu.core.model.db.session.add(user)

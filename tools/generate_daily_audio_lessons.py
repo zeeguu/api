@@ -173,6 +173,7 @@ def generate_for_user(user, lesson_type, raw_suggestion, timezone_offset):
             origin_language=result["origin_language"],
             translation_language=result["translation_language"],
             cefr_level=result["cefr_level"],
+            voice_variety=result["voice_variety"],
             progress=progress,
             raw_suggestion=raw_suggestion,
             canonical_suggestion=canonical,

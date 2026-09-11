@@ -54,18 +54,27 @@ class VoiceSynthesizer:
             self.azure_client = AzureVoiceSynthesizer()
         return self.azure_client
 
-    def get_voice_config(self, voice_type: str, language_code: str, teacher_language: str = None) -> dict:
+    def get_voice_config(self, voice_type: str, language_code: str, teacher_language: str = None, *, variety: str) -> dict:
         """Get the voice configuration for TTS.
-        
+
         Args:
             voice_type: Type of voice (teacher, man, woman)
             language_code: Language code for the target language
             teacher_language: Optional language code for teacher voice (defaults to English)
+            variety: ISO 3166-1 alpha-2 country of the learner's variety, or None
+                for no preference. Required, and keyword-only, on every method
+                down this path: None is a real answer here, so a default would
+                make "the learner asked for nothing" and "this caller has never
+                heard of varieties" the same call, and both come out in the
+                language's default accent with nothing to catch it. Applies only
+                to the voices speaking the language being LEARNED; the teacher
+                speaks the learner's own language, where a variety of the target
+                language means nothing.
         """
         if voice_type == "teacherl2":
             # TeacherL2: same voice identity as teacher, but speaking the target language
-            normalized_language = normalize_language_code(language_code)
-            voice_id = get_voice_id(language_code, "teacher")
+            normalized_language = normalize_language_code(language_code, variety)
+            voice_id = get_voice_id(language_code, "teacher", variety)
             language = normalized_language
         elif voice_type == "teacher":
             # If teacher_language is specified, use that language's teacher voice
@@ -79,8 +88,8 @@ class VoiceSynthesizer:
                 language = "en-US"
         else:
             # Normalize the language code and get the voice
-            normalized_language = normalize_language_code(language_code)
-            voice_id = get_voice_id(language_code, voice_type)
+            normalized_language = normalize_language_code(language_code, variety)
+            voice_id = get_voice_id(language_code, voice_type, variety)
             language = normalized_language
 
         return {"language_code": language, "name": voice_id}
@@ -135,7 +144,7 @@ class VoiceSynthesizer:
         return os.path.join(self.segments_dir, f"{voice_id}_{content_hash}.mp3")
 
     def synthesize_segment(
-        self, text: str, voice_type: str, language_code: str, speaking_rate: float = 1.0, teacher_language: str = None
+        self, text: str, voice_type: str, language_code: str, speaking_rate: float = 1.0, teacher_language: str = None, *, variety: str
     ) -> str:
         """
         Synthesize a single text segment and cache it.
@@ -143,10 +152,12 @@ class VoiceSynthesizer:
         Returns:
             Path to the generated MP3 file
         """
-        voice_config = self.get_voice_config(voice_type, language_code, teacher_language)
+        voice_config = self.get_voice_config(voice_type, language_code, teacher_language, variety=variety)
         voice_id = voice_config["name"]
 
-        # Check if we already have this audio cached
+        # Check if we already have this audio cached. The cache needs no variety
+        # of its own: the voice id it hashes already carries the locale, so the
+        # same sentence in nl-BE and nl-NL lands in two different files.
         cached_path = self.get_cached_audio_path(text, voice_id, speaking_rate)
         if os.path.exists(cached_path):
             log(f"Using cached audio for: {text[:50]}...")
@@ -164,7 +175,7 @@ class VoiceSynthesizer:
 
         return cached_path
 
-    def _synthesize_script_to_file(self, script, output_path, language_code, teacher_language_code, cefr_level=None, on_progress=None):
+    def _synthesize_script_to_file(self, script, output_path, language_code, teacher_language_code, cefr_level=None, on_progress=None, *, variety):
         """Shared logic: parse script, synthesize all segments, combine and export to output_path."""
         segments = parse_script(script)
         audio_segments = []
@@ -189,7 +200,7 @@ class VoiceSynthesizer:
 
                 rate = speaking_rate if voice_type in ["man", "woman", "teacherl2"] else 1.0
                 audio_path = self.synthesize_segment(
-                    text, voice_type, language_code, rate, teacher_language_code
+                    text, voice_type, language_code, rate, teacher_language_code, variety=variety
                 )
                 audio_segment = AudioSegment.from_mp3(audio_path)
                 audio_segments.append(audio_segment)
@@ -209,15 +220,15 @@ class VoiceSynthesizer:
         log(f"Generated audio: {output_path}")
         return output_path
 
-    def generate_lesson_audio(self, audio_lesson_meaning_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None):
+    def generate_lesson_audio(self, audio_lesson_meaning_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None, *, variety):
         """Generate audio for a meaning lesson. Path is keyed on the AudioLessonMeaning row id so distinct rows (e.g. regenerated under a newer prompt) don't overwrite each other's file."""
         output_path = os.path.join(self.lessons_dir, f"meaning-{audio_lesson_meaning_id}-{teacher_language_code}.mp3")
-        return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, on_progress)
+        return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, on_progress, variety=variety)
 
-    def generate_dialogue_audio(self, dialogue_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None):
+    def generate_dialogue_audio(self, dialogue_id, teacher_language_code, script, language_code, cefr_level=None, on_progress=None, *, variety):
         """Generate audio for a dialogue lesson."""
         output_path = os.path.join(self.lessons_dir, f"dialogue-{dialogue_id}-{teacher_language_code}.mp3")
-        return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, on_progress)
+        return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, on_progress, variety=variety)
 
     def get_audio_duration(self, audio_path: str) -> int:
         """Get the duration of an audio file in seconds."""

@@ -117,6 +117,7 @@ def analyze_user_recommendations(user_email, show_details=True, count=20):
         wanted_searches,
         unwanted_searches,
         ignored_sources,
+        _,  # the learner's feed variety; this report does not show it
     ) = _prepare_user_constraints(user)
 
     print(f"  Language: {language.name if language else 'Not set'}")

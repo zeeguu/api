@@ -82,7 +82,7 @@ def build_elastic_recommender_query(
     articles_to_exclude=None,
     filter_disturbing=False,
     page=0,
-    variety=None,
+    feed_variety=None,
 ):
     """
     Builds an elastic search query for article recommendations.
@@ -137,8 +137,8 @@ def build_elastic_recommender_query(
     # YouTube channel has no feed to take one from. Filtering them on it would
     # delete every video from the feed of anyone who picked a variety, which is
     # not what a setting about news sources should mean.
-    if variety:
-        must.append({"bool": {"should": [match("country", variety), exists("video_id")]}})
+    if feed_variety:
+        must.append({"bool": {"should": [match("country", feed_variety), exists("video_id")]}})
 
     if not user_topics:
         user_topics = ""

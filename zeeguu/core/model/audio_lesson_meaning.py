@@ -10,7 +10,8 @@ from zeeguu.core.model.language import Language
 class AudioLessonMeaning(db.Model):
     """
     Individual audio lesson for a specific meaning (word/phrase translation pair).
-    MP3 files are stored on disk with filename pattern: {meaning_id}-{language_code}.mp3
+    MP3 files are stored on disk as meaning-{id}-{teacher_language_code}.mp3
+    (see audio_file_path).
     """
 
     __tablename__ = "audio_lesson_meaning"
@@ -32,6 +33,20 @@ class AudioLessonMeaning(db.Model):
     difficulty_level = Column(
         Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
     )
+
+    # The regional variety of the language being learned that this row was voiced
+    # in, as the ISO 3166-1 alpha-2 country. Part of the cache key, not decoration:
+    # these rows are shared across ALL users, so without it whoever generated the
+    # lesson first would decide which accent every other learner hears.
+    #
+    # Deliberately NOT user_language.dialect, and not named after it. This is that
+    # dialect put through distinguishing_variety() -- the variety insofar as it
+    # changes the voice -- so a learner whose dialect is the language's default
+    # lands here as NULL and shares the rows generated before dialects existed.
+    # 'PT' and 'NL' therefore never appear in this column; asking for them finds
+    # nothing, and asking with NULL is what finds their lessons.
+    variety = Column(String(2))
+
     duration_seconds = Column(Integer)
 
     # Which model and prompt version actually produced this script. created_by is a
@@ -53,10 +68,12 @@ class AudioLessonMeaning(db.Model):
         duration_seconds=None,
         teacher_language=None,
         ai_generator=None,
+        variety=None,
     ):
         self.meaning_id = meaning.id
         self.script = script
         self.difficulty_level = difficulty_level
+        self.variety = variety
         self.voice_config = voice_config
         self.duration_seconds = duration_seconds
         if teacher_language:
@@ -74,9 +91,24 @@ class AudioLessonMeaning(db.Model):
         return f"/audio/lessons/meaning-{self.id}-{lang_code}.mp3"
 
     @classmethod
-    def find(cls, meaning, teacher_language=None):
-        """Find a non-deprecated audio lesson for a specific meaning and teacher language."""
+    def find(cls, meaning, teacher_language=None, *, variety):
+        """
+        Find a non-deprecated audio lesson for a meaning, teacher language and variety.
+
+        `variety` is required and keyword-only: None is a real answer here
+        ("voiced without a preference"), so a default would let a caller that has
+        never heard of varieties ask the same question as a learner who asked for
+        nothing, and quietly get somebody else's accent.
+
+        `variety=None` matches only rows voiced without a variety, and does so
+        through IS NULL rather than `= NULL`, which matches nothing in SQL. Getting
+        that wrong would not raise -- it would quietly miss the cache and
+        regenerate every lesson for every learner who expressed no preference.
+        """
         query = cls.query.filter_by(meaning=meaning).filter(cls.deprecated_at.is_(None))
         if teacher_language:
             query = query.filter_by(teacher_language_id=teacher_language.id)
+        query = query.filter(
+            cls.variety == variety if variety else cls.variety.is_(None)
+        )
         return query.first()

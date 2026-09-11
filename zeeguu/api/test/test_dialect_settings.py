@@ -1,0 +1,95 @@
+import json
+
+from zeeguu.api.test.fixtures import client, LoggedInClient
+from zeeguu.core.model import Language, User, UserLanguage
+
+TEST_PASS = "test"
+
+
+def logged_in(app, client, email):
+    # set_learned_language looks the language up strictly, and the test database
+    # starts with only the languages other fixtures happened to create.
+    with app.app_context():
+        Language.find_or_create("nl")
+        Language.find_or_create("fr")
+        Language.find_or_create("pt")
+    return LoggedInClient(client, email=email, password=TEST_PASS)
+
+
+def save_settings(lc, **data):
+    return lc.response_from_post("/user_settings", data=data)
+
+
+def user_details(lc):
+    return lc.get("/get_user_details")
+
+
+class TestDialectRoundTrip:
+    """
+    Which variety of the language the learner is studying. A separate setting
+    from the feed's, because "Everywhere" is a coherent answer to which country's
+    news to read and an incoherent one to which dialect you are learning.
+    """
+
+    def test_a_dialect_saved_comes_back_under_its_language(self, app, client):
+        lc = logged_in(app, client, "flemishvoice@zeeguu.test")
+        assert save_settings(lc, learned_language="nl", dialect="BE").status_code == 200
+        assert user_details(lc)["nl_dialect"] == "BE"
+
+    def test_no_dialect_is_the_default_and_stays_null(self, app, client):
+        lc = logged_in(app, client, "novoice@zeeguu.test")
+        assert save_settings(lc, learned_language="nl").status_code == 200
+        assert user_details(lc)["nl_dialect"] is None
+
+    def test_an_empty_dialect_clears_a_preference(self, app, client):
+        lc = logged_in(app, client, "clearvoice@zeeguu.test")
+        save_settings(lc, learned_language="nl", dialect="BE")
+        assert save_settings(lc, dialect="").status_code == 200
+        assert user_details(lc)["nl_dialect"] is None
+
+    def test_the_two_settings_do_not_touch_each_other(self, app, client):
+        # Picking a Brazilian voice must not narrow the feed to Brazilian sources,
+        # and picking Belgian sources must not change the accent.
+        lc = logged_in(app, client, "twosettings@zeeguu.test")
+        save_settings(lc, learned_language="nl", feed_variety="BE")
+
+        assert save_settings(lc, dialect="NL").status_code == 200
+
+        details = user_details(lc)
+        assert details["nl_feed_variety"] == "BE"
+        assert details["nl_dialect"] == "NL"
+
+    def test_a_variety_with_no_voice_is_refused(self, app, client):
+        # Belgian French has feeds and no Google voice. Accepting it would leave
+        # the settings screen showing an accent the learner never hears.
+        lc = logged_in(app, client, "walloon@zeeguu.test")
+        save_settings(lc, learned_language="fr")
+
+        assert save_settings(lc, dialect="BE").status_code == 400
+        assert user_details(lc)["fr_dialect"] is None
+
+    def test_a_refused_dialect_changes_nothing_else(self, app, client):
+        lc = logged_in(app, client, "voicenopartial@zeeguu.test")
+        save_settings(lc, learned_language="nl", dialect="BE")
+
+        assert save_settings(lc, learned_language="fr", dialect="BE").status_code == 400
+        assert user_details(lc)["learned_language"] == "nl"
+
+    def test_a_language_switch_and_a_voice_land_on_the_new_language(self, app, client):
+        lc = logged_in(app, client, "switchvoice@zeeguu.test")
+        save_settings(lc, learned_language="nl", dialect="BE")
+
+        assert save_settings(lc, learned_language="pt", dialect="BR").status_code == 200
+
+        details = user_details(lc)
+        assert details["pt_dialect"] == "BR"
+        assert details["nl_dialect"] == "BE"
+
+    def test_the_dialect_catalogue_is_served_to_the_client(self, app, client):
+        catalogue = json.loads(client.get("/system_languages").data)["dialects"]
+
+        assert [each["country"] for each in catalogue["nl"]] == ["NL", "BE"]
+        assert [each["country"] for each in catalogue["pt"]] == ["PT", "BR"]
+        # French has two varieties in the feed catalogue and one voice, so it
+        # offers no voice control at all.
+        assert "fr" not in catalogue

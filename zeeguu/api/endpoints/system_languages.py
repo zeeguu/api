@@ -3,6 +3,7 @@ import json
 from . import api
 from zeeguu.api.utils.route_wrappers import cross_domain
 from zeeguu.core.model import Language
+from zeeguu.core.audio_lessons.voice_config import voice_catalogue
 from zeeguu.core.language.varieties import catalogue as variety_catalogue
 
 
@@ -14,6 +15,11 @@ def system_languages():
     # from here so the client does not keep a second copy of a list that has to
     # agree with how the feeds are tagged.
     result["varieties"] = variety_catalogue()
+    # The dialects a learner may choose, a shorter list than the one above:
+    # French offers Belgium there and Google has no Belgian French voice. Gated on
+    # the voices because the audio lesson is the only feature honouring a dialect
+    # so far -- it widens when the translator and the LLM prompt read it too.
+    result["dialects"] = voice_catalogue()
     result["learnable_languages"] = list(
         map((lambda x: dict(name=x.name, code=x.code)), Language.available_languages())
     )
