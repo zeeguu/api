@@ -35,10 +35,21 @@ from zeeguu.core.model.db import db
 app = create_app_for_scripts()
 app.app_context().push()
 
-# How far back to bring the index into line. The feed only ever shows recent
-# articles, so re-indexing the whole archive would cost a lot to change nothing
-# anyone can see.
-DEFAULT_REINDEX_DAYS = 30
+# How far back to bring the index into line.
+#
+# Seven days, not thirty: the recommender decays recency on a 1-day scale, so an
+# article two weeks old is already unreachable in practice. Each re-index costs a
+# row load plus an Elasticsearch get and update, and a daily paper publishes
+# enough that the difference between a week and a month is minutes of work for
+# articles nobody can reach. Pass --reindex-days 0 to tag without touching the
+# index at all.
+DEFAULT_REINDEX_DAYS = 7
+
+
+def say(message):
+    # Unbuffered: this runs inside docker compose run, where a buffered stdout
+    # turns steady progress into a blank screen.
+    print(message, flush=True)
 
 
 def main():
@@ -52,6 +63,13 @@ def main():
     country = args.country.strip().upper()
     feed_ids = [int(each) for each in args.feed_ids.split(",") if each.strip()]
     since = datetime.now() - timedelta(days=args.reindex_days)
+    reindexing = args.reindex_days > 0
+
+    say(
+        f"{len(feed_ids)} feed(s) -> {country}, "
+        + (f"re-indexing back to {since.date()}" if reindexing else "tagging only")
+        + "\n"
+    )
 
     for feed_id in feed_ids:
         # Not Feed.find_by_id: it reports a missing row to Sentry, and a typo in
@@ -61,15 +79,24 @@ def main():
             print(f"!! no feed {feed_id}")
             continue
 
-        articles = (
-            Article.query.filter(Article.feed_id == feed_id)
-            .filter(Article.published_time >= since)
-            .filter(Article.broken == 0)
-            .all()
+        # Ids only. Article carries `content` and `htmlContent` as mediumtext, so
+        # materialising a month of a daily paper as ORM objects is hundreds of
+        # megabytes and minutes of silence before the first line of output.
+        article_ids = (
+            [
+                row[0]
+                for row in db.session.query(Article.id)
+                .filter(Article.feed_id == feed_id)
+                .filter(Article.published_time >= since)
+                .filter(Article.broken == 0)
+                .all()
+            ]
+            if reindexing
+            else []
         )
-        print(
+        say(
             f"{feed_id:>5}  {feed.title[:40]:<40} {feed.country or '--'} -> {country}"
-            f"   ({len(articles)} articles since {since.date()})"
+            f"   ({len(article_ids)} articles since {since.date()})"
         )
 
         if not args.execute:
@@ -83,14 +110,23 @@ def main():
         from zeeguu.core.elastic.indexing import create_or_update_article
 
         reindexed, failed = 0, 0
-        for article in articles:
+        for i, article_id in enumerate(article_ids, start=1):
             try:
+                article = Article.find_by_id(article_id)
                 create_or_update_article(article, db.session)
                 reindexed += 1
             except Exception as e:
                 failed += 1
-                print(f"       article {article.id}: {e}")
-        print(f"       re-indexed {reindexed}, failed {failed}")
+                if failed <= 3:
+                    say(f"       article {article_id}: {e}")
+            # One row of a long silence is indistinguishable from a hang.
+            if i % 50 == 0:
+                say(f"       {i}/{len(article_ids)}...")
+            # The content columns are large; holding a month of them is what made
+            # the first version look stuck.
+            if i % 200 == 0:
+                db.session.expunge_all()
+        say(f"       re-indexed {reindexed}, failed {failed}")
 
     if not args.execute:
         print("\nDry run. Re-run with --execute to write.")
