@@ -106,8 +106,10 @@ def catalogue():
     The varieties worth offering, shaped for the client that renders the control:
     {"nl": [{"country": "NL", "name": "Belgian Dutch"}, ...], ...}
 
-    A variety appears here only once some feed publishes from that country, and
-    stops appearing when none does. Offering one with nothing behind it is a trap
+    A language appears here once feeds publish from at least TWO of its
+    countries, and stops appearing when they do not. One is not enough: with
+    every Portuguese feed tagged PT, "Any" and "Portugal" would select the same
+    articles. Offering one with nothing behind it is a trap
     -- a learner picks it, gets an empty feed, and concludes the app is broken --
     and the alternative, remembering to switch it on the day a feed is added, is
     a step nobody will remember. Brazilian Portuguese is the live example: named
@@ -127,7 +129,10 @@ def catalogue():
     offered = {}
     for language_code, countries in VARIETIES.items():
         available = [c for c in countries if c in supplied.get(language_code, set())]
-        if available:
+        # Two, not one. With every Portuguese feed tagged PT, a control offering
+        # "Any" and "Portugal" is two labels for the same set of articles -- a
+        # choice that cannot change anything, which is worse than no choice.
+        if len(available) > 1:
             offered[language_code] = [
                 dict(country=country, name=variety_name(language_code, country))
                 for country in available
