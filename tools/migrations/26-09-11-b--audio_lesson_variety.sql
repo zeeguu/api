@@ -34,6 +34,11 @@
 -- you are learning, and choosing to be read to in Brazilian must not silently
 -- narrow the feed to Brazilian sources.
 
+-- CHANGE takes a whole column definition, so this also retypes the column from
+-- the CHAR(2) it was created as to the VARCHAR(2) the model has always declared.
+-- Deliberate: it closes a drift rather than adding one, and two-character country
+-- codes lose nothing to the conversion. (feed.country is still CHAR(2) against the
+-- same db.String(2); that one is left for its own migration.)
 ALTER TABLE user_language
 CHANGE variety feed_variety VARCHAR(2) DEFAULT NULL
 COMMENT 'ISO 3166-1 alpha-2 of the country this learner wants their feed from; NULL = everywhere';
