@@ -29,7 +29,7 @@ class VarietyFilterTest(TestCase):
     """
 
     def test_a_variety_is_required_not_merely_preferred(self):
-        assert {"match": {"country": "BE"}} in bool_of(a_query("BE"))["must"]
+        assert "country" in json.dumps(bool_of(a_query("BE"))["must"])
 
     def test_no_variety_leaves_the_query_as_it_was(self):
         assert a_query(None) == a_query()
@@ -41,6 +41,16 @@ class VarietyFilterTest(TestCase):
 
         assert len(functions) == 1
         assert "exp" in functions[0]
+
+    def test_videos_survive_a_variety_preference(self):
+        # This query serves videos too, and a video has no country to match --
+        # a channel has no feed. Filtering them on it would delete every video
+        # from the feed of anyone who picked a variety.
+        clause = [c for c in bool_of(a_query("BE"))["must"] if "bool" in c and "should" in c["bool"]]
+        country_clause = [c for c in clause if json.dumps(c).count("country") == 1]
+
+        assert len(country_clause) == 1
+        assert {"exists": {"field": "video_id"}} in country_clause[0]["bool"]["should"]
 
     def test_asking_for_one_country_does_not_exclude_by_another(self):
         # Nothing must land in must_not: the only rule is "from there", and the

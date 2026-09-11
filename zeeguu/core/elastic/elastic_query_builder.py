@@ -132,11 +132,13 @@ def build_elastic_recommender_query(
     # the setting that relaxes it. It must never be handled by quietly ignoring
     # what they asked for.
     #
-    # An article with no country is excluded too, which includes uploaded and
-    # shared ones: they have no feed to publish them, so there is no honest
-    # answer to "is this Belgian?".
+    # Videos are exempt. This query serves both (see the article_id/video_id
+    # clause below), and document_from_video writes no country at all -- a
+    # YouTube channel has no feed to take one from. Filtering them on it would
+    # delete every video from the feed of anyone who picked a variety, which is
+    # not what a setting about news sources should mean.
     if variety:
-        must.append(match("country", variety))
+        must.append({"bool": {"should": [match("country", variety), exists("video_id")]}})
 
     if not user_topics:
         user_topics = ""

@@ -178,10 +178,13 @@ def document_from_article(article, session, current_doc=None):
         # rather than infer on inferences.
         "topics_inferred": [t.title for t in topics_inferred],
         "language": article.language.name,
-        # Where this was published, for the variety preference to prefer. Absent
-        # for an uploaded or shared article, which has no feed, and for any feed
-        # nobody has tagged -- and absent must never cost an article anything,
-        # which is why this is a boost rather than a filter.
+        # Where this was published. A learner who asks for one country's sources
+        # sees only articles matching it, so an untagged feed is invisible to
+        # them -- tagging a feed is what puts it in reach of that preference.
+        # Uploaded and shared articles have no feed and so no country, which
+        # costs them nothing: the recommender already keeps them out of the
+        # general feed, and they are reached through the classroom and the
+        # friends tab instead.
         "country": article.feed.country if article.feed else None,
         "fk_difficulty": article.get_fk_difficulty(),
         "url": article.url.as_string(),
