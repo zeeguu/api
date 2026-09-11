@@ -11,6 +11,7 @@ def logged_in(app, client, email):
     # starts with only the languages other fixtures happened to create.
     with app.app_context():
         Language.find_or_create("nl")
+        Language.find_or_create("fr")
         Language.find_or_create("pt")
     return LoggedInClient(client, email=email, password=TEST_PASS)
 
@@ -124,4 +125,18 @@ class TestVarietyWithoutALanguageChange:
     def test_the_catalogue_is_served_to_the_client(self, app, client):
         varieties = json.loads(client.get("/system_languages").data)["varieties"]
         assert [each["country"] for each in varieties["nl"]] == ["NL", "BE"]
+        assert [each["country"] for each in varieties["fr"]] == ["FR", "BE"]
         assert "es" not in varieties
+
+    def test_belgium_is_saved_under_whichever_language_asked_for_it(self, app, client):
+        # The same country code belongs to two languages, and each learner's row
+        # has to carry it under their own -- a Flemish reader and a Walloon one
+        # both store "BE" and must not be told they mean the same thing.
+        lc = logged_in(app, client, "bilingual@zeeguu.test")
+
+        save_settings(lc, learned_language="nl", variety="BE")
+        save_settings(lc, learned_language="fr", variety="BE")
+
+        details = user_details(lc)
+        assert details["nl_variety"] == "BE"
+        assert details["fr_variety"] == "BE"
