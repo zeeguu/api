@@ -37,7 +37,11 @@ class ContextType(db.Model):
         EXAMPLE_SENTENCE,
     ]
 
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # Named for the index production already has, so nobody generates a second one.
+    __table_args__ = (
+        db.UniqueConstraint("type", name="unique_context_type"),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     type = db.Column(db.String(45))

@@ -44,6 +44,7 @@ from .cohort import Cohort
 from .user_language import UserLanguage
 
 from .user_article import UserArticle
+from .starred_article import StarredArticle
 from .article_difficulty_feedback import ArticleDifficultyFeedback
 
 from .feed import Feed
