@@ -19,6 +19,10 @@ only languages that genuinely divide along national lines belong here. Spanish
 does not -- its split is Spain against a macro-region (es-419), which no country
 code can express -- so it stays out until somebody asks for it and answers that
 question.
+
+Belgium appears twice, under Dutch and under French, which is the country being
+bilingual rather than a mistake: a learner of either can want to read the half of
+Belgium that speaks theirs.
 """
 
 # language code -> the countries whose variety a learner can ask for.
@@ -28,13 +32,21 @@ question.
 # "whatever the feed offers".
 VARIETIES = {
     "nl": ("NL", "BE"),
+    "fr": ("FR", "BE"),
     "pt": ("PT", "BR"),
 }
 
 # What to call a variety when a person -- or an LLM prompt -- has to read it.
+# Where a variety has its own adjective in English, that is what it is called.
+# Where it does not -- there is no adjective for "the French of France" that is
+# not just "French" -- say it the long way rather than invent one: these names go
+# into LLM prompts, where "Netherlands Dutch" is a phrase to puzzle over and
+# "Dutch from the Netherlands" is an instruction.
 VARIETY_NAMES = {
-    ("nl", "NL"): "Netherlands Dutch",
+    ("nl", "NL"): "Dutch from the Netherlands",
     ("nl", "BE"): "Belgian Dutch",
+    ("fr", "FR"): "French from France",
+    ("fr", "BE"): "Belgian French",
     ("pt", "PT"): "European Portuguese",
     ("pt", "BR"): "Brazilian Portuguese",
 }
