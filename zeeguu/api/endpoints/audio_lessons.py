@@ -88,7 +88,7 @@ def _generate_lesson_in_background(user_id, preparation):
             origin_language=preparation["origin_language"],
             translation_language=preparation["translation_language"],
             cefr_level=preparation["cefr_level"],
-            voice_variety=preparation.get("voice_variety"),
+            voice_variety=preparation["voice_variety"],
             progress=progress,
             raw_suggestion=preparation.get("raw_suggestion"),
             canonical_suggestion=preparation.get("canonical_suggestion"),
