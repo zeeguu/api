@@ -17,34 +17,35 @@ def a_query(variety=None):
     )
 
 
-class VarietyBoostTest(TestCase):
+def bool_of(query):
+    return query["query"]["function_score"]["query"]["bool"]
+
+
+class VarietyFilterTest(TestCase):
     """
-    The preference lifts a country; it never removes the rest. With three Belgian
-    feeds against dozens of Dutch ones, a filter would hand a Flemish reader an
-    empty page.
+    A variety preference means it. Ranking the country higher instead would leave
+    the feed looking untouched, and a setting that visibly does nothing reads as
+    a broken app.
     """
 
-    def test_a_variety_adds_a_weighted_function(self):
-        functions = a_query("BE")["query"]["function_score"]["functions"]
-
-        assert {"filter": {"match": {"country": "BE"}}, "weight": 3.0} in functions
-
-    def test_recency_still_applies_alongside_it(self):
-        functions = a_query("BE")["query"]["function_score"]["functions"]
-
-        assert any("exp" in each for each in functions)
+    def test_a_variety_is_required_not_merely_preferred(self):
+        assert {"match": {"country": "BE"}} in bool_of(a_query("BE"))["must"]
 
     def test_no_variety_leaves_the_query_as_it_was(self):
         assert a_query(None) == a_query()
-        assert len(a_query()["query"]["function_score"]["functions"]) == 1
+        assert "country" not in json.dumps(bool_of(a_query()))
 
-    def test_the_country_never_becomes_a_filter(self):
-        # The whole design rests on this: an article from an untagged feed, or
-        # from no feed at all, has to stay eligible for everyone.
-        query = a_query("BE")
-        bool_part = json.dumps(query["query"]["function_score"]["query"]["bool"])
+    def test_the_country_does_not_leak_into_scoring(self):
+        # It decides eligibility; recency alone decides order among the eligible.
+        functions = a_query("BE")["query"]["function_score"]["functions"]
 
-        assert "country" not in bool_part
+        assert len(functions) == 1
+        assert "exp" in functions[0]
+
+    def test_asking_for_one_country_does_not_exclude_by_another(self):
+        # Nothing must land in must_not: the only rule is "from there", and the
+        # client explains the empty case rather than the query softening it.
+        assert "country" not in json.dumps(bool_of(a_query("BE"))["must_not"])
 
 
 class VarietyForTest(ModelTestMixIn, TestCase):

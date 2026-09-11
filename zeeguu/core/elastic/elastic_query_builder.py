@@ -121,6 +121,23 @@ def build_elastic_recommender_query(
     if language:
         must.append(match("language", language.name))
 
+    # A variety preference means it: asked for Belgian Dutch, a learner gets
+    # articles from Belgian feeds and no others. Ranking them higher instead
+    # would leave the feed looking untouched, and a setting that visibly does
+    # nothing reads as a broken app rather than a mild preference.
+    #
+    # This can empty a feed -- thinly supplied language, narrow topic
+    # subscriptions -- and that is handled where it can be explained, in the
+    # client, which knows the preference is set and can send the learner back to
+    # the setting that relaxes it. It must never be handled by quietly ignoring
+    # what they asked for.
+    #
+    # An article with no country is excluded too, which includes uploaded and
+    # shared ones: they have no feed to publish them, so there is no honest
+    # answer to "is this Belgian?".
+    if variety:
+        must.append(match("country", variety))
+
     if not user_topics:
         user_topics = ""
 
@@ -200,23 +217,8 @@ def build_elastic_recommender_query(
         },
     }
 
-    functions = [recency_preference]
-
-    # A variety preference lifts the country it asks for; it does not exclude the
-    # rest. There are three Belgian feeds against dozens of Dutch ones, so a
-    # filter would hand a Flemish reader an empty page -- the failure this
-    # project keeps running into.
-    #
-    # Weight against the decay above (scale/offset 1d, decay 0.6): a same-day
-    # article scores ~1.0, two days ~0.6, three ~0.36. At 3.0 a three-day-old
-    # Belgian article just outranks a fresh Dutch one, which is about the
-    # strength of "prefer Belgian, recent things first" -- and no amount of
-    # weight can surface an article that does not exist.
-    if variety:
-        functions.append({"filter": match("country", variety), "weight": 3.0})
-
     # Note: difficulty scoring removed - we now filter by CEFR level instead
-    full_query["query"]["function_score"].update({"functions": functions})
+    full_query["query"]["function_score"].update({"functions": [recency_preference]})
     full_query["query"]["function_score"].update(bool_query_body)
 
     # Query logging removed for cleaner output
