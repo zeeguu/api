@@ -23,7 +23,7 @@ def main():
     parser.add_argument('--feed-type', type=int, help=f'Feed type: {FEED_TYPE}')
     parser.add_argument('--name', help='Feed name')
     parser.add_argument('--description', help='Feed description')
-    parser.add_argument('--icon', help='Icon filename')
+    parser.add_argument('--icon', help='Icon filename (unused: feed icons are no longer rendered)')
     parser.add_argument('--language', help='Language code (e.g., fr, en)')
     parser.add_argument('--country', help='ISO 3166-1 alpha-2 country this feed publishes from, e.g. BE. '
                                           'Matched against a learner\'s variety preference; leave empty for untagged')
@@ -50,17 +50,10 @@ def main():
         feed_name = input(f"Feed name (Enter for: {feed.title}):  ") or feed.title
     print(f"= {feed_name}")
 
-    default_icon_name = f"{feed_name.lower().replace(' ', '-')}.png"
-    if args.icon:
-        icon_name = args.icon
-    else:
-        icon_name = (
-            input(
-                f"Icon name to be found in resources folder (e.g. {default_icon_name}):  "
-            )
-            or default_icon_name
-        )
-    print(f"= {icon_name}")
+    # Feed icons are no longer rendered anywhere, so this is not worth asking
+    # about: it keeps taking --icon for the sake of whatever still passes one,
+    # and otherwise derives a name nobody looks at.
+    icon_name = args.icon or f"{feed_name.lower().replace(' ', '-')}.png"
 
     if args.description:
         description = args.description
