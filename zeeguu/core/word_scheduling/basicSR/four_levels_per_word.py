@@ -1,6 +1,8 @@
 from .basicSR import ONE_DAY, BasicSRSchedule
 from datetime import datetime, timedelta
 
+import sqlalchemy
+
 from ...model import UserWord
 
 MAX_LEVEL = 4
@@ -127,9 +129,26 @@ class FourLevelsPerWord(BasicSRSchedule):
             if UserWordValidationService.check_for_duplicate_meaning(db_session, user_word):
                 return None  # Duplicate meaning, don't schedule
 
-            schedule = cls(user_word)
-            user_word.level = 1
-            db_session.add_all([schedule, user_word])
-            db_session.commit()
+            # basic_sr_schedule has UNIQUE (user_word_id), so of two requests
+            # scheduling the same word only one insert survives. The window is
+            # wide here, not theoretical: the validation above makes LLM calls,
+            # so seconds can pass between the find() that came back empty and
+            # this insert.
+            #
+            # Losing has to stay survivable. report_exercise_outcome adds the
+            # learner's Exercise row before it calls the scheduler, so a rollback
+            # of the whole session would take that with it -- the answer would be
+            # lost, not merely left unscheduled, and the endpoint would report
+            # FAIL. The savepoint undoes this insert and nothing else, leaving the
+            # Exercise to be committed by the caller as usual.
+            try:
+                with db_session.begin_nested():
+                    schedule = cls(user_word)
+                    user_word.level = 1
+                    db_session.add_all([schedule, user_word])
+                db_session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                # Whoever won the race created it; use theirs.
+                schedule = super(FourLevelsPerWord, cls).find(user_word)
 
         return schedule

@@ -15,7 +15,14 @@ MAX_WORDS_TO_SCHEDULE_CAP = 100  # Maximum allowed value to prevent SQL LIMIT er
 
 
 class BasicSRSchedule(db.Model):
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # Named for the constraint production already carries, added in
+    # tools/migrations/25-05-24--adding_the_user_word_table.sql. Undeclared, it
+    # was invisible from the code and absent from the test database, which was
+    # therefore happy to create the duplicate schedules MySQL refuses.
+    __table_args__ = (
+        db.UniqueConstraint("user_word_id", name="unique_user_word_schedule"),
+        {"mysql_collate": "utf8_bin"},
+    )
     __tablename__ = "basic_sr_schedule"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -134,6 +141,14 @@ class BasicSRSchedule(db.Model):
         # pipeline is not full, and the word was not scheduled before
         if not schedule and not more_scheduled_words_than_user_prefers:
             schedule = cls.find_or_create(db_session, user_word)
+            if not schedule:
+                # find_or_create declines a word whose translation failed
+                # validation, that is unfit for study, or that duplicates a
+                # meaning already being learned. Those are decisions, not
+                # failures -- but calling update_schedule on the None it hands
+                # back raised AttributeError into the endpoint's catch-all,
+                # which answered FAIL and took the learner's exercise with it.
+                return
 
         schedule.update_schedule(db_session, correctness, time)
 
