@@ -87,9 +87,14 @@ class AudioLessonMeaning(db.Model):
         return f"/audio/lessons/meaning-{self.id}-{lang_code}.mp3"
 
     @classmethod
-    def find(cls, meaning, teacher_language=None, variety=None):
+    def find(cls, meaning, teacher_language=None, *, variety):
         """
         Find a non-deprecated audio lesson for a meaning, teacher language and variety.
+
+        `variety` is required and keyword-only: None is a real answer here
+        ("voiced without a preference"), so a default would let a caller that has
+        never heard of varieties ask the same question as a learner who asked for
+        nothing, and quietly get somebody else's accent.
 
         `variety=None` matches only rows voiced without a variety, and does so
         through IS NULL rather than `= NULL`, which matches nothing in SQL. Getting

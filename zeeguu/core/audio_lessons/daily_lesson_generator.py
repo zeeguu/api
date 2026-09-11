@@ -193,7 +193,7 @@ class DailyLessonGenerator:
         cefr_level,
         *,
         progress=None,
-        voice_variety=None,
+        voice_variety,
     ):
         """
         Generate an AudioLessonMeaning for a specific user word.
@@ -292,7 +292,7 @@ class DailyLessonGenerator:
         progress=None,
         is_general=False,
         raw_suggestion=None,
-        voice_variety=None,
+        voice_variety,
     ):
         """
         Generate an AudioLessonDialogue — one flowing conversation about a topic/situation.
@@ -408,7 +408,8 @@ class DailyLessonGenerator:
         canonical_suggestion: str = None,
         lesson_type: str = None,
         is_general: bool = False,
-        voice_variety: str = None,
+        *,
+        voice_variety: str,
     ) -> dict:
         """
         Generate a daily audio lesson for the given user with specific words.
@@ -420,9 +421,11 @@ class DailyLessonGenerator:
             origin_language: Language code for the words being learned (e.g. 'es', 'da')
             translation_language: Language code for translations (e.g. 'en')
             cefr_level: CEFR level for the lesson (e.g. 'A1', 'B2')
-            voice_variety: Optional ISO 3166-1 alpha-2 country of the variety to
-                read the lesson in (e.g. 'BE' for Flemish); None reads it in the
-                language's default locale
+            voice_variety: ISO 3166-1 alpha-2 country of the variety to read the
+                lesson in (e.g. 'BE' for Flemish), or None to read it in the
+                language's default locale. Required rather than defaulted, so a
+                caller that has not thought about accents cannot pass for one
+                whose learner asked for no particular accent
             canonical_suggestion: Optional short topic hint for the LLM
             lesson_type: Optional type ("topic" or "situation")
 
@@ -522,7 +525,9 @@ class DailyLessonGenerator:
 
             # Build the final concatenated MP3 for the daily lesson
             try:
-                daily_mp3_path = self.lesson_builder.build_daily_lesson(daily_lesson, self.voice_synthesizer)
+                daily_mp3_path = self.lesson_builder.build_daily_lesson(
+                    daily_lesson, self.voice_synthesizer, variety=voice_variety
+                )
 
                 # Calculate total duration
                 total_duration = self.voice_synthesizer.get_audio_duration(

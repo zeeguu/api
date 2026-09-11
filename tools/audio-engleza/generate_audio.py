@@ -135,7 +135,8 @@ def generate_audio_from_script(script_file, lesson_id=None):
             audio_lesson_meaning_id=lesson_id,
             script=script_content,
             language_code="en-US",
-            teacher_language="ro-RO"
+            teacher_language="ro-RO",
+            variety=None,
         )
         
         print(f"Audio generated: {mp3_path}")

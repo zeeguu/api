@@ -260,10 +260,13 @@ class LessonBuilder:
             language_code=teacher_language,
             speaking_rate=1.0,
             teacher_language=teacher_language,
+            # The teacher speaks the learner's OWN language. A variety of the
+            # language being learned says nothing about it.
+            variety=None,
         )
         return AudioSegment.from_mp3(audio_path)
 
-    def _synthesize_learned_language_phrase(self, voice_synthesizer, learned_language: str, text: str) -> AudioSegment:
+    def _synthesize_learned_language_phrase(self, voice_synthesizer, learned_language: str, text: str, *, variety: str) -> AudioSegment:
         """Synthesize a phrase in the learned language (using the woman voice)."""
         audio_path = voice_synthesizer.synthesize_segment(
             text=text,
@@ -271,11 +274,19 @@ class LessonBuilder:
             language_code=learned_language,
             speaking_rate=0.9,
             teacher_language=learned_language,
+            variety=variety,
         )
         return AudioSegment.from_mp3(audio_path)
 
-    def _get_outro_segments(self, voice_synthesizer, teacher_language: str, learned_language: str = None, is_dialogue=False) -> list:
-        """Generate outro. Teacher wraps up, then closing in the learned language."""
+    def _get_outro_segments(self, voice_synthesizer, teacher_language: str, learned_language: str = None, is_dialogue=False, *, variety: str) -> list:
+        """
+        Generate outro. Teacher wraps up, then closing in the learned language.
+
+        That closing line is spoken in the language being learned, so it needs
+        the variety like any other line of the lesson: without it the lesson is
+        read in the learner's accent right up to the last sentence, which comes
+        back in the language's default one.
+        """
         segments = []
 
         if is_dialogue:
@@ -291,7 +302,11 @@ class LessonBuilder:
         # Positive closing in the LEARNED language
         closing_lang = learned_language or teacher_language
         closings = CLOSING_PHRASES.get(closing_lang, CLOSING_PHRASES["en"])
-        segments.append(self._synthesize_learned_language_phrase(voice_synthesizer, closing_lang, random.choice(closings)))
+        segments.append(
+            self._synthesize_learned_language_phrase(
+                voice_synthesizer, closing_lang, random.choice(closings), variety=variety
+            )
+        )
 
         return segments
 
@@ -305,12 +320,14 @@ class LessonBuilder:
         phrases = TRANSITION_PHRASES.get(teacher_language, TRANSITION_PHRASES["en"])
         return self._synthesize_teacher_phrase(voice_synthesizer, teacher_language, random.choice(phrases))
 
-    def build_daily_lesson(self, daily_lesson: DailyAudioLesson, voice_synthesizer=None) -> str:
+    def build_daily_lesson(self, daily_lesson: DailyAudioLesson, voice_synthesizer=None, *, variety: str) -> str:
         """
         Build a complete daily lesson by concatenating all segment audio files.
 
         Args:
             daily_lesson: The DailyAudioLesson instance with segments
+            variety: the accent the segments were voiced in, so the lines this
+                method adds around them are voiced the same way
 
         Returns:
             Path to the generated daily lesson MP3 file
@@ -394,7 +411,12 @@ class LessonBuilder:
         if voice_synthesizer and teacher_language and content_segment_count > 0:
             audio_segments.append(AudioSegment.silent(duration=2000))
             has_dialogue = any(s.segment_type == "dialogue_lesson" for s in segments_list)
-            audio_segments.extend(self._get_outro_segments(voice_synthesizer, teacher_language, learned_language, is_dialogue=has_dialogue))
+            audio_segments.extend(
+                self._get_outro_segments(
+                    voice_synthesizer, teacher_language, learned_language,
+                    is_dialogue=has_dialogue, variety=variety,
+                )
+            )
 
         # Combine all audio segments
         if audio_segments:

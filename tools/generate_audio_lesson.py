@@ -27,6 +27,7 @@ mp3_path = voice_synthesizer.generate_lesson_audio(
     script=script,
     language_code=target_language,
     cefr_level=cefr_level,
+    variety=None,
 )
 
 print(mp3_path)

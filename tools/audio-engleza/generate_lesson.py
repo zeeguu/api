@@ -52,6 +52,7 @@ def generate_audio(script, lesson_id, english_phrase):
         language_code="en",  # Target language is English
         cefr_level="A1",
         teacher_language="ro",  # Teacher speaks Romanian
+        variety=None,
     )
     
     return mp3_path

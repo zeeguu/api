@@ -1,4 +1,7 @@
 from unittest import TestCase
+from unittest.mock import patch
+
+from pydub import AudioSegment
 
 import zeeguu.core
 from zeeguu.core.audio_lessons.voice_config import (
@@ -11,8 +14,12 @@ from zeeguu.core.audio_lessons.voice_config import (
     locale_for,
     voice_catalogue,
 )
+from zeeguu.core.audio_lessons import lesson_builder
+from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
+from zeeguu.core.audio_lessons.script_language_validator import TARGET_LANGUAGE_VOICES
+from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.language.varieties import varieties_for
-from zeeguu.core.model import AudioLessonMeaning, Language, User, UserLanguage
+from zeeguu.core.model import AudioLessonMeaning, User, UserLanguage
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.meaning_rule import MeaningRule
@@ -203,7 +210,7 @@ class AudioLessonCacheKeyTest(ModelTestMixIn):
         self._lesson(variety="BE")
 
         assert AudioLessonMeaning.find(
-            meaning=self.meaning, teacher_language=self.english
+            meaning=self.meaning, teacher_language=self.english, variety=None
         ) is None
 
     def test_the_default_variety_finds_the_row_generated_without_one(self):
@@ -222,8 +229,85 @@ class AudioLessonCacheKeyTest(ModelTestMixIn):
         flemish = self._lesson(variety="BE")
 
         assert AudioLessonMeaning.find(
-            meaning=self.meaning, teacher_language=self.english
+            meaning=self.meaning, teacher_language=self.english, variety=None
         ).id == without.id
         assert AudioLessonMeaning.find(
             meaning=self.meaning, teacher_language=self.english, variety="BE"
         ).id == flemish.id
+
+
+class RecordingSynthesizer:
+    """
+    Stands in for VoiceSynthesizer and records which voice each line was asked for.
+
+    get_voice_config is the real one, called unbound: it touches no instance
+    state, and a fake that reimplemented the locale lookup would only be testing
+    itself.
+    """
+
+    def __init__(self):
+        self.voices = []
+
+    def synthesize_segment(
+        self, text, voice_type, language_code, speaking_rate=1.0, teacher_language=None, *, variety
+    ):
+        config = VoiceSynthesizer.get_voice_config(
+            self, voice_type, language_code, teacher_language, variety=variety
+        )
+        self.voices.append((voice_type, config["name"]))
+        return "/recorded/not-a-real-file.mp3"
+
+    def voices_speaking_the_learned_language(self):
+        return [name for kind, name in self.voices if kind in TARGET_LANGUAGE_VOICES]
+
+
+class EveryVoiceFollowsTheVarietyTest(TestCase):
+    """
+    The property, rather than one test per place a caller might forget it: every
+    voice that speaks the language being learned is read in the learner's accent,
+    and the teacher -- who speaks the learner's own language -- is not.
+    """
+
+    def test_every_voice_of_the_learned_language_follows_the_variety(self):
+        # Driven off the validator's own list, so a new target-language voice
+        # type is covered the day it is added rather than the day it is noticed.
+        for voice_type in TARGET_LANGUAGE_VOICES:
+            config = VoiceSynthesizer.get_voice_config(
+                None, voice_type, "nl", "en", variety="BE"
+            )
+
+            assert config["language_code"] == "nl-BE", voice_type
+            assert config["name"].startswith("nl-BE"), voice_type
+
+    def test_the_teacher_is_left_in_the_learners_own_language(self):
+        config = VoiceSynthesizer.get_voice_config(None, "teacher", "nl", "en", variety="BE")
+
+        assert config["language_code"] == "en-US"
+
+    def _builder(self):
+        # __new__, not LessonBuilder(): its __init__ only creates output
+        # directories under ZEEGUU_DATA_FOLDER, which nothing here writes to.
+        return LessonBuilder.__new__(LessonBuilder)
+
+    def test_the_lesson_does_not_change_accent_at_the_closing_line(self):
+        # The outro is appended to every lesson with content, and its last line
+        # is spoken in the language being learned. It used to be synthesized
+        # without the variety, so a Flemish lesson signed off in Dutch.
+        recorder = RecordingSynthesizer()
+
+        with patch.object(lesson_builder.AudioSegment, "from_mp3", return_value=AudioSegment.silent(duration=10)):
+            self._builder()._get_outro_segments(recorder, "en", "nl", variety="BE")
+
+        spoken_in_dutch = recorder.voices_speaking_the_learned_language()
+        assert spoken_in_dutch, "the outro is supposed to close in the learned language"
+        assert all(name.startswith("nl-BE") for name in spoken_in_dutch), recorder.voices
+
+    def test_a_learner_with_no_preference_still_gets_the_default(self):
+        recorder = RecordingSynthesizer()
+
+        with patch.object(lesson_builder.AudioSegment, "from_mp3", return_value=AudioSegment.silent(duration=10)):
+            self._builder()._get_outro_segments(recorder, "en", "nl", variety=None)
+
+        assert all(
+            name.startswith("nl-NL") for name in recorder.voices_speaking_the_learned_language()
+        ), recorder.voices

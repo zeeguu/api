@@ -309,6 +309,10 @@ for user, last_activity in user_activity_map:
                     )
                     continue
 
+                # The accent this language is read in for this user; every
+                # lookup below is keyed on it.
+                voice_variety = voice_variety_for_language(user, language)
+
                 # Check how many meanings are already precomputed for next lesson
                 precomputed_count, next_words = get_precomputed_meanings_count(
                     user, language
@@ -330,6 +334,7 @@ for user, last_activity in user_activity_map:
                             existing_lesson = AudioLessonMeaning.find(
                                 meaning=user_word.meaning,
                                 teacher_language=user.native_language,
+                                variety=voice_variety,
                             )
                             if existing_lesson:
                                 meaning = user_word.meaning
@@ -389,7 +394,9 @@ for user, last_activity in user_activity_map:
                 words_to_process = []
                 for user_word in next_words:
                     existing_lesson = AudioLessonMeaning.find(
-                        meaning=user_word.meaning, teacher_language=user.native_language
+                        meaning=user_word.meaning,
+                        teacher_language=user.native_language,
+                        variety=voice_variety,
                     )
                     if not existing_lesson:
                         words_to_process.append(user_word)

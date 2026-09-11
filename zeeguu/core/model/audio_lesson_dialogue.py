@@ -90,7 +90,7 @@ class AudioLessonDialogue(db.Model):
         return f"/audio/lessons/dialogue-{self.id}-{lang_code}.mp3"
 
     @classmethod
-    def past_titles_for(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level, variety=None):
+    def past_titles_for(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level, *, variety):
         """Get all existing titles for this topic combination."""
         results = cls.query.filter_by(
             canonical_suggestion=canonical_suggestion,
@@ -104,7 +104,7 @@ class AudioLessonDialogue(db.Model):
         return [r.title for r in results]
 
     @classmethod
-    def find_unheard(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level, user, only_general=False, variety=None):
+    def find_unheard(cls, canonical_suggestion, lesson_type, language, teacher_language, difficulty_level, user, only_general=False, *, variety):
         """
         Find an existing dialogue the user hasn't heard yet.
         Returns None if all matching dialogues have been heard (or none exist).
