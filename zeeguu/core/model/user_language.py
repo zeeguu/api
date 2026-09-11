@@ -1,6 +1,5 @@
 import datetime
 
-from MySQLdb import IntegrityError
 import sqlalchemy
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
@@ -120,22 +119,26 @@ class UserLanguage(db.Model):
                 .one()
             )
         except sqlalchemy.orm.exc.NoResultFound:
-
+            # Two requests that both miss the query above both insert, and the
+            # UNIQUE (user_id, language_id) lets exactly one of them through.
+            #
+            # The savepoint is what makes losing survivable. A failed flush leaves
+            # the whole session needing a rollback before it can be used again --
+            # so recovering without one raises PendingRollbackError, and
+            # recovering with one throws away whatever the caller had pending,
+            # answering 200 over changes that were never written. Rolling back to
+            # a savepoint undoes this insert and nothing else.
             try:
-                new = cls(user, language)
-                session.add(new)
-                session.commit()
+                with session.begin_nested():
+                    new = cls(user, language)
+                    session.add(new)
                 return new
-            except IntegrityError as err:
-                # it seems that sometimes we end up with a race condition
-                if "Duplicate entry" in str(err):
-                    return (
-                        cls.query.filter(cls.user == user)
-                        .filter(cls.language == language)
-                        .one()
-                    )
-
-                raise (err)
+            except sqlalchemy.exc.IntegrityError:
+                return (
+                    cls.query.filter(cls.user == user)
+                    .filter(cls.language == language)
+                    .one()
+                )
 
     @classmethod
     def with_language_id(cls, i, user):

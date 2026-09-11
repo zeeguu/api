@@ -233,13 +233,11 @@ def _validated_settings(user, data):
     Refuse everything refusable in a /user_settings request, before any of it is
     written.
 
-    Saving the learned language goes through UserLanguage.find_or_create, which
-    commits (zeeguu/core/model/user_language.py) -- so by the time the endpoint
-    reaches a check that runs after it, the new language and the old language's
-    switched-off reading and exercises are already in the database, past the
-    caller's rollback. A 400 at that point tells the client nothing was written
-    while the account has in fact changed. Keeping every check ahead of every
-    mutation is what makes that answer true.
+    A 400 has to mean nothing was written. Checking as we go does not give that:
+    a check that runs after a mutation answers 400 over an account that has
+    already changed, and make_error neither rolls back nor raises, so the handler
+    below never sees it. Every check therefore lives here, ahead of every
+    mutation, and the single commit at the end is what the request rides on.
 
     Returns the normalized values the caller is to write, under the keys the
     request actually submitted. Raises ValueError -- which the endpoint answers
@@ -363,10 +361,6 @@ def user_settings():
                                                       submitted_avatar_background_color)
             zeeguu.core.model.db.session.add(user_avatar)
 
-        # Saved last on purpose: set_learned_language goes through
-        # UserLanguage.find_or_create, which commits. Kept here, that commit is
-        # the one that carries every other change above it, so a request lands
-        # whole. A write added below it would be the one left behind.
         cefr_level = data.get("cefr_level", None)
         submitted_learned_language_code = data.get("learned_language", None)
         # Absent means "leave the variety alone"; empty means "no preference".
