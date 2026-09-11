@@ -1,3 +1,5 @@
+import os
+import time as time_module
 from datetime import datetime, time, timedelta
 
 import zeeguu.core
@@ -7,7 +9,7 @@ from zeeguu.core.model.friendship import Friendship
 from zeeguu.core.model.user_language import UserLanguage
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.user_rule import UserRule
-from zeeguu.core.util.time import SERVER_TZ, user_local_today, user_zone
+from zeeguu.core.util.time import SERVER_TZ, server_now, user_local_today, user_zone
 
 session = zeeguu.core.model.db.session
 
@@ -140,6 +142,44 @@ class FriendTest(ModelTestMixIn):
 
       assert self.friendship.friend_streak == 0
       assert self.friendship.friend_streak_last_updated is not None
+
+
+   def test_streak_timestamps_are_written_on_the_server_clock(self):
+      """
+      `friend_streak_last_updated` is a naive column, so it is only meaningful
+      as a SERVER_TZ reading -- `update_streak` reads it back that way two
+      lines later, for the already_counted_today check. Writing it from the
+      process wall clock instead is silently correct on a UTC machine (CI, and
+      the container) and silently wrong everywhere else.
+
+      So run the write under a clock that cannot accidentally agree: Kathmandu
+      is +05:45 year-round, never equal to UTC and never a whole number of
+      hours off it. Guarding the invariant rather than the hour keeps this
+      deterministic -- it fails on a naive `datetime.now()` at any time of day,
+      rather than only during the small window that first exposed this.
+      """
+      self._set_last_practiced(self.user, practiced_days_ago(self.user))
+      self._set_last_practiced(self.friend_user, practiced_days_ago(self.friend_user))
+
+      original_tz = os.environ.get("TZ")
+      os.environ["TZ"] = "Asia/Kathmandu"
+      time_module.tzset()
+      try:
+         update_streak(friendship=self.friendship)
+         written = self.friendship.friend_streak_last_updated
+         drift_seconds = abs((written - server_now()).total_seconds())
+      finally:
+         if original_tz is None:
+            os.environ.pop("TZ", None)
+         else:
+            os.environ["TZ"] = original_tz
+         time_module.tzset()
+
+      assert written is not None
+      assert drift_seconds < 60, (
+         f"friend_streak_last_updated was written {drift_seconds / 3600:.2f}h away "
+         f"from server time -- it is reading the process wall clock, not SERVER_TZ"
+      )
 
 
    def test_update_friend_streak_uses_learned_language(self):

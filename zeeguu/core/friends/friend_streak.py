@@ -1,15 +1,16 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy.orm import object_session
 
 from zeeguu.core.model import Friendship
 from zeeguu.core.model.db import db
+from zeeguu.core.util.time import server_now
 
 
 def compute_current_streak(friendship: Friendship):
     """Stored friend streak, zeroed out if not updated today or yesterday."""
     last_updated = friendship.friend_streak_last_updated.date() if friendship.friend_streak_last_updated else None
-    yesterday = datetime.now().date() - timedelta(days=1)
+    yesterday = server_now().date() - timedelta(days=1)
 
     if last_updated is None:
         return 0
@@ -44,7 +45,7 @@ def update_streak(friendship: Friendship, session=None, commit=True):
 
     # last_updated is a server-side timestamp; keep it in server time for the
     # idempotency check (already_counted_today / streak_was_active_yesterday).
-    server_today = datetime.now().date()
+    server_today = server_now().date()
     server_yesterday = server_today - timedelta(days=1)
     last_updated_date = friendship.friend_streak_last_updated.date() if friendship.friend_streak_last_updated else None
 
@@ -62,10 +63,10 @@ def update_streak(friendship: Friendship, session=None, commit=True):
             friendship.friend_streak += 1
         else:
             friendship.friend_streak = 1
-        friendship.friend_streak_last_updated = datetime.now()
+        friendship.friend_streak_last_updated = server_now()
     elif either_lapsed:
         friendship.friend_streak = 0
-        friendship.friend_streak_last_updated = datetime.now()
+        friendship.friend_streak_last_updated = server_now()
 
     if session:
         session.add(friendship)
