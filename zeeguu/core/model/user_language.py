@@ -5,7 +5,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, U
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model import User
-from zeeguu.core.util.time import user_local_today, to_user_local_date
+from zeeguu.core.util.time import user_local_today, to_user_local_date, server_now
 
 import zeeguu.core
 
@@ -242,7 +242,7 @@ class UserLanguage(db.Model):
                 self._update_max_streak_if_needed()
                 self.daily_streak = 1
 
-            self.last_practiced = datetime.datetime.now()
+            self.last_practiced = server_now()
             self._update_max_streak_if_needed()
 
             db_session.add(self)

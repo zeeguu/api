@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 import zeeguu.core
 import zeeguu.core.friends.listeners  # noqa: F401
@@ -7,8 +7,33 @@ from zeeguu.core.model.friendship import Friendship
 from zeeguu.core.model.user_language import UserLanguage
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.user_rule import UserRule
+from zeeguu.core.util.time import SERVER_TZ, user_local_today, user_zone
 
 session = zeeguu.core.model.db.session
+
+
+def practiced_days_ago(user, days=0):
+   """
+   A naive, server-frame timestamp that the code under test reads back as
+   `days` days before *this user's* local today.
+
+   The streak code never looks at a raw `last_practiced`: it runs the value
+   through `to_user_local_date`, which stamps the naive column with SERVER_TZ
+   and converts into the user's zone. So a test that stores a bare
+   `datetime.now()` is writing the developer machine's wall clock into a column
+   that is read as SERVER_TZ, and the two sides disagree about which day it is
+   whenever those differ -- e.g. on a CEST machine between local midnight and
+   UTC midnight, where the test means the 12th and the code reads the 11th.
+   Building the timestamp in the user's frame and converting it into the
+   server's keeps "today" and "yesterday" meaning the same thing to both,
+   at every hour and in every user timezone.
+
+   Noon local is used so the value stays a full half-day away from either
+   midnight, and so no DST transition can move it onto a neighbouring date.
+   """
+   local_day = user_local_today(user) - timedelta(days=days)
+   local_noon = datetime.combine(local_day, time(12, 0), tzinfo=user_zone(user))
+   return local_noon.astimezone(SERVER_TZ).replace(tzinfo=None)
 
 
 class FriendTest(ModelTestMixIn):
@@ -47,14 +72,12 @@ class FriendTest(ModelTestMixIn):
       session.commit()
 
       # Practice today for user1, user2, user3
-      now = datetime.now()
-      yesterday = now - timedelta(days=1)
       ul1 = UserLanguage.find_or_create(session, user1, lang)
       ul2 = UserLanguage.find_or_create(session, user2, lang)
       ul3 = UserLanguage.find_or_create(session, user3, lang)
-      ul1.last_practiced = yesterday
-      ul2.last_practiced = now
-      ul3.last_practiced = now
+      ul1.last_practiced = practiced_days_ago(user1, 1)
+      ul2.last_practiced = practiced_days_ago(user2)
+      ul3.last_practiced = practiced_days_ago(user3)
       session.add(ul1)
       session.add(ul2)
       session.add(ul3)
@@ -80,25 +103,24 @@ class FriendTest(ModelTestMixIn):
       assert self.friendship.friend_streak == 7
 
    def test_update_friend_streak_sets_to_one_if_both_practiced_today(self):
-      now = datetime.now()
-      self._set_last_practiced(self.user, now)
-      self._set_last_practiced(self.friend_user, now)
+      self._set_last_practiced(self.user, practiced_days_ago(self.user))
+      self._set_last_practiced(self.friend_user, practiced_days_ago(self.friend_user))
 
       update_streak(friendship=self.friendship)
 
       assert self.friendship.friend_streak == 1
 
    def test_update_friend_streak_sets_to_one_if_only_one_practiced_today(self):
-      self._set_last_practiced(self.user, datetime.now())
-      self._set_last_practiced(self.friend_user, datetime.now() - timedelta(days=1))
+      self._set_last_practiced(self.user, practiced_days_ago(self.user))
+      self._set_last_practiced(self.friend_user, practiced_days_ago(self.friend_user, 1))
 
       update_streak(friendship=self.friendship)
 
       assert self.friendship.friend_streak == 0
 
    def test_update_friend_streak_twice_only_increase_by_one(self):
-      self._set_last_practiced(self.user, datetime.now())
-      self._set_last_practiced(self.friend_user, datetime.now() - timedelta(days=1))
+      self._set_last_practiced(self.user, practiced_days_ago(self.user))
+      self._set_last_practiced(self.friend_user, practiced_days_ago(self.friend_user, 1))
 
       update_streak(friendship=self.friendship)
       update_streak(friendship=self.friendship)
@@ -111,8 +133,8 @@ class FriendTest(ModelTestMixIn):
       session.add(self.friendship)
       session.commit()
 
-      self._set_last_practiced(self.user, datetime.now())
-      self._set_last_practiced(self.friend_user, datetime.now() - timedelta(days=2))
+      self._set_last_practiced(self.user, practiced_days_ago(self.user))
+      self._set_last_practiced(self.friend_user, practiced_days_ago(self.friend_user, 2))
 
       update_streak(friendship=self.friendship)
 
@@ -138,8 +160,8 @@ class FriendTest(ModelTestMixIn):
       # Practice in learned_language for both users
       user_lang = UserLanguage.find_or_create(session, self.user, lang1)
       friend_lang = UserLanguage.find_or_create(session, self.friend_user, lang2)
-      user_lang.last_practiced = datetime.now()
-      friend_lang.last_practiced = datetime.now()
+      user_lang.last_practiced = practiced_days_ago(self.user)
+      friend_lang.last_practiced = practiced_days_ago(self.friend_user)
       session.add(user_lang)
       session.add(friend_lang)
       session.commit()
@@ -147,8 +169,8 @@ class FriendTest(ModelTestMixIn):
       # Add practice in a non-learned language (should not affect streak)
       user_lang_other = UserLanguage.find_or_create(session, self.user, lang2)
       friend_lang_other = UserLanguage.find_or_create(session, self.friend_user, lang1)
-      user_lang_other.last_practiced = datetime.now() - timedelta(days=5)
-      friend_lang_other.last_practiced = datetime.now() - timedelta(days=5)
+      user_lang_other.last_practiced = practiced_days_ago(self.user, 5)
+      friend_lang_other.last_practiced = practiced_days_ago(self.friend_user, 5)
       session.add(user_lang_other)
       session.add(friend_lang_other)
       session.commit()
@@ -158,4 +180,3 @@ class FriendTest(ModelTestMixIn):
 
       # Assert: streak is 1, only learned_language practice is counted
       assert self.friendship.friend_streak == 1
-
