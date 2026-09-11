@@ -105,6 +105,19 @@ class UserLanguage(db.Model):
         return f'User language (uid: {self.user_id}, language:"{self.Language}")'
 
     @classmethod
+    def variety_for(cls, user, language):
+        """
+        The regional variety this learner asked for in this language, or None.
+
+        None is by far the common answer -- it is what every row held before
+        varieties existed -- and it has to keep meaning "show me everything".
+        """
+        if user is None or language is None:
+            return None
+        row = cls.query.filter(cls.user == user).filter(cls.language == language).first()
+        return row.variety if row else None
+
+    @classmethod
     def find_or_create(cls, session, user, language):
         try:
             return (

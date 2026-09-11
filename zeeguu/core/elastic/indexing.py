@@ -178,6 +178,11 @@ def document_from_article(article, session, current_doc=None):
         # rather than infer on inferences.
         "topics_inferred": [t.title for t in topics_inferred],
         "language": article.language.name,
+        # Where this was published, for the variety preference to prefer. Absent
+        # for an uploaded or shared article, which has no feed, and for any feed
+        # nobody has tagged -- and absent must never cost an article anything,
+        # which is why this is a boost rather than a filter.
+        "country": article.feed.country if article.feed else None,
         "fk_difficulty": article.get_fk_difficulty(),
         "url": article.url.as_string(),
         "video": article.video,
