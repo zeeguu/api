@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import flask
 import sqlalchemy
+from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
 from zeeguu.api.endpoints.feature_toggles import features_for_user
@@ -10,7 +11,7 @@ from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from zeeguu.core.friends.friend_streak import compute_current_streak
-from zeeguu.core.model import User
+from zeeguu.core.model import Language, User
 from zeeguu.core.model.feedback_component import FeedbackComponent
 from zeeguu.core.model.url import Url
 from zeeguu.core.model.user_avatar import UserAvatar
@@ -227,6 +228,83 @@ def get_friend_details(friend_username):
     return json_result(details_dict)
 
 
+def _validated_settings(user, data):
+    """
+    Refuse everything refusable in a /user_settings request, before any of it is
+    written.
+
+    A 400 has to mean nothing was written. Checking as we go does not give that:
+    a check that runs after a mutation answers 400 over an account that has
+    already changed, and make_error neither rolls back nor raises, so the handler
+    below never sees it. Every check therefore lives here, ahead of every
+    mutation, and the single commit at the end is what the request rides on.
+
+    Returns the normalized values the caller is to write, under the keys the
+    request actually submitted. Raises ValueError -- which the endpoint answers
+    as a 400 -- for the first thing the request gets wrong.
+    """
+    validated = {}
+
+    submitted_username = data.get("username", None)
+    if submitted_username:
+        validated["username"] = _validated_username(user, submitted_username)
+
+    submitted_email = data.get("email", None)
+    if submitted_email:
+        validated["email"] = _validated_email(user, submitted_email)
+
+    for submitted_language_code in (
+        data.get("native_language", None),
+        data.get("learned_language", None),
+    ):
+        if submitted_language_code:
+            _validated_language(submitted_language_code)
+
+    # Absent means "leave the variety alone"; empty means "no preference".
+    submitted_variety = data.get("variety", None)
+    if submitted_variety is not None:
+        # set_learned_language and set_learned_language_variety validate this
+        # again on their way to storing it; here it only has to reject early.
+        variety_language_code = (
+            data.get("learned_language", None) or user.learned_language.code
+        )
+        User.validated_variety(variety_language_code, submitted_variety)
+
+    return validated
+
+
+def _validated_username(user, submitted_username):
+    normalized_username = submitted_username.strip()
+    if len(normalized_username) > User.MAX_USERNAME_LENGTH:
+        raise ValueError(f"Username can be at most {User.MAX_USERNAME_LENGTH} characters")
+    if not re.fullmatch(User.USERNAME_VALIDATION_REGEX, normalized_username):
+        raise ValueError("Username can only contain letters, numbers, and underscores")
+    # A user can change their username to the same username (case-insensitive)
+    # E.g from "MYUSER99" to "myuser99"
+    if normalized_username.lower() != user.username.lower() and User.username_exists(normalized_username):
+        raise ValueError("Username already in use")
+    return normalized_username
+
+
+def _validated_email(user, submitted_email):
+    normalized_email = submitted_email.strip().lower()
+    if normalized_email != user.email.lower() and User.email_exists(normalized_email):
+        raise ValueError("Email already in use")
+    return normalized_email
+
+
+def _validated_language(language_code):
+    """
+    Language.find raises sqlalchemy's NoResultFound for a code nobody has heard
+    of. That is neither ValueError nor IntegrityError, so it used to escape
+    /user_settings as a 500 -- a server error for what is a malformed request.
+    """
+    try:
+        return Language.find(language_code)
+    except NoResultFound:
+        raise ValueError(f"{language_code} is not a language Zeeguu knows") from None
+
+
 @api.route("/user_settings", methods=["POST"])
 @cross_domain
 @requires_session
@@ -251,26 +329,37 @@ def user_settings():
         data = flask.request.form
         user = User.find_by_id(user_id)
 
+        # Everything refusable is refused here, ahead of the first write. Nothing
+        # below this line may reject the request -- see _validated_settings.
+        validated = _validated_settings(user, data)
+
         submitted_name = data.get("name", None)
         if submitted_name:
             user.name = submitted_name
 
-        submitted_username = data.get("username", None)
-        if submitted_username:
-            normalized_username = submitted_username.strip()
-            if len(normalized_username) > User.MAX_USERNAME_LENGTH:
-                return make_error(400, f"Username can be at most {User.MAX_USERNAME_LENGTH} characters")
-            if not re.fullmatch(User.USERNAME_VALIDATION_REGEX, normalized_username):
-                return make_error(400, "Username can only contain letters, numbers, and underscores")
-            # A user can change their username to the same username (case-insensitive)
-            # E.g from "MYUSER99" to "myuser99"
-            if normalized_username.lower() != user.username.lower() and User.username_exists(normalized_username):
-                return make_error(400, "Username already in use")
-            user.username = normalized_username
+        if "username" in validated:
+            user.username = validated["username"]
 
         submitted_native_language_code = data.get("native_language", None)
         if submitted_native_language_code:
             user.set_native_language(submitted_native_language_code)
+
+        if "email" in validated:
+            user.email = validated["email"]
+
+        submitted_password = data.get("password", None)
+        if submitted_password:
+            user.update_password(submitted_password)
+
+        submitted_avatar_image_name = data.get("avatar_image_name", None)
+        submitted_avatar_character_color = data.get("avatar_character_color", None)
+        submitted_avatar_background_color = data.get("avatar_background_color", None)
+
+        if submitted_avatar_image_name or submitted_avatar_character_color or submitted_avatar_background_color:
+            user_avatar = UserAvatar.update_or_create(user_id, submitted_avatar_image_name,
+                                                      submitted_avatar_character_color,
+                                                      submitted_avatar_background_color)
+            zeeguu.core.model.db.session.add(user_avatar)
 
         cefr_level = data.get("cefr_level", None)
         submitted_learned_language_code = data.get("learned_language", None)
@@ -290,27 +379,6 @@ def user_settings():
             user.set_learned_language_variety(
                 submitted_variety, zeeguu.core.model.db.session
             )
-
-        submitted_email = data.get("email", None)
-        if submitted_email:
-            normalized_email = submitted_email.strip().lower()
-            if normalized_email != user.email.lower() and User.email_exists(normalized_email):
-                return make_error(400, "Email already in use")
-            user.email = normalized_email
-
-        submitted_password = data.get("password", None)
-        if submitted_password:
-            user.update_password(submitted_password)
-
-        submitted_avatar_image_name = data.get("avatar_image_name", None)
-        submitted_avatar_character_color = data.get("avatar_character_color", None)
-        submitted_avatar_background_color = data.get("avatar_background_color", None)
-
-        if submitted_avatar_image_name or submitted_avatar_character_color or submitted_avatar_background_color:
-            user_avatar = UserAvatar.update_or_create(user_id, submitted_avatar_image_name,
-                                                      submitted_avatar_character_color,
-                                                      submitted_avatar_background_color)
-            zeeguu.core.model.db.session.add(user_avatar)
 
         zeeguu.core.model.db.session.add(user)
         zeeguu.core.model.db.session.commit()
