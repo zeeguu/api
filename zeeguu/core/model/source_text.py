@@ -11,7 +11,12 @@ TWO_MB = 2 * 10**6
 
 
 class SourceText(db.Model):
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # HASH_INDEX is production's own name for this index; keep it so nobody
+    # generates a second one. It is what find_or_create's hash lookup relies on.
+    __table_args__ = (
+        db.UniqueConstraint("content_hash", name="HASH_INDEX"),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     # this mapes to TEXT in the mysql which can hold about 15K words
