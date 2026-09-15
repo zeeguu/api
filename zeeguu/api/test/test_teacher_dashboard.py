@@ -49,6 +49,26 @@ def test_remove_cohort(client):
     assert resp.status_code == 401
 
 
+def test_mark_invitation_code_deleted_is_bounded_and_idempotent():
+    from zeeguu.api.endpoints.teacher_dashboard.cohorts import (
+        INVITATION_CODE_MAX_LENGTH,
+        _mark_invitation_code_deleted,
+    )
+
+    assert _mark_invitation_code_deleted("ABC123") == "deleted_ABC123"
+
+    # an already marked code must be left alone: stacking the marker is what
+    # overflowed the column and made remove_cohort 500 before deleting anything
+    assert _mark_invitation_code_deleted("deleted_ABC123") == "deleted_ABC123"
+
+    assert _mark_invitation_code_deleted(None) is None
+
+    # when it does not fit, the code is what gets clipped -- never the marker
+    marked = _mark_invitation_code_deleted("x" * INVITATION_CODE_MAX_LENGTH)
+    assert len(marked) == INVITATION_CODE_MAX_LENGTH
+    assert marked.startswith("deleted_")
+
+
 def test_update_cohort(client):
     client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
 
