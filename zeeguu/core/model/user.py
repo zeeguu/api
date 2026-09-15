@@ -320,16 +320,6 @@ class User(db.Model):
             result[each.language.code + "_exercises"] = each.doing_exercises
             result[each.language.code + "_cefr_level"] = each.cefr_level
             result[each.language.code + "_feed_variety"] = each.feed_variety
-            # The name this field had before feed_variety, emitted alongside it.
-            # The native apps ship a frozen copy of the web bundle -- capacitor
-            # bakes `build/` into the binary -- so a web deploy does not reach
-            # them: app 1.3.3, in App Store review when feed_variety went out,
-            # reads the old key.
-            #
-            # A 1.3.4 follows as soon as 1.3.3 clears review, so this is a bridge
-            # over one release and its rollout, not a compatibility layer to keep.
-            # Drop it once 1.3.3's install base has drained.
-            result[each.language.code + "_variety"] = each.feed_variety
             result[each.language.code + "_dialect"] = each.dialect
 
         return result
