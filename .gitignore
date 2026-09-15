@@ -53,3 +53,8 @@ diagrams/*.json
 # Keep internal technical design documents private
 experiments/
 docs/particle_verb_detection.md
+
+# Per-machine Claude Code state. Shared config (.claude/settings.json,
+# .claude/commands/) is deliberately not ignored, so it can still be committed.
+.claude/settings.local.json
+.claude/worktrees/
