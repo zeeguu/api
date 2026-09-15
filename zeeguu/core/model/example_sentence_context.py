@@ -22,7 +22,9 @@ class ExampleSentenceContext(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id), nullable=False)
+    bookmark_id = db.Column(
+        db.Integer, db.ForeignKey(Bookmark.id, ondelete="CASCADE"), nullable=False
+    )
     bookmark = db.relationship(Bookmark)
 
     example_sentence_id = db.Column(db.Integer, db.ForeignKey(ExampleSentence.id), nullable=False)

@@ -20,7 +20,9 @@ class ArticleFragmentContext(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     from zeeguu.core.model.bookmark import Bookmark
 
-    bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id), nullable=False)
+    bookmark_id = db.Column(
+        db.Integer, db.ForeignKey(Bookmark.id, ondelete="CASCADE"), nullable=False
+    )
     bookmark = db.relationship(Bookmark)
 
     from zeeguu.core.model.article_fragment import ArticleFragment

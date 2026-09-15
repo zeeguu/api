@@ -15,7 +15,9 @@ class ExerciseReport(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
-    bookmark_id = db.Column(db.Integer, db.ForeignKey("bookmark.id"), nullable=False)
+    bookmark_id = db.Column(
+        db.Integer, db.ForeignKey("bookmark.id", ondelete="CASCADE"), nullable=False
+    )
     exercise_source_id = db.Column(
         db.Integer, db.ForeignKey("exercise_source.id"), nullable=False
     )
@@ -37,7 +39,18 @@ class ExerciseReport(db.Model):
     resolved = db.Column(db.Boolean, default=False)
 
     user = db.relationship("User")
-    bookmark = db.relationship("Bookmark", backref="exercise_reports")
+    # The only bookmark-context relationship with a backref, so it is also the
+    # only one where the ORM acts before MySQL does: on a bookmark delete the
+    # default backref cascade would try to de-associate the reports with
+    # UPDATE exercise_report SET bookmark_id = NULL, which bookmark_id's
+    # NOT NULL rejects. passive_deletes hands the job to the FK's ON DELETE
+    # CASCADE (26-09-11--cascade_bookmark_context_fks.sql) instead.
+    bookmark = db.relationship(
+        "Bookmark",
+        backref=db.backref(
+            "exercise_reports", cascade="all, delete-orphan", passive_deletes=True
+        ),
+    )
     exercise_source = db.relationship("ExerciseSource")
 
     def __init__(
