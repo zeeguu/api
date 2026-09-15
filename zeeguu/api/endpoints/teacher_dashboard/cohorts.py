@@ -33,6 +33,27 @@ from zeeguu.core.model.db import db
 from zeeguu.core.util.encoding import datetime_to_json
 
 
+DELETED_INVITATION_CODE_PREFIX = "deleted_"
+INVITATION_CODE_MAX_LENGTH = User.__table__.c.invitation_code.type.length
+
+
+def _mark_invitation_code_deleted(invitation_code):
+    """
+    Prefix an invite code so that later lookups for that code skip the student.
+
+    Bounded on purpose. The marker used to be prepended blindly, which overflowed
+    the column and made remove_cohort fail with a 500 (DataError 1406) before
+    anything had been deleted -- the teacher simply could not delete the class.
+    Whatever does not fit is dropped from the code, never from the marker, and an
+    already-marked code is left alone.
+    """
+    if not invitation_code or invitation_code.startswith(DELETED_INVITATION_CODE_PREFIX):
+        return invitation_code
+
+    marked = f"{DELETED_INVITATION_CODE_PREFIX}{invitation_code}"
+    return marked[:INVITATION_CODE_MAX_LENGTH]
+
+
 @api.route("/remove_cohort/<cohort_id>", methods=["POST"])
 @requires_session
 def remove_cohort(cohort_id):
@@ -55,7 +76,9 @@ def remove_cohort(cohort_id):
                 invitation_code=selected_cohort.inv_code
             ).all()
             for student in legacy_students:
-                student.invitation_code = f"deleted_{student.invitation_code}"
+                student.invitation_code = _mark_invitation_code_deleted(
+                    student.invitation_code
+                )
                 db.session.add(student)
 
         # Remove all student-cohort relationships
@@ -74,9 +97,11 @@ def remove_cohort(cohort_id):
         db.session.commit()
         return "OK"
     except ValueError:
+        db.session.rollback()
         flask.abort(400)
         return "ValueError"
     except sqlalchemy.orm.exc.NoResultFound:
+        db.session.rollback()
         flask.abort(400)
         return "NoResultFound"
 
