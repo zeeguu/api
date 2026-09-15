@@ -20,7 +20,15 @@ class SearchFilter(db.Model):
 
     """
 
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # Named for the index tools/migrations/26-09-11--add_promised_unique_indexes.sql
+    # adds in production, so nobody generates a second one. It is what
+    # find_or_create's duplicate-entry branch exists for.
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id", "search_id", name="uq_search_filter_user_search"
+        ),
+        {"mysql_collate": "utf8_bin"},
+    )
     __tablename__ = "search_filter"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -32,8 +40,6 @@ class SearchFilter(db.Model):
 
     search_id = db.Column(db.Integer, db.ForeignKey(Search.id))
     search = relationship(Search)
-
-    UniqueConstraint(user_id, search_id)
 
     def __init__(self, user, search):
         self.user = user
@@ -49,8 +55,23 @@ class SearchFilter(db.Model):
         try:
             return cls.query.filter(cls.user == user).filter(cls.search == search).one()
         except sqlalchemy.orm.exc.NoResultFound:
-            new = cls(user, search)
-            session.add(new)
+            # Two requests that both miss the query above both insert, and the
+            # unique key lets exactly one of them through. The savepoint is what
+            # makes losing survivable: a failed flush leaves the whole session
+            # needing a rollback, so recovering without one raises
+            # PendingRollbackError and recovering with a full rollback discards
+            # whatever the caller had pending. Rolling back to a savepoint undoes
+            # this insert and nothing else.
+            try:
+                with session.begin_nested():
+                    new = cls(user, search)
+                    session.add(new)
+            except sqlalchemy.exc.IntegrityError:
+                return (
+                    cls.query.filter(cls.user == user)
+                    .filter(cls.search == search)
+                    .one()
+                )
             session.commit()
             return new
 
