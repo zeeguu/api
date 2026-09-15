@@ -20,7 +20,9 @@ class VideoCaptionContext(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
 
-    bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id), nullable=False)
+    bookmark_id = db.Column(
+        db.Integer, db.ForeignKey(Bookmark.id, ondelete="CASCADE"), nullable=False
+    )
     bookmark = db.relationship(Bookmark)
 
     from zeeguu.core.model.caption import Caption

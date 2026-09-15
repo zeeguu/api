@@ -30,7 +30,9 @@ class LevelAdaptedArticleTitleContext(db.Model):
 
     from zeeguu.core.model.bookmark import Bookmark
 
-    bookmark_id = db.Column(db.Integer, db.ForeignKey(Bookmark.id), nullable=False)
+    bookmark_id = db.Column(
+        db.Integer, db.ForeignKey(Bookmark.id, ondelete="CASCADE"), nullable=False
+    )
     bookmark = db.relationship(Bookmark)
 
     from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
