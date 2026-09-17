@@ -164,14 +164,22 @@ def test_one_host_exhausting_the_limit_does_not_lock_out_everyone(client, limiti
     throttled -- they throttle every legitimate user at the same time.
     """
     attacker = {"X-Forwarded-For": "203.0.113.7"}
-    for _ in range(105):
+    for i in range(400):
         client.post(
-            "/session/nobody@zeeguu.test", data={"password": "wrong"}, headers=attacker
+            f"/session/victim{i}@zeeguu.test", data={"password": "wrong"}, headers=attacker
         )
 
-    assert (
-        _login(client, "nobody@zeeguu.test", "wrong") != 429
-    ), "one host spending the login budget locked out every other address"
+    # A different person, at a different address, going about their day. Note
+    # the bystander needs a different account as well as a different address:
+    # the per-account limit is meant to lock the account under attack, so
+    # reusing one of those addresses above would be measuring the wrong thing.
+    bystander = client.post(
+        "/session/bystander@zeeguu.test",
+        data={"password": "wrong"},
+        headers={"X-Forwarded-For": "198.51.100.4"},
+    ).status_code
+
+    assert bystander != 429, "one host spending the login budget locked out everyone else"
 
 
 def test_the_attacker_themselves_is_still_capped(client, limiting_enabled):
@@ -179,9 +187,102 @@ def test_the_attacker_themselves_is_still_capped(client, limiting_enabled):
     attacker = {"X-Forwarded-For": "203.0.113.9"}
     codes = [
         client.post(
-            "/session/nobody@zeeguu.test", data={"password": "wrong"}, headers=attacker
+            f"/session/spray{i}@zeeguu.test", data={"password": "wrong"}, headers=attacker
         ).status_code
-        for _ in range(105)
+        for i in range(400)
     ]
 
-    assert 429 in codes, "a single address made 105 failed logins without being capped"
+    assert 429 in codes, "one address sprayed 400 accounts without being capped"
+
+
+# --- a class of thirty must never meet any of this ------------------------
+#
+# Thirty students share one school NAT, so every per-IP limit sees them as a
+# single caller. And once a bucket is spent flask-limiter turns away every
+# request on that key, not just the ones that spent it -- so an IP limit a
+# class can reach doesn't inconvenience the strugglers, it locks the room out,
+# including the students typing the right password. The per-account limits are
+# what let the IP ceilings stay above anything a real class does.
+
+CLASS_SIZE = 30
+SCHOOL_NAT = {"X-Forwarded-For": "198.51.100.30"}
+
+
+def test_a_class_resetting_passwords_together_is_not_throttled(client, limiting_enabled):
+    """A teacher says "everyone who forgot their password, click now"."""
+    codes = [
+        client.post(
+            f"/send_code/student{i}@school.test", headers=SCHOOL_NAT
+        ).status_code
+        for i in range(CLASS_SIZE)
+    ]
+
+    assert 429 not in codes, "a class of 30 requesting reset codes hit the limit"
+
+
+def test_a_class_typing_codes_in_wrongly_is_not_throttled(client, limiting_enabled):
+    """The same class then enters those codes, and some get them wrong."""
+    codes = [
+        client.post(
+            f"/reset_password/student{i}@school.test",
+            data={"code": "000000", "password": "newpassword"},
+            headers=SCHOOL_NAT,
+        ).status_code
+        for i in range(CLASS_SIZE)
+    ]
+
+    assert 429 not in codes, "a class of 30 submitting reset codes hit the limit"
+
+
+def test_a_class_mistyping_passwords_is_not_throttled(client, limiting_enabled):
+    """First lesson of term: thirty students, three wrong passwords each."""
+    codes = [
+        client.post(
+            f"/session/student{i}@school.test",
+            data={"password": "wrong"},
+            headers=SCHOOL_NAT,
+        ).status_code
+        for i in range(CLASS_SIZE)
+        for _ in range(3)
+    ]
+
+    assert 429 not in codes, "a class of 30 mistyping passwords locked itself out"
+
+
+def test_a_class_signing_up_together_is_not_throttled(client, limiting_enabled):
+    """A whole class onboarding in one lesson, on one address."""
+    codes = [
+        client.post(
+            f"/add_user/newstudent{i}@school.test",
+            data={"password": "somepassword", "username": f"Student {i}",
+                  "invite_code": "", "learned_language": "de",
+                  "native_language": "nl", "learned_cefr_level": "1"},
+            headers=SCHOOL_NAT,
+        ).status_code
+        for i in range(CLASS_SIZE)
+    ]
+
+    assert 429 not in codes, "a class of 30 signing up hit the limit"
+
+
+# --- but one account is still defended ------------------------------------
+
+
+def test_guessing_one_account_is_capped_however_many_addresses_are_used(
+    client, limiting_enabled
+):
+    """
+    The point of the per-account key. An attacker rotating IPs defeats any
+    per-IP number, so the limit that stops them has to count against the
+    account being guessed at.
+    """
+    codes = [
+        client.post(
+            "/session/victim@zeeguu.test",
+            data={"password": f"guess{i}"},
+            headers={"X-Forwarded-For": f"203.0.113.{i}"},
+        ).status_code
+        for i in range(20)
+    ]
+
+    assert 429 in codes, "20 guesses at one account from 20 addresses went uncapped"

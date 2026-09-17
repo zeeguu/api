@@ -45,13 +45,27 @@ class Limit:
 
 
 RATE_LIMITS = {
-    # Login. Charged only for rejected attempts, so a room full of people
-    # signing in normally never touches this. What it caps is one host sitting
-    # there guessing, which is the only thing an IP bucket can honestly cap:
-    # anyone willing to rotate addresses walks around it regardless, and the
-    # defence that actually stops them is a per-account limit (not yet here).
-    "endpoints.get_session": Limit("100 per minute;1000 per hour", count="failures"),
-    "endpoints.get_anon_session": Limit("100 per minute;1000 per hour", count="failures"),
+    # Login. Charged only for rejected attempts, so signing in normally is
+    # free. The per-account limit is the one doing the work: it counts failures
+    # against the account being guessed at, so rotating IPs -- which defeats any
+    # per-IP number -- buys an attacker nothing. Ten wrong passwords per quarter
+    # hour is more than a person who has forgotten theirs will use before
+    # reaching for the reset link, and useless to anybody guessing.
+    #
+    # That is also what lets the IP ceiling be generous. A class of thirty
+    # shares one school NAT, and once a bucket is spent flask-limiter turns away
+    # every request on that key -- including the students typing the right
+    # password. So an IP number tight enough to matter would lock the room out,
+    # and the room is not what needs stopping. It stays only as a backstop
+    # against one host spraying attempts across many accounts at once.
+    "endpoints.get_session": (
+        Limit("10 per 15 minutes", key="target_account", count="failures"),
+        Limit("300 per minute;3000 per hour", count="failures"),
+    ),
+    "endpoints.get_anon_session": (
+        Limit("10 per 15 minutes", key="target_account", count="failures"),
+        Limit("300 per minute;3000 per hour", count="failures"),
+    ),
 
     # Requesting a reset code. Deliberately answers "OK" even for addresses
     # that don't exist, so that it can't be used to enumerate users - which
@@ -65,15 +79,24 @@ RATE_LIMITS = {
     # message this hour to someone who has already had five. Nobody legitimate
     # needs more, so there is no crowd to catch - a whole school forgetting
     # their passwords is still one request each. The per-IP limit stays on as
-    # a backstop against spraying one message at each of many addresses.
+    # a backstop against spraying one message at each of many addresses. It has
+    # to clear a whole class clicking "forgot my password" in the same minute on
+    # one school NAT, which 20 a minute would not: ten of thirty students would
+    # be turned away.
     "endpoints.send_code": (
         Limit("5 per hour", key="target_email"),
-        Limit("20 per minute;200 per hour"),
+        Limit("100 per minute;600 per hour"),
     ),
 
-    # Submitting a code. A wrong code is a 400, so this caps guessing while a
-    # legitimate reset costs nothing.
-    "endpoints.reset_password": Limit("20 per minute;200 per hour", count="failures"),
+    # Submitting a code. A wrong code is a 400, so a legitimate reset costs
+    # nothing. Per account for the same reason as login -- that is what stops
+    # someone working through the code space for one address, and it leaves the
+    # IP ceiling free to clear the class that just requested thirty codes and is
+    # now typing them in, some of them wrongly.
+    "endpoints.reset_password": (
+        Limit("10 per hour", key="target_email", count="failures"),
+        Limit("100 per minute;600 per hour", count="failures"),
+    ),
 
     # Account creation. A whole school onboarding at once has to fit under
     # this, which is why it is generous: invite codes, not this limit, are the
@@ -109,6 +132,32 @@ def _target_email_key():
     """
     email = (flask.request.view_args or {}).get("email") or ""
     return f"email:{email.strip().lower()}"
+
+
+def _target_account_key():
+    """
+    Rate-limit key for endpoints that authenticate an account named in the
+    route, so failed attempts are counted against the account being guessed at
+    rather than against whoever is asking.
+
+    This is the limit that actually stops brute force. An IP bucket cannot:
+    anyone willing to rotate addresses steps around it. It is also the one
+    that makes the IP numbers safe to keep loose, because a class of thirty
+    behind one school NAT is thirty separate buckets here, not one.
+
+    /session/<email> names the account by address, /get_anon_session/<uuid> by
+    uuid. Falling back to the IP when neither is present is deliberate: a
+    constant would put every caller in a single bucket, which is the failure
+    this file exists to prevent.
+    """
+    args = flask.request.view_args or {}
+    email = args.get("email")
+    if email:
+        return f"account:{email.strip().lower()}"
+    uuid = args.get("uuid")
+    if uuid:
+        return f"account:{uuid.strip()}"
+    return get_remote_address()
 
 
 def _session_key():
@@ -169,6 +218,7 @@ def apply_rate_limits_to_endpoints(app):
         "ip": get_remote_address,
         "session": _session_key,
         "target_email": _target_email_key,
+        "target_account": _target_account_key,
     }
 
     missing = sorted(ep for ep in RATE_LIMITS if ep not in app.view_functions)
