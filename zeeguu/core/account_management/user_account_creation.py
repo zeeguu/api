@@ -149,7 +149,15 @@ def create_account(
                 native_language=native_language,
                 creation_platform=creation_platform,
             )
-            user.email_verified = False  # Require email verification
+            # A student who signed up with a teacher's invitation code is already
+            # vouched for by that teacher, and the cohort's capacity caps the
+            # abuse this opens up. Asking a class of thirty to each go and find a
+            # code in their mail costs a lesson; the teacher's word is the better
+            # signal. Keyed on the resolved cohort, not on invite_code being
+            # non-empty: valid_invite_code also accepts the global
+            # INVITATION_CODES from config, which belong to no class and carry
+            # no teacher's vouching, and those must still verify by email.
+            user.email_verified = cohort is not None
             return user, animal
 
         def add_siblings(user):
@@ -170,14 +178,21 @@ def create_account(
         character_color, background_color = UserAvatar.random_colors()
         user_avatar = UserAvatar(new_user.id, animal, character_color, background_color)
         db_session.add(user_avatar)
+        # The avatar used to ride along on the verification code's commit below.
+        # That commit is now conditional, so it needs its own.
+        db_session.commit()
 
         send_new_user_account_email(username, invite_code, cohort_name)
 
-        code = UniqueCode(email)
-        db_session.add(code)
-        db_session.commit()
-        log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
-        send_email_confirmation(email, code)
+        # Nothing to confirm for a cohort signup, and mailing "please confirm
+        # your email" to someone already verified only sends them hunting for a
+        # step that isn't there.
+        if not new_user.email_verified:
+            code = UniqueCode(email)
+            db_session.add(code)
+            db_session.commit()
+            log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
+            send_email_confirmation(email, code)
 
         return new_user
 
@@ -229,7 +244,10 @@ def create_basic_account(
                 invitation_code=invite_code,
                 creation_platform=creation_platform,
             )
-            user.email_verified = False  # Require email verification
+            # Same rule as create_account: the teacher's invitation is the
+            # vouching, so a resolved cohort verifies the address. See the
+            # comment there for why this is keyed on cohort and not invite_code.
+            user.email_verified = cohort is not None
             return user, animal
 
         def add_siblings(user):
@@ -242,14 +260,21 @@ def create_basic_account(
         character_color, background_color = UserAvatar.random_colors()
         user_avatar = UserAvatar(new_user.id, animal, character_color, background_color)
         db_session.add(user_avatar)
+        # The avatar used to ride along on the verification code's commit below.
+        # That commit is now conditional, so it needs its own.
+        db_session.commit()
 
         send_new_user_account_email(username, invite_code, cohort_name)
 
-        code = UniqueCode(email)
-        db_session.add(code)
-        db_session.commit()
-        log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
-        send_email_confirmation(email, code)
+        # Nothing to confirm for a cohort signup, and mailing "please confirm
+        # your email" to someone already verified only sends them hunting for a
+        # step that isn't there.
+        if not new_user.email_verified:
+            code = UniqueCode(email)
+            db_session.add(code)
+            db_session.commit()
+            log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
+            send_email_confirmation(email, code)
 
         return new_user
 
