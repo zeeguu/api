@@ -134,3 +134,54 @@ def test_one_inbox_being_spent_does_not_block_everyone_else(client, limiting_ena
         client.post("/send_code/first@zeeguu.test")
 
     assert client.post("/send_code/second@zeeguu.test").status_code != 429
+
+
+# --- the limiter can tell one caller from another ------------------------
+#
+# Everything above keys on the caller's address, which is only meaningful if
+# the API can see it. In production nothing reaches Flask directly: nginx
+# forwards every request, so REMOTE_ADDR is the proxy and is identical for the
+# whole world. Production access logs showed exactly two source addresses,
+# 172.18.0.1 and 127.0.0.1, across two days of traffic.
+#
+# Under that, every per-IP limit is one global bucket. It cannot isolate an
+# attacker, and worse: a single host making enough failed logins spends the
+# budget for everybody, so the rate limit becomes a remote off-switch for
+# logging in to Zeeguu. nginx now sends X-Forwarded-For and ProxyFix reads it.
+
+
+def test_the_app_trusts_exactly_one_proxy(app):
+    """Without ProxyFix the addresses everything above keys on are all the same."""
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    assert isinstance(app.wsgi_app, ProxyFix)
+
+
+def test_one_host_exhausting_the_limit_does_not_lock_out_everyone(client, limiting_enabled):
+    """
+    The failure this guards is the expensive one. If the limiter cannot tell
+    callers apart, an attacker guessing passwords doesn't just get themselves
+    throttled -- they throttle every legitimate user at the same time.
+    """
+    attacker = {"X-Forwarded-For": "203.0.113.7"}
+    for _ in range(105):
+        client.post(
+            "/session/nobody@zeeguu.test", data={"password": "wrong"}, headers=attacker
+        )
+
+    assert (
+        _login(client, "nobody@zeeguu.test", "wrong") != 429
+    ), "one host spending the login budget locked out every other address"
+
+
+def test_the_attacker_themselves_is_still_capped(client, limiting_enabled):
+    """The other half: telling callers apart must not stop the limit applying."""
+    attacker = {"X-Forwarded-For": "203.0.113.9"}
+    codes = [
+        client.post(
+            "/session/nobody@zeeguu.test", data={"password": "wrong"}, headers=attacker
+        ).status_code
+        for _ in range(105)
+    ]
+
+    assert 429 in codes, "a single address made 105 failed logins without being capped"
