@@ -2,6 +2,7 @@
 from zeeguu.config.loader import load_configuration_or_abort
 from flask_cors import CORS
 from flask import Flask, send_from_directory
+from werkzeug.middleware.proxy_fix import ProxyFix
 import flask
 import time
 import os
@@ -62,12 +63,20 @@ logger.setLevel(logging.CRITICAL)
 def create_app(testing=False):
     # *** Creating and starting the App *** #
     app = Flask("Zeeguu-API")
+
+    # Every request arrives through nginx, so request.remote_addr is the proxy's
+    # address — in production that is 172.18.0.1 for every user on earth. An IP
+    # rate limit keyed on it is therefore a single global bucket: it cannot pick
+    # an attacker out of the crowd, and worse, one host making enough failed
+    # logins would spend the budget for everybody and lock the world out of
+    # Zeeguu. Trust exactly one proxy hop and read the address nginx records in
+    # X-Forwarded-For. nginx must set that header (see the ops repo); without
+    # it, every address here becomes None and the limits stay global.
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
+
     CORS(app)
     if testing:
         app.testing = True
-
-    # Initialize rate limiter for security-sensitive endpoints
-    init_limiter(app)
 
     load_configuration_or_abort(
         app,
@@ -87,6 +96,11 @@ def create_app(testing=False):
             "SMTP_EMAIL",
         ],
     )
+
+    # Initialize the rate limiter for security-sensitive endpoints. This has to
+    # happen after the configuration is loaded, or RATELIMIT_STORAGE_URI is
+    # never seen and every worker silently keeps its own in-memory counters.
+    init_limiter(app, enabled=not testing)
 
     # if we don't specify the charset in the connection string
     # we are not able to store emojis
