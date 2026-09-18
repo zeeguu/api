@@ -39,6 +39,19 @@ def filter_hits_on_score(hits, score_threshold):
     return [h for h in hits if h["_score"] > score_threshold]
 
 
+def _avoided_keywords_for(user):
+    """
+    The learner's "Topics to Avoid" list, as the space-joined string the elastic
+    queries match on.
+
+    Its own function because three different query paths need it and only one of
+    them wants everything else _prepare_user_constraints gathers.
+    """
+    return _list_to_string(
+        [each.search.keywords for each in SearchFilter.all_for_user(user)]
+    )
+
+
 def _prepare_user_constraints(user, language=None):
     # `language` lets callers recommend for a language other than the one
     # currently persisted on the user. The web client passes it on language
@@ -49,10 +62,7 @@ def _prepare_user_constraints(user, language=None):
 
     # 1. Unwanted user topics
     # ==============================
-    user_search_filters = SearchFilter.all_for_user(user)
-    unwanted_user_searches = []
-    for user_search_filter in user_search_filters:
-        unwanted_user_searches.append(user_search_filter.search.keywords)
+    unwanted_user_searches = _avoided_keywords_for(user)
     print(f"keywords to exclude: {unwanted_user_searches}")
 
     # 2. Topics to exclude / filter out
@@ -98,7 +108,7 @@ def _prepare_user_constraints(user, language=None):
         _topics_to_string(topics_to_include),
         _topics_to_string(topics_to_exclude),
         _list_to_string(wanted_user_searches),
-        _list_to_string(unwanted_user_searches),
+        unwanted_user_searches,
         user_ignored_sources,
         feed_variety,
     )
@@ -317,7 +327,22 @@ def article_and_video_search_for_user(
     use_published_priority=False,
     score_threshold=0,
     language=None,
+    honor_avoid_keywords=True,
 ):
+    """
+    :param honor_avoid_keywords: whether the learner's "Topics to Avoid" list
+        applies to these results. It does wherever we search *on their behalf* --
+        the saved-search injection into the feed, the subscription preview, the
+        subscription emails -- because there a standing subscription is meeting a
+        standing avoid list, and the block wins: someone who avoids "trump" and
+        subscribes to "iran" did not ask for the intersection. It does not apply
+        to a term they just typed into the search box, which is an explicit
+        instruction that outranks the older standing one.
+
+        The disturbing-content filter gets no such escape hatch and is applied
+        unconditionally below. It is a safety setting a teacher or a parent may
+        have made, and a setting a learner can switch off by searching is not one.
+    """
 
     (
         language,
@@ -339,6 +364,10 @@ def article_and_video_search_for_user(
         es_time_decay,
         page,
         use_published_priority,
+        unwanted_user_searches=(
+            unwanted_user_searches if honor_avoid_keywords else None
+        ),
+        filter_disturbing=UserPreference.is_filter_disturbing_content_enabled(user),
     )
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -376,7 +405,9 @@ def topic_filter_for_user(
 ):
     es = Elasticsearch(ES_CONN_STRING)
 
-    s = Search().query(Q("term", language=user.learned_language.code()))
+    # `.code` is a column, not a method: calling it raised TypeError before
+    # anything below could run, so this whole path was dead.
+    s = Search().query(Q("term", language=user.learned_language.code))
 
     if newer_than:
         s = s.filter("range", published_time={"gte": f"now-{newer_than}d/d"})
@@ -401,6 +432,17 @@ def topic_filter_for_user(
 
     if topic != None and topic != "all":
         s = s.filter("match", topics=topic.lower())
+
+    # Browsing a topic is still the learner browsing their own feed, so the two
+    # "avoid" settings bind here exactly as they do in the recommender query --
+    # this view used to be a way around both of them (#708).
+    unwanted_user_searches = _avoided_keywords_for(user)
+    if unwanted_user_searches:
+        s = s.exclude("match", title=unwanted_user_searches)
+        s = s.exclude("match", content=unwanted_user_searches)
+
+    if UserPreference.is_filter_disturbing_content_enabled(user):
+        s = s.exclude("match", is_disturbing=True)
 
     # No CEFR filter here either — see build_elastic_recommender_query for why.
 
