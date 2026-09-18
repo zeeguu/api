@@ -156,7 +156,15 @@ def _target_account_key():
         return f"account:{email.strip().lower()}"
     uuid = args.get("uuid")
     if uuid:
-        return f"account:{uuid.strip()}"
+        # There is no uuid column on user: an anonymous account's uuid is the
+        # local part of the address it was generated with, and
+        # authorize_anonymous appends the domain back on. So this route and
+        # /session/<uuid>@anon.zeeguu reach one account by two doors, and since
+        # flask-limiter buckets per endpoint that account gets ten guesses at
+        # each -- twenty rather than ten. Left alone deliberately: twenty wrong
+        # passwords a quarter of an hour is no more use to someone guessing
+        # than ten, and merging the buckets costs more than it buys.
+        return f"account:{uuid.strip().lower()}"
     return get_remote_address()
 
 
