@@ -267,10 +267,15 @@ def _charge_global_miss():
 # ---------------------------------------------------------------------------
 @cross_domain
 def article_share_link_info(code):
-    """Who shared this link — for the logged-in reader's "shared by" credit,
-    which otherwise only exists for in-app friend shares."""
+    """What a share link points at, and who shared it.
+
+    Resolves a short link (zeeguu.org/s/<code>) to its article, and gives the
+    logged-in reader its "shared by" credit (which otherwise only exists for
+    in-app friend shares). With ?article_id=, the code must belong to that
+    article -- a code pasted onto another article's link credits no one.
+    """
+    link = ArticleShareLink.find_by_code(code)
     article_id = request.args.get("article_id", type=int)
-    link = ArticleShareLink.find_for_article(code, article_id)
-    if not link:
+    if not link or (article_id is not None and link.article_id != article_id):
         return json_result({"error": "Unknown share link"}), 404
-    return json_result({"shared_by_name": link.sharer_display_name()})
+    return json_result({"article_id": link.article_id, "shared_by_name": link.sharer_display_name()})

@@ -202,3 +202,28 @@ def test_per_ip_limit(client, article_id, fake_translator, limiting_enabled):
     codes = [_translate(client, article_id, position, headers).status_code for _ in range(21)]
     assert codes[:20] == [200] * 20
     assert codes[20] == 429
+
+
+def test_short_link_code_is_letters_and_digits(client, article_id):
+    code = client.post(f"/article_share_link/{article_id}")["code"]
+    assert len(code) == 10 and code.isalnum() and code.isascii()
+
+
+def test_short_link_resolves_without_the_article_id(client, article_id):
+    code = client.post(f"/article_share_link/{article_id}")["code"]
+    status, info = _anon_get(client, f"/article_share_link_info/{code}")
+    assert status == 200
+    assert info == {"article_id": article_id, "shared_by_name": "test"}
+
+    status, _ = _anon_get(client, "/article_share_link_info/doesNotExist")
+    assert status == 404
+
+
+def test_short_link_preview_for_crawlers(client, article_id):
+    code = client.post(f"/article_share_link/{article_id}")["code"]
+    with patch("zeeguu.api.endpoints.article._ensure_article_card"):
+        response = client.client.get(f"/shared_article_preview/s/{code}")
+    assert response.status_code == 200
+    html = response.data.decode()
+    assert f'<meta property="og:url" content="https://zeeguu.org/s/{code}">' in html
+    assert f"/shared_article_image/{article_id}.jpg" in html

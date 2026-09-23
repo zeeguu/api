@@ -140,6 +140,25 @@ def shared_article_preview(article_id):
     page_url = f"{SHARE_WEB_ORIGIN}/read/article?id={article_id}"
     if not article:
         return flask.redirect(page_url, code=302)
+    return _article_preview_response(article, page_url)
+
+
+@api.route("/shared_article_preview/s/<string:code>", methods=["GET"])
+@cross_domain
+def shared_article_preview_by_code(code):
+    """The same crawler-facing OG HTML for a short share link
+    (zeeguu.org/s/<code>); nginx routes crawlers on /s/<code> here."""
+    from zeeguu.core.model.article_share_link import ArticleShareLink
+
+    page_url = f"{SHARE_WEB_ORIGIN}/s/{code}"
+    link = ArticleShareLink.find_by_code(code)
+    if not link:
+        return flask.redirect(page_url, code=302)
+    return _article_preview_response(link.article, page_url)
+
+
+def _article_preview_response(article, page_url):
+    article_id = article.id
     view = _article_card_view(article)
     og_title, description = _article_preview_texts(view)
     image_url = f"{SHARE_API_ORIGIN}/shared_article_image/{article_id}.jpg"
