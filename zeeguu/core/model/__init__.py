@@ -136,4 +136,5 @@ from .friend_request import FriendRequest
 from .friendship import Friendship
 from .shared_article import SharedArticle
 from .article_share_link import ArticleShareLink
+from .public_translation import PublicTranslation
 
