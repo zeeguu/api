@@ -54,5 +54,6 @@ from . import daily_streak
 from . import verbal_flashcards
 from . import badges
 from . import friends
+from . import public_article
 from . import leaderboards
 from . import status

@@ -63,6 +63,7 @@ from zeeguu.core.model.article_upload import ArticleUpload
 from zeeguu.core.model.user_watching_session import UserWatchingSession
 from zeeguu.core.model.user_feedback import UserFeedback
 from zeeguu.core.model.example_sentence import ExampleSentence
+from zeeguu.core.model.article_share_link import ArticleShareLink
 
 # Tables with a NOT NULL FK to Bookmark; rows here must be deleted before
 # the parent bookmark is removed.
@@ -115,7 +116,8 @@ tables_to_modify = [
     UserCohortMap,
     UserBadgeProgress,
     UserBadge,
-    UserAvatar
+    UserAvatar,
+    ArticleShareLink,
 ]
 
 
