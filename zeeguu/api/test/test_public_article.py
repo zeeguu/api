@@ -23,10 +23,12 @@ def article_id(client):
     add_source_types()
     add_context_types()
     article_id = create_and_get_article(client)["id"]
-    # find_or_create_article may credit the requesting user as uploader; these
-    # tests want a plain crawled article unless they say otherwise.
+    # A plain crawled article (from a feed, no uploader) unless a test says otherwise.
+    from zeeguu.core.test.rules.feed_rule import FeedRule
+
     article = Article.find_by_id(article_id)
     article.uploader_id = None
+    article.feed = FeedRule().feed
     db.session.commit()
     return article_id
 
@@ -60,11 +62,11 @@ def test_share_code_for_another_article_gives_no_credit(client, article_id):
     assert status == 404
 
 
-def test_uploaded_text_opens_only_through_its_share_link(client, article_id):
-    from zeeguu.core.model import User
-
+def test_non_feed_text_opens_only_through_its_share_link(client, article_id):
+    # An uploaded text, or a copy simplified from one: no feed, and possibly
+    # no uploader either (see _is_crawled_content).
     article = Article.find_by_id(article_id)
-    article.uploader_id = User.find(client.email).id
+    article.feed = None
     db.session.commit()
 
     status, _ = _anon_get(client, f"/public_article/{article_id}")
@@ -89,6 +91,16 @@ def test_public_translate_persists_nothing(client, article_id):
     assert response.status_code == 200
     assert json.loads(response.data) == {"translation": "behind", "source": "Test"}
     assert Bookmark.query.count() == bookmarks_before
+
+
+@pytest.mark.parametrize("body", [{"word": 5}, {"word": ["Haus"]}, {"word": "Haus", "context": {}}, ["Haus"], None])
+def test_public_translate_rejects_malformed_input(client, body):
+    with patch("zeeguu.api.endpoints.public_article.IS_DEV_SKIP_TRANSLATION", True):
+        response = client.client.post("/public_translate_word/de/en", json=body)
+    # A non-string context is dropped, not fatal; a missing/non-string word is a 400.
+    assert response.status_code in (200, 400)
+    if not (isinstance(body, dict) and isinstance(body.get("word"), str)):
+        assert response.status_code == 400
 
 
 def test_public_translate_is_rate_limited(client):

@@ -49,6 +49,18 @@ def article_share_link(article_id):
     return json_result({"code": link.code})
 
 
+def _is_crawled_content(article):
+    """True for articles that came from a feed, and for copies derived from one.
+
+    An allowlist on purpose. "Private" can't be read off uploader_id: a copy
+    simplified from a user's upload is created with no uploader
+    (Article.create_simplified_version), and deleting an account clears
+    uploader_id from that user's texts while leaving the texts in place.
+    """
+    parent = article.parent_article
+    return bool(article.feed_id or (parent and parent.feed_id))
+
+
 # ---------------------------------------------------------------------------
 @api.route("/public_article/<int:article_id>", methods=["GET"])
 # ---------------------------------------------------------------------------
@@ -57,15 +69,16 @@ def public_article(article_id):
     """Public, read-only article content for the shared-article page.
 
     Crawled articles (and their AI-simplified copies) are public content, like
-    the OG preview for the same link already is. A text someone *uploaded* is
-    private: it only opens through a share link (``?s=<code>``) minted for it.
+    the OG preview for the same link already is. Anything else -- a text someone
+    uploaded or pasted, or a copy simplified from one -- only opens through a
+    share link (``?s=<code>``) minted for that article.
     """
     article = Article.find_by_id(article_id)
     if not article or article.broken:
         return json_result({"error": "Article not found"}), 404
 
     link = ArticleShareLink.find_for_article(request.args.get("s"), article.id)
-    if article.uploader_id and not link:
+    if not _is_crawled_content(article) and not link:
         # Same answer as a missing article: don't confirm that a private id exists.
         return json_result({"error": "Article not found"}), 404
 
@@ -96,15 +109,19 @@ def public_translate_word(from_lang_code, to_lang_code):
     globally in rate_limiter.RATE_LIMITS; the "N free words" nudge on the page
     is a separate, client-side conversion counter.
     """
-    body = request.json or {}
-    word_str = (body.get("word") or "").strip(punctuation_extended)
+    body = request.get_json(silent=True)
+    body = body if isinstance(body, dict) else {}
+
+    def text_field(name):
+        value = body.get(name)
+        return value if isinstance(value, str) else ""
+
+    word_str = text_field("word").strip(punctuation_extended)
     if not word_str or len(word_str) > 100:
         return json_result({"error": "Nothing to translate"}), 400
-    context = (body.get("context") or "").strip()[:1000]
-    is_separated_mwe = bool(body.get("is_separated_mwe", False))
-    full_sentence_context = (body.get("full_sentence_context") or None)
-    if full_sentence_context:
-        full_sentence_context = full_sentence_context[:1000]
+    context = text_field("context").strip()[:1000]
+    is_separated_mwe = body.get("is_separated_mwe") is True
+    full_sentence_context = text_field("full_sentence_context")[:1000] or None
 
     if IS_DEV_SKIP_TRANSLATION:
         result = {"translation": f"T-({to_lang_code})-'{word_str}'", "source": "DEV_SKIP"}
