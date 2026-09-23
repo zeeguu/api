@@ -62,18 +62,35 @@ def test_share_code_for_another_article_gives_no_credit(client, article_id):
     assert status == 404
 
 
-def test_non_feed_text_opens_only_through_its_share_link(client, article_id):
-    # An uploaded text, or a copy simplified from one: no feed, and possibly
-    # no uploader either (see _is_crawled_content).
+def test_web_article_without_feed_is_public(client, article_id):
+    # Sent in from a browser / share sheet: no feed, but a real web URL.
     article = Article.find_by_id(article_id)
     article.feed = None
     db.session.commit()
 
     status, _ = _anon_get(client, f"/public_article/{article_id}")
+    assert status == 200
+
+
+def test_typed_text_opens_only_through_its_share_link(client, article_id):
+    # A typed/pasted text: no feed and no web address (see _is_web_content).
+    # No uploader either -- what a deleted account's texts look like.
+    from zeeguu.core.model import Language
+
+    typed_id = Article.create_from_upload(
+        db.session,
+        title="Mein Text",
+        content="Das ist ein Text, den jemand selbst geschrieben hat.",
+        htmlContent="<p>Das ist ein Text, den jemand selbst geschrieben hat.</p>",
+        uploader=None,
+        language=Language.find("de"),
+    )
+
+    status, _ = _anon_get(client, f"/public_article/{typed_id}")
     assert status == 404
 
-    code = client.post(f"/article_share_link/{article_id}")["code"]
-    status, info = _anon_get(client, f"/public_article/{article_id}?s={code}")
+    code = client.post(f"/article_share_link/{typed_id}")["code"]
+    status, info = _anon_get(client, f"/public_article/{typed_id}?s={code}")
     assert status == 200
     assert "uploader_name" not in info
 

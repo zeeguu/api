@@ -49,16 +49,34 @@ def article_share_link(article_id):
     return json_result({"code": link.code})
 
 
-def _is_crawled_content(article):
-    """True for articles that came from a feed, and for copies derived from one.
+def _web_url(url):
+    """A real web address, not one of our own zeeguu.org placeholders
+    (simplified copies get https://zeeguu.org/simplified/pending/<uuid>)."""
+    if not url:
+        return None
+    address = url.as_string()
+    return None if "zeeguu.org/" in address else address
 
-    An allowlist on purpose. "Private" can't be read off uploader_id: a copy
-    simplified from a user's upload is created with no uploader
+
+def _is_web_content(article):
+    """True for text that came from somewhere on the web: crawled from a feed,
+    sent in from a browser or the phone's share sheet (article URL, or the
+    upload's URL), or a copy simplified/translated from one of those.
+
+    False for text someone typed or pasted in (teacher texts, own texts):
+    those have no web address. An allowlist on purpose -- "private" can't be
+    read off uploader_id: a copy simplified from an upload has no uploader
     (Article.create_simplified_version), and deleting an account clears
-    uploader_id from that user's texts while leaving the texts in place.
+    uploader_id while leaving the texts in place.
     """
-    parent = article.parent_article
-    return bool(article.feed_id or (parent and parent.feed_id))
+    for a in (article, article.parent_article):
+        if a is None:
+            continue
+        if a.feed_id or _web_url(a.url):
+            return True
+        if a.source_upload and _web_url(a.source_upload.url):
+            return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -70,15 +88,15 @@ def public_article(article_id):
 
     Crawled articles (and their AI-simplified copies) are public content, like
     the OG preview for the same link already is. Anything else -- a text someone
-    uploaded or pasted, or a copy simplified from one -- only opens through a
-    share link (``?s=<code>``) minted for that article.
+    typed or pasted in, or a copy simplified from one -- only opens through a
+    share link (``?s=<code>``) minted for that article. See _is_web_content.
     """
     article = Article.find_by_id(article_id)
     if not article or article.broken:
         return json_result({"error": "Article not found"}), 404
 
     link = ArticleShareLink.find_for_article(request.args.get("s"), article.id)
-    if not _is_crawled_content(article) and not link:
+    if not _is_web_content(article) and not link:
         # Same answer as a missing article: don't confirm that a private id exists.
         return json_result({"error": "Article not found"}), 404
 
