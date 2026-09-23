@@ -116,6 +116,21 @@ RATE_LIMITS = {
     # a script could sweep a wordlist to find which addresses have an account.
     # Per session, so one student's searching can't lock out the next desk.
     "endpoints.search_by_search_term": Limit("60 per minute;600 per hour", key="session"),
+
+    # Account-less reading of a shared article. No session means no account to
+    # key on, and every tap on the public page is a paid MT/LLM call, so this is
+    # the page's only real protection against being used as a free translation
+    # API. The page itself stops offering taps after a handful of words (a
+    # conversion nudge, trivially reset by clearing storage); these numbers sit
+    # well above that and exist to stop scripts, not readers. The global bucket
+    # caps the whole day's spend no matter how many addresses a script rotates.
+    "endpoints.public_translate_word": (
+        Limit("20 per minute;60 per hour;200 per day"),
+        Limit("5000 per day", key="global"),
+    ),
+    # Content fetch: cheap once the article is tokenized, but a cold article
+    # triggers Stanza tokenization, so don't let one host walk the id space.
+    "endpoints.public_article": Limit("60 per minute;600 per hour"),
 }
 
 
@@ -181,6 +196,13 @@ def _session_key():
     return f"session:{session_uuid}" if session_uuid else get_remote_address()
 
 
+def _global_key():
+    """One bucket for every caller: a spend ceiling, not a per-client quota.
+    Only for public endpoints whose cost is ours, never for anything a
+    legitimate crowd could exhaust for each other (login, signup)."""
+    return "global"
+
+
 def init_limiter(app, enabled=True):
     """
     Initialize the rate limiter with the Flask app.
@@ -227,6 +249,7 @@ def apply_rate_limits_to_endpoints(app):
         "session": _session_key,
         "target_email": _target_email_key,
         "target_account": _target_account_key,
+        "global": _global_key,
     }
 
     missing = sorted(ep for ep in RATE_LIMITS if ep not in app.view_functions)

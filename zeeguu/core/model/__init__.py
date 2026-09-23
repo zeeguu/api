@@ -135,4 +135,5 @@ from .user_avatar import UserAvatar
 from .friend_request import FriendRequest
 from .friendship import Friendship
 from .shared_article import SharedArticle
+from .article_share_link import ArticleShareLink
 

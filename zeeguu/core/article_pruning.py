@@ -81,6 +81,7 @@ PROTECTING_TABLES = [
     "article_difficulty_feedback",
     "topic_user_feedback",
     "user_mwe_override",
+    "article_share_link",
 ]
 
 BATCH_SIZE = 1000
