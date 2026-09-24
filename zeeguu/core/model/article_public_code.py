@@ -15,6 +15,12 @@ class ArticlePublicCode(db.Model):
     code is 10 random letters/digits (62^10), minted the first time the article
     gets a link and the same for everyone -- a reader's address bar and the
     Share button give the same URL. Rotating it retires every link at once.
+
+    Considered and declined (2026-09): readable links like
+    /read/lobere-kastede-<code>. Chat apps already show the title and photo in
+    the preview card, so a slug would only help where there's no card (email,
+    SMS), at the cost of a longer URL whose words go stale when a title changes
+    and come out transliterated (ø -> o) or empty for non-Latin scripts.
     """
 
     __tablename__ = "article_public_code"
