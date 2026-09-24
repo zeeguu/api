@@ -10,7 +10,7 @@ class ArticleShareLink(db.Model):
     """LEGACY: one share code per (user, article), from links shaped
     /read/article?id=<id>&s=<code> that were handed out on 2026-09-23.
 
-    Superseded by public_codes (zeeguu.org/read/<article code>.<sharer code>).
+    Superseded by ArticlePublicCode (zeeguu.org/read/<code>).
     Kept only so those links can still be resolved and redirected; nothing
     creates rows any more.
     """

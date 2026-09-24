@@ -25,7 +25,7 @@ from limits import parse as parse_limit
 from zeeguu.api.utils.rate_limiter import get_limiter
 from zeeguu.core.model import Article, Language
 from zeeguu.core.model.article_share_link import ArticleShareLink
-from zeeguu.core.model.public_codes import ArticlePublicCode, UserShareCode
+from zeeguu.core.model.article_public_code import ArticlePublicCode
 from zeeguu.core.model.public_translation import PublicTranslation
 from zeeguu.core.translation_services.translator import get_best_translation
 from zeeguu.logging import log
@@ -41,58 +41,46 @@ IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 @cross_domain
 @requires_session
 def article_link(article_id):
-    """The caller's link to this article: zeeguu.org/read/<article>.<sharer>.
+    """The article's public code, for its link zeeguu.org/read/<code>.
 
-    The reader shows it in the address bar and the Share button copies it, so
-    the two are the same thing. Mints the article's code and the caller's code
-    the first time each is needed (see public_codes).
+    The reader shows that link in the address bar and the Share button copies
+    it. Mints the code the first time. Needs a session: minting for any id on
+    request would let a script turn the walkable id space into codes.
     """
     article = Article.find_by_id(article_id)
     if not article:
         return json_result({"error": "Article not found"}), 404
-    article_code = ArticlePublicCode.for_article(db_session, article.id)
-    user_code = UserShareCode.for_user(db_session, flask.g.user_id)
+    code = ArticlePublicCode.for_article(db_session, article.id)
     db_session.commit()
-    return json_result({"link": _link(article_code.code, user_code.code)})
-
-
-def _link(article_code, user_code):
-    return f"{article_code}.{user_code}"
-
-
-def _parse_link(link):
-    """"<article code>.<sharer code>" -> (article, sharer's first name or None).
-    The sharer part is optional: a bare article code opens, uncredited."""
-    article_code, _, user_code = (link or "").partition(".")
-    return ArticlePublicCode.find_article(article_code), UserShareCode.sharer_name(user_code)
+    return json_result({"code": code.code})
 
 
 # ---------------------------------------------------------------------------
-@api.route("/article_link_info/<string:link>", methods=["GET"])
+@api.route("/article_link_info/<string:code>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
-def article_link_info(link):
-    """Which article a link opens, and who shared it. The logged-in reader
-    resolves /read/<link> with this."""
-    article, shared_by = _parse_link(link)
+def article_link_info(code):
+    """Which article a link opens. The logged-in reader resolves /read/<code>
+    with this."""
+    article = ArticlePublicCode.find_article(code)
     if not article:
         return json_result({"error": "Unknown link"}), 404
-    return json_result({"article_id": article.id, "shared_by_name": shared_by})
+    return json_result({"article_id": article.id})
 
 
 # ---------------------------------------------------------------------------
-@api.route("/public_article/<string:link>", methods=["GET"])
+@api.route("/public_article/<string:code>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
-def public_article(link):
+def public_article(code):
     """Public, read-only article content for the shared-article page.
 
     Addressed by the article's public code, never its numeric id: the code is
     random (62^10), so articles can't be walked and copied out, and a text is
     readable without an account exactly when someone who could read it passed
-    its link on. The link's sharer part adds the sharer's first name.
+    its link on.
     """
-    article, shared_by = _parse_link(link)
+    article = ArticlePublicCode.find_article(code)
     if not article or article.broken:
         return json_result({"error": "Article not found"}), 404
 
@@ -104,16 +92,15 @@ def public_article(link):
     if "tokenized_title_new" in info:
         info["tokenized_title_new"]["past_bookmarks"] = []
     info.pop("uploader_name", None)
-    info["shared_by_name"] = shared_by
 
     return json_result(info)
 
 
 # ---------------------------------------------------------------------------
-@api.route("/public_translate/<string:link>/<to_lang_code>", methods=["POST"])
+@api.route("/public_translate/<string:code>/<to_lang_code>", methods=["POST"])
 # ---------------------------------------------------------------------------
 @cross_domain
-def public_translate(link, to_lang_code):
+def public_translate(code, to_lang_code):
     """Translate the word at a position in a public article. Persists nothing
     for the visitor (there is no user to own a bookmark).
 
@@ -131,7 +118,7 @@ def public_translate(link, to_lang_code):
     if position is None:
         return json_result({"error": "Bad position"}), 400
 
-    article, _ = _parse_link(link)
+    article = ArticlePublicCode.find_article(code)
     to_language = Language.query.filter_by(code=to_lang_code).first()
     if not article or article.broken or not to_language or to_language.id == article.language_id:
         return json_result({"error": "Not found"}), 404
@@ -255,13 +242,12 @@ def _charge_global_miss():
 def article_share_link_info(code):
     """Legacy: links handed out on 2026-09-23 looked like
     /read/article?id=<id>&s=<code>, one code per (user, article). Translate
-    one into today's form, {link}, so the web app can redirect to
-    /read/<link>. The code must belong to that article."""
+    one into today's form, {code}, so the web app can redirect to
+    /read/<code>. The share code must belong to that article."""
     article_id = request.args.get("article_id", type=int)
     link = ArticleShareLink.find_for_article(code, article_id)
     if not link:
         return json_result({"error": "Unknown share link"}), 404
     article_code = ArticlePublicCode.for_article(db_session, link.article_id)
-    user_code = UserShareCode.for_user(db_session, link.user_id)
     db_session.commit()
-    return json_result({"link": _link(article_code.code, user_code.code)})
+    return json_result({"code": article_code.code})

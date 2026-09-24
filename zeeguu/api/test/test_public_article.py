@@ -1,7 +1,7 @@
 """Account-less reading of a shared article: the public page's endpoints.
 
 Articles are addressed by a random public code, never by numeric id:
-zeeguu.org/read/<article code>.<sharer code>."""
+zeeguu.org/read/<code>."""
 
 import json
 from unittest.mock import patch
@@ -31,42 +31,24 @@ def article_id(client):
 
 @pytest.fixture
 def link(client, article_id):
-    return client.post(f"/article_link/{article_id}")["link"]
+    """The article's public code -- what follows /read/ in its link."""
+    return client.post(f"/article_link/{article_id}")["code"]
 
 
 # --- links -------------------------------------------------------------------
 
 
-def test_link_is_article_code_dot_sharer_code(client, article_id, link):
-    article_code, dot, user_code = link.partition(".")
-    assert dot == "."
-    assert len(article_code) == 10 and article_code.isalnum() and article_code.isascii()
-    assert len(user_code) == 6 and user_code.isalnum() and user_code.isascii()
-    # Written once: asking again (every time the reader opens) returns the same link.
-    assert client.post(f"/article_link/{article_id}")["link"] == link
+def test_code_is_ten_letters_and_digits_and_stable(client, article_id, link):
+    assert len(link) == 10 and link.isalnum() and link.isascii()
+    # Written once: asking again (every time the reader opens) returns the same code.
+    assert client.post(f"/article_link/{article_id}")["code"] == link
 
 
-def test_link_resolves_to_the_article_and_the_sharer(client, article_id, link):
+def test_code_resolves_to_the_article(client, article_id, link):
     status, info = _anon_get(client, f"/article_link_info/{link}")
-    assert status == 200
-    assert info == {"article_id": article_id, "shared_by_name": "test"}
-
-    article_code = link.partition(".")[0]
-    status, info = _anon_get(client, f"/article_link_info/{article_code}")
-    assert (status, info["shared_by_name"]) == (200, None)
-    status, info = _anon_get(client, f"/article_link_info/{article_code}.nobody")
-    assert (status, info["shared_by_name"]) == (200, None)
-
+    assert (status, info) == (200, {"article_id": article_id})
     status, _ = _anon_get(client, "/article_link_info/doesNotExist")
     assert status == 404
-
-
-def test_anonymous_sharer_gets_no_credit(client, article_id, link):
-    user = User.find(client.email)
-    user.email = "someuuid" + User.ANONYMOUS_EMAIL_DOMAIN
-    db.session.commit()
-    _, info = _anon_get(client, f"/article_link_info/{link}")
-    assert info["shared_by_name"] is None
 
 
 def test_link_preview_for_crawlers(client, article_id, link):
@@ -78,14 +60,13 @@ def test_link_preview_for_crawlers(client, article_id, link):
     assert f"/shared_article_image/{article_id}.jpg" in html
 
 
-def test_legacy_share_code_translates_to_the_new_link(client, article_id):
+def test_legacy_share_code_translates_to_the_article_code(client, article_id, link):
     user = User.find(client.email)
     db.session.add(ArticleShareLink(code="oldCode123", user_id=user.id, article_id=article_id))
     db.session.commit()
 
     status, info = _anon_get(client, f"/article_share_link_info/oldCode123?article_id={article_id}")
-    assert status == 200
-    assert info["link"] == client.post(f"/article_link/{article_id}")["link"]
+    assert (status, info) == (200, {"code": link})
 
     status, _ = _anon_get(client, f"/article_share_link_info/oldCode123?article_id={article_id + 1}")
     assert status == 404
@@ -94,19 +75,18 @@ def test_legacy_share_code_translates_to_the_new_link(client, article_id):
 # --- reading -------------------------------------------------------------------
 
 
-def test_article_opens_by_link_without_a_session(client, article_id, link):
+def test_article_opens_by_code_without_a_session(client, article_id, link):
     status, info = _anon_get(client, f"/public_article/{link}")
     assert status == 200
     assert info["id"] == article_id
     assert info["tokenized_fragments"]
     assert all(f["past_bookmarks"] == [] for f in info["tokenized_fragments"])
     assert info["tokenized_title_new"]["past_bookmarks"] == []
-    assert info["shared_by_name"] == "test"
     assert "uploader_name" not in info
 
 
-@pytest.mark.parametrize("bad", ["", "wrongCode1", "wrongCode1.abcdef"])
-def test_unknown_or_numeric_links_open_nothing(client, article_id, link, bad):
+@pytest.mark.parametrize("bad", ["", "wrongCode1"])
+def test_unknown_codes_and_numeric_ids_open_nothing(client, article_id, link, bad):
     assert client.client.get(f"/public_article/{bad or article_id}").status_code == 404
 
 
