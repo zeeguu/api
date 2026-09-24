@@ -325,6 +325,8 @@ def build_elastic_search_query(
     es_time_decay=0.65,
     page=0,
     use_published_priority=True,
+    unwanted_user_searches=None,
+    filter_disturbing=False,
 ):
     """
     Builds an elastic search query for search terms.
@@ -332,6 +334,11 @@ def build_elastic_search_query(
     Ranks by recency. No CEFR filter — a learner searching for a word wants the
     articles that contain it, and any of them can be simplified on demand (same
     reasoning as build_elastic_recommender_query).
+
+    The two "avoid" exclusions are parameters rather than something this builder
+    looks up for itself: a saved-search subscription and a term the learner just
+    typed both run through here, and only the caller knows which. See
+    article_and_video_search_for_user for who passes what.
     """
 
     s = (
@@ -345,6 +352,17 @@ def build_elastic_search_query(
         .filter("term", language=language.name.lower())
         .exclude("match", description="pg15")
     )
+
+    # The same two exclusions build_elastic_recommender_query applies to the
+    # organic half of the feed. Without them here, a saved search was a way
+    # around the learner's Topics to Avoid list and their disturbing-content
+    # setting: articles arrived through the search injection unfiltered (#708).
+    if unwanted_user_searches:
+        s = s.exclude("match", title=unwanted_user_searches)
+        s = s.exclude("match", content=unwanted_user_searches)
+
+    if filter_disturbing:
+        s = s.exclude("match", is_disturbing=True)
 
     # using function scores to weight more recent results higher
     # https://github.com/elastic/elasticsearch-dsl-py/issues/608

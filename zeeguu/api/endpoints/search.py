@@ -245,6 +245,10 @@ def search_for_search_terms(search_terms, page: int = 0):
         search_terms,
         page=page,
         use_published_priority=use_published_priority,
+        # The one place the avoid list yields: a term typed here is an explicit
+        # instruction now, and it outranks a standing preference set earlier.
+        # (The disturbing-content filter still applies -- see the callee.)
+        honor_avoid_keywords=False,
     )
     
     # Filter out hidden articles
