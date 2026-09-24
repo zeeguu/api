@@ -230,8 +230,8 @@ def render_article_card(view, photo=None):
 
 
 def cached_article_card_path(data_folder, article_id):
-    # JPEG, not PNG: the card embeds a photo, so JPEG is ~5x smaller — crawlers
-    # fetch it faster and are far less likely to skip it on a cold first scrape.
+    # JPEG, not PNG: the card embeds a photo, so JPEG is ~5x smaller — preview
+    # bots fetch it faster and are far less likely to skip it on a cold first fetch.
     return os.path.join(data_folder, "og-images", "shared-articles", f"{article_id}.jpg")
 
 

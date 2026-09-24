@@ -51,7 +51,7 @@ def test_code_resolves_to_the_article(client, article_id, link):
     assert status == 404
 
 
-def test_link_preview_for_crawlers(client, article_id, link):
+def test_link_preview_for_preview_bots(client, article_id, link):
     with patch("zeeguu.api.endpoints.article._ensure_article_card"):
         response = client.client.get(f"/shared_article_preview/read/{link}")
     assert response.status_code == 200

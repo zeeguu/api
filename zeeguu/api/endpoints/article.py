@@ -129,13 +129,14 @@ def _ensure_article_card(view):
 @api.route("/shared_article_preview/<int:article_id>", methods=["GET"])
 @cross_domain
 def shared_article_preview(article_id):
-    """Crawler-facing HTML with Open Graph tags for a shared article link. nginx
-    routes social-scraper user-agents on zeeguu.org/read/article?id=<id> here;
+    """Preview-bot-facing HTML with Open Graph tags for a shared article link.
+    nginx routes link-preview bots (WhatsApp, Slack, …) on
+    zeeguu.org/read/article?id=<id> here;
     real users get the SPA. Public — article content is already public.
 
-    We warm the card image here so that when the crawler fetches og:image moments
+    We warm the card image here so that when the bot fetches og:image moments
     later it's a fast cache hit — otherwise the cold render (which downloads the
-    article's photo) can race the crawler's image-fetch timeout."""
+    article's photo) can race the bot's image-fetch timeout."""
     article = Article.find_by_id(article_id)
     page_url = f"{SHARE_WEB_ORIGIN}/read/article?id={article_id}"
     if not article:
@@ -146,8 +147,8 @@ def shared_article_preview(article_id):
 @api.route("/shared_article_preview/read/<string:code>", methods=["GET"])
 @cross_domain
 def shared_article_preview_by_code(code):
-    """The same crawler-facing OG HTML for an article link
-    (zeeguu.org/read/<code>); nginx routes crawlers on /read/<code> here."""
+    """The same preview-bot-facing OG HTML for an article link
+    (zeeguu.org/read/<code>); nginx routes preview bots on /read/<code> here."""
     from zeeguu.core.model.article_public_code import ArticlePublicCode
 
     page_url = f"{SHARE_WEB_ORIGIN}/read/{code}"

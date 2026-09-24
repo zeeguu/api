@@ -284,9 +284,9 @@ def _preview_html(view, share_uuid):
 @api.route("/shared_lesson_preview/<string:share_uuid>", methods=["GET"])
 @cross_domain
 def shared_lesson_preview(share_uuid):
-    """Crawler-facing HTML with Open Graph tags for a shared lesson link.
+    """Preview-bot-facing HTML with Open Graph tags for a shared lesson link.
 
-    nginx routes social-scraper user-agents hitting zeeguu.org/shared-lesson/<uuid>
+    nginx routes link-preview bots (WhatsApp, Slack, …) hitting zeeguu.org/shared-lesson/<uuid>
     here; real users get the SPA. A missing lesson (or a human who lands here) is
     redirected to the app."""
     view = DailyLessonGenerator().get_shared_lesson_view(share_uuid)
