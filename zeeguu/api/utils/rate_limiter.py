@@ -127,6 +127,10 @@ RATE_LIMITS = {
     # Content fetch: cheap once the article is tokenized, but a cold article
     # triggers Stanza tokenization, so don't let one host walk the id space.
     "endpoints.public_article": Limit("60 per minute;600 per hour"),
+    # Link lookups: codes are 62^10, so this isn't about guessing -- just the
+    # same backstop as every other public endpoint.
+    "endpoints.article_link_info": Limit("60 per minute;600 per hour"),
+    "endpoints.article_share_link_info": Limit("60 per minute;600 per hour"),
 }
 
 

@@ -137,4 +137,5 @@ from .friendship import Friendship
 from .shared_article import SharedArticle
 from .article_share_link import ArticleShareLink
 from .public_translation import PublicTranslation
+from .article_public_code import ArticlePublicCode
 

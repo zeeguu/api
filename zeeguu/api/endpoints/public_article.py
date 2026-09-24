@@ -25,6 +25,7 @@ from limits import parse as parse_limit
 from zeeguu.api.utils.rate_limiter import get_limiter
 from zeeguu.core.model import Article, Language
 from zeeguu.core.model.article_share_link import ArticleShareLink
+from zeeguu.core.model.article_public_code import ArticlePublicCode
 from zeeguu.core.model.public_translation import PublicTranslation
 from zeeguu.core.translation_services.translator import get_best_translation
 from zeeguu.logging import log
@@ -35,73 +36,52 @@ IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 
 
 # ---------------------------------------------------------------------------
-@api.route("/article_share_link/<int:article_id>", methods=["POST"])
+@api.route("/article_link/<int:article_id>", methods=["POST"])
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def article_share_link(article_id):
-    """Mint (or return) the caller's public share code for this article.
+def article_link(article_id):
+    """The article's public code, for its link zeeguu.org/read/<code>.
 
-    The web app appends it to the copied link as ``&s=<code>`` so the public
-    page can say who shared it.
+    The reader shows that link in the address bar and the Share button copies
+    it. Mints the code the first time. Needs a session: minting for any id on
+    request would let a script turn the walkable id space into codes.
     """
     article = Article.find_by_id(article_id)
     if not article:
         return json_result({"error": "Article not found"}), 404
-    link = ArticleShareLink.find_or_create(db_session, flask.g.user_id, article.id)
+    code = ArticlePublicCode.for_article(db_session, article.id)
     db_session.commit()
-    return json_result({"code": link.code})
-
-
-def _web_url(url):
-    """A real web address, not one of our own zeeguu.org placeholders
-    (simplified copies get https://zeeguu.org/simplified/pending/<uuid>)."""
-    if not url:
-        return None
-    address = url.as_string()
-    return None if "zeeguu.org/" in address else address
-
-
-def _is_web_content(article):
-    """True for text that came from somewhere on the web: crawled from a feed,
-    sent in from a browser or the phone's share sheet (article URL, or the
-    upload's URL), or a copy simplified/translated from one of those.
-
-    False for text someone typed or pasted in (teacher texts, own texts):
-    those have no web address. An allowlist on purpose -- "private" can't be
-    read off uploader_id: a copy simplified from an upload has no uploader
-    (Article.create_simplified_version), and deleting an account clears
-    uploader_id while leaving the texts in place.
-    """
-    for a in (article, article.parent_article):
-        if a is None:
-            continue
-        if a.feed_id or _web_url(a.url):
-            return True
-        if a.source_upload and _web_url(a.source_upload.url):
-            return True
-    return False
+    return json_result({"code": code.code})
 
 
 # ---------------------------------------------------------------------------
-@api.route("/public_article/<int:article_id>", methods=["GET"])
+@api.route("/article_link_info/<string:code>", methods=["GET"])
 # ---------------------------------------------------------------------------
 @cross_domain
-def public_article(article_id):
+def article_link_info(code):
+    """Which article a link opens. The logged-in reader resolves /read/<code>
+    with this."""
+    article = ArticlePublicCode.find_article(code)
+    if not article:
+        return json_result({"error": "Unknown link"}), 404
+    return json_result({"article_id": article.id})
+
+
+# ---------------------------------------------------------------------------
+@api.route("/public_article/<string:code>", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+def public_article(code):
     """Public, read-only article content for the shared-article page.
 
-    Crawled articles (and their AI-simplified copies) are public content, like
-    the OG preview for the same link already is. Anything else -- a text someone
-    typed or pasted in, or a copy simplified from one -- only opens through a
-    share link (``?s=<code>``) minted for that article. See _is_web_content.
+    Addressed by the article's public code, never its numeric id: the code is
+    random (62^10), so articles can't be walked and copied out, and a text is
+    readable without an account exactly when someone who could read it passed
+    its link on.
     """
-    article = Article.find_by_id(article_id)
+    article = ArticlePublicCode.find_article(code)
     if not article or article.broken:
-        return json_result({"error": "Article not found"}), 404
-
-    link = ArticleShareLink.find_for_article(request.args.get("s"), article.id)
-    if not _is_web_content(article) and not link:
-        # Same answer as a missing article: don't confirm that a private id exists.
         return json_result({"error": "Article not found"}), 404
 
     info = article.article_info(with_content=True)
@@ -113,22 +93,19 @@ def public_article(article_id):
         info["tokenized_title_new"]["past_bookmarks"] = []
     info.pop("uploader_name", None)
 
-    if link:
-        info["shared_by_name"] = link.sharer_display_name()
-
     return json_result(info)
 
 
 # ---------------------------------------------------------------------------
-@api.route("/public_translate/<int:article_id>/<to_lang_code>", methods=["POST"])
+@api.route("/public_translate/<string:code>/<to_lang_code>", methods=["POST"])
 # ---------------------------------------------------------------------------
 @cross_domain
-def public_translate(article_id, to_lang_code):
+def public_translate(code, to_lang_code):
     """Translate the word at a position in a public article. Persists nothing
     for the visitor (there is no user to own a bookmark).
 
     The caller sends a position, never text: {part, paragraph_i, sent_i,
-    token_i, total_tokens, partner_token_i?, s?}. The server reads the word and
+    token_i, total_tokens, partner_token_i?}. The server reads the word and
     its sentence from the stored article, so this can't be used as a free
     translation service for arbitrary text, and each answer is cached per
     position (PublicTranslation): repeat taps in a shared article cost nothing.
@@ -141,13 +118,9 @@ def public_translate(article_id, to_lang_code):
     if position is None:
         return json_result({"error": "Bad position"}), 400
 
-    article = Article.find_by_id(article_id)
+    article = ArticlePublicCode.find_article(code)
     to_language = Language.query.filter_by(code=to_lang_code).first()
     if not article or article.broken or not to_language or to_language.id == article.language_id:
-        return json_result({"error": "Not found"}), 404
-    # Same gate as reading: a private text's words can't be fished out one by one.
-    code = body.get("s") if isinstance(body.get("s"), str) else None
-    if not _is_web_content(article) and not ArticleShareLink.find_for_article(code, article.id):
         return json_result({"error": "Not found"}), 404
 
     cached = PublicTranslation.find(article.id, position, to_language.id)
@@ -267,10 +240,14 @@ def _charge_global_miss():
 # ---------------------------------------------------------------------------
 @cross_domain
 def article_share_link_info(code):
-    """Who shared this link — for the logged-in reader's "shared by" credit,
-    which otherwise only exists for in-app friend shares."""
+    """Legacy: links handed out on 2026-09-23 looked like
+    /read/article?id=<id>&s=<code>, one code per (user, article). Translate
+    one into today's form, {code}, so the web app can redirect to
+    /read/<code>. The share code must belong to that article."""
     article_id = request.args.get("article_id", type=int)
     link = ArticleShareLink.find_for_article(code, article_id)
     if not link:
         return json_result({"error": "Unknown share link"}), 404
-    return json_result({"shared_by_name": link.sharer_display_name()})
+    article_code = ArticlePublicCode.for_article(db_session, link.article_id)
+    db_session.commit()
+    return json_result({"code": article_code.code})
