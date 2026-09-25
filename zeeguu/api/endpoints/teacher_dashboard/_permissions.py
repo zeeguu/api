@@ -4,12 +4,21 @@ from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.core.model import Teacher, User
 
 
+def is_dev(user_id):
+    user = User.query.get(user_id)
+    return bool(user and user.is_dev)
+
+
 def has_permission_for_cohort(cohort_id):
     """
     Checks to see if user requesting has permissions
-    to view the cohort with id 'cohort_id'
+    to view the cohort with id 'cohort_id'.
+    Devs can see every cohort (for supporting teachers).
     """
     from zeeguu.core.model import TeacherCohortMap
+
+    if is_dev(flask.g.user_id):
+        return True
 
     maps = TeacherCohortMap.query.filter_by(cohort_id=cohort_id).all()
     for m in maps:
