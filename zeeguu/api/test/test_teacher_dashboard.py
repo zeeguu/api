@@ -39,6 +39,26 @@ def test_get_class_info(client):
     assert cohorts[0]["name"] == FRENCH_B1_COHORT["name"]
 
 
+def test_dev_sees_all_cohorts(client):
+    from zeeguu.core.model import Cohort, Language, User
+    from zeeguu.core.model.db import db
+
+    # a class some other teacher owns
+    other = Cohort("other123", "OtherClass", Language.find("fr"), 10)
+    db.session.add(other)
+    db.session.commit()
+    other_id = other.id
+
+    assert [c["name"] for c in client.get("/cohorts_info")] == []
+    assert client.client.get(client.append_session(f"/cohort_info/{other_id}")).status_code == 401
+
+    User.find(client.email).is_dev = True
+    db.session.commit()
+
+    assert [c["name"] for c in client.get("/cohorts_info")] == ["OtherClass"]
+    assert client.get(f"/cohort_info/{other_id}")["name"] == "OtherClass"
+
+
 def test_remove_cohort(client):
     client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
 
