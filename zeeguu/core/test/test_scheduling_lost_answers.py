@@ -16,7 +16,7 @@ db_session = db.session
 
 class SchedulingLostAnswersTest(ModelTestMixIn):
     """
-    Two ways the scheduler used to lose a learner's exercise answer. Both ended
+    Ways the scheduler used to lose a learner's exercise answer. Each ended
     the same way: an exception out of the scheduler, into the catch-all in
     /report_exercise_outcome, answered as "FAIL", with the pending Exercise row
     rolled back.
@@ -101,10 +101,10 @@ class SchedulingLostAnswersTest(ModelTestMixIn):
         )
 
     def test_losing_the_race_keeps_the_callers_pending_work(self):
-        # report_exercise_outcome adds the learner's Exercise row before it calls
-        # the scheduler. Rolling the whole session back to recover would discard
-        # it -- the answer lost, not merely left unscheduled -- and the endpoint
-        # would answer FAIL. A bystander insert stands in for that Exercise.
+        # A caller can have its own pending work in the session (the learner's
+        # Exercise, when report_exercise_outcome added it before scheduling).
+        # Rolling the whole session back to recover would discard it. A
+        # bystander insert stands in for that work.
         user_word = BookmarkRule(self.user).bookmark.user_word
         FourLevelsPerWord.find_or_create(db_session, user_word)
 
@@ -139,3 +139,49 @@ class SchedulingLostAnswersTest(ModelTestMixIn):
         # Nothing scheduled, which is the point -- and no exception, so the
         # caller still commits the exercise.
         assert BasicSRSchedule.query.filter_by(user_word_id=user_word.id).count() == 0
+
+    def test_the_answer_survives_validation_replacing_the_word(self):
+        """
+        Scheduling a word for the first time validates its translation through
+        the LLM. When the LLM corrects it, validation moves the learner's bookmark
+        to a UserWord for the corrected meaning and deletes the original. The
+        answer used to be bound to that original before scheduling ran, so the
+        commit failed with "Instance <UserWord> has been deleted" and the answer
+        was lost (7 times in 9 days in production, Sep 2026).
+        """
+        from zeeguu.core.bookmark_operations.update_bookmark import cleanup_old_user_word
+        from zeeguu.core.llm_services.validation_service import UserWordValidationService
+        from zeeguu.core.model.exercise import Exercise
+        from zeeguu.core.model.exercise_outcome import ExerciseOutcome
+        from zeeguu.core.model.user_word import UserWord
+
+        bookmark = BookmarkRule(self.user).bookmark
+        original = bookmark.user_word
+        original_id = original.id
+        # Validation only runs through the word's preferred bookmark.
+        original.preferred_bookmark_id = bookmark.id
+        db_session.add(original)
+        db_session.commit()
+        replacement = BookmarkRule(self.user).bookmark.user_word
+
+        def corrects_the_translation(cls, session, user_word):
+            # What _fix_bookmark does when the meaning changes.
+            bookmark.user_word_id = replacement.id
+            session.add(bookmark)
+            session.flush()
+            replacement.preferred_bookmark_id = bookmark.id
+            session.add(replacement)
+            cleanup_old_user_word(session, user_word, bookmark)
+            session.commit()
+            return replacement
+
+        with patch.object(
+            UserWordValidationService, "validate_and_fix", classmethod(corrects_the_translation)
+        ):
+            original.report_exercise_outcome(
+                db_session, "Recognize", ExerciseOutcome.CORRECT, 1000, None, ""
+            )
+
+        assert UserWord.query.get(original_id) is None, "validation should have replaced the word"
+        answers = Exercise.query.filter_by(user_word_id=replacement.id).all()
+        assert len(answers) == 1, "the learner's answer was lost"
