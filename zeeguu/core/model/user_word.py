@@ -381,24 +381,32 @@ class UserWord(db.Model):
             time = datetime.now()
         from zeeguu.core.model import Exercise
 
+        # Schedule FIRST, and only then record the answer. Scheduling a word
+        # for the first time validates its translation through the LLM, and a
+        # correction moves the learner's bookmark to a UserWord for the
+        # corrected meaning and deletes this one. An Exercise bound to `self`
+        # before that point failed the commit ("Instance <UserWord> has been
+        # deleted") and the answer was lost -- about once a day in Sep 2026.
+        bookmark = self.preferred_bookmark
+        user = self.user
+        scheduler = self.get_scheduler()
+        scheduler.update(db_session, self, exercise_outcome, time)
+        practiced = self._survivor_of_validation(bookmark)
+
         exercise = Exercise(
             outcome,
             source,
             solving_speed,
             time,
             session_id,
-            self,
+            practiced,
             other_feedback,
         )
         db_session.add(exercise)
 
         if source.source != "DAILY_AUDIO_LESSON" and exercise.is_correct():
             from zeeguu.core import events
-            events.exercise_correct.send(None, user_id=self.user.id, db_session=db_session)
-
-
-        scheduler = self.get_scheduler()
-        scheduler.update(db_session, self, exercise_outcome, time)
+            events.exercise_correct.send(None, user_id=user.id, db_session=db_session)
 
         db_session.commit()
 
@@ -406,6 +414,23 @@ class UserWord(db.Model):
         # the BasicSRSchedule.update call.
         # self.update_fit_for_study(db_session)
         # self.update_learned_status(db_session)
+
+    def _survivor_of_validation(self, bookmark):
+        """The UserWord the learner's answer belongs to after scheduling.
+
+        Normally `self`. If validation replaced it, the bookmark it was
+        validated through now points at the replacement.
+        """
+        from sqlalchemy import inspect
+
+        state = inspect(self)
+        if not (state.deleted or state.was_deleted):
+            return self
+        if bookmark is None:
+            # Can't happen: validate_and_fix skips a word with no preferred
+            # bookmark, and replacing it is the only way `self` gets deleted.
+            return self
+        return UserWord.query.get(bookmark.user_word_id)
 
     @classmethod
     def find_or_create(cls, session, user, meaning, is_user_added=False):

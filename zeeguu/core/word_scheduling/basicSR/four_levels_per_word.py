@@ -135,12 +135,12 @@ class FourLevelsPerWord(BasicSRSchedule):
             # so seconds can pass between the find() that came back empty and
             # this insert.
             #
-            # Losing has to stay survivable. report_exercise_outcome adds the
-            # learner's Exercise row before it calls the scheduler, so a rollback
-            # of the whole session would take that with it -- the answer would be
-            # lost, not merely left unscheduled, and the endpoint would report
-            # FAIL. The savepoint undoes this insert and nothing else, leaving the
-            # Exercise to be committed by the caller as usual.
+            # Losing has to stay survivable. Callers can have their own pending
+            # work in the session (report_exercise_outcome used to add the
+            # learner's Exercise before scheduling, and lost it this way), so a
+            # rollback of the whole session could discard it and surface as a
+            # FAIL. The savepoint undoes this insert and nothing else, leaving
+            # the caller's work to be committed as usual.
             try:
                 with db_session.begin_nested():
                     schedule = cls(user_word)
