@@ -178,7 +178,10 @@ removes one candidate contribution.
   **PIE** (MWE 2021) <https://aclanthology.org/2021.mwe-1.5/> — potentially-
   idiomatic-expression corpora; neither covers Danish.
 
-### 1.4 Verified: LLMs do not solve this, which retrospectively vindicates §Layer 3 being off
+### 1.4 Verified: LLMs do not solve this, which retrospectively vindicates Layer 3 being off
+
+*(The numbers are here; §1.10 covers why LLM-for-MWE is closed as a novelty
+claim.)*
 
 The ADR turns the LLM layer off for cost (5–15s/article) and records how to
 turn it back on. The PARSEME 2.0 authors ran the experiment Zeeguu did not,
@@ -1766,8 +1769,10 @@ LLM-ops failure-mode genre with the same form and a different subject.
 - **Measured precision on production text**, which does not exist today (§5.6).
   For the 13 PARSEME-covered languages this is obtainable without annotation;
   for Danish it needs Proposal A or a small ad-hoc annotation.
-- **Traffic volume and time in production.** Nine months is established. Volume
-  is unknown (§5.9) and an industry-track reviewer will ask first.
+- **Traffic volume and time in production**, which an industry-track reviewer
+  will ask for first. Both are now in hand: nine months, 22,253 multi-word
+  bookmarks across 11 languages, ~102,000 back to 2017 (§5.10). This is no longer
+  a blocker for this proposal.
 - **The architectural response per class, with before/after.** Here the
   provenance is weaker than the code comments suggest: the migration
   `26-05-12--cleanup_greek_determiner_ghost_bookmarks.sql` cites a
