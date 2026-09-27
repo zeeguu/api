@@ -43,6 +43,7 @@ class Language(db.Model):
         "ta": "Tamil",
         "bn": "Bengali",
         "el": "Greek",
+        "bg": "Bulgarian",
     }
 
     CODES_OF_LANGUAGES_BEING_CRAWLED = [
@@ -75,6 +76,7 @@ class Language(db.Model):
         "pt",
         "ro",
         "el",
+        "bg",
     ]
     CODES_OF_LANGUAGES_AVAILABLE_AS_NATIVE = [
         "da",
