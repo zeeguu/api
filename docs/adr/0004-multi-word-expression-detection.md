@@ -66,77 +66,41 @@ For fixed expressions the parser cannot see — prepositional idioms
 (`på jagt efter`) and light-verb constructions (`tage hensyn til`). Longest
 match wins; punctuation is skipped when assembling a span.
 
-### Where the two layers overlap
+### Where the two layers overlap: the narrower grouping wins
 
-The lexicon span **absorbs** the parser group rather than replacing it, under
-two conditions. A parser group sharing a token with a lexicon span is usually
-the same verb wearing its grammar, and dropping it stranded the auxiliary,
-negation or infinitive marker outside any group:
+A parser group sharing a token with a lexicon span is dropped; the lexicon span
+is kept as it is. `at finde` + `finde ud af` yields `finde ud af`, with `at`
+left outside any group.
 
-| what the parser found | + lexicon | = |
+This is a deliberate reversal. For a while the lexicon span *absorbed* the
+parser group, on the reasoning that an auxiliary, a negation or an infinitive
+marker belongs with its verb. It does — but deciding that on the learner's
+behalf was the wrong way round, because the two errors do not cost the same:
+
+| error | how the learner fixes it | cost |
 |---|---|---|
-| `at finde` (infinitive marker) | `finde ud af` | `at finde ud af` |
-| `har fundet` (perfect auxiliary) | `finde ud af` | `har fundet ud af` |
-| `kunne ikke finde` (modal + negation) | `finde ud af` | `kunne ikke finde ud af` |
+| group too **narrow** | fuse a neighbour onto it | one tap, in the flow of reading |
+| group too **wide** | Ungroup expression | find a menu item |
 
-**The shared token must be a verb.** English *"She has been in front of the
-house"* parses with `has` and `been` hanging off `front` — the noun inside a
-prepositional idiom — so the two groups overlap on a noun. Absorbing there
-gives `has been in front of`, a compositional predicate rather than an
-expression. Sharing a verb means the layers are describing one verb; sharing a
-noun usually means they are not.
+Measured on production since 2026-01-05, when `bookmark.is_mwe` began recording
+the distinction: learners fused by hand **13,725** times and ungrouped **130**.
+About 105 to 1. The interface says which direction people move in, and the
+detector should err the cheap way.
 
-**Everything the parser adds must be grammar, not an adjunct.** The parser
-group is taken whole, including words it only swept in while bridging a gap.
-Danish *"ikke tidligere har taget stilling til"* was produced that way:
-`tidligere` ("previously") is an adverbial adjunct, and absorbing it handed the
-learner a six-token clause for a three-token idiom. Auxiliaries, infinitive
-markers and negations belong to the verb; anything else does not. Negation is
-checked by word rather than by tag, because `ikke` and `tidligere` are both
-`ADV`.
+Two conditions make this safe, and neither held before:
 
-**The union must be contiguous** (punctuation aside). A separated particle verb
-can reach across half a sentence — that is what `GermanicStrategy` is for — and
-absorbing one would swallow every word in between. A non-contiguous union falls
-back to lexicon-wins.
+- **A contiguous MWE can be extended in the reader** (zeeguu/web#1254). Until
+  that shipped, `InteractiveText.translate()` treated an MWE as a closed unit,
+  so erring narrow stranded grammar the learner had no way to reattach. The
+  order matters: the affordance must exist before the detector leans on it.
+- **Separated MWEs are unaffected.** They stay closed in the reader, and the
+  backend saves no bookmark for them at all, because `(token_i, total_tokens)`
+  cannot express a gap (#769).
 
-A parser group sharing no token with any lexicon span is untouched.
-
-Measured effect outside Danish, which is where the rule was derived: across
-German and Dutch probe sentences (`in der Lage`, `vor allem`, `in Betracht
-ziehen`, `op zoek naar`, `rekening houden met`, separable verbs with long gaps)
-**nothing changed**. Their lexicon entries are surface-matched, so verb-bearing
-ones only match in citation order, which real sentences rarely use. English
-changed once, correctly: `take into account` → `will take into account`.
-
-Section comments carry [PARSEME](https://typo.uni-konstanz.de/parseme/)'s
-category names where they apply, so these lists are legible to anyone from
-that literature and a future export to the PARSEME annotation scheme is
-mechanical:
-
-| Label | Category | Example |
-|---|---|---|
-| `LVC` | light-verb construction | `tage hensyn til`, `have brug for` |
-| `VPC` | verb-particle construction | `finde ud af`, `lade som om` |
-| `VID` | verbal idiom | `ud af det blå` |
-
-Only the verbal categories are labelled. PARSEME 2.0 extends the scheme to
-nominal, adjectival, adverbial and functional MWEs — which is what most of
-the prepositional idioms are — but those label names have not been checked
-against the 2.0 guidelines, so those sections stay descriptive rather than
-carry a possibly wrong tag.
-
-Two sets per language, because two kinds of expression inflect differently:
-
-- **`<LANG>_MWES`** — matched on **surface form**. These are frozen: `i dag`
-  means *today*, `i dagene` does not.
-- **`<LANG>_VERB_MWES`** — matched with the **first token lemmatised**, and
-  only if that token is tagged `VERB` or `AUX`. These are verb-initial and only
-  the verb inflects, so `har brug for`, `havde brug for` and `have brug for`
-  reach one entry.
-
-The verb set is opt-in per language (`VERB_LEXICONS_BY_LANGUAGE`). Only Danish
-has one today.
+`merge_lexicon_with_stanza` still takes `tokens`, which it no longer needs, to
+leave room for a level-sensitive policy: level-adapted rows carry `cefr_level`,
+and an A1 reader may well want coarser units than a B2 one. That is a policy
+decision, not something to inherit from parser internals.
 
 ### Layer 3 — LLM detection (`mwe/llm_mwe_detector.py`) — **currently off**
 

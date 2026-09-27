@@ -137,135 +137,49 @@ def merge_lexicon_with_stanza(
     stanza_groups: List[Dict], lexicon_groups: List[Dict], tokens: List[Dict] = None
 ) -> List[Dict]:
     """
-    Resolve overlap between the two layers.
+    Resolve overlap between the two layers: the narrower grouping wins.
 
-    A Stanza group that shares a token with a lexicon span is usually the same
-    verb wearing its grammar: the parser found "at finde", "har fundet" or
-    "kunne ikke finde", and the lexicon found "finde ud af" around the same
-    verb. Dropping the parser group -- which is what this used to do -- gives a
-    correct expression with its auxiliary, its negation or its infinitive
-    marker left dangling outside any group, so a tap on "ikke" yields "not"
-    instead of "could not figure out".
+    A Stanza group that shares a token with a lexicon span is dropped, and the
+    lexicon span is kept as it is. So "at finde" + "finde ud af" yields
+    "finde ud af", with "at" left outside any group.
 
-    So an overlapping Stanza group is ABSORBED into the lexicon group when the
-    token they share is a verb, everything it would add is grammar rather than
-    an adjunct, and the result is a single contiguous span. "at finde" +
-    "finde ud af" becomes "at finde ud af".
+    This used to absorb the parser group instead, on the reasoning that an
+    auxiliary or a negation belongs with its verb. It does -- but deciding that
+    for the learner was the wrong way round. The costs are not symmetric: a
+    group that is too narrow is widened by fusing, which is one tap and happens
+    in the flow of reading, while a group that is too wide has to be ungrouped
+    through a menu. On production in 2026, learners fused by hand 13,725 times
+    and ungrouped 130 -- about 105 to 1. So the reader tells us which direction
+    to err in, and it is the narrow one.
 
-    The verb condition is what keeps this honest. English "She has been in
-    front of the house" parses with "has" and "been" hanging off "front" --
-    the noun inside a prepositional idiom -- so the groups overlap on a noun.
-    Absorbing there gives "has been in front of", a compositional predicate
-    rather than an expression. Sharing a verb means the two layers are
-    describing one verb; sharing a noun usually means they are not.
+    That only holds because a contiguous MWE can now be extended in the reader
+    (zeeguu/web#1254). Before that it could not, and erring narrow would have
+    stranded grammar the learner had no way to reattach.
 
-    Contiguity is the safety rail. A Stanza group can legitimately reach a long
-    way -- separated particle verbs are the whole reason GermanicStrategy
-    exists -- and merging one of those would swallow everything in between. If
-    the union is not contiguous (punctuation aside), the old behaviour stands
-    and the Stanza group is dropped.
+    Separated MWEs are unaffected: they are closed in the reader, and the
+    backend saves no bookmark for them (zeeguu/api#769).
 
-    A Stanza group that does not overlap any lexicon span is kept untouched,
-    as before.
-
-    `tokens` is optional only so existing callers keep working; without it,
-    punctuation cannot be recognised and contiguity is judged on raw indices.
+    `tokens` is accepted for call-site compatibility and to leave the door open
+    for a level-sensitive policy later -- level-adapted rows carry cefr_level,
+    and an A1 reader may well want coarser units than a B2 one.
     """
     if not lexicon_groups:
         return stanza_groups
 
-    def indices_of(group) -> set:
-        return {group["head_idx"], *group["dependent_indices"]}
+    lexicon_spans: List[range] = []
+    for g in lexicon_groups:
+        all_idx = [g["head_idx"], *g["dependent_indices"]]
+        lexicon_spans.append(range(min(all_idx), max(all_idx) + 1))
 
-    def is_punct(idx: int) -> bool:
-        if not tokens or not (0 <= idx < len(tokens)):
-            return False
-        return tokens[idx].get("pos") == "PUNCT"
+    def in_any_lexicon_span(idx: int) -> bool:
+        return any(idx in span for span in lexicon_spans)
 
-    def contributes_only_grammar(extra: set) -> bool:
-        """Is everything the parser would add just grammar hanging off the verb?
-
-        The parser group is taken whole, including words it only swept in
-        while bridging a gap. Danish "ikke tidligere har taget stilling til"
-        was produced that way: "tidligere" ("previously") is an adverbial
-        adjunct, not part of any expression, and absorbing it handed the
-        learner a six-token clause for a three-token idiom.
-
-        Auxiliaries, infinitive markers and negations belong to the verb.
-        Anything else does not. Negation has to be checked by word rather than
-        by tag, because "ikke" and "tidligere" are both ADV.
-        """
-        if not tokens:
-            return True  # no POS available: fall back to the looser rule
-
-        from .stanza_mwe_detector import GermanicStrategy
-
-        for i in extra:
-            if not (0 <= i < len(tokens)):
-                return False
-            pos = tokens[i].get("pos")
-            if pos in ("AUX", "VERB", "PART"):
-                continue
-            if pos == "ADV":
-                text = (tokens[i].get("text") or "").lower()
-                lemma = (tokens[i].get("lemma") or "").lower()
-                if text in GermanicStrategy.NEGATION_WORDS or lemma in GermanicStrategy.NEGATION_WORDS:
-                    continue
-            return False
-        return True
-
-    def is_verbal(idx: int) -> bool:
-        if not tokens or not (0 <= idx < len(tokens)):
-            return True  # no POS available: fall back to the looser rule
-        return tokens[idx].get("pos") in ("VERB", "AUX")
-
-    def is_contiguous(indices: set) -> bool:
-        """Every index between the ends is in the set, or is punctuation."""
-        return all(
-            i in indices or is_punct(i)
-            for i in range(min(indices), max(indices) + 1)
-        )
-
-    merged: List[Dict] = [
-        {**g, "dependent_indices": list(g["dependent_indices"])} for g in lexicon_groups
-    ]
     kept_stanza: List[Dict] = []
+    for g in stanza_groups:
+        touched = in_any_lexicon_span(g["head_idx"]) or any(
+            in_any_lexicon_span(i) for i in g["dependent_indices"]
+        )
+        if not touched:
+            kept_stanza.append(g)
 
-    for sg in stanza_groups:
-        sg_idx = indices_of(sg)
-
-        # `resolved` means this parser group has been dealt with by an
-        # overlapping lexicon group -- either merged into it, or dropped in its
-        # favour. Only a group that overlaps nothing survives on its own.
-        # Note the first overlapping lexicon group decides: a parser group
-        # reaching into two lexicon spans is dropped rather than merged twice.
-        resolved = False
-        for lg in merged:
-            shared = sg_idx & indices_of(lg)
-            if not shared:
-                continue  # no shared token: not the same verb, leave it alone
-
-            resolved = True
-
-            if not any(is_verbal(i) for i in shared):
-                # Overlapping on a noun -- a copula reaching into a
-                # prepositional idiom, not one verb described twice. Drop it,
-                # as before.
-                break
-            if not contributes_only_grammar(sg_idx - indices_of(lg)):
-                # The parser group carries an adjunct, not just the verb's
-                # grammar. Absorbing it would over-reach; lexicon wins.
-                break
-
-            union = sg_idx | indices_of(lg)
-            if not is_contiguous(union):
-                # Reaches too far to merge safely; lexicon still wins.
-                break
-
-            lg["dependent_indices"] = sorted(union - {lg["head_idx"]})
-            break
-
-        if not resolved:
-            kept_stanza.append(sg)
-
-    return kept_stanza + merged
+    return kept_stanza + lexicon_groups
