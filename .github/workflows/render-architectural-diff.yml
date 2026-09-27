@@ -2,6 +2,12 @@ name: Render ARchitectural Diff with ArchLens
 on:
   - pull_request
 
+# This posts a comment on the PR, so a superseded run racing the newer one can
+# leave a diff for the wrong commit. Cancel it instead.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   render-diff-and-upload-comment:
     permissions: write-all
