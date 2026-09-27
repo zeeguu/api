@@ -4,8 +4,19 @@ on:
   pull_request:
     branches:
       - master
+  # Only master. Without a branch filter this also fires on every push to a
+  # PR branch, so each push started two identical runs of this workflow at the
+  # same second -- doubling CI cost and doubling the exposure to any flake.
   push:
+    branches:
+      - master
   workflow_dispatch:
+
+# Supersede a running check when new commits land on the same ref. Not on
+# master, where each commit is a deploy candidate and wants its own verdict.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   build:
