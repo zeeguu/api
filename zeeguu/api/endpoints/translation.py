@@ -28,6 +28,11 @@ from . import api, db_session
 from zeeguu.logging import log as zeeguu_log
 
 punctuation_extended = "»«" + punctuation
+
+# Bounds for /explain_selection. See the endpoint for why each exists.
+EXPLANATION_CEFR_LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2"}
+MAX_EXPLAINED_SELECTION_CHARS = 200
+MAX_EXPLANATION_CONTEXT_CHARS = 2000
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
 
 
@@ -825,18 +830,38 @@ def explain_selection_endpoint(from_lang_code, to_lang_code):
     """
     selection = request.json.get("selection", "").strip()
     context = request.json.get("context", "").strip()
+
+    # Whitelisted, not merely upper-cased. This lands in two places that punish
+    # free text: a VARCHAR(2) column, and the prompt itself -- an unconstrained
+    # string interpolated into an LLM prompt is an injection vector, and this
+    # one has six legal values.
     cefr_level = request.json.get("cefr_level", "A1").strip().upper()
+    if cefr_level not in EXPLANATION_CEFR_LEVELS:
+        cefr_level = "A1"
 
     if not selection:
         flask.abort(400, "Missing selection")
+    if len(selection) > MAX_EXPLAINED_SELECTION_CHARS:
+        # Longer than any word or phrase a learner selects, and the column is
+        # VARCHAR(255): refuse rather than truncate into a wrong cache key.
+        flask.abort(400, "Selection too long to explain")
+    # A sentence, not an article. Unbounded context is unbounded tokens, and
+    # the caller decides how much to send. Truncation is deterministic, so the
+    # cache key stays consistent with what is actually sent to the model.
+    context = context[:MAX_EXPLANATION_CONTEXT_CHARS]
     if not context:
         # Without the sentence this degrades to a dictionary entry, which the
         # learner already has in the menu above. Better to refuse than to serve
         # a worse answer under a name that promises more.
         flask.abort(400, "Missing context")
 
-    language = Language.find(from_lang_code)
-    native_language = Language.find(to_lang_code)
+    try:
+        language = Language.find(from_lang_code)
+        native_language = Language.find(to_lang_code)
+    except NoResultFound:
+        # Language.find uses .one(); an unknown code would otherwise surface as
+        # a 500 with a stack trace rather than the client error it is.
+        flask.abort(400, "Unknown language code")
 
     try:
         explanation, was_cached = SelectionExplanation.find_or_create(

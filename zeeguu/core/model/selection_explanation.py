@@ -1,5 +1,7 @@
 import hashlib
 
+from sqlalchemy.exc import IntegrityError
+
 from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
 from zeeguu.core.util.time import server_now
@@ -130,6 +132,18 @@ class SelectionExplanation(db.Model):
             selection, context, language, native_language, cefr_level, explanation
         )
         session.add(row)
-        session.commit()
+        try:
+            session.commit()
+        except IntegrityError:
+            # Two learners tapped the same word in the same sentence close
+            # enough together that both missed the cache and both generated.
+            # The unique key does its job and the second insert fails; the
+            # learner still has a perfectly good explanation in hand, so this
+            # is not an error to propagate -- take the row that won.
+            session.rollback()
+            winner = cls.find(selection, context, language, native_language, cefr_level)
+            if winner:
+                return winner.explanation, True
+            raise
 
         return explanation, False
