@@ -1598,6 +1598,18 @@ mode is a half-annotated corpus that cannot be released.
 set, which §5.6 establishes does not exist in any form, for the one language the
 subsystem was built around.
 
+**One tension to hold consciously.** Proposal B argues that the linguist's unit is
+not the unit the reader needs (§2.1). Proposal A builds a linguist's unit for
+Danish. That looks contradictory and is not, but the reason should be stated in
+both papers rather than left for a reviewer to notice: you cannot claim a
+divergence without a reference frame, and PARSEME is the reference frame. The
+Danish corpus is what makes the divergence measurable in Danish at all — the
+labelled sample in §6.2 is essentially a small, learner-span-anchored version of
+the same annotation. If anything the two proposals are stronger together than
+apart, and a paper that built the gold standard *and* showed where learner
+behaviour departs from it would be a better paper than either. That is an argument
+for doing A first if the student exists, and for not framing B as anti-PARSEME.
+
 ### 6.2 Proposal B — What unit does the reader need? A census of learner-chosen multi-word spans
 
 **This is the strongest proposal, and it got stronger and cheaper when the
