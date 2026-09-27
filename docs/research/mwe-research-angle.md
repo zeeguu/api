@@ -653,11 +653,16 @@ audit:
 
 Novelty status: **provisionally open, pending one literature check.** The
 adjacent claim — that formulaicity is speaker-relative, so "formulaic for whom?"
-is the right question — is Wray's, from 2002, and the phraseology field has a
-long-standing split between semantic/idiomaticity-based and frequency-based
-definitions of the unit. What I have not yet confirmed is whether anyone has
-**measured** the divergence between learner-selected and linguistically-defined
-units, at scale, from behaviour. See §2.7 for the honest status of that check.
+is the right question — is attributed to Wray, *Formulaic Language and the
+Lexicon* (2002), along with her "needs-only analysis" (learners decompose input
+only as far as they need to); and the phraseology field has a long-standing split
+between semantic/idiomaticity-based and frequency-based definitions of the unit.
+**Both attributions are unverified** — I did not open either source, and the
+exact wording matters here, because if Wray already states the claim in general
+form then the contribution is the measurement rather than the idea. What I have
+not confirmed at all is whether anyone has **measured** the divergence between
+learner-selected and linguistically-defined units, at scale, from behaviour. See
+§2.7 for the honest status of that check.
 
 ### 2.2 Strong — Danish as a PARSEME-scheme language
 
