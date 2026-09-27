@@ -62,6 +62,7 @@ langdetect
 rapidfuzz
 pyphen
 regex
+wordfreq==3.1.1  # word lists to avoid when simplifying (prompts/split_simplification.py)
 
 # HTTP & APIs
 requests
