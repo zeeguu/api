@@ -86,6 +86,15 @@ gives `has been in front of`, a compositional predicate rather than an
 expression. Sharing a verb means the layers are describing one verb; sharing a
 noun usually means they are not.
 
+**Everything the parser adds must be grammar, not an adjunct.** The parser
+group is taken whole, including words it only swept in while bridging a gap.
+Danish *"ikke tidligere har taget stilling til"* was produced that way:
+`tidligere` ("previously") is an adverbial adjunct, and absorbing it handed the
+learner a six-token clause for a three-token idiom. Auxiliaries, infinitive
+markers and negations belong to the verb; anything else does not. Negation is
+checked by word rather than by tag, because `ikke` and `tidligere` are both
+`ADV`.
+
 **The union must be contiguous** (punctuation aside). A separated particle verb
 can reach across half a sentence — that is what `GermanicStrategy` is for — and
 absorbing one would swallow every word in between. A non-contiguous union falls
