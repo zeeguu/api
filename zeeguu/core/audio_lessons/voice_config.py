@@ -80,6 +80,11 @@ VOICE_CONFIG = {
         "man": "uk-UA-Chirp3-HD-Enceladus",
         "teacher": "uk-UA-Chirp3-HD-Sulafat",
     },
+    "bg-BG": {  # Bulgarian
+        "woman": "bg-BG-Chirp3-HD-Aoede",
+        "man": "bg-BG-Chirp3-HD-Enceladus",
+        "teacher": "bg-BG-Chirp3-HD-Sulafat",
+    },
 }
 
 # Default silence duration between sentences (in seconds)
@@ -108,6 +113,7 @@ DEFAULT_LOCALE = {
     "ro": "ro-RO",
     "el": "el-GR",
     "uk": "uk-UA",
+    "bg": "bg-BG",
 }
 
 
