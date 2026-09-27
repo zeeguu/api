@@ -134,32 +134,96 @@ class LexiconMatcher:
 
 
 def merge_lexicon_with_stanza(
-    stanza_groups: List[Dict], lexicon_groups: List[Dict]
+    stanza_groups: List[Dict], lexicon_groups: List[Dict], tokens: List[Dict] = None
 ) -> List[Dict]:
     """
-    Resolve overlap: lexicon wins.
+    Resolve overlap between the two layers.
 
-    Drops any Stanza group whose head or any dependent falls inside
-    a lexicon span (the inclusive [min, max] range of token indices).
-    Lexicon groups are appended unchanged.
+    A Stanza group that shares a token with a lexicon span is usually the same
+    verb wearing its grammar: the parser found "at finde", "har fundet" or
+    "kunne ikke finde", and the lexicon found "finde ud af" around the same
+    verb. Dropping the parser group -- which is what this used to do -- gives a
+    correct expression with its auxiliary, its negation or its infinitive
+    marker left dangling outside any group, so a tap on "ikke" yields "not"
+    instead of "could not figure out".
+
+    So an overlapping Stanza group is ABSORBED into the lexicon group when the
+    token they share is a verb and the result is a single contiguous span.
+    "at finde" + "finde ud af" becomes "at finde ud af".
+
+    The verb condition is what keeps this honest. English "She has been in
+    front of the house" parses with "has" and "been" hanging off "front" --
+    the noun inside a prepositional idiom -- so the groups overlap on a noun.
+    Absorbing there gives "has been in front of", a compositional predicate
+    rather than an expression. Sharing a verb means the two layers are
+    describing one verb; sharing a noun usually means they are not.
+
+    Contiguity is the safety rail. A Stanza group can legitimately reach a long
+    way -- separated particle verbs are the whole reason GermanicStrategy
+    exists -- and merging one of those would swallow everything in between. If
+    the union is not contiguous (punctuation aside), the old behaviour stands
+    and the Stanza group is dropped.
+
+    A Stanza group that does not overlap any lexicon span is kept untouched,
+    as before.
+
+    `tokens` is optional only so existing callers keep working; without it,
+    punctuation cannot be recognised and contiguity is judged on raw indices.
     """
     if not lexicon_groups:
         return stanza_groups
 
-    lexicon_spans: List[range] = []
-    for g in lexicon_groups:
-        all_idx = [g["head_idx"], *g["dependent_indices"]]
-        lexicon_spans.append(range(min(all_idx), max(all_idx) + 1))
+    def indices_of(group) -> set:
+        return {group["head_idx"], *group["dependent_indices"]}
 
-    def in_any_lexicon_span(idx: int) -> bool:
-        return any(idx in span for span in lexicon_spans)
+    def is_punct(idx: int) -> bool:
+        if not tokens or not (0 <= idx < len(tokens)):
+            return False
+        return tokens[idx].get("pos") == "PUNCT"
 
-    kept_stanza: List[Dict] = []
-    for g in stanza_groups:
-        touched = in_any_lexicon_span(g["head_idx"]) or any(
-            in_any_lexicon_span(i) for i in g["dependent_indices"]
+    def is_verbal(idx: int) -> bool:
+        if not tokens or not (0 <= idx < len(tokens)):
+            return True  # no POS available: fall back to the looser rule
+        return tokens[idx].get("pos") in ("VERB", "AUX")
+
+    def is_contiguous(indices: set) -> bool:
+        """Every index between the ends is in the set, or is punctuation."""
+        return all(
+            i in indices or is_punct(i)
+            for i in range(min(indices), max(indices) + 1)
         )
-        if not touched:
-            kept_stanza.append(g)
 
-    return kept_stanza + lexicon_groups
+    merged: List[Dict] = [
+        {**g, "dependent_indices": list(g["dependent_indices"])} for g in lexicon_groups
+    ]
+    kept_stanza: List[Dict] = []
+
+    for sg in stanza_groups:
+        sg_idx = indices_of(sg)
+
+        absorbed = False
+        for lg in merged:
+            lg_idx = indices_of(lg)
+            shared = sg_idx & lg_idx
+            if not shared:
+                continue  # no shared token: not the same verb, leave it alone
+            if not any(is_verbal(i) for i in shared):
+                # Overlapping on a noun -- a copula reaching into a
+                # prepositional idiom, not one verb described twice.
+                absorbed = True
+                break
+
+            union = sg_idx | lg_idx
+            if not is_contiguous(union):
+                # Reaches too far to merge safely; lexicon still wins.
+                absorbed = True
+                break
+
+            lg["dependent_indices"] = sorted(union - {lg["head_idx"]})
+            absorbed = True
+            break
+
+        if not absorbed:
+            kept_stanza.append(sg)
+
+    return kept_stanza + merged

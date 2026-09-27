@@ -66,6 +66,40 @@ For fixed expressions the parser cannot see — prepositional idioms
 (`på jagt efter`) and light-verb constructions (`tage hensyn til`). Longest
 match wins; punctuation is skipped when assembling a span.
 
+### Where the two layers overlap
+
+The lexicon span **absorbs** the parser group rather than replacing it, under
+two conditions. A parser group sharing a token with a lexicon span is usually
+the same verb wearing its grammar, and dropping it stranded the auxiliary,
+negation or infinitive marker outside any group:
+
+| what the parser found | + lexicon | = |
+|---|---|---|
+| `at finde` (infinitive marker) | `finde ud af` | `at finde ud af` |
+| `har fundet` (perfect auxiliary) | `finde ud af` | `har fundet ud af` |
+| `kunne ikke finde` (modal + negation) | `finde ud af` | `kunne ikke finde ud af` |
+
+**The shared token must be a verb.** English *"She has been in front of the
+house"* parses with `has` and `been` hanging off `front` — the noun inside a
+prepositional idiom — so the two groups overlap on a noun. Absorbing there
+gives `has been in front of`, a compositional predicate rather than an
+expression. Sharing a verb means the layers are describing one verb; sharing a
+noun usually means they are not.
+
+**The union must be contiguous** (punctuation aside). A separated particle verb
+can reach across half a sentence — that is what `GermanicStrategy` is for — and
+absorbing one would swallow every word in between. A non-contiguous union falls
+back to lexicon-wins.
+
+A parser group sharing no token with any lexicon span is untouched.
+
+Measured effect outside Danish, which is where the rule was derived: across
+German and Dutch probe sentences (`in der Lage`, `vor allem`, `in Betracht
+ziehen`, `op zoek naar`, `rekening houden met`, separable verbs with long gaps)
+**nothing changed**. Their lexicon entries are surface-matched, so verb-bearing
+ones only match in citation order, which real sentences rarely use. English
+changed once, correctly: `take into account` → `will take into account`.
+
 Section comments carry [PARSEME](https://typo.uni-konstanz.de/parseme/)'s
 category names where they apply, so these lists are legible to anyone from
 that literature and a future export to the PARSEME annotation scheme is
