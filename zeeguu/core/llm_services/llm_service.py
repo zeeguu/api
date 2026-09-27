@@ -132,11 +132,22 @@ def explain_selection(
 ) -> str:
     """Explain what `selection` means in the sentence `context`.
 
-    Sonnet, not the cheap tier: Haiku fabricated the morphology of a Danish
-    compound on every prompt variant tried, including the one Sonnet gets right
-    (see prompts/word_explanation.py). Temperature 0 so that the same selection
-    in the same sentence explains the same way -- which is also what makes the
-    explanation safe to cache and share between learners.
+    DeepSeek first, Anthropic behind it. On the Danish compound that breaks
+    models (see prompts/word_explanation.py) DeepSeek was 6/6 correct at 1.17s
+    average against Sonnet's 5/6 at 2.71s, so the faster provider is also the
+    more reliable one here.
+
+    That does make the fallback a real, if small, quality step down rather than
+    a neutral swap: roughly one in six of Sonnet's answers on that word invents
+    the morphology. It is still far better than failing the request, and most
+    selections are not treacherous compounds -- but it is a degradation, not an
+    equivalent.
+
+    Temperature 0 so that the same selection in the same sentence explains the
+    same way -- which is also what makes the explanation safe to cache and
+    share between learners. Note the two providers do not agree word for word,
+    so a cached entry reflects whichever answered; that is a difference in
+    prose, not in meaning.
 
     The dictionary translation is deliberately not a parameter. Passing it made
     the model reason backwards from an ambiguous gloss and invent structure to
@@ -153,11 +164,20 @@ def explain_selection(
         cefr_level=cefr_level,
     )
 
-    service = UnifiedLLMService()._get_anthropic_service()
-    service.model = models.WORD_EXPLANATION
-    explanation = service.generate_text(
-        prompt, max_tokens=300, temperature=0.0, system=system
-    )
+    def ask(service, model):
+        service.model = model
+        return service.generate_text(
+            prompt, max_tokens=300, temperature=0.0, system=system
+        )
+
+    unified = UnifiedLLMService()
+    try:
+        explanation = ask(unified._get_deepseek_service(), models.WORD_EXPLANATION)
+    except Exception as deepseek_error:
+        log(f"DeepSeek failed explaining '{selection}': {deepseek_error}")
+        explanation = ask(
+            unified._get_anthropic_service(), models.WORD_EXPLANATION_FALLBACK
+        )
 
     if not explanation or not explanation.strip():
         raise Exception("Empty explanation from LLM")
