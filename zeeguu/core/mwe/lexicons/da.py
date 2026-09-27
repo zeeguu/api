@@ -111,7 +111,6 @@ DANISH_MWES = frozenset({
     # Conjunctions / connectors / discourse markers
     "selv om",
     "som om",
-    "ud af det blå",   # beats "ud af": "out of the blue", not "out of"
     "om end",
     "ikke desto mindre",
     "mere eller mindre",
@@ -130,6 +129,7 @@ DANISH_MWES = frozenset({
     "læg mærke til",
 
     # Other
+    "ud af det blå",   # beats "ud af": "out of the blue", not "out of"
     "stort set",
     "over bord",
     "simpelt hen",
