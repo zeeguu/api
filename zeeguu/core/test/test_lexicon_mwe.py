@@ -342,3 +342,15 @@ def test_lexicon_groups_are_not_mutated():
 def test_no_lexicon_groups_leaves_parser_groups_alone():
     stanza = [{"head_idx": 2, "dependent_indices": [1], "type": "aux_verb"}]
     assert _merge(stanza, []) == stanza
+
+
+def test_overlap_through_a_dependent_also_drops_the_parser_group():
+    # The parser group's *head* sits outside the lexicon span and only one of
+    # its dependents falls inside. The group still goes: both halves of the
+    # overlap test matter, and only the head case was pinned before.
+    merged = _merge(
+        [{"head_idx": 0, "dependent_indices": [2], "type": "aux_verb"}],
+        [{"head_idx": 2, "dependent_indices": [3, 4], "type": "lexicon"}],
+    )
+    assert len(merged) == 1
+    assert _span(merged[0]) == [2, 3, 4]
