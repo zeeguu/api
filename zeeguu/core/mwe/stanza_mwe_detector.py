@@ -645,7 +645,7 @@ class LexiconOverlayStrategy(MWEStrategy):
     def detect(self, tokens: List[Dict]) -> List[Dict]:
         inner_groups = self.inner.detect(tokens)
         lexicon_groups = self.lexicon_matcher.detect(tokens)
-        return merge_lexicon_with_stanza(inner_groups, lexicon_groups)
+        return merge_lexicon_with_stanza(inner_groups, lexicon_groups, tokens)
 
 
 # Language to strategy mapping

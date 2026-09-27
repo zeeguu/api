@@ -261,3 +261,101 @@ def test_lemmatiser_miss_is_patched_by_a_surface_entry():
     groups = LexiconMatcher("da").detect(tokens)
     assert len(groups) == 1
     assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [0, 1, 2]
+
+
+# ─── Extending a lexicon span over the grammar attached to its verb ─────
+#
+# A Stanza group sharing a token with a lexicon span is usually the same verb
+# wearing its grammar. Dropping it left the auxiliary, the negation or the
+# infinitive marker outside any group -- a tap on "ikke" gave "not" rather than
+# "could not figure out". All three shapes below were found in production, in
+# the level-adapted summaries, on 2026-09-27.
+
+
+def _merge(stanza_groups, lexicon_groups, tokens=None):
+    return merge_lexicon_with_stanza(stanza_groups, lexicon_groups, tokens)
+
+
+def _span(group):
+    return sorted({group["head_idx"], *group["dependent_indices"]})
+
+
+def test_infinitive_marker_is_absorbed():
+    # "at finde ud af": parser has [at finde], lexicon has [finde ud af]
+    merged = _merge(
+        [{"head_idx": 1, "dependent_indices": [0], "type": "grammatical"}],
+        [{"head_idx": 1, "dependent_indices": [2, 3], "type": "lexicon"}],
+    )
+    assert len(merged) == 1
+    assert _span(merged[0]) == [0, 1, 2, 3]
+
+
+def test_perfect_auxiliary_is_absorbed():
+    # "har fundet ud af"
+    merged = _merge(
+        [{"head_idx": 1, "dependent_indices": [0], "type": "aux_verb"}],
+        [{"head_idx": 1, "dependent_indices": [2, 3], "type": "lexicon"}],
+    )
+    assert len(merged) == 1
+    assert _span(merged[0]) == [0, 1, 2, 3]
+
+
+def test_modal_and_negation_are_absorbed():
+    # "kunne ikke finde ud af"
+    merged = _merge(
+        [{"head_idx": 2, "dependent_indices": [0, 1], "type": "negation"}],
+        [{"head_idx": 2, "dependent_indices": [3, 4], "type": "lexicon"}],
+    )
+    assert len(merged) == 1
+    assert _span(merged[0]) == [0, 1, 2, 3, 4]
+
+
+def test_non_overlapping_groups_are_both_kept():
+    # "på jagt efter en aftale": the article+noun group shares no token with
+    # the idiom, so neither is touched.
+    merged = _merge(
+        [{"head_idx": 5, "dependent_indices": [4], "type": "article_noun"}],
+        [{"head_idx": 0, "dependent_indices": [1, 2], "type": "lexicon"}],
+    )
+    assert len(merged) == 2
+    assert sorted(_span(g) for g in merged) == [[0, 1, 2], [4, 5]]
+
+
+def test_a_group_that_reaches_too_far_is_not_absorbed():
+    # The safety rail. A separated particle verb can span half a sentence
+    # ("Han steht jeden Morgen um sechs Uhr auf"). Merging one of those would
+    # swallow everything between, so when the union is not contiguous the old
+    # behaviour stands and the parser group is dropped.
+    merged = _merge(
+        [{"head_idx": 0, "dependent_indices": [9], "type": "particle_verb"}],
+        [{"head_idx": 0, "dependent_indices": [1, 2], "type": "lexicon"}],
+    )
+    assert len(merged) == 1
+    assert merged[0]["type"] == "lexicon"
+    assert _span(merged[0]) == [0, 1, 2]
+
+
+def test_punctuation_does_not_block_absorption():
+    # "fandt ud af, at ..." -- a comma inside the union is not a gap.
+    tokens = [
+        _ltok("Han", "han", "PRON"),
+        _ltok("har", "have", "AUX"),
+        _ltok("fundet", "finde", "VERB"),
+        _ltok("ud", "ud", "ADV"),
+        _ltok(",", ",", "PUNCT"),
+        _ltok("af", "af", "ADP"),
+    ]
+    merged = _merge(
+        [{"head_idx": 2, "dependent_indices": [1], "type": "aux_verb"}],
+        [{"head_idx": 2, "dependent_indices": [3, 5], "type": "lexicon"}],
+        tokens,
+    )
+    assert len(merged) == 1
+    assert _span(merged[0]) == [1, 2, 3, 5]
+
+
+def test_lexicon_groups_are_not_mutated_in_place():
+    # The caller's list is reused elsewhere; merging must not edit it.
+    lexicon = [{"head_idx": 1, "dependent_indices": [2, 3], "type": "lexicon"}]
+    _merge([{"head_idx": 1, "dependent_indices": [0], "type": "aux_verb"}], lexicon)
+    assert lexicon[0]["dependent_indices"] == [2, 3]

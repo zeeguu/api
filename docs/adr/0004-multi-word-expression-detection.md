@@ -66,6 +66,14 @@ For fixed expressions the parser cannot see — prepositional idioms
 (`på jagt efter`) and light-verb constructions (`tage hensyn til`). Longest
 match wins; punctuation is skipped when assembling a span.
 
+Where the two layers overlap, the lexicon span **absorbs** the parser group
+rather than replacing it, provided the result stays contiguous. A parser group
+sharing a token with a lexicon span is usually the same verb wearing its
+grammar, and dropping it stranded the auxiliary, negation or infinitive marker
+outside any group. Contiguity is the safety rail: a separated particle verb can
+reach across half a sentence, and merging one would swallow everything between,
+so a non-contiguous union falls back to lexicon-wins.
+
 Section comments carry [PARSEME](https://typo.uni-konstanz.de/parseme/)'s
 category names where they apply, so these lists are legible to anyone from
 that literature and a future export to the PARSEME annotation scheme is
