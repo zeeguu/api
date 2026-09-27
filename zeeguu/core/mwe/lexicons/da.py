@@ -3,7 +3,8 @@ Danish multi-word expressions.
 
 Hand-curated seed of fixed prepositional idioms and light-verb
 constructions where Stanza's parser does not produce a usable
-MWE grouping. Lowercased surface forms.
+MWE grouping. Lowercased throughout; see the two sets below for
+which of them is matched on surface form and which on the lemma.
 
 Curation sources:
 - Original seed: hand-picked from common Danish idioms
@@ -27,6 +28,7 @@ almost never meets.
 
 DANISH_MWES = frozenset({
     # Prepositional idioms — "preposition + noun + preposition"
+    # (non-verbal; see the package docstring on PARSEME labels)
     "på jagt efter",
     "på vej til",
     "på vej hjem",
@@ -129,7 +131,7 @@ DANISH_MWES = frozenset({
     "læg mærke til",
 
     # Other
-    "ud af det blå",   # beats "ud af": "out of the blue", not "out of"
+    "ud af det blå",   # VID; beats "ud af": "out of the blue", not "out of"
     "stort set",
     "over bord",
     "simpelt hen",
@@ -142,7 +144,7 @@ DANISH_MWES = frozenset({
 # module docstring). Only the leading verb inflects; the tail is fixed, so
 # "lagde mærke til" and "lægge mærke til" both reduce to one lookup.
 DANISH_VERB_MWES = frozenset({
-    # Light-verb constructions
+    # LVC — light-verb constructions
     "tage hensyn til",
     "tage stilling til",
     "give udtryk for",
@@ -158,7 +160,7 @@ DANISH_VERB_MWES = frozenset({
     "være glad for",
     "blive nødt til",
 
-    # Verb + particle + preposition. The reason this set exists: "fandt ud af"
+    # VPC — verb-particle constructions. The reason this set exists: "fandt ud af"
     # was being grouped as "ud af" ("out of") because that is a lexicon entry
     # and this one was not, so the reader was shown a confident translation of
     # a span that is not an expression.

@@ -3,7 +3,7 @@ Swedish multi-word expressions.
 """
 
 SWEDISH_MWES = frozenset({
-    # Prepositional idioms
+    # Prepositional idioms (non-verbal; see the package docstring on PARSEME labels)
     "på jakt efter",
     "på väg till",
     "på grund av",
@@ -31,7 +31,7 @@ SWEDISH_MWES = frozenset({
     "över lag",
     "för det mesta",
 
-    # Light-verb constructions
+    # LVC — light-verb constructions
     "ta hänsyn till",
     "ta ställning till",
     "ge uttryck för",

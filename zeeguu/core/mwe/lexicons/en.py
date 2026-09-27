@@ -3,7 +3,7 @@ English multi-word expressions.
 """
 
 ENGLISH_MWES = frozenset({
-    # Prepositional idioms
+    # Prepositional idioms (non-verbal; see the package docstring on PARSEME labels)
     "in spite of",
     "in lieu of",
     "in light of",
@@ -41,7 +41,7 @@ ENGLISH_MWES = frozenset({
     "prior to",
     "subject to",
 
-    # Light-verb constructions
+    # LVC — light-verb constructions
     "take into account",
     "take into consideration",
     "take advantage of",

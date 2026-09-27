@@ -3,7 +3,7 @@ Dutch multi-word expressions.
 """
 
 DUTCH_MWES = frozenset({
-    # Prepositional idioms
+    # Prepositional idioms (non-verbal; see the package docstring on PARSEME labels)
     "op zoek naar",
     "op weg naar",
     "op grond van",
@@ -35,7 +35,7 @@ DUTCH_MWES = frozenset({
     "om die reden",
     "aan de hand van",
 
-    # Light-verb constructions
+    # LVC — light-verb constructions
     "rekening houden met",
     "aandacht besteden aan",
     "in aanmerking nemen",

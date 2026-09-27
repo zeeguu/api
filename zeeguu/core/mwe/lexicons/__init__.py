@@ -10,6 +10,21 @@ chiefly prepositional idioms ("på jagt efter", "im Hinblick auf",
 A lexicon is a `frozenset[str]` of lowercased forms, one phrase per
 entry, words separated by single spaces.
 
+Section comments in the language files carry PARSEME's category names
+where they apply, so these lists are legible to anyone coming from that
+literature and a future export to the PARSEME annotation scheme is
+mechanical:
+
+    LVC  light-verb construction      "tage hensyn til", "have brug for"
+    VPC  verb-particle construction   "finde ud af", "lade som om"
+    VID  verbal idiom                 "ud af det blå"
+
+Only the verbal categories are labelled. PARSEME 2.0 extends the scheme
+to nominal, adjectival, adverbial and functional MWEs -- which is what
+most of the prepositional idioms are -- but those label names have not
+been checked against the 2.0 guidelines, so those sections stay
+descriptive rather than carry a possibly wrong tag.
+
 Each language has up to two: a surface-matched set, and an optional
 verb-initial set matched with the first token lemmatised (only the
 leading verb inflects). Danish has the verb set; the others are

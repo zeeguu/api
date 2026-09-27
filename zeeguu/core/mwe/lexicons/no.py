@@ -3,7 +3,7 @@ Norwegian (Bokmål) multi-word expressions.
 """
 
 NORWEGIAN_MWES = frozenset({
-    # Prepositional idioms
+    # Prepositional idioms (non-verbal; see the package docstring on PARSEME labels)
     "på jakt etter",
     "på vei til",
     "på vei hjem",
@@ -33,7 +33,7 @@ NORWEGIAN_MWES = frozenset({
     "av sted",
     "om bord",
 
-    # Light-verb constructions
+    # LVC — light-verb constructions
     "ta hensyn til",
     "ta stilling til",
     "gi uttrykk for",

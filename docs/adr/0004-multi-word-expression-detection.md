@@ -66,6 +66,23 @@ For fixed expressions the parser cannot see — prepositional idioms
 (`på jagt efter`) and light-verb constructions (`tage hensyn til`). Longest
 match wins; punctuation is skipped when assembling a span.
 
+Section comments carry [PARSEME](https://typo.uni-konstanz.de/parseme/)'s
+category names where they apply, so these lists are legible to anyone from
+that literature and a future export to the PARSEME annotation scheme is
+mechanical:
+
+| Label | Category | Example |
+|---|---|---|
+| `LVC` | light-verb construction | `tage hensyn til`, `have brug for` |
+| `VPC` | verb-particle construction | `finde ud af`, `lade som om` |
+| `VID` | verbal idiom | `ud af det blå` |
+
+Only the verbal categories are labelled. PARSEME 2.0 extends the scheme to
+nominal, adjectival, adverbial and functional MWEs — which is what most of
+the prepositional idioms are — but those label names have not been checked
+against the 2.0 guidelines, so those sections stay descriptive rather than
+carry a possibly wrong tag.
+
 Two sets per language, because two kinds of expression inflect differently:
 
 - **`<LANG>_MWES`** — matched on **surface form**. These are frozen: `i dag`
