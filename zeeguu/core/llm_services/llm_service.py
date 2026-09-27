@@ -123,6 +123,48 @@ def generate_audio_lesson_script(prompt: str, max_tokens: int = 2500, system: st
     return llm_service.generate_text_with_model(prompt, max_tokens=max_tokens, temperature=0.7, system=system)
 
 
+def explain_selection(
+    selection: str,
+    context: str,
+    language: str,
+    native_language: str,
+    cefr_level: str,
+) -> str:
+    """Explain what `selection` means in the sentence `context`.
+
+    Sonnet, not the cheap tier: Haiku fabricated the morphology of a Danish
+    compound on every prompt variant tried, including the one Sonnet gets right
+    (see prompts/word_explanation.py). Temperature 0 so that the same selection
+    in the same sentence explains the same way -- which is also what makes the
+    explanation safe to cache and share between learners.
+
+    The dictionary translation is deliberately not a parameter. Passing it made
+    the model reason backwards from an ambiguous gloss and invent structure to
+    fit; see the measurements in the prompt module.
+    """
+    from .prompts.word_explanation import create_word_explanation_prompt
+    from . import models
+
+    prompt, system = create_word_explanation_prompt(
+        selection=selection,
+        context=context,
+        language=language,
+        native_language=native_language,
+        cefr_level=cefr_level,
+    )
+
+    service = UnifiedLLMService()._get_anthropic_service()
+    service.model = models.WORD_EXPLANATION
+    explanation = service.generate_text(
+        prompt, max_tokens=300, temperature=0.0, system=system
+    )
+
+    if not explanation or not explanation.strip():
+        raise Exception("Empty explanation from LLM")
+
+    return explanation.strip()
+
+
 def prepare_learning_card(
     searched_word: str,
     translation: str,

@@ -45,6 +45,12 @@ MEANING_FREQUENCY = ANTHROPIC_SONNET
 # General-purpose Anthropic SDK service (background example / text generation).
 ANTHROPIC_GENERAL = ANTHROPIC_SONNET
 
+# Explaining a selected word in its sentence. Sonnet on purpose: Haiku
+# fabricated the parts of a Danish compound on every prompt variant tested,
+# 0/3 each time, where Sonnet is 3/3. The learner has tapped Explain and is
+# watching a modal -- correctness earns the extra second.
+WORD_EXPLANATION = ANTHROPIC_SONNET
+
 # Article simplification + CEFR classification (real-time Haiku key path).
 SIMPLIFICATION = ANTHROPIC_HAIKU
 

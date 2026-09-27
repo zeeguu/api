@@ -121,6 +121,7 @@ from .monthly_activity_stats_cache import MonthlyActivityStatsCache
 
 # translation history
 from .translation_search import TranslationSearch
+from .selection_explanation import SelectionExplanation
 
 # badges
 from .badge_category import BadgeCategory

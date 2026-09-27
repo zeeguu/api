@@ -18,8 +18,9 @@ from zeeguu.core.translation_services.translator import (
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride, TranslationSearch
+from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride, TranslationSearch, SelectionExplanation
 from zeeguu.core.model.article import Article
+from zeeguu.core.model.language import Language
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.text import Text
@@ -802,3 +803,57 @@ def disable_mwe_grouping():
     db_session.commit()
 
     return json_result({"success": True})
+
+
+@api.route("/explain_selection/<from_lang_code>/<to_lang_code>", methods=["POST"])
+@cross_domain
+@requires_session
+def explain_selection_endpoint(from_lang_code, to_lang_code):
+    """Explain a selected word or phrase as it is used in its sentence.
+
+    Behind the Explain option in the translation menu. Distinct from
+    /translate_word, which answers "what is this in my language?" -- this one
+    answers "why does it mean that here?", which is the question a translation
+    leaves open for a compound, an idiom, or an ambiguous gloss.
+
+    Takes the selection and the sentence around it. It does NOT take the
+    translation the learner was shown: handing the model an ambiguous gloss made
+    it reason backwards and invent morphology to fit (measurements in
+    llm_services/prompts/word_explanation.py).
+
+    :return: {"explanation": str, "cached": bool}
+    """
+    selection = request.json.get("selection", "").strip()
+    context = request.json.get("context", "").strip()
+    cefr_level = request.json.get("cefr_level", "A1").strip().upper()
+
+    if not selection:
+        flask.abort(400, "Missing selection")
+    if not context:
+        # Without the sentence this degrades to a dictionary entry, which the
+        # learner already has in the menu above. Better to refuse than to serve
+        # a worse answer under a name that promises more.
+        flask.abort(400, "Missing context")
+
+    language = Language.find(from_lang_code)
+    native_language = Language.find(to_lang_code)
+
+    try:
+        explanation, was_cached = SelectionExplanation.find_or_create(
+            db_session,
+            selection=selection,
+            context=context,
+            language=language,
+            native_language=native_language,
+            cefr_level=cefr_level,
+        )
+    except Exception as e:
+        zeeguu_log(f"[EXPLAIN] failed for '{selection}': {e}")
+        flask.abort(500, "Could not generate an explanation")
+
+    zeeguu_log(
+        f"[EXPLAIN] '{selection}' ({from_lang_code}->{to_lang_code}, {cefr_level}) "
+        f"{'cache hit' if was_cached else 'generated'}"
+    )
+
+    return json_result({"explanation": explanation, "cached": was_cached})
