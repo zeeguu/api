@@ -148,8 +148,9 @@ def merge_lexicon_with_stanza(
     instead of "could not figure out".
 
     So an overlapping Stanza group is ABSORBED into the lexicon group when the
-    token they share is a verb and the result is a single contiguous span.
-    "at finde" + "finde ud af" becomes "at finde ud af".
+    token they share is a verb, everything it would add is grammar rather than
+    an adjunct, and the result is a single contiguous span. "at finde" +
+    "finde ud af" becomes "at finde ud af".
 
     The verb condition is what keeps this honest. English "She has been in
     front of the house" parses with "has" and "been" hanging off "front" --
@@ -180,6 +181,38 @@ def merge_lexicon_with_stanza(
         if not tokens or not (0 <= idx < len(tokens)):
             return False
         return tokens[idx].get("pos") == "PUNCT"
+
+    def contributes_only_grammar(extra: set) -> bool:
+        """Is everything the parser would add just grammar hanging off the verb?
+
+        The parser group is taken whole, including words it only swept in
+        while bridging a gap. Danish "ikke tidligere har taget stilling til"
+        was produced that way: "tidligere" ("previously") is an adverbial
+        adjunct, not part of any expression, and absorbing it handed the
+        learner a six-token clause for a three-token idiom.
+
+        Auxiliaries, infinitive markers and negations belong to the verb.
+        Anything else does not. Negation has to be checked by word rather than
+        by tag, because "ikke" and "tidligere" are both ADV.
+        """
+        if not tokens:
+            return True  # no POS available: fall back to the looser rule
+
+        from .stanza_mwe_detector import GermanicStrategy
+
+        for i in extra:
+            if not (0 <= i < len(tokens)):
+                return False
+            pos = tokens[i].get("pos")
+            if pos in ("AUX", "VERB", "PART"):
+                continue
+            if pos == "ADV":
+                text = (tokens[i].get("text") or "").lower()
+                lemma = (tokens[i].get("lemma") or "").lower()
+                if text in GermanicStrategy.NEGATION_WORDS or lemma in GermanicStrategy.NEGATION_WORDS:
+                    continue
+            return False
+        return True
 
     def is_verbal(idx: int) -> bool:
         if not tokens or not (0 <= idx < len(tokens)):
@@ -219,6 +252,11 @@ def merge_lexicon_with_stanza(
                 # prepositional idiom, not one verb described twice. Drop it,
                 # as before.
                 break
+            if not contributes_only_grammar(sg_idx - indices_of(lg)):
+                # The parser group carries an adjunct, not just the verb's
+                # grammar. Absorbing it would over-reach; lexicon wins.
+                break
+
             union = sg_idx | indices_of(lg)
             if not is_contiguous(union):
                 # Reaches too far to merge safely; lexicon still wins.

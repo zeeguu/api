@@ -400,3 +400,45 @@ def test_overlap_on_a_verb_is_absorbed():
     )
     assert len(merged) == 1
     assert _span(merged[0]) == [1, 2, 3, 4]
+
+
+def test_an_adjunct_blocks_absorption():
+    # Danish "ikke tidligere har taget stilling til". The parser group swept
+    # "tidligere" ("previously") in while bridging a gap; it is an adverbial
+    # adjunct, not part of any expression. Absorbing it handed the learner a
+    # six-token clause for a three-token idiom.
+    tokens = [
+        _ltok("ikke", "ikke", "ADV"),
+        _ltok("tidligere", "tidligere", "ADV"),
+        _ltok("har", "have", "AUX"),
+        _ltok("taget", "tage", "VERB"),
+        _ltok("stilling", "stilling", "NOUN"),
+        _ltok("til", "til", "ADP"),
+    ]
+    merged = _merge(
+        [{"head_idx": 3, "dependent_indices": [0, 1, 2], "type": "negation"}],
+        [{"head_idx": 3, "dependent_indices": [4, 5], "type": "lexicon"}],
+        tokens,
+    )
+    assert len(merged) == 1
+    assert _span(merged[0]) == [3, 4, 5]
+
+
+def test_negation_and_auxiliary_still_absorb():
+    # The same shape without the adjunct: every token the parser adds is
+    # grammar, so it merges. "ikke" and "tidligere" are both ADV, which is why
+    # negation is recognised by word rather than by tag.
+    tokens = [
+        _ltok("har", "have", "AUX"),
+        _ltok("ikke", "ikke", "ADV"),
+        _ltok("taget", "tage", "VERB"),
+        _ltok("stilling", "stilling", "NOUN"),
+        _ltok("til", "til", "ADP"),
+    ]
+    merged = _merge(
+        [{"head_idx": 2, "dependent_indices": [0, 1], "type": "negation"}],
+        [{"head_idx": 2, "dependent_indices": [3, 4], "type": "lexicon"}],
+        tokens,
+    )
+    assert len(merged) == 1
+    assert _span(merged[0]) == [0, 1, 2, 3, 4]
