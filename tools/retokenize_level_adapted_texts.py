@@ -24,6 +24,7 @@ Usage:
     python -m tools.retokenize_level_adapted_texts --article-id 4946174
 """
 import argparse
+import logging
 import sys
 import os
 
@@ -82,6 +83,11 @@ def main():
     rows = q.all()
     print(f"{len(rows)} level-adapted rows to consider"
           f"{' (DRY RUN)' if args.dry_run else ''}")
+
+    # The enricher logs a line per call at INFO. Over thousands of rows that
+    # buries the diffs this tool exists to show, so quieten it unless the run
+    # actually goes wrong.
+    logging.getLogger("zeeguu.core.mwe.enricher").setLevel(logging.WARNING)
 
     from zeeguu.core.mwe import tokenize_for_reading
 
