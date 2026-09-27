@@ -166,4 +166,11 @@ DANISH_VERB_MWES = frozenset({
     # a span that is not an expression.
     "finde ud af",
     "lade som om",     # beats "som om": "pretend", not "as if"
+
+    # Learners fused these by hand repeatedly, which is the recall signal:
+    # the detector never offered them. The parser reaches "slå op" only in
+    # some frames -- "slog op med sin kæreste" yes, "slog op i ordbogen" no --
+    # so the entry makes it consistent rather than adding something new.
+    "finde sted",
+    "slå op",
 })
