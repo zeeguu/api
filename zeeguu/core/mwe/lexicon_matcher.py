@@ -201,29 +201,33 @@ def merge_lexicon_with_stanza(
     for sg in stanza_groups:
         sg_idx = indices_of(sg)
 
-        absorbed = False
+        # `resolved` means this parser group has been dealt with by an
+        # overlapping lexicon group -- either merged into it, or dropped in its
+        # favour. Only a group that overlaps nothing survives on its own.
+        # Note the first overlapping lexicon group decides: a parser group
+        # reaching into two lexicon spans is dropped rather than merged twice.
+        resolved = False
         for lg in merged:
-            lg_idx = indices_of(lg)
-            shared = sg_idx & lg_idx
+            shared = sg_idx & indices_of(lg)
             if not shared:
                 continue  # no shared token: not the same verb, leave it alone
+
+            resolved = True
+
             if not any(is_verbal(i) for i in shared):
                 # Overlapping on a noun -- a copula reaching into a
-                # prepositional idiom, not one verb described twice.
-                absorbed = True
+                # prepositional idiom, not one verb described twice. Drop it,
+                # as before.
                 break
-
-            union = sg_idx | lg_idx
+            union = sg_idx | indices_of(lg)
             if not is_contiguous(union):
                 # Reaches too far to merge safely; lexicon still wins.
-                absorbed = True
                 break
 
             lg["dependent_indices"] = sorted(union - {lg["head_idx"]})
-            absorbed = True
             break
 
-        if not absorbed:
+        if not resolved:
             kept_stanza.append(sg)
 
     return kept_stanza + merged
