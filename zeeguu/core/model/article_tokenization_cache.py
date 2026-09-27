@@ -105,6 +105,49 @@ class ArticleTokenizationCache(db.Model):
         return deleted > 0
 
     @classmethod
+    def count_for_language(cls, session, language_code):
+        """How many cache entries belong to articles in `language_code`."""
+        return cls._query_for_language(session, language_code).count()
+
+    @classmethod
+    def delete_for_language(cls, session, language_code):
+        """Drop every cache entry for one language. Returns rows deleted.
+
+        Needed when tokenization itself changes -- a new MWE lexicon entry, a
+        parser upgrade -- because nothing else invalidates these rows. There is
+        no version column, so an article tokenized before the change keeps its
+        old grouping until the 7-day sweep reaches it, which is far too long to
+        wait to see a fix. Entries are re-created on demand on next read.
+        """
+        article_ids = [
+            row[0] for row in cls._query_for_language(session, language_code).all()
+        ]
+        if not article_ids:
+            log.info(f"[CACHE] No cache entries for language {language_code}")
+            return 0
+
+        deleted = (
+            session.query(cls).filter(cls.article_id.in_(article_ids)).delete(
+                synchronize_session=False
+            )
+        )
+        session.commit()
+        log.info(f"[CACHE] Deleted {deleted} cache entries for language {language_code}")
+        return deleted
+
+    @classmethod
+    def _query_for_language(cls, session, language_code):
+        from zeeguu.core.model.article import Article
+        from zeeguu.core.model.language import Language
+
+        return (
+            session.query(cls.article_id)
+            .join(Article, Article.id == cls.article_id)
+            .join(Language, Language.id == Article.language_id)
+            .filter(Language.code == language_code)
+        )
+
+    @classmethod
     def delete_older_than(cls, session, days=7):
         """Delete cache entries older than N days. Returns count of deleted rows."""
         cutoff = datetime.now() - timedelta(days=days)

@@ -100,3 +100,112 @@ def test_punctuation_does_not_break_match_when_absent():
     groups = LexiconMatcher("da").detect(tokens)
     assert len(groups) == 1
     assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [0, 1, 2]
+
+
+# ─── Lemma-headed matching ──────────────────────────────────────────────
+#
+# The bug these pin: "Forskerne fandt ud af, at ..." was grouped as "ud af"
+# and translated "out of". The dependency parser had it right -- it attached
+# "ud" to "fandt" -- but GermanicStrategy only turns ADV+advmod into a group
+# for negation words, so it emitted nothing, and the lexicon entry "ud af"
+# filled the gap with a span that is not an expression.
+#
+# Lemmas below are the ones Stanza's da/ddt models actually produce; they were
+# read off the pipeline rather than guessed.
+
+
+def _ltok(text, lemma, pos="NOUN"):
+    return {"text": text, "pos": pos, "lemma": lemma}
+
+
+def test_inflected_verb_mwe_beats_shorter_surface_entry():
+    # Forskerne fandt ud af, at ...  ->  "fandt ud af", not "ud af"
+    tokens = [
+        _ltok("Forskerne", "forsker", "NOUN"),
+        _ltok("fandt", "finde", "VERB"),
+        _ltok("ud", "ud", "ADV"),
+        _ltok("af", "af", "ADP"),
+        _ltok(",", ",", "PUNCT"),
+        _ltok("at", "at", "SCONJ"),
+    ]
+    groups = LexiconMatcher("da").detect(tokens)
+    assert len(groups) == 1
+    g = groups[0]
+    assert g["head_idx"] == 1
+    assert sorted(g["dependent_indices"]) == [2, 3]
+
+
+def test_every_inflection_of_the_verb_reaches_the_same_entry():
+    # fandt / finde / fundet all lemmatise to "finde".
+    for surface in ["fandt", "finde", "fundet"]:
+        tokens = [
+            _ltok(surface, "finde", "VERB"),
+            _ltok("ud", "ud", "ADV"),
+            _ltok("af", "af", "ADP"),
+            _ltok("sandheden", "sandhed", "NOUN"),
+        ]
+        groups = LexiconMatcher("da").detect(tokens)
+        assert len(groups) == 1, surface
+        assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [0, 1, 2]
+
+
+def test_light_verb_entries_now_match_when_conjugated():
+    # These were in the lexicon all along but only matched in the infinitive,
+    # which is the one form a reader almost never meets.
+    tokens = [
+        _ltok("Jeg", "jeg", "PRON"),
+        _ltok("har", "have", "VERB"),
+        _ltok("brug", "brug", "NOUN"),
+        _ltok("for", "for", "ADP"),
+        _ltok("hjælp", "hjælp", "NOUN"),
+    ]
+    groups = LexiconMatcher("da").detect(tokens)
+    assert len(groups) == 1
+    assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [1, 2, 3]
+
+
+def test_frozen_phrase_is_not_lemma_matched():
+    # "i dagene efter" is "in the days after"; "dagene" lemmatises to "dag",
+    # so a blanket lemma match would group it as "i dag" (today). The surface
+    # set must stay surface-only.
+    tokens = [
+        _ltok("syg", "syg", "ADJ"),
+        _ltok("i", "i", "ADP"),
+        _ltok("dagene", "dag", "NOUN"),
+        _ltok("efter", "efter", "ADV"),
+    ]
+    assert LexiconMatcher("da").detect(tokens) == []
+
+
+def test_tail_is_not_lemmatised():
+    # "nødt" lemmatises to "nød", so lemmatising the whole span would miss
+    # "være nødt til" entirely. Only the head is lemmatised.
+    tokens = [
+        _ltok("Han", "han", "PRON"),
+        _ltok("var", "være", "AUX"),
+        _ltok("nødt", "nød", "ADJ"),
+        _ltok("til", "til", "ADP"),
+    ]
+    groups = LexiconMatcher("da").detect(tokens)
+    assert len(groups) == 1
+    assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [1, 2, 3]
+
+
+def test_lemma_matching_is_opt_in_per_language():
+    # Only Danish has a verb lexicon so far; the others must be untouched.
+    assert LexiconMatcher("da").verb_lexicon
+    for code in ["de", "nl", "en", "no", "sv"]:
+        assert not LexiconMatcher(code).verb_lexicon, code
+
+
+def test_matcher_works_without_lemmas():
+    # Callers that skip the lemmatiser still get surface matching.
+    tokens = [
+        {"text": "på", "pos": "ADP"},
+        {"text": "grund", "pos": "NOUN"},
+        {"text": "af", "pos": "ADP"},
+        {"text": "vejret", "pos": "NOUN"},
+    ]
+    groups = LexiconMatcher("da").detect(tokens)
+    assert len(groups) == 1
+    assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [0, 1, 2]
