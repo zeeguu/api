@@ -58,6 +58,7 @@ class Language(db.Model):
         "ro",
         "en",
         "el",
+        "bg",
     ]
 
     CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED = [
