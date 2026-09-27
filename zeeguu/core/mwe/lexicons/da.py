@@ -123,6 +123,12 @@ DANISH_MWES = frozenset({
     "blandt andet",
     "blandt andre",
 
+    # Imperatives the lemmatiser gets wrong, kept here as plain surface forms.
+    # "læg" lemmatises to "læge" (doctor), so "Læg mærke til" never reaches
+    # the verb entry "lægge mærke til". The two sets compose: a lemmatiser
+    # miss is patched with one literal string rather than by abandoning lemmas.
+    "læg mærke til",
+
     # Other
     "stort set",
     "over bord",

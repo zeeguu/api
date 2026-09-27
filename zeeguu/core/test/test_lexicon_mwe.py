@@ -245,3 +245,19 @@ def test_matcher_works_without_lemmas():
     groups = LexiconMatcher("da").detect(tokens)
     assert len(groups) == 1
     assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [0, 1, 2]
+
+
+def test_lemmatiser_miss_is_patched_by_a_surface_entry():
+    # "læg" lemmatises to "læge" (doctor), so the imperative never reaches the
+    # verb entry "lægge mærke til". It is listed as a literal instead -- the
+    # two sets compose, which is why one lemmatiser miss does not argue for
+    # enumerating every inflected form by hand.
+    tokens = [
+        _ltok("Læg", "læge", "VERB"),
+        _ltok("mærke", "mærke", "NOUN"),
+        _ltok("til", "til", "ADP"),
+        _ltok("hende", "hun", "PRON"),
+    ]
+    groups = LexiconMatcher("da").detect(tokens)
+    assert len(groups) == 1
+    assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [0, 1, 2]
