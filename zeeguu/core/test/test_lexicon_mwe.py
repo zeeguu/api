@@ -359,3 +359,44 @@ def test_lexicon_groups_are_not_mutated_in_place():
     lexicon = [{"head_idx": 1, "dependent_indices": [2, 3], "type": "lexicon"}]
     _merge([{"head_idx": 1, "dependent_indices": [0], "type": "aux_verb"}], lexicon)
     assert lexicon[0]["dependent_indices"] == [2, 3]
+
+
+def test_overlap_on_a_noun_is_not_absorbed():
+    # English "She has been in front of the house": the copula hangs off
+    # "front", the noun inside the prepositional idiom, so the groups overlap
+    # on a noun. Absorbing there yields "has been in front of" -- a
+    # compositional predicate, not an expression. Sharing a verb means the two
+    # layers describe one verb; sharing a noun usually means they do not.
+    tokens = [
+        _ltok("She", "she", "PRON"),
+        _ltok("has", "have", "AUX"),
+        _ltok("been", "be", "AUX"),
+        _ltok("in", "in", "ADP"),
+        _ltok("front", "front", "NOUN"),
+        _ltok("of", "of", "ADP"),
+    ]
+    merged = _merge(
+        [{"head_idx": 4, "dependent_indices": [1, 2], "type": "aux_verb"}],
+        [{"head_idx": 3, "dependent_indices": [4, 5], "type": "lexicon"}],
+        tokens,
+    )
+    assert len(merged) == 1
+    assert _span(merged[0]) == [3, 4, 5]
+
+
+def test_overlap_on_a_verb_is_absorbed():
+    # The same shape, but sharing the verb: "will take into account".
+    tokens = [
+        _ltok("We", "we", "PRON"),
+        _ltok("will", "will", "AUX"),
+        _ltok("take", "take", "VERB"),
+        _ltok("into", "into", "ADP"),
+        _ltok("account", "account", "NOUN"),
+    ]
+    merged = _merge(
+        [{"head_idx": 2, "dependent_indices": [1], "type": "aux_verb"}],
+        [{"head_idx": 2, "dependent_indices": [3, 4], "type": "lexicon"}],
+        tokens,
+    )
+    assert len(merged) == 1
+    assert _span(merged[0]) == [1, 2, 3, 4]

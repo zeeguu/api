@@ -148,8 +148,15 @@ def merge_lexicon_with_stanza(
     instead of "could not figure out".
 
     So an overlapping Stanza group is ABSORBED into the lexicon group when the
-    result is a single contiguous span. "at finde" + "finde ud af" becomes
-    "at finde ud af".
+    token they share is a verb and the result is a single contiguous span.
+    "at finde" + "finde ud af" becomes "at finde ud af".
+
+    The verb condition is what keeps this honest. English "She has been in
+    front of the house" parses with "has" and "been" hanging off "front" --
+    the noun inside a prepositional idiom -- so the groups overlap on a noun.
+    Absorbing there gives "has been in front of", a compositional predicate
+    rather than an expression. Sharing a verb means the two layers are
+    describing one verb; sharing a noun usually means they are not.
 
     Contiguity is the safety rail. A Stanza group can legitimately reach a long
     way -- separated particle verbs are the whole reason GermanicStrategy
@@ -174,6 +181,11 @@ def merge_lexicon_with_stanza(
             return False
         return tokens[idx].get("pos") == "PUNCT"
 
+    def is_verbal(idx: int) -> bool:
+        if not tokens or not (0 <= idx < len(tokens)):
+            return True  # no POS available: fall back to the looser rule
+        return tokens[idx].get("pos") in ("VERB", "AUX")
+
     def is_contiguous(indices: set) -> bool:
         """Every index between the ends is in the set, or is punctuation."""
         return all(
@@ -192,8 +204,14 @@ def merge_lexicon_with_stanza(
         absorbed = False
         for lg in merged:
             lg_idx = indices_of(lg)
-            if not (sg_idx & lg_idx):
+            shared = sg_idx & lg_idx
+            if not shared:
                 continue  # no shared token: not the same verb, leave it alone
+            if not any(is_verbal(i) for i in shared):
+                # Overlapping on a noun -- a copula reaching into a
+                # prepositional idiom, not one verb described twice.
+                absorbed = True
+                break
 
             union = sg_idx | lg_idx
             if not is_contiguous(union):
