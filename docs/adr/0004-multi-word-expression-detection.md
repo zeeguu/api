@@ -167,17 +167,36 @@ inflected.
 
 ### Neutral
 
-- **Changes here are invisible until the tokenization cache turns over.**
-  `ArticleTokenizationCache` has no version column; its only invalidation is a
-  7-day age sweep. After changing detection, flush the affected language:
+- **Changes here are invisible until two separate token stores turn over**, and
+  they do not work the same way. Both need doing, *after* the API picks up the
+  change — otherwise the first reader re-caches the old grouping.
+
+  **1. `ArticleTokenizationCache`** — a cache in the ordinary sense. No version
+  column; its only invalidation is a 7-day age sweep. Delete the rows and the
+  next read rebuilds them:
 
   ```
   python -m tools.cleanup_tokenization_cache --language da --dry-run
   python -m tools.cleanup_tokenization_cache --language da
   ```
 
-  Run it *after* the API picks up the change, or the first reader re-caches the
-  old grouping. Entries re-tokenize on demand.
+  **2. `LevelAdaptedArticleText.tokenized_summary` / `.tokenized_title`** — not
+  a cache, despite holding the same shape of data. These are written once, when
+  the article is simplified, and *nothing regenerates them*: both readers treat
+  an empty column as "this level has no tappable summary" and fall back to plain
+  text (`elastic_recommender` guards on `if summary_tokens:`; `UserArticle`
+  returns `None`). Clearing them would silently make preview cards untappable,
+  permanently. They must be **rewritten**:
+
+  ```
+  python -m tools.retokenize_level_adapted_texts --language da --dry-run
+  python -m tools.retokenize_level_adapted_texts --language da
+  ```
+
+  Skipping step 2 is not a subtle failure: the article body picks up the new
+  grouping while the preview card keeps showing the old one. That is exactly how
+  this was found -- the reader said `fandt ud af` and the summary card still
+  said `ud af`, hours after the flush.
 
 ### Adding a lexicon entry
 
