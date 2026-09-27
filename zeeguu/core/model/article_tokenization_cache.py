@@ -119,32 +119,38 @@ class ArticleTokenizationCache(db.Model):
         old grouping until the 7-day sweep reaches it, which is far too long to
         wait to see a fix. Entries are re-created on demand on next read.
         """
-        article_ids = [
-            row[0] for row in cls._query_for_language(session, language_code).all()
-        ]
-        if not article_ids:
-            log.info(f"[CACHE] No cache entries for language {language_code}")
-            return 0
-
+        # As a subquery, not a list of ids: a language with a large archive
+        # would otherwise be pulled into Python and sent back as one enormous
+        # IN clause.
         deleted = (
-            session.query(cls).filter(cls.article_id.in_(article_ids)).delete(
-                synchronize_session=False
-            )
+            session.query(cls)
+            .filter(cls.article_id.in_(cls._article_ids_for_language(session, language_code)))
+            .delete(synchronize_session=False)
         )
         session.commit()
         log.info(f"[CACHE] Deleted {deleted} cache entries for language {language_code}")
         return deleted
 
     @classmethod
-    def _query_for_language(cls, session, language_code):
+    def _article_ids_for_language(cls, session, language_code):
+        """Sub-selectable query over article ids in `language_code`."""
+        # Imported here rather than at module scope: article imports this
+        # module back for the tokenization_cache relationship.
         from zeeguu.core.model.article import Article
         from zeeguu.core.model.language import Language
 
         return (
-            session.query(cls.article_id)
-            .join(Article, Article.id == cls.article_id)
+            session.query(Article.id)
             .join(Language, Language.id == Article.language_id)
             .filter(Language.code == language_code)
+            .scalar_subquery()
+        )
+
+    @classmethod
+    def _query_for_language(cls, session, language_code):
+        """Cache rows whose article is in `language_code`."""
+        return session.query(cls.article_id).filter(
+            cls.article_id.in_(cls._article_ids_for_language(session, language_code))
         )
 
     @classmethod

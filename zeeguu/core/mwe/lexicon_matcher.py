@@ -14,7 +14,9 @@ Matching:
       entry as their infinitive. Only the head is lemmatised: the tails
       are fixed ("nødt" lemmatises to "nød", which would miss), and
       lemmatising a frozen phrase wholesale groups the wrong span
-      ("i dagene" -> "i dag").
+      ("i dagene" -> "i dag"). The head must also be tagged a verb --
+      Danish "have" is both "to have" and "garden", so "haven" ("the
+      garden") lemmatises onto the entry "have brug for".
     - Longest-match wins when two lexicon entries overlap
     - Punctuation is skipped when assembling spans, so an idiom
       can match across a comma if the parser inserted one (rare)
@@ -31,6 +33,10 @@ from .lexicons import get_lexicon, get_verb_lexicon
 
 class LexiconMatcher:
     """Longest-match matcher over a per-language MWE lexicon."""
+
+    # A lemma-headed match additionally requires the head to be tagged as one
+    # of these. AUX as well as VERB: "var nødt til" tags "var" AUX.
+    VERBAL_HEAD_POS = {"VERB", "AUX"}
 
     def __init__(self, language_code: str):
         self.language_code = language_code
@@ -85,6 +91,9 @@ class LexiconMatcher:
             # capped by the lexicon's longest phrase.
             max_window = min(self._max_phrase_words, n - c)
             matched_window = 0
+            head_is_verbal = (
+                tokens[content_positions[c]].get("pos") in self.VERBAL_HEAD_POS
+            )
             for window in range(max_window, 1, -1):
                 surface = lowered_words[c : c + window]
                 if " ".join(surface) in self.lexicon:
@@ -92,10 +101,11 @@ class LexiconMatcher:
                     break
                 # Same span with the head lemmatised: "fandt ud af" reaches
                 # the entry "finde ud af".
-                lemma_headed = " ".join([lowered_lemmas[c], *surface[1:]])
-                if lemma_headed in self.verb_lexicon:
-                    matched_window = window
-                    break
+                if head_is_verbal:
+                    lemma_headed = " ".join([lowered_lemmas[c], *surface[1:]])
+                    if lemma_headed in self.verb_lexicon:
+                        matched_window = window
+                        break
 
             if matched_window == 0:
                 c += 1

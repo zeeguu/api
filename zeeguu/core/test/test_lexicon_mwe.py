@@ -191,11 +191,47 @@ def test_tail_is_not_lemmatised():
     assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [1, 2, 3]
 
 
-def test_lemma_matching_is_opt_in_per_language():
-    # Only Danish has a verb lexicon so far; the others must be untouched.
+def test_language_without_a_verb_lexicon_still_matches_surface_entries():
+    # Lemma-headed matching is per-language and opt-in. A language that has
+    # not opted in must keep working exactly as before -- asserted on
+    # behaviour rather than on which languages are currently enabled, so
+    # switching on no/sv/en does not fail this test.
+    matcher = LexiconMatcher("de")
+    assert not matcher.verb_lexicon
+    tokens = [
+        _ltok("Er", "er", "PRON"),
+        _ltok("handelte", "handeln", "VERB"),
+        _ltok("im", "im", "ADP"),
+        _ltok("Hinblick", "Hinblick", "NOUN"),
+        _ltok("auf", "auf", "ADP"),
+        _ltok("Kosten", "Kosten", "NOUN"),
+    ]
+    groups = matcher.detect(tokens)
+    assert len(groups) == 1
+    assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [2, 3, 4]
+
+
+def test_lemma_headed_match_requires_a_verbal_head():
+    # Danish "have" is both "to have" and "garden", so "haven" ("the garden")
+    # lemmatises straight onto the entry "have brug for". The POS tag is what
+    # separates them.
+    noun_head = [
+        _ltok("haven", "have", "NOUN"),
+        _ltok("brug", "brug", "NOUN"),
+        _ltok("for", "for", "ADP"),
+    ]
+    assert LexiconMatcher("da").detect(noun_head) == []
+
+    verb_head = [
+        _ltok("havde", "have", "VERB"),
+        _ltok("brug", "brug", "NOUN"),
+        _ltok("for", "for", "ADP"),
+    ]
+    assert len(LexiconMatcher("da").detect(verb_head)) == 1
+
+
+def test_danish_has_opted_in():
     assert LexiconMatcher("da").verb_lexicon
-    for code in ["de", "nl", "en", "no", "sv"]:
-        assert not LexiconMatcher(code).verb_lexicon, code
 
 
 def test_matcher_works_without_lemmas():
