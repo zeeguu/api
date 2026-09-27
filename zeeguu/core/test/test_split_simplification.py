@@ -170,5 +170,27 @@ class SplitPromptTest(TestCase):
         self.assertNotIn("Nature", words)
         self.assertNotIn("people", words)
 
+    def test_rare_words_work_for_small_wordlist_languages(self):
+        # Danish only has wordfreq's small list; words it doesn't know are skipped on purpose
+        words = rare_words("Retten udsatte domsafsigelsen i retssagen mod den anklagede til i morgen.", "da", "A2")
+
+        self.assertIn("retssagen", words)
+        self.assertIn("anklagede", words)
+        self.assertNotIn("domsafsigelsen", words)
+        self.assertNotIn("morgen", words)
+
+    def test_rare_words_skip_elisions_and_names_after_them(self):
+        words = rare_words("C’est d’abord l’Insead qui a publié l’étude.", "fr", "A2")
+
+        self.assertNotIn("C’est", words)
+        self.assertNotIn("d’abord", words)
+        self.assertNotIn("l’Insead", words)
+
+    def test_rare_words_skip_unknown_capitalized_words_in_german(self):
+        words = rare_words("Marius Borg Høiby stand wegen Körperverletzung vor Gericht.", "de", "A2")
+
+        self.assertNotIn("Høiby", words)
+        self.assertIn("Körperverletzung", words)
+
     def test_rare_words_for_unsupported_language_is_empty(self):
         self.assertEqual(rare_words(CONTENT, "xx", "A2"), [])

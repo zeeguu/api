@@ -122,6 +122,13 @@ def rare_words(text: str, language_code: str, level: str, limit: int = MAX_WORDS
 
     Skips names as well as we cheaply can: capitalized words (except in German, which capitalizes
     all nouns) and words wordfreq doesn't know at all. The prompt also tells the model to keep names.
+
+    Skipping unknown words also skips real rare words where wordfreq only has its "small" list
+    (da, el, hu, ro: words above 1 per million), and French/Italian elisions with a curly apostrophe
+    (c’est). Counting unknown lowercase words as rare was tried on 33 articles in 11 languages
+    (2026-09-28): the lists got longer (da 9 -> 24 words) but the simplifications did not get
+    better, not even for da/el/ro. The long compounds and technical terms it adds are ones the
+    model simplifies anyway.
     """
     if level not in RARE_WORD_ZIPF:
         return []
