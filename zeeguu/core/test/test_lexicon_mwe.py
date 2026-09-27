@@ -354,3 +354,42 @@ def test_overlap_through_a_dependent_also_drops_the_parser_group():
     )
     assert len(merged) == 1
     assert _span(merged[0]) == [2, 3, 4]
+
+
+def test_finde_sted_matches_every_inflection():
+    # "finde sted" = take place. Learners fused it by hand repeatedly; the
+    # detector never offered it.
+    for surface in ["fandt", "finder", "fundet", "finde"]:
+        tokens = [
+            _ltok("Mødet", "møde", "NOUN"),
+            _ltok(surface, "finde", "VERB"),
+            _ltok("sted", "sted", "NOUN"),
+        ]
+        groups = LexiconMatcher("da").detect(tokens)
+        assert len(groups) == 1, surface
+        assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [1, 2]
+
+
+def test_finde_sted_does_not_swallow_a_literal_place():
+    # "finde stedet" is "find the place", not the expression. The tail is
+    # matched on surface, so the definite form does not reach the entry.
+    tokens = [
+        _ltok("finde", "finde", "VERB"),
+        _ltok("stedet", "sted", "NOUN"),
+    ]
+    assert LexiconMatcher("da").detect(tokens) == []
+
+
+def test_slaa_op_is_matched_consistently():
+    # The parser finds "slog op" in "slog op med sin kæreste" and misses it in
+    # "slog op i ordbogen"; the lexicon makes it consistent.
+    tokens = [
+        _ltok("Han", "han", "PRON"),
+        _ltok("slog", "slå", "VERB"),
+        _ltok("op", "op", "ADV"),
+        _ltok("i", "i", "ADP"),
+        _ltok("ordbogen", "ordbog", "NOUN"),
+    ]
+    groups = LexiconMatcher("da").detect(tokens)
+    assert len(groups) == 1
+    assert sorted([groups[0]["head_idx"], *groups[0]["dependent_indices"]]) == [1, 2]
