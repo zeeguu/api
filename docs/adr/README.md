@@ -22,6 +22,7 @@ Each ADR is a markdown file with a simple structure:
 | [0001](0001-multi-provider-tts.md) | Multi-provider Text-to-Speech architecture | Accepted | 2025-10-28 |
 | [0002](0002-docker-layer-caching-in-ci.md) | Docker layer caching in GitHub Actions | Accepted | 2025-10-28 |
 | [0003](0003-buildkit-cache-mounts.md) | BuildKit cache mounts for package managers | Accepted | 2025-10-28 |
+| [0004](0004-multi-word-expression-detection.md) | Multi-word expression detection | Accepted | 2026-09-27 |
 
 ## Creating a New ADR
 

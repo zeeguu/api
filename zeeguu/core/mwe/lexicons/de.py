@@ -9,7 +9,7 @@ common Funktionsverbgefüge. Future work: bulk-seed from UD `fixed`.
 """
 
 GERMAN_MWES = frozenset({
-    # Prepositional idioms
+    # Prepositional idioms (non-verbal; see the package docstring on PARSEME labels)
     "im hinblick auf",
     "in bezug auf",
     "im laufe",
@@ -42,7 +42,7 @@ GERMAN_MWES = frozenset({
     "mit hilfe von",
     "an stelle von",
 
-    # Light-verb constructions (Funktionsverbgefüge)
+    # LVC — light-verb constructions (Funktionsverbgefüge)
     "in betracht ziehen",
     "in frage stellen",
     "in kauf nehmen",
