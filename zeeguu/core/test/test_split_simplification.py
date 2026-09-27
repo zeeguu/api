@@ -81,6 +81,20 @@ class SplitSimplificationTest(TestCase):
         self.assertEqual(result["versions"]["A1"]["content"], "A1 one.\n\nA1 two.\n\nA1 three.")
         self.assertEqual(result["versions"]["A1"]["summary"], "A1 summary")
 
+    def test_parses_numbered_paragraphs_on_consecutive_lines(self):
+        version = sc._parse_level("TITLE: t\nSUMMARY: s\nCONTENT:\n[1] one.\n[2] two.\n[3] three.", 3)
+
+        self.assertEqual(version["content"], "one.\n\ntwo.\n\nthree.")
+
+    def test_truncated_haiku_reply_is_a_failure(self):
+        truncated = type("Response", (), {
+            "status_code": 200,
+            "json": lambda self: {"stop_reason": "max_tokens", "content": [{"text": "TITLE: cut"}]},
+        })()
+        with patch("zeeguu.core.llm_services.haiku_client._post", return_value=truncated):
+            with self.assertRaises(Exception):
+                sc._complete("anthropic", "prompt", 10)
+
     def test_deepseek_gets_the_strict_prompt(self):
         llm = FakeLLM()
         simplify(llm)

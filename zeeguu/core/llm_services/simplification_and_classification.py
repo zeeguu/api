@@ -112,7 +112,11 @@ def _complete(provider: str, prompt: str, max_tokens: int) -> str:
     if provider == "deepseek":
         return _deepseek_completion(prompt, max_tokens)
     return haiku_completion_or_raise(
-        prompt, max_tokens=max_tokens, temperature=0.1, timeout=LLM_TIMEOUT
+        prompt,
+        max_tokens=max_tokens,
+        temperature=0.1,
+        timeout=LLM_TIMEOUT,
+        raise_on_truncation=True,
     ).strip()
 
 
@@ -198,10 +202,15 @@ def _parse_assessment(text: str) -> dict:
 def _parse_level(text: str, expected_paragraphs: int) -> dict:
     """TITLE: / SUMMARY: / CONTENT: with [n]-numbered paragraphs -> {title, content, summary}."""
     fields = _parse_fields(text, ("TITLE", "SUMMARY", "CONTENT"), last="CONTENT")
-    paras = [re.sub(r"^\[\d+\]\s*", "", p) for p in paragraphs(fields.get("CONTENT", ""))]
+    content = fields.get("CONTENT", "")
+    # split on the [n] markers rather than on blank lines: models sometimes put the
+    # numbered paragraphs on consecutive lines
+    marker = re.compile(r"^\s*\[\d+\]\s*", re.MULTILINE)
+    parts = marker.split(content) if marker.search(content) else paragraphs(content)
+    paras = [p.strip() for p in parts if p.strip()]
     version = {
         "title": _clean(fields.get("TITLE", "")),
-        "content": "\n\n".join(p for p in paras if p),
+        "content": "\n\n".join(paras),
         "summary": _strip_markdown(_clean(fields.get("SUMMARY", ""))),
     }
     missing = [k for k, v in version.items() if not v]

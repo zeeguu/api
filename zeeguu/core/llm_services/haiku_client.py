@@ -83,20 +83,25 @@ def haiku_completion_or_raise(
     max_tokens: int,
     temperature: float = 0.0,
     timeout: int = 30,
+    raise_on_truncation: bool = False,
 ) -> str:
     """
     POST a single-turn prompt to Haiku. Returns the response text, or
     raises on any failure. Use when caller expects an exception.
+
+    raise_on_truncation: also raise when the reply was cut off at max_tokens.
     """
     response = _post(prompt, max_tokens, temperature, timeout)
     if response.status_code != 200:
         raise Exception(
             f"Anthropic API error: {response.status_code} - {response.text}"
         )
-    # NOTE: deliberately does NOT treat stop_reason "max_tokens" as an error.
+    data = response.json()
+    # NOTE: by default does NOT treat stop_reason "max_tokens" as an error.
     # The fail-soft haiku_completion does (truncation -> None -> fallback), but
-    # the batch crawl simplification pipeline calls this variant and has long
-    # inputs that can legitimately hit the cap; raising here would turn stored
-    # (truncated) simplifications into pipeline failures and shrink feed
-    # inventory. Left as-is on purpose — revisit alongside the chunking work.
-    return response.json()["content"][0]["text"]
+    # some callers have long inputs that can legitimately hit the cap and prefer
+    # a truncated result over a failure. Callers that parse structured output
+    # (e.g. the split simplification pipeline) pass raise_on_truncation=True.
+    if raise_on_truncation and data.get("stop_reason") == "max_tokens":
+        raise Exception(f"Haiku output truncated at max_tokens={max_tokens}")
+    return data["content"][0]["text"]
