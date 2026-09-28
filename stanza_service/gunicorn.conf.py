@@ -2,8 +2,12 @@
 Gunicorn configuration for Stanza service.
 
 Key settings:
-- preload_app=True: Load Stanza models in master process before forking.
-  Workers share models via copy-on-write memory, drastically reducing RAM usage.
+- preload_app=False, with each worker loading every model in post_fork.
+  Loading before the fork (preload_app=True) shares memory via copy-on-write but
+  hangs: PyTorch does not survive being used after a fork. Loading per worker
+  costs memory but keeps models off the request path, which is what matters --
+  lazy loading put a multi-second model load inside the first request for each
+  language, under a lock that stalls every other request in that worker.
 - workers=2: Fewer workers since tokenization is CPU-bound (not I/O bound).
   Adjust based on CPU cores and expected load.
 """
@@ -37,8 +41,38 @@ def on_starting(server):
 
 
 def post_fork(server, worker):
-    """Called after a worker has been forked."""
-    print(f"Worker {worker.pid} forked - sharing preloaded models via COW")
+    """Load every language model in this worker, before it serves traffic.
+
+    preload_app=True would load once in the master and share via COW, but
+    PyTorch hangs when a model loaded before fork is used after it. Loading
+    here costs memory (no sharing) but is the one place that avoids the fork
+    problem while still keeping models off the request path.
+
+    Without this, models load lazily on first request per language per worker,
+    under a global _PIPELINE_LOAD_LOCK -- so one cold language stalls every
+    concurrent request in that worker. Production logged 11 such loads and 177
+    STANZA-SLOW entries in 24h, including "tokenize took 5.0s for 47 chars".
+    """
+    print(f"Worker {worker.pid} forked - preloading Stanza models")
+    try:
+        from app import SUPPORTED_LANGUAGES, get_pipeline, MODEL_TOKEN_POS_DEP
+
+        # Load one language at a time and touch the heartbeat between each.
+        # post_fork runs before the worker enters its serving loop, so nothing
+        # else notifies the arbiter -- and murder_workers kills anything silent
+        # for `timeout` seconds (120 below). Loading 15 pipelines can exceed
+        # that on a loaded box, which would be an endless kill/respawn loop
+        # where the service never serves at all.
+        for lang_code in SUPPORTED_LANGUAGES:
+            try:
+                get_pipeline(lang_code, MODEL_TOKEN_POS_DEP)
+            except Exception as e:
+                print(f"Worker {worker.pid}: {lang_code} preload failed ({e})")
+            worker.tmp.notify()
+        print(f"Worker {worker.pid} ready with models preloaded")
+    except Exception as e:
+        # Serving with lazy loading is slow but correct; refusing to start is not.
+        print(f"Worker {worker.pid}: model preload failed ({e}); falling back to lazy loading")
 
 
 def when_ready(server):

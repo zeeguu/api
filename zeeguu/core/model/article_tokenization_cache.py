@@ -97,6 +97,117 @@ class ArticleTokenizationCache(db.Model):
         return cache, modified
 
     @classmethod
+    def ensure_populated_batch(cls, session, articles):
+        """
+        Populate caches for many articles with one stanza call per language.
+
+        ensure_populated() sends one HTTP request per text, so warming N
+        articles costs 2N serial round trips against a single-threaded service.
+        The service already exposes /tokenize_batch (and the client wraps it);
+        this groups by language and uses it, because MWE enrichment afterwards
+        is local and cheap -- the round trips were the whole cost.
+
+        Returns (populated, failed). Caller commits.
+        """
+        from collections import defaultdict
+        from zeeguu.core.mwe import enrich_tokens_with_mwe
+        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+
+        failed_lookups = []
+
+        # (article, field, text) for everything still missing, grouped by
+        # language *id*: Language defines __eq__ without __hash__, so Python
+        # sets __hash__ to None and the instances cannot key a dict at all.
+        jobs_by_language = defaultdict(list)
+        languages_by_id = {}
+        for article in articles:
+            cache = cls.find_or_create(session, article)
+            if cache is None:
+                # find_or_create rolls back and re-queries on OperationalError,
+                # and can come back empty. Skip rather than AttributeError out
+                # of the whole chunk.
+                failed_lookups.append(article.id)
+                continue
+            languages_by_id[article.language_id] = article.language
+            if article.summary and not cache.tokenized_summary:
+                jobs_by_language[article.language_id].append((cache, "tokenized_summary", article.summary))
+            if article.title and not cache.tokenized_title:
+                jobs_by_language[article.language_id].append((cache, "tokenized_title", article.title))
+
+        populated = 0
+        failed = len(failed_lookups)
+        for language_id, jobs in jobs_by_language.items():
+            language = languages_by_id[language_id]
+            tokenizer = get_tokenizer(language, TOKENIZER_MODEL)
+            if not hasattr(tokenizer, "tokenize_batch"):
+                # Local stanza tokenizer: no batch endpoint, one at a time.
+                results = [tokenizer.tokenize_text(t, flatten=False) for _, _, t in jobs]
+            else:
+                results = tokenizer.tokenize_batch([t for _, _, t in jobs], flatten=False)
+
+            for (cache, field, _), tokens in zip(jobs, results):
+                try:
+                    enriched = enrich_tokens_with_mwe(tokens, language.code, mode="stanza")
+                    setattr(cache, field, json.dumps(enriched))
+                    populated += 1
+                except Exception as e:
+                    failed += 1
+                    log.warning(f"[CACHE] {field} failed for article {cache.article_id}: {e}")
+
+        return populated, failed
+
+    @classmethod
+    def cheap_tokens(cls, text, language):
+        """
+        Tokenize with NLTK, locally and immediately, for a read path that must
+        not block.
+
+        Same paragraphs->sentences->tokens shape the stanza path produces, so
+        the client renders and taps words exactly as usual. What is missing is
+        MWE grouping: expressions come out as separate words until the real
+        cache lands. That is a visible downgrade, and a deliberate one --
+        the alternative on a cache miss was an inline call to the stanza
+        service, which is one single-threaded worker for the whole install and
+        has been logging 5-8s for titles of a few dozen characters.
+
+        Never persisted: writing these into the cache would make the miss
+        permanent and silently cost every reader their expressions.
+        """
+        from zeeguu.core.tokenization import get_tokenizer
+        from zeeguu.core.tokenization.zeeguu_tokenizer import TokenizerModel
+
+        if not text:
+            return None
+        tokenizer = get_tokenizer(language, TokenizerModel.NLTK)
+        tokens = tokenizer.tokenize_text(text, flatten=False)
+        cls._fix_spacing(tokens)
+        return tokens
+
+    @staticmethod
+    def _fix_spacing(paragraphs):
+        """Set has_space correctly around punctuation, in place.
+
+        NLTKTokenizer passes has_space=True for every token unconditionally
+        (nltk_tokenizer.py), while the stanza path computes it. The reader
+        inserts a space whenever has_space is true, so without this a summary
+        renders "Dette er et resume ." and French renders "l ' homme" -- a more
+        conspicuous regression than the missing MWE grouping this path is
+        actually trading away.
+        """
+        for paragraph in paragraphs or []:
+            for sentence in paragraph or []:
+                for i, token in enumerate(sentence or []):
+                    nxt = sentence[i + 1] if i + 1 < len(sentence) else None
+                    # no space before punctuation that attaches leftwards
+                    if nxt and nxt.get("is_punct") and not nxt.get("is_left_punct"):
+                        token["has_space"] = False
+                    # and none after an opening bracket/quote
+                    if token.get("is_left_punct"):
+                        token["has_space"] = False
+                if sentence:
+                    sentence[-1]["has_space"] = True
+
+    @classmethod
     def delete_for_article(cls, session, article_id):
         """Delete cache for a specific article. Returns True if deleted."""
         deleted = session.query(cls).filter_by(article_id=article_id).delete()

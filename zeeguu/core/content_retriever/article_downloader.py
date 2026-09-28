@@ -118,6 +118,14 @@ def _cache_article_tokenization(article, session):
 
     try:
         cache, _ = ArticleTokenizationCache.ensure_populated(session, article)
+        # Deliberately NOT committed here. An earlier version of this committed
+        # to stop rollbacks discarding the row, but session.commit() is not
+        # scoped to the cache: it commits the whole in-flight article, which
+        # defeats the ArticleProcessingTimeout handler's rollback and would
+        # leave a half-processed article permanently in the db -- no summary, no
+        # assessment, never ES-indexed, and skipped as "Already in DB" forever.
+        # The row rides along with the article's own commit, which is correct:
+        # if the article is rolled back, its cache should go with it.
         log(f"  - Cached tokenization for article {article.id}")
     except Exception as e:
         log(f"  - Warning: Failed to cache tokenization: {e}")

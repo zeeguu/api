@@ -814,6 +814,35 @@ class UserArticle(db.Model):
         }
 
     @classmethod
+    def _summary_tokens(cls, article, cache):
+        """Cached summary tokens if we have them, else an immediate cheap pass."""
+        import json
+        from zeeguu.core.model.article import strip_trailing_ellipsis_tokens_json
+        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+
+        if cache and cache.tokenized_summary:
+            try:
+                return json.loads(
+                    strip_trailing_ellipsis_tokens_json(cache.tokenized_summary)
+                )
+            except (json.JSONDecodeError, TypeError):
+                log(f"[SUMMARY] Article {article.id} - Cache corrupt, tokenizing cheaply")
+        return ArticleTokenizationCache.cheap_tokens(article.summary, article.language)
+
+    @classmethod
+    def _title_tokens(cls, article, cache):
+        """Cached title tokens if we have them, else an immediate cheap pass."""
+        import json
+        from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+
+        if cache and cache.tokenized_title:
+            try:
+                return json.loads(cache.tokenized_title)
+            except (json.JSONDecodeError, TypeError):
+                log(f"[TITLE] Article {article.id} - Cache corrupt, tokenizing cheaply")
+        return ArticleTokenizationCache.cheap_tokens(article.title, article.language)
+
+    @classmethod
     def user_article_summary_info(cls, user: User, article: Article, tokenization_cache=None, mwe_overrides_by_article=None):
         """
         Returns tokenized summary and title for an article with user bookmarks.
@@ -839,12 +868,15 @@ class UserArticle(db.Model):
             "language": article.language.code,
         }
 
-        # Use provided cache or fetch/create
+        # Read the cache; never populate it here. Tokenizing inline means an
+        # HTTP call to the stanza service, which runs one single-threaded worker
+        # for the whole install -- it has logged 5-8s for a 40-character title
+        # under load, and the feed asks for up to 15 of them in a row. A miss
+        # degrades to cheap_tokens (words tappable, expressions missing) and the
+        # crawler or the backfill tool fills the real cache out of band.
         cache = tokenization_cache
         if not cache:
             cache = ArticleTokenizationCache.get_for_article(db.session, article.id)
-        if not cache:
-            cache, _ = ArticleTokenizationCache.ensure_populated(db.session, article)
 
         # Build summary response — prefer a CEFR-level-matched preview summary if
         # one exists for this learner's level; otherwise fall back to the article's
@@ -854,12 +886,9 @@ class UserArticle(db.Model):
         level_summary = cls._level_matched_summary_payload(user, article, level_row)
         if level_summary:
             result["tokenized_summary"] = level_summary
-        elif article.summary and cache.tokenized_summary:
-            try:
-                from zeeguu.core.model.article import strip_trailing_ellipsis_tokens_json
-                tokenized_summary = json.loads(
-                    strip_trailing_ellipsis_tokens_json(cache.tokenized_summary)
-                )
+        elif article.summary:
+            tokenized_summary = cls._summary_tokens(article, cache)
+            if tokenized_summary is not None:
                 summary_context_id = ContextIdentifier(
                     ContextType.ARTICLE_SUMMARY, article_id=article.id
                 )
@@ -870,8 +899,6 @@ class UserArticle(db.Model):
                         user.id, article.id
                     ),
                 }
-            except (json.JSONDecodeError, TypeError):
-                log(f"[SUMMARY] Article {article.id} - Cache corrupt, skipping summary")
 
         # Apply the user's MWE ungroup overrides to whichever summary branch
         # produced the payload (per-level OR the fallback own-summary). The lookup
@@ -899,9 +926,9 @@ class UserArticle(db.Model):
         level_title = cls._level_matched_title_payload(user, article, level_row)
         if level_title:
             result["tokenized_title"] = level_title
-        elif cache.tokenized_title:
-            try:
-                tokenized_title = json.loads(cache.tokenized_title)
+        else:
+            tokenized_title = cls._title_tokens(article, cache)
+            if tokenized_title is not None:
                 title_context_id = ContextIdentifier(
                     ContextType.ARTICLE_TITLE, article_id=article.id
                 )
@@ -912,8 +939,6 @@ class UserArticle(db.Model):
                         user.id, article.id
                     ),
                 }
-            except (json.JSONDecodeError, TypeError):
-                log(f"[TITLE] Article {article.id} - Cache corrupt, skipping title")
 
         return result
 
@@ -984,14 +1009,15 @@ class UserArticle(db.Model):
             .all()
         }
 
-        # Step 3: Populate missing caches only
-        for article in articles_to_process:
-            if article.id not in existing_caches:
-                cache, _ = ArticleTokenizationCache.ensure_populated(db.session, article)
-                existing_caches[article.id] = cache
-
-        # Step 4: Commit all cache writes
-        db.session.commit()
+        # Step 3: articles without a cache row are served with cheap tokens
+        # (see _title_tokens / _summary_tokens). We do NOT tokenize here: this
+        # is a read path, and the stanza service is a single-threaded worker
+        # shared by the whole install. Filling 15 misses inline meant 30 serial
+        # HTTP calls, each of which has been logging 5-8s under load.
+        missing = [a.id for a in articles_to_process if a.id not in existing_caches]
+        if missing:
+            log(f"[CACHE] {len(missing)} of {len(articles_to_process)} articles "
+                f"served with cheap tokens (no MWE); backfill will warm them")
 
         # Batch-fetch simplified-child PersonalCopies for any originals in
         # this list so user_article_info doesn't run a per-article query
