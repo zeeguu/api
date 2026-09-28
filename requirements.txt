@@ -45,7 +45,7 @@ lxml_html_clean
 # Zeeguu custom packages
 git+https://github.com/zeeguu/apimux.git@master#egg=apimux
 git+https://github.com/zeeguu/python-translators@master#egg=python_translators
-wordstats @ git+https://github.com/zeeguu/python-wordstats@7e60ff9be3ba604ab1ec9043acd815570c3405fa
+wordstats==1.1.2
 
 # Web scraping & parsing
 newspaper3k==0.2.7
