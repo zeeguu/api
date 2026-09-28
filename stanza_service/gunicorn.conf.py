@@ -37,8 +37,27 @@ def on_starting(server):
 
 
 def post_fork(server, worker):
-    """Called after a worker has been forked."""
-    print(f"Worker {worker.pid} forked - sharing preloaded models via COW")
+    """Load every language model in this worker, before it serves traffic.
+
+    preload_app=True would load once in the master and share via COW, but
+    PyTorch hangs when a model loaded before fork is used after it. Loading
+    here costs memory (no sharing) but is the one place that avoids the fork
+    problem while still keeping models off the request path.
+
+    Without this, models load lazily on first request per language per worker,
+    under a global _PIPELINE_LOAD_LOCK -- so one cold language stalls every
+    concurrent request in that worker. Production logged 11 such loads and 177
+    STANZA-SLOW entries in 24h, including "tokenize took 5.0s for 47 chars".
+    """
+    print(f"Worker {worker.pid} forked - preloading Stanza models")
+    try:
+        from app import preload_all_models
+
+        preload_all_models()
+        print(f"Worker {worker.pid} ready with models preloaded")
+    except Exception as e:
+        # Serving with lazy loading is slow but correct; refusing to start is not.
+        print(f"Worker {worker.pid}: model preload failed ({e}); falling back to lazy loading")
 
 
 def when_ready(server):

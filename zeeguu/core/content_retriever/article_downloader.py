@@ -118,6 +118,13 @@ def _cache_article_tokenization(article, session):
 
     try:
         cache, _ = ArticleTokenizationCache.ensure_populated(session, article)
+        # Commit immediately. This row used to be left pending for whoever
+        # committed next, and any rollback further down the article pipeline
+        # (the advertorial path, a classification error) discarded it silently.
+        # The cache is independent of the rest of that work -- it is derived
+        # data, regenerable, and wanted even if the article is later marked
+        # broken -- so it should not share their transaction.
+        session.commit()
         log(f"  - Cached tokenization for article {article.id}")
     except Exception as e:
         log(f"  - Warning: Failed to cache tokenization: {e}")
