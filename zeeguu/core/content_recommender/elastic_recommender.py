@@ -193,20 +193,8 @@ def article_recommendations_for_user(
 
     res = es.search(index=ES_ZINDEX, body=query_body)
     hit_list = res["hits"].get("hits")
-    # Hydrate every article hit in one query (with its relationships) rather
-    # than one query per hit, then keep ES's ordering.
-    articles_by_id = _hydrate_articles(
-        [h["_source"]["article_id"] for h in hit_list if "article_id" in h["_source"]]
-    )
     # Handle both articles and videos in organic recommendations
-    content_objects = [
-        (
-            articles_by_id.get(h["_source"]["article_id"])
-            if "article_id" in h["_source"]
-            else _get_video_from_ES_hit(h)
-        )
-        for h in hit_list
-    ]
+    content_objects = _content_from_ES_hits(hit_list)
     final_article_mix.extend([c for c in content_objects if c is not None])
 
     # Get articles based on Search preferences and track which search matched
@@ -301,7 +289,7 @@ def video_recommendations_for_user(
 
     video_res = es.search(index=ES_ZINDEX, body=video_query)
 
-    video_list = _to_videos_from_ES_hits(video_res["hits"].get("hits"))
+    video_list = _content_from_ES_hits(video_res["hits"].get("hits"))
     return video_list
 
 
@@ -367,14 +355,7 @@ def article_and_video_search_for_user(
     if score_threshold > 0:
         hit_list = filter_hits_on_score(hit_list, score_threshold)
 
-    content_objects = [
-        (
-            _get_article_from_ES_hit(h)
-            if "article_id" in h["_source"]
-            else _get_video_from_ES_hit(h)
-        )
-        for h in hit_list
-    ]
+    content_objects = _content_from_ES_hits(hit_list)
 
     final_mix = [
         each for each in content_objects if each is not None and not each.broken
@@ -448,7 +429,7 @@ def topic_filter_for_user(
 
     hit_list = res["hits"].get("hits")
 
-    final_article_mix = _to_articles_from_ES_hits(hit_list)
+    final_article_mix = _content_from_ES_hits(hit_list)
 
     articles = [a for a in final_article_mix if a is not None and not a.broken]
 
@@ -463,17 +444,36 @@ def _topics_to_string(input_list):
     return ",".join(input_list)
 
 
-def _get_video_from_ES_hit(hit):
-    return Video.find_by_id(hit["_source"]["video_id"])
+def _content_from_ES_hits(hits):
+    """The Article or Video behind each ES hit, in the hits' (ranked) order.
+
+    A hit is only the search index's copy of the document; this loads the real
+    rows -- one query per kind for all the hits rather than one per hit. An
+    IN query does not keep the ranking, so rows are looked up by id in hit
+    order. None where a row has gone since it was indexed, as before.
+    """
+    sources = [h["_source"] for h in hits]
+    articles = _hydrate_articles(
+        [s["article_id"] for s in sources if "article_id" in s]
+    )
+    video_ids = [s["video_id"] for s in sources if "article_id" not in s]
+    videos = (
+        {v.id: v for v in Video.query.filter(Video.id.in_(video_ids)).all()}
+        if video_ids
+        else {}
+    )
+    return [
+        articles.get(s["article_id"]) if "article_id" in s else videos.get(s["video_id"])
+        for s in sources
+    ]
 
 
 def _hydrate_articles(article_ids):
     """Load many articles in one query, with the relationships article_info reads.
 
-    find_by_id per hit is one query each, and every relationship on Article is
-    lazy -- so article_info's touches of its relationships each cost another.
-    Article.article_info_loads turns that whole fan-out into a handful of
-    queries for the page instead of ~7 per article.
+    Every relationship on Article is lazy, so article_info's touches of them
+    would each cost a query per article; Article.article_info_loads turns that
+    into a handful of queries for the page.
     """
     if not article_ids:
         return {}
@@ -483,33 +483,6 @@ def _hydrate_articles(article_ids):
         .all()
     )
     return {a.id: a for a in rows}
-
-
-def _get_article_from_ES_hit(hit):
-    return Article.find_by_id(hit["_source"]["article_id"])
-
-
-def _to_articles_from_ES_hits(hits, with_score=False):
-    articles = []
-    for hit in hits:
-        article = _get_article_from_ES_hit(hit)
-        if with_score:
-            articles.append((hit.get("_score", 0), article))
-        else:
-            articles.append(article)
-
-    return articles
-
-
-def _to_videos_from_ES_hits(hits, with_score=False):
-    videos = []
-    for hit in hits:
-        video = _get_video_from_ES_hit(hit)
-        if with_score:
-            videos.append((hit.get("_score", 0), video))
-        else:
-            videos.append(video)
-    return videos
 
 
 def __find_articles_like(
@@ -536,7 +509,7 @@ def __find_articles_like(
     )
 
     res = es.search(index=ES_ZINDEX, body=mlt_query, size=limit)
-    articles = _to_articles_from_ES_hits(res["hits"]["hits"])
+    articles = _content_from_ES_hits(res["hits"]["hits"])
     articles = [a for a in articles if a.broken == 0]
     return articles
 
