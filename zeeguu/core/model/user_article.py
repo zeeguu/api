@@ -505,7 +505,7 @@ class UserArticle(db.Model):
 
     @classmethod
     def user_article_info(
-        cls, user: User, article: Article, with_content=False, with_translations=True, with_summary=True, page=None
+        cls, user: User, article: Article, with_content=False, with_summary=True, page=None
     ):
         """
         Returns user-specific article information for the given article.
@@ -515,13 +515,11 @@ class UserArticle(db.Model):
             user: The user requesting the article info
             article: The article to get info for
             with_content: Whether to include full content/tokenization
-            with_translations: Whether to include translation data
             with_summary: Whether to include tokenized summary/title (default True for homepage performance)
             page: the _PagePrefetch article_infos built for the whole list; a
                 single-article caller leaves it None and gets one for [article]
         """
 
-        from zeeguu.core.model.bookmark import Bookmark
         from zeeguu.core.model.article_fragment_context import (
             ArticleFragmentContext,
         )
@@ -567,7 +565,6 @@ class UserArticle(db.Model):
                 if title not in topics_to_remove:
                     topic_list.append(each)
             returned_info["topics_list"] = topic_list
-            returned_info["topics"] = ",".join([t for t, _ in topic_list])
 
         if not user_article_info:
             returned_info["starred"] = False
@@ -575,7 +572,6 @@ class UserArticle(db.Model):
             returned_info["liked"] = None
             returned_info["hidden"] = False
             returned_info["reading_completion"] = 0.0
-            returned_info["translations"] = []
 
         else:
             # Use stored reading completion - no more expensive calculations!
@@ -586,21 +582,12 @@ class UserArticle(db.Model):
             returned_info["opened"] = user_article_info.opened is not None
             returned_info["liked"] = user_article_info.liked
             returned_info["hidden"] = user_article_info.hidden is not None
-            if user_article_info.starred:
-                returned_info["starred_time"] = datetime_to_json(
-                    user_article_info.starred
-                )
 
             if user_diff_feedback is not None:
                 returned_info["relative_difficulty"] = (
                     user_diff_feedback.difficulty_feedback
                 )
 
-            if with_translations:
-                translations = Bookmark.find_all_for_user_and_article(user, article)
-                returned_info["translations"] = [
-                    each.as_dictionary() for each in translations
-                ]
             if "tokenized_fragments" in returned_info:
                 for i, fragment in enumerate(returned_info["tokenized_fragments"]):
                     returned_info["tokenized_fragments"][i]["past_bookmarks"] = (
@@ -1020,9 +1007,9 @@ class UserArticle(db.Model):
 
         # Warm every relationship article_info reads, in one query for the page
         # rather than one per article per relationship. They are all lazy by
-        # default, so article_info's touches of uploader/url/img_url/feed/
+        # default, so article_info's touches of uploader/url/img_url/
         # source/cefr_assessment/topics each cost a round trip otherwise -- and
-        # topics_as_string reads topic.topic.title, a second hop.
+        # topics_as_tuple reads topic.topic.title, a second hop.
         cls._warm_article_relationships(article_ids)
 
         page = _PagePrefetch(

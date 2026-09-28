@@ -9,7 +9,9 @@ def test_article_info(client):
     print(article_info)
 
     assert "content" in article_info
-    assert "translations" in article_info
+    # The reader rebuilds past translations from these, not from a
+    # "translations" list (dropped: no client has read it since Mar 2025).
+    assert "tokenized_title_new" in article_info
 
 
 def test_article_update(client):

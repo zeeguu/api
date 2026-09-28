@@ -705,12 +705,11 @@ class Article(db.Model):
             # as_string() reads url.domain, so the hop has to be loaded too
             selectinload(cls.url).selectinload(Url.domain),
             selectinload(cls.img_url).selectinload(Url.domain),
-            selectinload(cls.feed),
             selectinload(cls.language),
             # get_fk_difficulty falls back to it when the article has no own value
             selectinload(cls.source),
             selectinload(cls.cefr_assessment),
-            # topics_as_string reads topic.topic.title: same second hop
+            # topics_as_tuple reads topic.topic.title: same second hop
             selectinload(cls.topics).selectinload(ArticleTopicMap.topic),
         ]
 
@@ -746,7 +745,6 @@ class Article(db.Model):
             title=self.title,
             summary=summary,
             language=self.language.code,
-            topics=self.topics_as_string(),
             topics_list=self.topics_as_tuple(),
             video=False,
             metrics=dict(
@@ -834,11 +832,6 @@ class Article(db.Model):
 
         if self.published_time:
             result_dict["published"] = datetime_to_json(self.published_time)
-
-        if self.feed:
-            # Is this supposed to be a tuple?
-            result_dict["feed_id"] = (self.feed.id,)
-            result_dict["feed_icon_name"] = self.feed.icon_name
 
         if with_content:
             tokenized_content = self.get_tokenized_content()
