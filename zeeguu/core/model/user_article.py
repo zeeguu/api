@@ -630,6 +630,15 @@ class UserArticle(db.Model):
             if "tokenized_title" in summary_info:
                 returned_info["interactiveTitle"] = summary_info["tokenized_title"]
 
+            # The plain text follows the level too, so the card reads the same
+            # in Headlines and Preview mode as in Interactive mode.
+            level_row = page.level_rows.get(article.id)
+            if level_row:
+                if level_row.summary and len(level_row.summary.strip()) > 10:
+                    returned_info["summary"] = level_row.summary.strip()
+                if level_row.title and level_row.title.strip():
+                    returned_info["title"] = level_row.title.strip()
+
         return returned_info
 
     @staticmethod
@@ -865,6 +874,16 @@ class UserArticle(db.Model):
         level_title = cls._level_matched_title_payload(article, level_row, page)
         if level_title:
             result["tokenized_title"] = level_title
+            overrides_by_hash = page.mwe_overrides.get(article.id)
+            if overrides_by_hash:
+                level_title["tokens"] = cls._apply_mwe_overrides_to_summary_tokens(
+                    level_title["tokens"], overrides_by_hash
+                )
+        elif level_row and level_row.title and level_row.title.strip():
+            # The card shows this level's title (see user_article_info), which
+            # has no tokens yet: tapping the original title's tokens under it
+            # would translate the wrong words, so the card gets none.
+            pass
         else:
             tokenized_title = cls._title_tokens(article, cache)
             if tokenized_title is not None:

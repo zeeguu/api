@@ -284,12 +284,14 @@ class LevelAdaptedArticleTextTest(ModelTestMixIn, TestCase):
         # The stored row still has its MWE grouping.
         assert als.get_tokenized_summary()[0][0][0]["mwe_group_id"] == 7
 
-    def test_overlay_applies_mwe_override_and_carries_article_id(self):
-        # Exercise the feed overlay path directly (not just user_article_summary_info).
-        from zeeguu.core.content_recommender.elastic_recommender import (
-            _apply_simplified_display_overlay,
+    def _card(self):
+        """The feed card for self.article, as article_infos builds it."""
+        [card] = UserArticle.article_infos(
+            self.user, [self.article], select_appropriate=False
         )
+        return card
 
+    def test_card_applies_mwe_override_and_carries_article_id(self):
         self._add_mwe_level_summary("B1")
         self._set_user_level("B2")
         UserMweOverride.find_or_create(
@@ -301,18 +303,45 @@ class LevelAdaptedArticleTextTest(ModelTestMixIn, TestCase):
         )
         session.commit()
 
-        results = [{"id": self.article.id}]
-        _apply_simplified_display_overlay(self.user, results)
-
-        interactive = results[0].get("interactiveSummary")
+        interactive = self._card().get("interactiveSummary")
         assert interactive is not None
         ctx = interactive["context_identifier"]
         assert ctx["context_type"] == ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY
         assert ctx["article_id"] == self.article.id
-        # MWE metadata cleared on the overlaid tokens.
+        # MWE metadata cleared on the level summary's tokens.
         sentence = interactive["tokens"][0][0]
         assert "mwe_group_id" not in sentence[0]
         assert "mwe_group_id" not in sentence[1]
+
+    def test_card_plain_text_follows_the_level(self):
+        """Headlines and Preview mode read the plain title/summary; they must
+        show the same level as the tappable text in Interactive mode."""
+        self._add_level_summary_with_title("B1")
+        self._set_user_level("B2")
+
+        card = self._card()
+        assert card["title"] == "title at B1"
+        assert card["summary"] == "summary at B1"
+        assert (
+            card["interactiveTitle"]["context_identifier"]["context_type"]
+            == ContextType.LEVEL_ADAPTED_ARTICLE_TITLE
+        )
+
+    def test_card_level_title_without_tokens_drops_the_original_tokens(self):
+        LevelAdaptedArticleText.find_or_create(
+            session,
+            self.article,
+            cefr_level="B1",
+            summary="summary at B1",
+            tokenized_summary=DUMMY_TOKENS,
+            title="title at B1",
+            tokenized_title=None,
+        )
+        self._set_user_level("B2")
+
+        card = self._card()
+        assert card["title"] == "title at B1"
+        assert "interactiveTitle" not in card
 
     def test_summary_info_falls_back_to_original_when_no_level_match(self):
         # Learner at A1 with only a B1 summary → no per-level match → falls back
