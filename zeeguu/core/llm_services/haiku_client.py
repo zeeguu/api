@@ -26,10 +26,24 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 
 
-def _post(prompt: str, max_tokens: int, temperature: float, timeout: int) -> requests.Response:
+def _post(
+    prompt: str,
+    max_tokens: int,
+    temperature: float,
+    timeout: int,
+    stop_sequences: Optional[list] = None,
+) -> requests.Response:
     api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
     if not api_key:
         raise RuntimeError("ANTHROPIC_TEXT_SIMPLIFICATION_KEY not set")
+    body = {
+        "model": HAIKU_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }
+    if stop_sequences:
+        body["stop_sequences"] = stop_sequences
     return requests.post(
         ANTHROPIC_URL,
         headers={
@@ -37,12 +51,7 @@ def _post(prompt: str, max_tokens: int, temperature: float, timeout: int) -> req
             "anthropic-version": ANTHROPIC_VERSION,
             "Content-Type": "application/json",
         },
-        json={
-            "model": HAIKU_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens,
-            "temperature": temperature,
-        },
+        json=body,
         timeout=timeout,
     )
 
@@ -83,12 +92,17 @@ def haiku_completion_or_raise(
     max_tokens: int,
     temperature: float = 0.0,
     timeout: int = 30,
+    stop_sequences: Optional[list] = None,
 ) -> str:
     """
     POST a single-turn prompt to Haiku. Returns the response text, or
     raises on any failure. Use when caller expects an exception.
+
+    When one of `stop_sequences` ends the reply, the matched sequence is put
+    back on the end of the text (Anthropic strips it), so the caller reads the
+    reply exactly as the model wrote it, just cut short.
     """
-    response = _post(prompt, max_tokens, temperature, timeout)
+    response = _post(prompt, max_tokens, temperature, timeout, stop_sequences)
     if response.status_code != 200:
         raise Exception(
             f"Anthropic API error: {response.status_code} - {response.text}"
@@ -99,4 +113,8 @@ def haiku_completion_or_raise(
     # inputs that can legitimately hit the cap; raising here would turn stored
     # (truncated) simplifications into pipeline failures and shrink feed
     # inventory. Left as-is on purpose — revisit alongside the chunking work.
-    return response.json()["content"][0]["text"]
+    data = response.json()
+    text = data["content"][0]["text"] if data["content"] else ""
+    if data.get("stop_reason") == "stop_sequence" and data.get("stop_sequence"):
+        text += data["stop_sequence"]
+    return text

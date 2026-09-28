@@ -76,10 +76,41 @@ def _select_provider_and_key(simplification_provider: str = None):
     return provider, api_key
 
 
-def _call_simplification_llm(prompt, provider, api_key, max_tokens, timeout=180):
+# The assess prompt emits these two flags before anything else, so stopping on
+# a YES skips the summaries a rejected article would otherwise pay for — every
+# level's title and summary, written and then thrown away. The prompt still
+# asks for every field (no bare-word exit for a model to take); the cut is ours.
+INCOMPLETE_STOP = "INCOMPLETE_ARTICLE: YES"
+ADVERTORIAL_STOP = "ADVERTORIAL_CONTENT: YES"
+REJECTION_STOPS = [INCOMPLETE_STOP, ADVERTORIAL_STOP]
+
+
+def _deepseek_stop_that_fired(result, finish_reason, stop):
+    """
+    DeepSeek strips a matched stop sequence and reports only finish_reason
+    "stop" — the same as a normal ending — so which flag fired has to be read
+    off what is left. ORIGINAL_LEVEL comes after both flags: if it is missing,
+    the reply ended on a flag, and INCOMPLETE_ARTICLE already written means it
+    was the second one.
+    """
+    if not stop or finish_reason != "stop" or "ORIGINAL_LEVEL" in result:
+        return None
+    if INCOMPLETE_STOP in stop and "INCOMPLETE_ARTICLE" not in result:
+        return INCOMPLETE_STOP
+    if ADVERTORIAL_STOP in stop and "ADVERTORIAL_CONTENT" not in result:
+        return ADVERTORIAL_STOP
+    return None
+
+
+def _call_simplification_llm(
+    prompt, provider, api_key, max_tokens, timeout=180, stop=None
+):
     """
     Send `prompt` to the chosen provider and return (result_text, model_name).
     Raises on a non-200 DeepSeek response or an Anthropic error.
+
+    `stop` sequences end the reply early. Both providers strip the one that
+    fired; it is put back, so the text reads as the model wrote it.
     """
     api_start_time = time.time()
     if provider == "deepseek":
@@ -95,6 +126,7 @@ def _call_simplification_llm(prompt, provider, api_key, max_tokens, timeout=180)
                 "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": max_tokens,
                 "temperature": 0.1,
+                **({"stop": stop} if stop else {}),
             },
             timeout=timeout,
         )
@@ -102,11 +134,19 @@ def _call_simplification_llm(prompt, provider, api_key, max_tokens, timeout=180)
             raise Exception(
                 f"DEEPSEEK API error: {response.status_code} - {response.text}"
             )
-        result = response.json()["choices"][0]["message"]["content"].strip()
+        choice = response.json()["choices"][0]
+        result = (choice["message"]["content"] or "").strip()
+        fired = _deepseek_stop_that_fired(result, choice.get("finish_reason"), stop)
+        if fired:
+            result = f"{result}\n\n{fired}".strip()
     else:  # anthropic
         model_name = HAIKU_MODEL
         result = haiku_completion_or_raise(
-            prompt, max_tokens=max_tokens, temperature=0.1, timeout=timeout
+            prompt,
+            max_tokens=max_tokens,
+            temperature=0.1,
+            timeout=timeout,
+            stop_sequences=stop,
         ).strip()
     log(f"  {provider.upper()} responded in {time.time() - api_start_time:.2f}s ({len(result)} chars)")
     return result, model_name
@@ -273,7 +313,12 @@ def assess_and_summarize(
         # single-summary sizing so the last-emitted levels aren't truncated — still
         # a fraction of the 6000 the full multi-level bodies needed.
         result, model_name = _call_simplification_llm(
-            prompt + correction, provider, api_key, max_tokens=2000, timeout=120
+            prompt + correction,
+            provider,
+            api_key,
+            max_tokens=2000,
+            timeout=120,
+            stop=REJECTION_STOPS,
         )
         _raise_if_paywall_or_advertorial(result)
         assessment = _parse_assessment_and_summary(result, provider, model_name)
