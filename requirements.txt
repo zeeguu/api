@@ -55,7 +55,6 @@ markdown2
 # Language processing utilities
 langdetect
 lingua-language-detector
-rapidfuzz
 pyphen
 regex
 
@@ -75,7 +74,6 @@ tqdm
 simhash
 timeago
 yagmail
-google
 emoji
 youtube_transcript_api
 pydub
