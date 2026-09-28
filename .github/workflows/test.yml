@@ -39,12 +39,6 @@ jobs:
           key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-venv-${{ matrix.python-version }}-
-      - name: Cache Stanza models
-        id: cache-stanza
-        uses: actions/cache@v3
-        with:
-          path: stanza_resources
-          key: ${{ runner.os }}-stanza-models-v3
       - name: Cache NLTK data
         id: cache-nltk
         uses: actions/cache@v3
@@ -87,13 +81,6 @@ jobs:
             echo "NLTK data cached"
           fi
 
-          # Only install Stanza models if not cached
-          if [ ! -d "stanza_resources" ] || [ -z "$(ls -A stanza_resources)" ]; then
-            echo "Installing Stanza models..."
-            python install_stanza_models.py
-          else
-            echo "Stanza models cached, skipping installation"
-          fi
       - name: Test with pytest
         run: |
           source venv/bin/activate

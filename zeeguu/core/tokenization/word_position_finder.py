@@ -9,15 +9,39 @@ from zeeguu.logging import log
 
 
 def _get_tokenizer(from_lang):
-    """Get the appropriate tokenizer for a language."""
+    """Token-only Stanza, via the service like every other tokenization. This
+    used to construct StanzaTokenizer directly, which loaded stanza, torch and
+    the models inside every API worker that anchored a bookmark."""
+    from zeeguu.core.tokenization import get_tokenizer
     from zeeguu.core.tokenization.zeeguu_tokenizer import TokenizerModel
-    from zeeguu.core.tokenization.stanza_tokenizer import StanzaTokenizer
-    from zeeguu.core.tokenization.nltk_tokenizer import NLTKTokenizer
 
-    TOKENIZER_MODEL = TokenizerModel.STANZA_TOKEN_ONLY
-    if TOKENIZER_MODEL in StanzaTokenizer.STANZA_MODELS:
-        return StanzaTokenizer(from_lang, TOKENIZER_MODEL)
-    return NLTKTokenizer(from_lang)
+    return get_tokenizer(from_lang, TokenizerModel.STANZA_TOKEN_ONLY)
+
+
+def _tokenize_target_and_context(target_word, context_text, from_lang):
+    """Both through the Stanza service; if the service can't be reached or
+    errors, both through NLTK instead, so saving a bookmark survives a Stanza
+    outage. Both sides always use the same tokenizer, or they wouldn't compare.
+    NLTK's positions can differ slightly from Stanza's; the serialization-time
+    anchor self-heal in Bookmark.as_dictionary (#618) corrects the served
+    anchor against the reader's tokens."""
+    import requests
+
+    try:
+        tokenizer = _get_tokenizer(from_lang)
+        return (
+            list(tokenizer.tokenize_text(target_word, as_serializable_dictionary=False)),
+            list(tokenizer.tokenize_text(context_text, as_serializable_dictionary=False)),
+        )
+    except requests.RequestException as e:
+        log(f"[WORD-POSITION] Stanza service unavailable ({e}); falling back to NLTK")
+        from zeeguu.core.tokenization.nltk_tokenizer import NLTKTokenizer
+
+        nltk_tokenizer = NLTKTokenizer(from_lang)
+        return (
+            list(nltk_tokenizer.tokenize_text(target_word, as_serializable_dictionary=False)),
+            list(nltk_tokenizer.tokenize_text(context_text, as_serializable_dictionary=False)),
+        )
 
 
 def _normalize_token(text):
@@ -36,11 +60,9 @@ def find_word_positions_in_text(target_word, context_text, from_lang, strict_mat
         dict with 'found_positions' list and 'tokens_list'
     """
     try:
-        tokenizer = _get_tokenizer(from_lang)
-
-        # Tokenize both target and context with same tokenizer
-        target_tokens = list(tokenizer.tokenize_text(target_word, as_serializable_dictionary=False))
-        context_tokens = list(tokenizer.tokenize_text(context_text, as_serializable_dictionary=False))
+        target_tokens, context_tokens = _tokenize_target_and_context(
+            target_word, context_text, from_lang
+        )
 
         # Normalize target tokens for comparison
         target_normalized = [_normalize_token(t.text) for t in target_tokens]

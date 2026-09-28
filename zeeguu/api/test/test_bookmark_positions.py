@@ -512,3 +512,64 @@ def test_word_expansion_workflow(client):
     assert bookmark_2.sentence_i is not None
     assert bookmark_2.token_i is not None
     assert bookmark_2.total_tokens is not None
+
+
+def test_bookmark_saved_during_stanza_outage_is_served_with_reader_anchor(client):
+    """
+    During a Stanza outage the position check falls back to NLTK, whose token
+    positions can disagree with Stanza's. The stored anchor then comes from
+    NLTK, and the #618 self-heal in as_dictionary must serve the anchor that
+    matches the reader's (Stanza) tokens, so the app highlights the right word.
+    """
+    from unittest.mock import patch
+
+    import requests
+
+    from zeeguu.core.tokenization.nltk_tokenizer import NLTKTokenizer
+    from zeeguu.core.tokenization.stanza_client import StanzaServiceClient
+
+    bookmark_id = _create_bookmark_with_positions(
+        client, word="Hund", context="Der große Hund bellt", token_i=2
+    )
+
+    original = NLTKTokenizer.tokenize_text
+
+    def nltk_one_token_off(self, *args, **kwargs):
+        # the position check's fallback (Token objects) disagrees with the
+        # reader's tokenizer: every position one further than Stanza's
+        tokens = original(self, *args, **kwargs)
+        if kwargs.get("as_serializable_dictionary") is False:
+            for t in tokens:
+                t.token_i += 1
+        return tokens
+
+    outage = requests.ConnectionError("stanza service unreachable")
+    with patch.object(StanzaServiceClient, "tokenize_text", side_effect=outage), \
+            patch.object(NLTKTokenizer, "tokenize_text", nltk_one_token_off):
+        response = client.response_from_post(
+            f"/update_bookmark/{bookmark_id}",
+            json={
+                "word": "große",
+                "translation": "big",
+                "context": "Der große Hund bellt",
+                "context_identifier": {
+                    "context_type": "ArticleFragment",
+                    "article_id": None,
+                    "context_id": None,
+                },
+            },
+        )
+
+    # the save commits before the response is built; the response must not
+    # report an error for it
+    assert response.status_code == 200, response.data
+    assert response.json["context_tokenized"], "served NLTK tokens during the outage"
+
+    bookmark = Bookmark.find(bookmark_id)
+    assert bookmark.user_word.meaning.origin.content == "große", "the save must survive the outage"
+    assert bookmark.token_i == 2, "stored anchor is the fallback's (off by one)"
+
+    # service back: the reader tokens put "große" at 1, and that is what ships
+    served = bookmark.as_dictionary(with_context=True, with_context_tokenized=True)
+    assert served["t_token_i"] == 1
+    assert served["t_total_token"] == 1

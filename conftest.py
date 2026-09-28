@@ -13,3 +13,9 @@ import os
 # know that. `setdefault`, so exporting DEV_SKIP_TRANSLATION=0 still lets you
 # exercise the real translators on purpose.
 os.environ.setdefault("DEV_SKIP_TRANSLATION", "1")
+
+# Tokenization goes to the Stanza service, which tests fake in-process
+# (zeeguu/core/test/fake_stanza_service.py). Set before anything imports the
+# client, which reads the URL at import. Any value works: whatever it is, the
+# mock answers it, so no real service is needed or contacted.
+os.environ.setdefault("STANZA_SERVICE_URL", "http://stanza.test")

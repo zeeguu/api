@@ -267,13 +267,34 @@ class Bookmark(db.Model):
                 # NOTE: Frontend expects 3-level structure: paragraphs[paragraph_i][sentence_i][token_i]
                 # Even though most contexts have only 1 paragraph, the structure must be preserved
                 # for compatibility with InteractiveText._updateTokensWithBookmarks()
-                result["context_tokenized"] = tokenize_for_reading(
-                    self.context.get_content(),
-                    self.user_word.meaning.origin.language,
-                    mode="stanza",
-                    start_token_i=self.context.token_i,
-                    start_sentence_i=self.context.sentence_i,
-                )
+                import requests
+
+                try:
+                    result["context_tokenized"] = tokenize_for_reading(
+                        self.context.get_content(),
+                        self.user_word.meaning.origin.language,
+                        mode="stanza",
+                        start_token_i=self.context.token_i,
+                        start_sentence_i=self.context.sentence_i,
+                    )
+                except requests.RequestException as e:
+                    # Stanza service down: serve NLTK tokens (no MWE grouping)
+                    # rather than failing the response. /update_bookmark has
+                    # already committed by now, so failing here would report an
+                    # error for a save that happened. Not cached, so the next
+                    # serialization gets Stanza again.
+                    from zeeguu.core.tokenization.nltk_tokenizer import NLTKTokenizer
+                    from zeeguu.logging import log
+
+                    log(f"[BOOKMARK] Stanza service unavailable ({e}); NLTK context tokens")
+                    result["context_tokenized"] = NLTKTokenizer(
+                        self.user_word.meaning.origin.language
+                    ).tokenize_text(
+                        self.context.get_content(),
+                        flatten=False,
+                        start_token_i=self.context.token_i,
+                        start_sentence_i=self.context.sentence_i,
+                    )
 
             # Serialization-time anchor correction (issue #618):
             # stored (sentence_i, token_i, total_tokens) can drift out of sync
