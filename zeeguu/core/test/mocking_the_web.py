@@ -123,6 +123,21 @@ def mock_requests_get(m):
     for each in URLS_TO_MOCK.keys():
         mock_requests_get_for_url(m, each)
 
+    # The Stanza service is faked in-process (see fake_stanza_service.py)
+    from zeeguu.core.test.fake_stanza_service import register_fake_stanza_service
+
+    register_fake_stanza_service(m, os.environ["STANZA_SERVICE_URL"])
+
+    # test_tokenizer.py checks Stanza's real output against a real service
+    integration_url = os.environ.get("STANZA_INTEGRATION_URL")
+    if integration_url:
+        import re
+        import requests_mock
+
+        m.register_uri(
+            requests_mock.ANY, re.compile("^" + re.escape(integration_url)), real_http=True
+        )
+
     # Mock POST requests to readability server
     # The POST body contains {"url": "...", "htmlContent": "..."}
     # We need to return the appropriate JSON based on the URL in the body

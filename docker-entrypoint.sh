@@ -3,10 +3,6 @@ set -e
 
 echo "=== Zeeguu API Startup ==="
 
-# Ensure Stanza models are downloaded
-echo "Checking Stanza models..."
-python install_stanza_models.py
-
 echo "Starting Gunicorn..."
 exec gunicorn \
     --bind 0.0.0.0:8080 \

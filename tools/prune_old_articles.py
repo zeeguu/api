@@ -30,9 +30,6 @@ Usage:
 Run nightly via cron once the dry-run output looks right.
 """
 
-import os
-os.environ["PRELOAD_STANZA"] = "false"
-
 import sys
 from datetime import datetime, timedelta
 

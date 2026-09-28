@@ -46,12 +46,14 @@ export MYSQLCLIENT_CFLAGS="-I/opt/homebrew/opt/mysql-client/include/mysql/"
 export MYSQLCLIENT_LDFLAGS="-L/opt/homebrew/opt/mysql-client/lib"
 ```
 
-## Optional: Stanza NLP Models
+## Stanza service (tokenization)
 
-After install, if you need language processing features:
+Stanza never runs inside the API process; tokenization goes to the Stanza
+service. Start it (it downloads its own models on first start) and point the
+API and the tests at it:
 ```bash
-source .venv/bin/activate
-python install_stanza_models.py
+docker compose up -d stanza
+export STANZA_SERVICE_URL=http://localhost:5001
 ```
 
 # Docker Setup

@@ -265,43 +265,6 @@ def create_app(testing=False):
     else:
         warning("*** Wordstats will use lazy loading (PRELOAD_WORDSTATS=False)")
 
-    # Preload Stanza tokenizers to avoid blocking during requests
-    # This must run inside app context since it needs the database
-    # Skip preloading during tests to avoid 8+ second overhead per test file
-    # Environment variable takes precedence over config file (for run_task/crawler containers)
-    with app.app_context():
-        preload_stanza_env = os.environ.get("PRELOAD_STANZA", "").lower()
-        if preload_stanza_env:
-            preload_stanza = preload_stanza_env not in ("false", "0", "no")
-        else:
-            preload_stanza = app.config.get("PRELOAD_STANZA", True)
-
-        if preload_stanza and not testing:
-            warning("*** Preloading Stanza tokenizers...")
-            start_time = time.time()
-            from zeeguu.core.model import Language
-            from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
-
-            language_codes = Language.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED
-
-            # Preload tokenizers for all supported languages
-            # Use get_tokenizer() to ensure we create the exact same tokenizer as during requests
-            for lang_code in language_codes:
-                try:
-                    language = Language.find_or_create(lang_code)
-                    # Create tokenizer using the same function as requests (will cache the model)
-                    tokenizer = get_tokenizer(language, TOKENIZER_MODEL)
-                    # Tokenize a dummy word to ensure model is fully loaded
-                    tokenizer.tokenize_text("test")
-                    warning(f"*** Preloaded Stanza tokenizer for {lang_code}")
-                except Exception as e:
-                    warning(f"*** Failed to preload Stanza for {lang_code}: {e}")
-
-            elapsed = time.time() - start_time
-            warning(f"*** Stanza tokenizers preloaded for {len(language_codes)} languages in {elapsed:.2f}s")
-        else:
-            warning("*** Stanza tokenizers will use lazy loading (PRELOAD_STANZA=False)")
-
     return app
 
 

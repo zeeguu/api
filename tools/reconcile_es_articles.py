@@ -18,9 +18,6 @@ Usage:
   python tools/reconcile_es_articles.py            # report how many would go
   python tools/reconcile_es_articles.py --execute  # actually delete them
 """
-import os
-os.environ["PRELOAD_STANZA"] = "false"
-
 import sys
 
 import zeeguu.core

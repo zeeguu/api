@@ -21,9 +21,6 @@ Usage:
 
 Dry-run by default: it reports what it would change and touches nothing.
 """
-import os
-
-os.environ["PRELOAD_STANZA"] = "false"
 
 import argparse
 import time

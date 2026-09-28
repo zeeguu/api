@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-import os
-os.environ["PRELOAD_STANZA"] = "false"
-
 """
    Goes through all users in a DB and replaces their names and emails with
    random ones. Also deletes unreferenced articles.

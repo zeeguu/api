@@ -86,11 +86,9 @@ echo ""
 echo "To activate the environment:  source .venv/bin/activate"
 echo ""
 
-# Optional: Stanza NLP models
-read -p "Download Stanza NLP models? (large, needed for tokenization/exercises) [y/N] " INSTALL_STANZA
-if [[ "$INSTALL_STANZA" =~ ^[Yy]$ ]]; then
-    echo "Downloading Stanza models..."
-    python install_stanza_models.py
-else
-    echo "Skipped. You can install them later with: python install_stanza_models.py"
-fi
+# Tokenization runs in the Stanza service, not in this venv. Start it with
+#   docker compose up -d stanza
+# and point the API (and the tests) at it:
+#   export STANZA_SERVICE_URL=http://localhost:5001
+echo "Tokenization needs the Stanza service: docker compose up -d stanza"
+echo "and STANZA_SERVICE_URL=http://localhost:5001"

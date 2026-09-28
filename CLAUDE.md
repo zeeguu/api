@@ -18,7 +18,7 @@ source $GH_FOLDER/zeeguu/api/.venv/bin/activate && python <command>
 
 ## Tool Scripts Structure
 - **All tool scripts that access the database MUST initialize Flask app context**
-- **Use `create_app_for_scripts()`, NOT `create_app()`** — the full factory loads endpoints, the Flask Monitoring Dashboard (APScheduler), preloads Stanza tokenizers and wordstats. That adds several seconds to every tool startup. The lightweight factory only sets up DB/config.
+- **Use `create_app_for_scripts()`, NOT `create_app()`** — the full factory loads endpoints, the Flask Monitoring Dashboard (APScheduler) and preloads wordstats. That adds several seconds to every tool startup. The lightweight factory only sets up DB/config.
 - Use `create_app()` only if a tool genuinely needs the registered API blueprint (e.g. `app.test_client()`).
 - **Required boilerplate at the top of every tool file** (after imports, before any database operations):
 

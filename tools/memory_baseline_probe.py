@@ -4,7 +4,7 @@ Where does an API worker's memory go before it serves a single request?
 Replays what a gunicorn worker does at boot (imports, then create_app) in a
 fresh process and prints the RSS after each step, so the per-worker baseline
 can be attributed to a stage instead of guessed at. Wordstats preloading is
-stubbed out (its ~1 GB is already accounted for) and so is Stanza preloading.
+stubbed out (it is measured separately).
 
 Run inside the API container, where the config and deps match prod:
     docker exec -i zapi python - < tools/memory_baseline_probe.py
@@ -45,7 +45,6 @@ def timed_import(label, statement):
     step(f"{label}  [{time.time() - t:.1f}s]")
 
 
-os.environ["PRELOAD_STANZA"] = "false"
 step("bare interpreter")
 
 timed_import("flask + sqlalchemy", "import flask, sqlalchemy, flask_sqlalchemy")
@@ -60,7 +59,7 @@ import wordstats
 # entry points so this stays wordstats-free if the preload changes shape again
 wordstats.LanguageInfo.load = staticmethod(lambda *a, **k: {})
 wordstats.LanguageInfo.load_in_memory_for = staticmethod(lambda *a, **k: None)
-timed_import("create_app() (wordstats + stanza preload stubbed)",
+timed_import("create_app() (wordstats preload stubbed)",
              "from zeeguu.api.app import create_app; app = create_app()")
 
 gc.collect()

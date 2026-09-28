@@ -1,20 +1,17 @@
 """
 HTTP client for Stanza tokenization microservice.
 
-This client provides the same interface as StanzaTokenizer but delegates
-actual tokenization to the Stanza service via HTTP.
-
-If the service is unavailable, falls back to local StanzaTokenizer.
+All Stanza tokenization goes through the service; there is deliberately no
+in-process fallback. Loading Stanza here would put torch and the models in
+every API worker, and a silent fallback would do exactly that whenever the
+service hiccups. If the service fails, the request fails, loudly.
 """
 
 import os
-import logging
 import requests
 from zeeguu.core.model.language import Language
 from zeeguu.core.tokenization.zeeguu_tokenizer import ZeeguuTokenizer, TokenizerModel
 from zeeguu.core.tokenization.token import Token
-
-logger = logging.getLogger(__name__)
 
 # Service URL from environment variable
 STANZA_SERVICE_URL = os.environ.get("STANZA_SERVICE_URL", "")
@@ -30,19 +27,11 @@ MODEL_TYPE_MAP = {
 REQUEST_TIMEOUT = 30  # seconds
 
 
-def _get_local_tokenizer(language, model):
-    """Get local StanzaTokenizer as fallback."""
-    from .stanza_tokenizer import StanzaTokenizer
-
-    return StanzaTokenizer(language, model)
-
-
 class StanzaServiceClient(ZeeguuTokenizer):
     """
     HTTP client for Stanza service.
 
-    Provides the same interface as StanzaTokenizer but makes HTTP calls
-    to the Stanza microservice instead of loading models locally.
+    The ZeeguuTokenizer interface, served over HTTP by the Stanza service.
     """
 
     def __init__(self, language: Language, model: TokenizerModel):
@@ -73,8 +62,6 @@ class StanzaServiceClient(ZeeguuTokenizer):
 
         Returns tokenized text as list of token dictionaries (if as_serializable_dictionary=True)
         or Token objects. Structure depends on flatten parameter.
-
-        Falls back to local StanzaTokenizer if service is unavailable.
         """
         if start_token_i is None:
             start_token_i = 0
@@ -86,34 +73,21 @@ class StanzaServiceClient(ZeeguuTokenizer):
         if not text:
             return []
 
-        try:
-            response = requests.post(
-                f"{self.service_url}/tokenize",
-                json={
-                    "text": text,
-                    "language": self.language.code,
-                    "model": self.model_string,
-                    "flatten": flatten,
-                    "start_token_i": start_token_i,
-                    "start_sentence_i": start_sentence_i,
-                    "start_paragraph_i": start_paragraph_i,
-                },
-                timeout=REQUEST_TIMEOUT,
-            )
-            response.raise_for_status()
-            data = response.json()
-
-        except requests.RequestException as e:
-            logger.warning(f"Stanza service failed, falling back to local: {e}")
-            local_tokenizer = _get_local_tokenizer(self.language, self.model_type)
-            return local_tokenizer.tokenize_text(
-                text,
-                as_serializable_dictionary,
-                flatten,
-                start_token_i,
-                start_sentence_i,
-                start_paragraph_i,
-            )
+        response = requests.post(
+            f"{self.service_url}/tokenize",
+            json={
+                "text": text,
+                "language": self.language.code,
+                "model": self.model_string,
+                "flatten": flatten,
+                "start_token_i": start_token_i,
+                "start_sentence_i": start_sentence_i,
+                "start_paragraph_i": start_paragraph_i,
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        data = response.json()
 
         tokens_data = data.get("tokens", [])
 
@@ -138,25 +112,17 @@ class StanzaServiceClient(ZeeguuTokenizer):
         if not text:
             return []
 
-        try:
-            response = requests.post(
-                f"{self.service_url}/sentences",
-                json={
-                    "text": text,
-                    "language": self.language.code,
-                    "model": self.model_string,
-                },
-                timeout=REQUEST_TIMEOUT,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return data.get("sentences", [])
-        except requests.RequestException as e:
-            logger.warning(
-                f"Stanza service failed for get_sentences, falling back to local: {e}"
-            )
-            local_tokenizer = _get_local_tokenizer(self.language, self.model_type)
-            return local_tokenizer.get_sentences(text)
+        response = requests.post(
+            f"{self.service_url}/sentences",
+            json={
+                "text": text,
+                "language": self.language.code,
+                "model": self.model_string,
+            },
+            timeout=REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        return response.json().get("sentences", [])
 
     def tokenize_batch(self, texts: list, flatten: bool = False):
         """
@@ -175,30 +141,18 @@ class StanzaServiceClient(ZeeguuTokenizer):
         if not texts:
             return []
 
-        try:
-            response = requests.post(
-                f"{self.service_url}/tokenize_batch",
-                json={
-                    "texts": texts,
-                    "language": self.language.code,
-                    "model": self.model_string,
-                    "flatten": flatten,
-                },
-                timeout=REQUEST_TIMEOUT * 2,  # Longer timeout for batch
-            )
-            response.raise_for_status()
-            data = response.json()
-            return [r.get("tokens", []) for r in data.get("results", [])]
-
-        except requests.RequestException as e:
-            logger.warning(f"Stanza batch service failed, falling back to sequential: {e}")
-            # Fall back to sequential tokenization
-            results = []
-            local_tokenizer = _get_local_tokenizer(self.language, self.model_type)
-            for text in texts:
-                tokens = local_tokenizer.tokenize_text(text, flatten=flatten)
-                results.append(tokens)
-            return results
+        response = requests.post(
+            f"{self.service_url}/tokenize_batch",
+            json={
+                "texts": texts,
+                "language": self.language.code,
+                "model": self.model_string,
+                "flatten": flatten,
+            },
+            timeout=REQUEST_TIMEOUT * 2,  # Longer timeout for batch
+        )
+        response.raise_for_status()
+        return [r.get("tokens", []) for r in response.json().get("results", [])]
 
     def _dict_to_token(self, token_dict):
         """Convert token dictionary from service to Token object."""

@@ -5,12 +5,23 @@ from zeeguu.core.test.mocking_the_web import TESTDATA_FOLDER
 import os
 import random
 
+import pytest
+
 """
-    These tests are done for the Stanza tokenizer, as this is the model we are expecting
-    to use in production.
+    These test Stanza's own tokenization, so they need the real Stanza service;
+    the rest of the suite runs against an in-process fake
+    (fake_stanza_service.py). Skipped unless a real service is given:
+
+        docker compose up -d stanza
+        STANZA_INTEGRATION_URL=http://localhost:5001 pytest zeeguu/core/test/test_tokenizer.py
 """
 
+STANZA_INTEGRATION_URL = os.environ.get("STANZA_INTEGRATION_URL")
 
+
+@pytest.mark.skipif(
+    not STANZA_INTEGRATION_URL, reason="needs a real Stanza service (STANZA_INTEGRATION_URL)"
+)
 class TokenizationTest(ModelTestMixIn):
     def setUp(self):
         super().setUp()
@@ -29,6 +40,10 @@ class TokenizationTest(ModelTestMixIn):
         self.da_tokenizer = get_tokenizer(self.da_lang, self.tokenizer_model)
         self.it_tokenizer = get_tokenizer(self.it_lang, self.tokenizer_model)
         self.pt_tokenizer = get_tokenizer(self.pt_lang, self.tokenizer_model)
+        for each in (self.en_tokenizer, self.es_tokenizer, self.de_tokenizer,
+                     self.fr_tokenizer, self.da_tokenizer, self.it_tokenizer,
+                     self.pt_tokenizer):
+            each.service_url = STANZA_INTEGRATION_URL
 
     @classmethod
     def assert_sentence_i_token_i_is_correct(cls, token_list, sent_i=0):

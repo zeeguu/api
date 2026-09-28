@@ -1,10 +1,7 @@
 # Master requirements file
-# Use CPU-only PyTorch to save space (~1.5GB smaller than GPU version)
---extra-index-url https://download.pytorch.org/whl/cpu
+# No stanza/torch here: Stanza runs only in the Stanza service
+# (stanza_service/, its own image and requirements), never in the API process.
 
-# ML/NLP frameworks (HEAVY - includes PyTorch via stanza)
-torch
-stanza==1.11.0
 nltk
 
 # Scientific computing stack

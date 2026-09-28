@@ -94,6 +94,8 @@ services:
 
   stanza:
     build: ./stanza_service
+    ports:
+      - "127.0.0.1:5001:5001"  # so a local venv (and pytest) can reach it
     volumes:
       - ${ZEEGUU_DATA_FOLDER}/stanza_resources:/stanza_resources
     environment:

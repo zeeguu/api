@@ -9,15 +9,13 @@ from zeeguu.logging import log
 
 
 def _get_tokenizer(from_lang):
-    """Get the appropriate tokenizer for a language."""
+    """Token-only Stanza, via the service like every other tokenization. This
+    used to construct StanzaTokenizer directly, which loaded stanza, torch and
+    the models inside every API worker that anchored a bookmark."""
+    from zeeguu.core.tokenization import get_tokenizer
     from zeeguu.core.tokenization.zeeguu_tokenizer import TokenizerModel
-    from zeeguu.core.tokenization.stanza_tokenizer import StanzaTokenizer
-    from zeeguu.core.tokenization.nltk_tokenizer import NLTKTokenizer
 
-    TOKENIZER_MODEL = TokenizerModel.STANZA_TOKEN_ONLY
-    if TOKENIZER_MODEL in StanzaTokenizer.STANZA_MODELS:
-        return StanzaTokenizer(from_lang, TOKENIZER_MODEL)
-    return NLTKTokenizer(from_lang)
+    return get_tokenizer(from_lang, TokenizerModel.STANZA_TOKEN_ONLY)
 
 
 def _normalize_token(text):
