@@ -188,7 +188,7 @@ def enrich_tokens_with_mwe(
     if mode is None:
         mode = "hybrid" if language_code in HYBRID_LANGUAGES else "stanza"
 
-    logger.info(f"MWE enrichment: lang={language_code}, mode={mode}")
+    logger.debug(f"MWE enrichment: lang={language_code}, mode={mode}")
 
     detector = MWEDetector(language_code, mode)
     return detector.enrich(tokenized_text)
