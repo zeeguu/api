@@ -14,6 +14,13 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# uv installs the same requirements as pip, much faster. Pinned, so an uv
+# release can't change a build under us.
+COPY --from=ghcr.io/astral-sh/uv:0.8.0 /uv /uvx /bin/
+# The cache is a mount, a different filesystem from site-packages: copy, don't
+# try to hardlink. Compile bytecode at build time instead of at first import.
+ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1
+
 # Zeeguu-API setup
 VOLUME /Zeeguu-API
 
@@ -24,16 +31,10 @@ COPY ./setup.py /Zeeguu-API/setup.py
 
 WORKDIR /Zeeguu-API
 
-# RUN python -m pip install --upgrade pip setuptools
-# Install Python requirements with BuildKit cache mount
-# Cache persisted via buildkit-cache-dance action to GitHub Actions cache
-RUN --mount=type=cache,target=/root/.cache/pip \
-    echo "=== Pip cache before install ===" && \
-    ls -lah /root/.cache/pip 2>/dev/null || echo "Cache empty (first build)" && \
-    python -m pip install --default-timeout=300 -r requirements.txt && \
-    python -m pip install --default-timeout=300 gunicorn && \
-    echo "=== Pip cache after install ===" && \
-    du -sh /root/.cache/pip
+# Install Python requirements with a BuildKit cache mount (on the server it
+# persists between builds; in CI buildkit-cache-dance carries it across runs)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system -r requirements.txt gunicorn
 
 # Setup NLTK resources folder
 # Use /zeeguu-data to match docker-compose volume mount
@@ -46,8 +47,11 @@ COPY . /Zeeguu-API
 # Make entrypoint script executable
 RUN chmod +x /Zeeguu-API/docker-entrypoint.sh
 
-# Install the application
-RUN python setup.py develop
+# Install the application (editable: the source is bind-mounted over
+# /Zeeguu-API at runtime). Replaces the deprecated `setup.py develop`, whose
+# NLTK download wrote into /zeeguu-data inside the image, a path the runtime
+# volume hides anyway; NLTK data lives on the /zeeguu-data volume.
+RUN uv pip install --system --no-deps -e .
 
 # Set NLTK data path
 ENV NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data/
