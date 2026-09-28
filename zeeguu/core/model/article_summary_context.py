@@ -97,3 +97,27 @@ class ArticleSummaryContext(db.Model):
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]
+
+    @classmethod
+    def bookmarks_by_article(cls, user_id: int, article_ids):
+        """{article_id: [bookmark json]} in one query.
+
+        Batch form of get_all_user_bookmarks_for_article_summary: the feed would
+        otherwise ask once per article.
+        """
+        from zeeguu.core.model.user_word import UserWord
+
+        if not article_ids:
+            return {}
+        rows = (
+            db.session.query(ArticleSummaryContext.article_id, Bookmark)
+            .select_from(Bookmark)
+            .join(ArticleSummaryContext)
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(ArticleSummaryContext.article_id.in_(article_ids))
+            .filter(UserWord.user_id == user_id)
+        ).all()
+        result = {}
+        for key, bookmark in rows:
+            result.setdefault(key, []).append(bookmark.to_json(True))
+        return result

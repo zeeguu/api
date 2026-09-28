@@ -814,11 +814,6 @@ class Article(db.Model):
             result_dict["feed_id"] = (self.feed.id,)
             result_dict["feed_icon_name"] = self.feed.icon_name
 
-            # TO DO: remove feed_image_url from RSSFeed --- this is here for compatibility
-            # until the codebase is moved to zorg.
-            if self.feed.image_url:
-                result_dict["feed_image_url"] = self.feed.image_url.as_string()
-
         if with_content:
             tokenized_content = self.get_tokenized_content()
             result_dict.update(tokenized_content)

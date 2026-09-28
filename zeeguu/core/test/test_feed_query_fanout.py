@@ -6,21 +6,31 @@ ArticleDifficultyFeedback / ArticleTopicUserFeedback finds, and the lazy
 relationships article_info reads (uploader, url, img_url, feed, cefr_assessment,
 topics -- plus topic.topic.title, a second hop).
 
-The guard here is the *shape* of the growth, not an absolute number: doubling
-the articles must not double the queries. An absolute budget would be brittle
+The guard here is the *shape* of the growth, not an absolute number: more
+articles must not mean more queries. An absolute budget would be brittle
 against unrelated model changes, while the N+1 it replaces is exactly a
 proportional-growth bug.
 """
+import json
 from unittest import TestCase
 
 from sqlalchemy import event
 
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.article_rule import ArticleRule
+from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.user_rule import UserRule
 
 import zeeguu.core
+from zeeguu.core.model import Article
+from zeeguu.core.model.article_summary_context import ArticleSummaryContext
+from zeeguu.core.model.level_adapted_article_title_context import (
+    LevelAdaptedArticleTitleContext,
+)
+from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
 from zeeguu.core.model.user_article import UserArticle
+from zeeguu.core.model.user_language import UserLanguage
 
 session = zeeguu.core.model.db.session
 
@@ -48,39 +58,99 @@ class FeedQueryFanoutTest(ModelTestMixIn, TestCase):
     def setUp(self):
         super().setUp()
         self.user = UserRule().user
-        self.articles = [ArticleRule().article for _ in range(8)]
+        # A learner with a level, reading C1 articles in their language, so the
+        # per-level title/summary path runs -- the one real learners hit, and
+        # the one a level-less test user silently skips.
+        ul = UserLanguage.find_or_create(session, self.user, self.user.learned_language)
+        ul.cefr_level = 4  # B2
+        session.add(ul)
+
+        tokens = [[[{"text": "hej", "sentence_i": 0, "token_i": 0}]]]
+        self.articles = []
+        for i in range(8):
+            article = ArticleRule().article
+            article.language = self.user.learned_language
+            article.cefr_level = "C1"
+            session.add(article)
+            session.flush()
+            # Half get a B1 level row, half fall back to their own cached tokens.
+            if i % 2:
+                LevelAdaptedArticleText.find_or_create(
+                    session, article, cefr_level="B1", summary="s",
+                    tokenized_summary=tokens, title="t", tokenized_title=tokens,
+                )
+            else:
+                cache = ArticleTokenizationCache.find_or_create(session, article)
+                cache.tokenized_title = json.dumps(tokens)
+                cache.tokenized_summary = json.dumps(tokens)
+                session.add(cache)
+            self.articles.append(article)
         session.commit()
 
     def _queries_for(self, articles):
-        # Expire everything first, so the identity map from a previous call
-        # cannot hide a query the next one would otherwise make.
+        # Start from a cold identity map, so a previous call cannot hide a query
+        # the next one would otherwise make -- then reload the articles outside
+        # the counter, as the feed's search-hit hydration hands them over fresh.
         session.expire_all()
+        ids = [a.id for a in articles]
+        fresh = Article.query.filter(Article.id.in_(ids)).all()
+        fresh.sort(key=lambda a: ids.index(a.id))
         with QueryCounter() as counter:
-            UserArticle.article_infos(self.user, articles, select_appropriate=True)
+            UserArticle.article_infos(self.user, fresh, select_appropriate=True)
         return counter.count
 
-    def test_marginal_query_cost_per_article_stays_low(self):
-        """Each extra article should cost a few queries, not ~20.
+    def test_query_count_does_not_grow_with_article_count(self):
+        """Every lookup is one query for the whole page, so 8 articles cost what
+        2 do.
 
         Measured on this path: before batching, going 2 -> 8 articles went 52 ->
-        176 queries, about 21 per extra article. After, it is roughly 8.
+        176 queries, about 21 per extra article. After, both are ~32.
 
-        What is left is genuinely per-article rather than per-user: the title
-        and summary bookmark-context lookups, the personal-copy check, and the
-        tokenization-cache row. Batching those is possible but is a larger
-        change; the bound here is set to catch a return of the per-user
-        lookups (isTeacher, cefr level, feature flags) that dominated before,
-        each of which cost several queries per article.
+        A little slack for fixture noise; anything moving back inside the
+        per-article loop costs at least one query per article, i.e. +6 here.
         """
         few = self._queries_for(self.articles[:2])
         many = self._queries_for(self.articles)
-        marginal = (many - few) / (len(self.articles) - 2)
 
-        assert marginal < 12, (
-            f"{marginal:.1f} queries per extra article ({few} for 2, {many} for 8). "
-            f"Was ~21 before batching and ~8 after; something is querying per "
-            f"article again -- most likely a per-user lookup back inside the loop."
+        assert many - few <= 2, (
+            f"{few} queries for 2 articles, {many} for 8. Should be flat; "
+            f"something is querying once per article again."
         )
+
+    def test_past_bookmarks_land_on_their_own_article(self):
+        """The batched bookmark lookups are keyed by id; check they are handed
+        back to the article (or level row) they belong to, and no other."""
+        own_summary_article = self.articles[0]  # even: served its own summary
+        level_article = self.articles[1]  # odd: served its B1 level row
+        level_row = LevelAdaptedArticleText.query.filter_by(
+            article_id=level_article.id
+        ).one()
+
+        in_summary = BookmarkRule(self.user).bookmark
+        ArticleSummaryContext.find_or_create(session, in_summary, own_summary_article)
+        in_level_title = BookmarkRule(self.user).bookmark
+        LevelAdaptedArticleTitleContext.find_or_create(
+            session, in_level_title, level_row
+        )
+        session.commit()
+
+        infos = {
+            i["id"]: i
+            for i in UserArticle.article_infos(
+                self.user, self.articles, select_appropriate=True
+            )
+        }
+
+        def ids(payload):
+            return [b["id"] for b in payload["past_bookmarks"]]
+
+        assert ids(infos[own_summary_article.id]["interactiveSummary"]) == [
+            in_summary.id
+        ]
+        assert ids(infos[level_article.id]["interactiveTitle"]) == [in_level_title.id]
+        for article in self.articles[2:]:
+            assert ids(infos[article.id]["interactiveSummary"]) == []
+            assert ids(infos[article.id]["interactiveTitle"]) == []
 
     def test_infos_are_returned_for_every_article(self):
         infos = UserArticle.article_infos(
