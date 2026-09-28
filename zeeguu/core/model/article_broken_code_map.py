@@ -22,6 +22,7 @@ class LowQualityTypes:
     ADVERTORIAL_LLM = "ADVERTORIAL_LLM"            # Detected by LLM during simplification
     USER_REPORTED = "USER_REPORTED"
     NON_ARTICLE = "NON_ARTICLE"                    # Interactive/non-prose page (crossword, sudoku, quiz...)
+    LLM_PASS_FAILED = "LLM_PASS_FAILED"            # assess/summarize/classify errored; never assessed, never indexed
 
 
 class ArticleBrokenMap(db.Model):
