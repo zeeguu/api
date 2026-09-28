@@ -94,6 +94,8 @@ def main():
 
     warmed = 0
     failed = 0
+    failed_chunks = 0
+    failed_articles = 0
     # One stanza round trip per language per chunk instead of two per article.
     for start in range(0, len(articles), COMMIT_EVERY):
         chunk = articles[start : start + COMMIT_EVERY]
@@ -105,7 +107,11 @@ def main():
             warmed += populated
             failed += chunk_failed
         except Exception as e:
-            failed += len(chunk)
+            # Counted separately: `failed` counts fields, a chunk error is
+            # articles. Summing them made the one number ops would alert on
+            # mean nothing.
+            failed_chunks += 1
+            failed_articles += len(chunk)
             print(f"  ! chunk starting at {start}: {e}")
             db.session.rollback()
             continue
@@ -114,7 +120,11 @@ def main():
             f"({warmed} fields warmed, {failed} failed)"
         )
 
-    print(f"Done. Warmed {warmed} fields, failed {failed}, over {len(articles)} articles.")
+    print(
+        f"Done. Warmed {warmed} fields, {failed} fields failed, "
+        f"{failed_articles} articles skipped in {failed_chunks} failed chunks, "
+        f"over {len(articles)} articles."
+    )
 
 
 if __name__ == "__main__":

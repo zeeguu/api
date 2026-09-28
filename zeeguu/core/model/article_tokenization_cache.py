@@ -113,18 +113,31 @@ class ArticleTokenizationCache(db.Model):
         from zeeguu.core.mwe import enrich_tokens_with_mwe
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 
-        # (article, field, text) for everything still missing
+        failed_lookups = []
+
+        # (article, field, text) for everything still missing, grouped by
+        # language *id*: Language defines __eq__ without __hash__, so Python
+        # sets __hash__ to None and the instances cannot key a dict at all.
         jobs_by_language = defaultdict(list)
+        languages_by_id = {}
         for article in articles:
             cache = cls.find_or_create(session, article)
+            if cache is None:
+                # find_or_create rolls back and re-queries on OperationalError,
+                # and can come back empty. Skip rather than AttributeError out
+                # of the whole chunk.
+                failed_lookups.append(article.id)
+                continue
+            languages_by_id[article.language_id] = article.language
             if article.summary and not cache.tokenized_summary:
-                jobs_by_language[article.language].append((cache, "tokenized_summary", article.summary))
+                jobs_by_language[article.language_id].append((cache, "tokenized_summary", article.summary))
             if article.title and not cache.tokenized_title:
-                jobs_by_language[article.language].append((cache, "tokenized_title", article.title))
+                jobs_by_language[article.language_id].append((cache, "tokenized_title", article.title))
 
         populated = 0
-        failed = 0
-        for language, jobs in jobs_by_language.items():
+        failed = len(failed_lookups)
+        for language_id, jobs in jobs_by_language.items():
+            language = languages_by_id[language_id]
             tokenizer = get_tokenizer(language, TOKENIZER_MODEL)
             if not hasattr(tokenizer, "tokenize_batch"):
                 # Local stanza tokenizer: no batch endpoint, one at a time.
@@ -166,7 +179,33 @@ class ArticleTokenizationCache(db.Model):
         if not text:
             return None
         tokenizer = get_tokenizer(language, TokenizerModel.NLTK)
-        return tokenizer.tokenize_text(text, flatten=False)
+        tokens = tokenizer.tokenize_text(text, flatten=False)
+        cls._fix_spacing(tokens)
+        return tokens
+
+    @staticmethod
+    def _fix_spacing(paragraphs):
+        """Set has_space correctly around punctuation, in place.
+
+        NLTKTokenizer passes has_space=True for every token unconditionally
+        (nltk_tokenizer.py), while the stanza path computes it. The reader
+        inserts a space whenever has_space is true, so without this a summary
+        renders "Dette er et resume ." and French renders "l ' homme" -- a more
+        conspicuous regression than the missing MWE grouping this path is
+        actually trading away.
+        """
+        for paragraph in paragraphs or []:
+            for sentence in paragraph or []:
+                for i, token in enumerate(sentence or []):
+                    nxt = sentence[i + 1] if i + 1 < len(sentence) else None
+                    # no space before punctuation that attaches leftwards
+                    if nxt and nxt.get("is_punct") and not nxt.get("is_left_punct"):
+                        token["has_space"] = False
+                    # and none after an opening bracket/quote
+                    if token.get("is_left_punct"):
+                        token["has_space"] = False
+                if sentence:
+                    sentence[-1]["has_space"] = True
 
     @classmethod
     def delete_for_article(cls, session, article_id):
