@@ -1,3 +1,5 @@
+import uuid
+
 from zeeguu.core.test.rules.base_rule import BaseRule
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.user_rule import UserRule
@@ -31,7 +33,9 @@ class CohortRule(BaseRule):
 
     def _create_model_object(self, *args):
         name = self.faker.word()
-        inv_code = self.faker.word()
+        # inv_code is UNIQUE; faker.word() draws from ~1000 lorem words, so
+        # tests creating several cohorts would occasionally collide.
+        inv_code = f"{self.faker.word()}-{uuid.uuid4().hex[:8]}"
         max_students = 10
         language = LanguageRule().random
         cohort = Cohort(inv_code, name, language, max_students)
