@@ -55,7 +55,14 @@ def post_fork(server, worker):
     """
     print(f"Worker {worker.pid} forked - preloading Stanza models")
     try:
-        from app import SUPPORTED_LANGUAGES, get_pipeline, MODEL_TOKEN_POS_DEP
+        from app import SUPPORTED_LANGUAGES, get_pipeline, MODEL_TOKEN_POS_DEP, MODEL_TOKEN_ONLY
+
+        # token_pos_dep serves the reader; token_only serves the API's bookmark
+        # positioning (word_position_finder). Both are preloaded: a model left
+        # to load lazily loads under _PIPELINE_LOAD_LOCK on its first request
+        # and stalls the worker. token_only is just the tokenizer (~9MB for
+        # all languages on disk).
+        models = (MODEL_TOKEN_POS_DEP, MODEL_TOKEN_ONLY)
 
         # Load one language at a time and touch the heartbeat between each.
         # post_fork runs before the worker enters its serving loop, so nothing
@@ -64,11 +71,12 @@ def post_fork(server, worker):
         # that on a loaded box, which would be an endless kill/respawn loop
         # where the service never serves at all.
         for lang_code in SUPPORTED_LANGUAGES:
-            try:
-                get_pipeline(lang_code, MODEL_TOKEN_POS_DEP)
-            except Exception as e:
-                print(f"Worker {worker.pid}: {lang_code} preload failed ({e})")
-            worker.tmp.notify()
+            for model in models:
+                try:
+                    get_pipeline(lang_code, model)
+                except Exception as e:
+                    print(f"Worker {worker.pid}: {lang_code}/{model} preload failed ({e})")
+                worker.tmp.notify()
         print(f"Worker {worker.pid} ready with models preloaded")
     except Exception as e:
         # Serving with lazy loading is slow but correct; refusing to start is not.
