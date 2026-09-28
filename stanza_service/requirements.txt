@@ -1,13 +1,24 @@
 # Stanza service dependencies
-flask>=2.0.0
-gunicorn>=21.0.0
+#
+# CPU-only torch: the server has no GPU, and PyPI's default torch wheel pulls
+# ~2.5GB of CUDA libraries (nvidia-cudnn, cublas, nccl, ...) that never load.
+--extra-index-url https://download.pytorch.org/whl/cpu
+
+# Pinned to what the Sep 2026 rebuild installed and ran with. Unpinned, each
+# rebuild silently picked up new torch/numpy/protobuf majors.
+flask==3.1.3
+gunicorn==26.2.0
+psutil==7.2.2
+
 # Pin stanza: 1.13+ expects the Danish DDT depparse model to have 41 dependency
 # relations, but our downloaded ddt_charlm.pt (Nov 2025) has 45 -> GraphParser
 # state_dict size mismatch -> every /tokenize with depparse 500s. 1.11.0 matches
-# the on-disk model (it's the version the API container tokenizes with today).
-# Re-pin only after re-downloading the models under the newer stanza.
+# the on-disk model. Re-pin only after re-downloading the models under the
+# newer stanza.
 stanza==1.11.0
-psutil>=5.9.0
 
-# Stanza dependencies (PyTorch)
-torch>=2.0.0
+# Stanza's own dependencies that matter: torch runs the models; numpy and
+# protobuf changed major versions under us before.
+torch==2.14.0+cpu
+numpy==2.5.3
+protobuf==7.36.2
