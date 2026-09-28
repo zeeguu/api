@@ -49,7 +49,11 @@ _request_stats = {
 SLOW_REQUEST_THRESHOLD = 5.0  # seconds
 
 # Configuration
-STANZA_RESOURCE_DIR = os.environ.get("STANZA_RESOURCE_DIR", "/stanza_resources")
+# Per-version folder: models only load under the stanza version that downloaded
+# them, so a stanza bump downloads a fresh set next to the old one.
+STANZA_RESOURCE_DIR = os.path.join(
+    os.environ.get("STANZA_RESOURCE_DIR", "/stanza_resources"), stanza.__version__
+)
 
 # Supported languages (must match languages with downloaded models)
 SUPPORTED_LANGUAGES = [

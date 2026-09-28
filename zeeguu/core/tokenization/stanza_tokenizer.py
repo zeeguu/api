@@ -18,7 +18,9 @@ URL_PLACEHOLDER = "#URL#"
 EMAIL_PLACEHOLDER = "#EMAIL#"
 
 
-STANZA_RESOURCE_DIR = os.path.join(ZEEGUU_RESOURCES_FOLDER, "stanza_resources")
+# Per-version folder: models only load under the stanza version that downloaded
+# them, and during a blue-green deploy old and new containers share this volume.
+STANZA_RESOURCE_DIR = os.path.join(ZEEGUU_RESOURCES_FOLDER, "stanza_resources", stanza.__version__)
 
 
 class StanzaTokenizer(ZeeguuTokenizer):

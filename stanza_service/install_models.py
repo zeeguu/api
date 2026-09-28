@@ -9,7 +9,11 @@ allowing models to persist in Docker volumes across container restarts.
 import os
 import stanza
 
-STANZA_RESOURCE_DIR = os.environ.get("STANZA_RESOURCE_DIR", "/stanza_resources")
+# Per-version folder: models only load under the stanza version that downloaded
+# them, so a stanza bump downloads a fresh set next to the old one.
+STANZA_RESOURCE_DIR = os.path.join(
+    os.environ.get("STANZA_RESOURCE_DIR", "/stanza_resources"), stanza.__version__
+)
 
 # Languages supported by Zeeguu (must match SUPPORTED_LANGUAGES in app.py)
 SUPPORTED_LANGUAGES = [
@@ -25,6 +29,7 @@ STANZA_LANG_MAP = {
 def install_models():
     """Download Stanza models only if they don't already exist."""
     print(f"Checking Stanza models in {STANZA_RESOURCE_DIR}...")
+    failed = []
 
     for lang_code in SUPPORTED_LANGUAGES:
         stanza_code = STANZA_LANG_MAP.get(lang_code, lang_code)
@@ -50,7 +55,12 @@ def install_models():
                 print(f"  {lang_code}: download complete")
             except Exception as e:
                 print(f"  {lang_code}: FAILED - {e}")
+                failed.append(lang_code)
 
+    if failed:
+        # Fail the entrypoint (set -e) so the container restarts and retries,
+        # rather than starting gunicorn and 500ing on every request for these.
+        raise SystemExit(f"Model installation failed for: {', '.join(failed)}")
     print("Model installation complete.")
 
 

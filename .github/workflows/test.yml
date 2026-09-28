@@ -44,7 +44,11 @@ jobs:
         uses: actions/cache@v3
         with:
           path: stanza_resources
-          key: ${{ runner.os }}-stanza-models-v3
+          # Models live in stanza_resources/<stanza version>/; keying on requirements.txt
+          # saves a fresh cache after a stanza bump, restore-keys avoids a full redownload otherwise.
+          key: ${{ runner.os }}-stanza-models-v4-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-stanza-models-v4-
       - name: Cache NLTK data
         id: cache-nltk
         uses: actions/cache@v3
@@ -87,13 +91,8 @@ jobs:
             echo "NLTK data cached"
           fi
 
-          # Only install Stanza models if not cached
-          if [ ! -d "stanza_resources" ] || [ -z "$(ls -A stanza_resources)" ]; then
-            echo "Installing Stanza models..."
-            python install_stanza_models.py
-          else
-            echo "Stanza models cached, skipping installation"
-          fi
+          # Installer skips languages whose models already exist for this stanza version
+          python install_stanza_models.py
       - name: Test with pytest
         run: |
           source venv/bin/activate
