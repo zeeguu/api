@@ -688,6 +688,32 @@ class Article(db.Model):
         except Exception as e:
             log(f"[CACHE-WRITE-FAIL] Article {self.id} - Failed to cache: {e}")
 
+    @classmethod
+    def article_info_loads(cls):
+        """selectinload options for every relationship article_info reads.
+
+        They are all lazy, so without these each touch is a query per article.
+        Anything that loads articles to render them in bulk should use this
+        list, so a relationship added to article_info is warmed everywhere.
+        """
+        from sqlalchemy.orm import selectinload
+        from zeeguu.core.model.article_topic_map import ArticleTopicMap
+        from zeeguu.core.model.url import Url
+
+        return [
+            selectinload(cls.uploader),
+            # as_string() reads url.domain, so the hop has to be loaded too
+            selectinload(cls.url).selectinload(Url.domain),
+            selectinload(cls.img_url).selectinload(Url.domain),
+            selectinload(cls.feed),
+            selectinload(cls.language),
+            # get_fk_difficulty falls back to it when the article has no own value
+            selectinload(cls.source),
+            selectinload(cls.cefr_assessment),
+            # topics_as_string reads topic.topic.title: same second hop
+            selectinload(cls.topics).selectinload(ArticleTopicMap.topic),
+        ]
+
     def article_info(self, with_content=False):
         """
 

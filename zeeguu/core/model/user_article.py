@@ -910,23 +910,12 @@ class UserArticle(db.Model):
     @classmethod
     def _warm_article_relationships(cls, article_ids):
         """Load the relationships article_info reads, for all articles at once."""
-        from sqlalchemy.orm import selectinload
-        from zeeguu.core.model.article_topic_map import ArticleTopicMap
-        from zeeguu.core.model.url import Url
         from . import db
 
         if not article_ids:
             return
         db.session.query(Article).filter(Article.id.in_(article_ids)).options(
-            selectinload(Article.uploader),
-            selectinload(Article.url).selectinload(Url.domain),
-            selectinload(Article.img_url),
-            selectinload(Article.feed),
-            selectinload(Article.language),
-            # get_fk_difficulty falls back to it when the article has no own value
-            selectinload(Article.source),
-            selectinload(Article.cefr_assessment),
-            selectinload(Article.topics).selectinload(ArticleTopicMap.topic),
+            *Article.article_info_loads()
         ).all()
 
     @classmethod

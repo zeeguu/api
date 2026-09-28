@@ -471,28 +471,15 @@ def _hydrate_articles(article_ids):
     """Load many articles in one query, with the relationships article_info reads.
 
     find_by_id per hit is one query each, and every relationship on Article is
-    lazy -- so article_info's touches of uploader/url/img_url/feed/topics/
-    cefr_assessment each cost another. selectinload turns that whole fan-out
-    into a handful of queries for the page instead of ~7 per article.
+    lazy -- so article_info's touches of its relationships each cost another.
+    Article.article_info_loads turns that whole fan-out into a handful of
+    queries for the page instead of ~7 per article.
     """
-    from sqlalchemy.orm import selectinload
-    from zeeguu.core.model.article_topic_map import ArticleTopicMap
-
     if not article_ids:
         return {}
     rows = (
         Article.query.filter(Article.id.in_(article_ids))
-        .options(
-            selectinload(Article.uploader),
-            selectinload(Article.url),
-            selectinload(Article.img_url),
-            selectinload(Article.feed),
-            selectinload(Article.language),
-            selectinload(Article.cefr_assessment),
-            # topics_as_string reads topic.topic.title, so the nested hop
-            # has to be loaded too or the fan-out just moves down a level.
-            selectinload(Article.topics).selectinload(ArticleTopicMap.topic),
-        )
+        .options(*Article.article_info_loads())
         .all()
     )
     return {a.id: a for a in rows}
