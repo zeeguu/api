@@ -56,6 +56,9 @@ timed_import("zeeguu.api.endpoints (all blueprints)", "import zeeguu.api.endpoin
 
 import wordstats
 
+# create_app preloads with LanguageInfo.load(code) per language; stub both
+# entry points so this stays wordstats-free if the preload changes shape again
+wordstats.LanguageInfo.load = staticmethod(lambda *a, **k: {})
 wordstats.LanguageInfo.load_in_memory_for = staticmethod(lambda *a, **k: None)
 timed_import("create_app() (wordstats + stanza preload stubbed)",
              "from zeeguu.api.app import create_app; app = create_app()")
