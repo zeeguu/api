@@ -23,6 +23,12 @@ from zeeguu.core.util.encoding import datetime_to_json
 from zeeguu.logging import log
 
 
+# "not supplied" has to be distinguishable from a resolved level of None --
+# a user with no UserLanguage row legitimately resolves to None, and using None
+# as the default made every such user re-query once per article.
+_UNRESOLVED = object()
+
+
 class UserArticle(db.Model):
     """
 
@@ -156,6 +162,19 @@ class UserArticle(db.Model):
         """
 
         return cls.query.filter_by(user=user, article=article).first()
+
+    @classmethod
+    def find_all_for_articles(cls, user: User, article_ids):
+        """{article_id: UserArticle} for one user in a single query.
+
+        find() per article is an N+1 on every feed load; this is its batch form.
+        """
+        if not article_ids:
+            return {}
+        rows = cls.query.filter(
+            cls.user_id == user.id, cls.article_id.in_(article_ids)
+        ).all()
+        return {r.article_id: r for r in rows}
 
     @classmethod
     def find_or_create(
@@ -433,7 +452,7 @@ class UserArticle(db.Model):
 
     @classmethod
     def select_appropriate_article_for_user(
-        cls, user: User, article: Article
+        cls, user: User, article: Article, saved_simplified_by_root=None, user_cefr_level=_UNRESOLVED, opens_externally=None
     ) -> Article:
         """
         Selects the appropriate article version for a user.
@@ -448,7 +467,10 @@ class UserArticle(db.Model):
         For everyone else, keep the historical behavior: pick the
         version that matches the user's CEFR level.
         """
-        if user.has_feature("always_open_externally"):
+        # has_feature() resolves the whole feature map, which calls isTeacher()
+        # -- so asking it per article is also a teacher query per article. The
+        # feed resolves it once and passes it in.
+        if opens_externally if opens_externally is not None else user.has_feature("always_open_externally"):
             from zeeguu.core.model.personal_copy import PersonalCopy
 
             root = article
@@ -456,6 +478,11 @@ class UserArticle(db.Model):
                 parent = Article.query.get(article.parent_article_id)
                 if parent is not None:
                     root = parent
+
+            # The feed pre-fetches this for every article in one query
+            # (see _saved_simplified_by_root); a lone article queries here.
+            if saved_simplified_by_root is not None:
+                return saved_simplified_by_root.get(root.id) or root
 
             saved_simplified = (
                 Article.query
@@ -468,16 +495,17 @@ class UserArticle(db.Model):
             )
             return saved_simplified or root
 
-        try:
-            user_cefr_level = user.cefr_level_for_learned_language()
-        except (AttributeError, IndexError, TypeError):
-            user_cefr_level = None
+        if user_cefr_level is _UNRESOLVED:
+            try:
+                user_cefr_level = user.cefr_level_for_learned_language()
+            except (AttributeError, IndexError, TypeError):
+                user_cefr_level = None
 
         return article.get_appropriate_version_for_user_level(user_cefr_level)
 
     @classmethod
     def user_article_info(
-        cls, user: User, article: Article, with_content=False, with_translations=True, with_summary=True, tokenization_cache=None, simplified_pc_by_parent=None, mwe_overrides_by_article=None
+        cls, user: User, article: Article, with_content=False, with_translations=True, with_summary=True, tokenization_cache=None, simplified_pc_by_parent=None, mwe_overrides_by_article=None, user_articles_by_id=None, diff_feedback_by_id=None, topic_feedback_by_id=None, is_teacher=None, user_cefr_level=_UNRESOLVED
     ):
         """
         Returns user-specific article information for the given article.
@@ -500,7 +528,9 @@ class UserArticle(db.Model):
 
         # Initialize returned info with the article info
         # Use teacher version if user is a teacher (includes CEFR assessments)
-        if user.isTeacher():
+        # A property of the user, not of the article: the feed resolves it once
+        # and passes it in. Left as a call for single-article callers.
+        if is_teacher if is_teacher is not None else user.isTeacher():
             returned_info = article.article_info_for_teacher()
             # Merge content if requested
             if with_content:
@@ -517,11 +547,25 @@ class UserArticle(db.Model):
                 )
         else:
             returned_info = article.article_info(with_content=with_content)
-        user_article_info = UserArticle.find(user, article)
-        user_diff_feedback = ArticleDifficultyFeedback.find(user, article)
-        user_topics_feedback = ArticleTopicUserFeedback.find_given_user_article(
-            article, user
-        )
+        # The feed pre-fetches these for every article in one query each and
+        # passes them in; the single-article endpoints leave them None and query
+        # here. Same shape as mwe_overrides_by_article above.
+        if user_articles_by_id is not None:
+            user_article_info = user_articles_by_id.get(article.id)
+        else:
+            user_article_info = UserArticle.find(user, article)
+
+        if diff_feedback_by_id is not None:
+            user_diff_feedback = diff_feedback_by_id.get(article.id)
+        else:
+            user_diff_feedback = ArticleDifficultyFeedback.find(user, article)
+
+        if topic_feedback_by_id is not None:
+            user_topics_feedback = topic_feedback_by_id.get(article.id)
+        else:
+            user_topics_feedback = ArticleTopicUserFeedback.find_given_user_article(
+                article, user
+            )
         if user_topics_feedback:
             article_topic_list = returned_info["topics_list"]
             topic_list = []
@@ -638,7 +682,7 @@ class UserArticle(db.Model):
         if with_summary and not with_content:
             # Only include summary if we're not already including full content
             # (full content tokenization includes everything)
-            summary_info = cls.user_article_summary_info(user, article, tokenization_cache=tokenization_cache, mwe_overrides_by_article=mwe_overrides_by_article)
+            summary_info = cls.user_article_summary_info(user, article, tokenization_cache=tokenization_cache, mwe_overrides_by_article=mwe_overrides_by_article, user_cefr_level=user_cefr_level)
             # Merge summary-specific keys into the returned info
             # Map to frontend-expected keys for backwards compatibility
             if "tokenized_summary" in summary_info:
@@ -723,7 +767,7 @@ class UserArticle(db.Model):
         return tokens
 
     @classmethod
-    def _level_matched_row(cls, user, article):
+    def _level_matched_row(cls, user, article, user_cefr_level=_UNRESOLVED):
         """
         The LevelAdaptedArticleText matching this learner's CEFR level, or None when
         there is no suitable per-level row (caller falls back to the article's own
@@ -732,10 +776,15 @@ class UserArticle(db.Model):
         from sqlalchemy.orm.exc import NoResultFound
         from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
 
-        try:
-            user_level = user.cefr_level_for_learned_language()
-        except (AttributeError, IndexError, TypeError, NoResultFound):
-            return None
+        # A per-user fact; the feed resolves it once and passes it in rather
+        # than hitting user_language once per article.
+        if user_cefr_level is not _UNRESOLVED:
+            user_level = user_cefr_level
+        else:
+            try:
+                user_level = user.cefr_level_for_learned_language()
+            except (AttributeError, IndexError, TypeError, NoResultFound):
+                return None
         if not user_level:
             return None
 
@@ -744,7 +793,7 @@ class UserArticle(db.Model):
         )
 
     @classmethod
-    def _level_matched_summary_payload(cls, user, article, level_row=None):
+    def _level_matched_summary_payload(cls, user, article, level_row=None, user_cefr_level=_UNRESOLVED):
         """
         Return the tappable-summary payload for the LevelAdaptedArticleText matching
         this learner's CEFR level, or None if there's no suitable per-level
@@ -756,7 +805,9 @@ class UserArticle(db.Model):
         from zeeguu.core.model.context_identifier import ContextIdentifier
         from zeeguu.core.model.context_type import ContextType
 
-        level_summary = level_row or cls._level_matched_row(user, article)
+        level_summary = level_row or cls._level_matched_row(
+            user, article, user_cefr_level=user_cefr_level
+        )
         if not level_summary:
             return None
         tokens = level_summary.get_tokenized_summary()
@@ -781,7 +832,7 @@ class UserArticle(db.Model):
         }
 
     @classmethod
-    def _level_matched_title_payload(cls, user, article, level_row=None):
+    def _level_matched_title_payload(cls, user, article, level_row=None, user_cefr_level=_UNRESOLVED):
         """
         Same as _level_matched_summary_payload, for the level's headline. None
         when the row has no title (rows predating per-level titles, or a title the
@@ -793,7 +844,9 @@ class UserArticle(db.Model):
         from zeeguu.core.model.context_identifier import ContextIdentifier
         from zeeguu.core.model.context_type import ContextType
 
-        level_summary = level_row or cls._level_matched_row(user, article)
+        level_summary = level_row or cls._level_matched_row(
+            user, article, user_cefr_level=user_cefr_level
+        )
         if not level_summary or not level_summary.title:
             return None
         tokens = level_summary.get_tokenized_title()
@@ -843,12 +896,13 @@ class UserArticle(db.Model):
         return ArticleTokenizationCache.cheap_tokens(article.title, article.language)
 
     @classmethod
-    def user_article_summary_info(cls, user: User, article: Article, tokenization_cache=None, mwe_overrides_by_article=None):
+    def user_article_summary_info(cls, user: User, article: Article, tokenization_cache=None, mwe_overrides_by_article=None, user_cefr_level=_UNRESOLVED):
         """
         Returns tokenized summary and title for an article with user bookmarks.
 
-        Assumes cache is already populated via ArticleTokenizationCache.ensure_populated().
-        Falls back to on-demand population if cache is missing (for backwards compatibility).
+        Reads the cache; never populates it. A miss falls back to cheap NLTK
+        tokens (see ArticleTokenizationCache.cheap_tokens) so this stays off the
+        stanza service, which is a shared, slow dependency on a read path.
 
         Args:
             user: The user requesting the article summary
@@ -882,8 +936,10 @@ class UserArticle(db.Model):
         # one exists for this learner's level; otherwise fall back to the article's
         # own-level summary. Resolved once and shared with the title branch below
         # so the two can't pick different levels (and to save a query).
-        level_row = cls._level_matched_row(user, article)
-        level_summary = cls._level_matched_summary_payload(user, article, level_row)
+        level_row = cls._level_matched_row(user, article, user_cefr_level=user_cefr_level)
+        level_summary = cls._level_matched_summary_payload(
+            user, article, level_row, user_cefr_level=user_cefr_level
+        )
         if level_summary:
             result["tokenized_summary"] = level_summary
         elif article.summary:
@@ -923,7 +979,9 @@ class UserArticle(db.Model):
 
         # Build title response — same precedence as the summary above: the
         # learner's level headline if this row has one, else the article's own.
-        level_title = cls._level_matched_title_payload(user, article, level_row)
+        level_title = cls._level_matched_title_payload(
+            user, article, level_row, user_cefr_level=user_cefr_level
+        )
         if level_title:
             result["tokenized_title"] = level_title
         else:
@@ -943,16 +1001,61 @@ class UserArticle(db.Model):
         return result
 
     @classmethod
+    def _warm_article_relationships(cls, article_ids):
+        """Load the relationships article_info reads, for all articles at once."""
+        from sqlalchemy.orm import selectinload
+        from zeeguu.core.model.article_topic_map import ArticleTopicMap
+        from zeeguu.core.model.url import Url
+        from . import db
+
+        if not article_ids:
+            return
+        db.session.query(Article).filter(Article.id.in_(article_ids)).options(
+            selectinload(Article.uploader),
+            selectinload(Article.url).selectinload(Url.domain),
+            selectinload(Article.img_url),
+            selectinload(Article.feed),
+            selectinload(Article.language),
+            selectinload(Article.cefr_assessment),
+            selectinload(Article.topics).selectinload(ArticleTopicMap.topic),
+        ).all()
+
+    @classmethod
+    def _saved_simplified_by_root(cls, user, articles):
+        """{root_article_id: simplified Article the user saved}, in one query.
+
+        Version selection asked this per article, which is an N+1 the batch 40
+        lines further down (simplified_pc_by_parent) was already built to avoid
+        -- except that one runs after selection, so it could never help it.
+        """
+        from zeeguu.core.model.personal_copy import PersonalCopy
+        from . import db
+
+        root_ids = {a.parent_article_id or a.id for a in articles}
+        if not root_ids:
+            return {}
+        rows = (
+            db.session.query(Article)
+            .join(PersonalCopy, PersonalCopy.article_id == Article.id)
+            .filter(
+                PersonalCopy.user_id == user.id,
+                Article.parent_article_id.in_(root_ids),
+            )
+            .all()
+        )
+        return {a.parent_article_id: a for a in rows}
+
+    @classmethod
     def article_infos(cls, user, articles, select_appropriate=True):
         """
         Get article infos for a list of articles with proper cache handling.
 
         Uses batch optimization:
         1. Select appropriate versions and deduplicate
-        2. Batch fetch existing caches (single query)
-        3. Populate missing caches only
-        4. Commit all cache writes
-        5. Build response infos (pure reads)
+        2. Batch fetch existing caches (single query); misses serve cheap tokens
+        3. Batch fetch everything else the per-article info needs, so the number
+           of queries does not grow with the number of articles
+        4. Build response infos (pure reads)
 
         Args:
             user: The user requesting the articles
@@ -969,9 +1072,31 @@ class UserArticle(db.Model):
         articles_to_process = []
         seen_ids = set()
 
+        saved_simplified_by_root = (
+            cls._saved_simplified_by_root(user, articles) if select_appropriate else None
+        )
+
+        # Per-user facts, resolved once for the page. Each of these hits the db
+        # (teacher, user_language) and was previously asked once per article --
+        # 5 teacher lookups and 3 user_language lookups per article, measured.
+        is_teacher = user.isTeacher()
+        try:
+            user_cefr_level = user.cefr_level_for_learned_language()
+        except Exception:
+            user_cefr_level = None
+        shows_non_simplified = user.has_feature("show_non_simplified_articles")
+        opens_externally = user.has_feature("always_open_externally")
+        is_b2_or_higher = user.is_b2_or_higher_for_learned_language()
+
         for article in articles:
             if select_appropriate:
-                article = cls.select_appropriate_article_for_user(user, article)
+                article = cls.select_appropriate_article_for_user(
+                    user,
+                    article,
+                    saved_simplified_by_root=saved_simplified_by_root,
+                    user_cefr_level=user_cefr_level,
+                    opens_externally=opens_externally,
+                )
 
                 # Don't show original articles that aren't simplified —
                 # for default users this would open externally, defeating
@@ -985,11 +1110,7 @@ class UserArticle(db.Model):
                 #   doesn't exist (C1+), so simplified-only filtering would
                 #   leave the feed empty.
                 if not article.parent_article_id and not article.uploader_id:
-                    if not (
-                        user.has_feature("show_non_simplified_articles")
-                        or user.has_feature("always_open_externally")
-                        or user.is_b2_or_higher_for_learned_language()
-                    ):
+                    if not (shows_non_simplified or opens_externally or is_b2_or_higher):
                         continue
 
             if article.id in seen_ids:
@@ -1000,8 +1121,16 @@ class UserArticle(db.Model):
         if not articles_to_process:
             return []
 
-        # Step 2: Batch fetch existing caches (single query instead of N queries)
         article_ids = [a.id for a in articles_to_process]
+
+        # Warm every relationship article_info reads, in one query for the page
+        # rather than one per article per relationship. They are all lazy by
+        # default, so article_info's touches of uploader/url/img_url/feed/
+        # cefr_assessment/topics each cost a round trip otherwise -- and
+        # topics_as_string reads topic.topic.title, a second hop.
+        cls._warm_article_relationships(article_ids)
+
+        # Step 2: Batch fetch existing caches (single query instead of N queries)
         existing_caches = {
             c.article_id: c
             for c in db.session.query(ArticleTokenizationCache)
@@ -1040,6 +1169,16 @@ class UserArticle(db.Model):
             user.id, article_ids
         )
 
+        # The same treatment for the three per-article lookups user_article_info
+        # used to run itself: one query each instead of one each per article.
+        user_articles_by_id = cls.find_all_for_articles(user, article_ids)
+        diff_feedback_by_id = ArticleDifficultyFeedback.find_all_for_articles(
+            user, article_ids
+        )
+        topic_feedback_by_id = ArticleTopicUserFeedback.find_all_for_articles(
+            user, article_ids
+        )
+
         # Step 5: Build response infos (pure reads, using pre-fetched caches)
         return [
             cls.user_article_info(
@@ -1048,6 +1187,11 @@ class UserArticle(db.Model):
                 tokenization_cache=existing_caches.get(article.id),
                 simplified_pc_by_parent=simplified_pc_by_parent,
                 mwe_overrides_by_article=mwe_overrides_by_article,
+                is_teacher=is_teacher,
+                user_cefr_level=user_cefr_level,
+                user_articles_by_id=user_articles_by_id,
+                diff_feedback_by_id=diff_feedback_by_id,
+                topic_feedback_by_id=topic_feedback_by_id,
             )
             for article in articles_to_process
         ]

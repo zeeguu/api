@@ -193,10 +193,15 @@ def article_recommendations_for_user(
 
     res = es.search(index=ES_ZINDEX, body=query_body)
     hit_list = res["hits"].get("hits")
+    # Hydrate every article hit in one query (with its relationships) rather
+    # than one query per hit, then keep ES's ordering.
+    articles_by_id = _hydrate_articles(
+        [h["_source"]["article_id"] for h in hit_list if "article_id" in h["_source"]]
+    )
     # Handle both articles and videos in organic recommendations
     content_objects = [
         (
-            _get_article_from_ES_hit(h)
+            articles_by_id.get(h["_source"]["article_id"])
             if "article_id" in h["_source"]
             else _get_video_from_ES_hit(h)
         )
@@ -460,6 +465,37 @@ def _topics_to_string(input_list):
 
 def _get_video_from_ES_hit(hit):
     return Video.find_by_id(hit["_source"]["video_id"])
+
+
+def _hydrate_articles(article_ids):
+    """Load many articles in one query, with the relationships article_info reads.
+
+    find_by_id per hit is one query each, and every relationship on Article is
+    lazy -- so article_info's touches of uploader/url/img_url/feed/topics/
+    cefr_assessment each cost another. selectinload turns that whole fan-out
+    into a handful of queries for the page instead of ~7 per article.
+    """
+    from sqlalchemy.orm import selectinload
+    from zeeguu.core.model.article_topic_map import ArticleTopicMap
+
+    if not article_ids:
+        return {}
+    rows = (
+        Article.query.filter(Article.id.in_(article_ids))
+        .options(
+            selectinload(Article.uploader),
+            selectinload(Article.url),
+            selectinload(Article.img_url),
+            selectinload(Article.feed),
+            selectinload(Article.language),
+            selectinload(Article.cefr_assessment),
+            # topics_as_string reads topic.topic.title, so the nested hop
+            # has to be loaded too or the fan-out just moves down a level.
+            selectinload(Article.topics).selectinload(ArticleTopicMap.topic),
+        )
+        .all()
+    )
+    return {a.id: a for a in rows}
 
 
 def _get_article_from_ES_hit(hit):

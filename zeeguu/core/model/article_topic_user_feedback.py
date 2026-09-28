@@ -76,6 +76,21 @@ class ArticleTopicUserFeedback(db.Model):
             return None
 
     @classmethod
+    def find_all_for_articles(cls, user: User, article_ids):
+        """{article_id: [feedback, ...]} for one user in a single query."""
+        from collections import defaultdict
+
+        if not article_ids:
+            return {}
+        rows = cls.query.filter(
+            cls.user_id == user.id, cls.article_id.in_(article_ids)
+        ).all()
+        by_article = defaultdict(list)
+        for r in rows:
+            by_article[r.article_id].append(r)
+        return by_article
+
+    @classmethod
     def all_for_user(cls, user):
         return cls.query.filter(cls.user == user).all()
 
