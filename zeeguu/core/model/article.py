@@ -925,58 +925,6 @@ class Article(db.Model):
     def is_owned_by(self, user):
         return self.uploader_id == user.id
 
-    def get_appropriate_version_for_user_level(self, user_cefr_level):
-        """
-        Returns the appropriate article version for the user's CEFR level.
-        Supports compound levels: B1 user can read "B1/B2" articles.
-        Falls back to original if no simplified version exists.
-        """
-        if not user_cefr_level:
-            return self
-
-        def matches_user_level(article):
-            """Check if article matches user level (using assessment table as source of truth)."""
-            # Get effective level from assessment table (source of truth)
-            if article.cefr_assessment and article.cefr_assessment.effective_cefr_level:
-                article_level = article.cefr_assessment.effective_cefr_level
-            else:
-                # Legacy fallback
-                article_level = article.cefr_level
-
-            if not article_level:
-                return False
-
-            # Exact match
-            if article_level == user_cefr_level:
-                return True
-
-            # Compound level match: "B1/B2" matches both B1 and B2 users
-            if "/" in article_level:
-                lower, upper = article_level.split("/")
-                return user_cefr_level in [lower, upper]
-
-            return False
-
-        # If this is already a simplified version, check if it matches
-        if self.parent_article_id:
-            if matches_user_level(self):
-                return self
-            else:
-                # Delegate to parent article to find the right version
-                return self.parent_article.get_appropriate_version_for_user_level(
-                    user_cefr_level
-                )
-
-        # Look for simplified version matching user's level. usable_ excludes
-        # broken children and cross-language friend-share copies — a German copy
-        # of this Danish article is not the B1 version of it.
-        for simplified in self.available_simplified_versions:
-            if matches_user_level(simplified):
-                return simplified
-
-        # Fallback to original article
-        return self
-
     @classmethod
     def create_simplified_version(
         cls,

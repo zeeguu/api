@@ -451,56 +451,35 @@ class UserArticle(db.Model):
 
     @classmethod
     def select_appropriate_article_for_user(
-        cls, user: User, article: Article, saved_simplified_by_root=None, user_cefr_level=_UNRESOLVED, opens_externally=None
+        cls, user: User, article: Article, saved_simplified_by_root=None
     ) -> Article:
         """
-        Selects the appropriate article version for a user.
-
-        For users on the new on-demand flow (`always_open_externally`),
-        the feed serves the original (parent) by default. The only time
-        we swap to a simplified version is when the user has previously
-        simplified-and-saved this article — i.e., a PersonalCopy exists
-        on one of the simplified versions. Simplification is no longer
-        pushed onto the feed at crawl time.
-
-        For everyone else, keep the historical behavior: pick the
-        version that matches the user's CEFR level.
+        The version of an article to put in a user's feed: the original, unless
+        the user has simplified-and-saved it -- a PersonalCopy exists on one of
+        its simplified versions -- in which case that one. Simplification is
+        on demand, so nothing else swaps an original for a simpler version.
         """
-        # has_feature() resolves the whole feature map, which calls isTeacher()
-        # -- so asking it per article is also a teacher query per article. The
-        # feed resolves it once and passes it in.
-        if opens_externally if opens_externally is not None else user.has_feature("always_open_externally"):
-            from zeeguu.core.model.personal_copy import PersonalCopy
+        root = article
+        if article.parent_article_id:
+            parent = Article.query.get(article.parent_article_id)
+            if parent is not None:
+                root = parent
 
-            root = article
-            if article.parent_article_id:
-                parent = Article.query.get(article.parent_article_id)
-                if parent is not None:
-                    root = parent
+        # The feed pre-fetches this for every article in one query
+        # (see _saved_simplified_by_root); a lone article queries here.
+        if saved_simplified_by_root is not None:
+            return saved_simplified_by_root.get(root.id) or root
 
-            # The feed pre-fetches this for every article in one query
-            # (see _saved_simplified_by_root); a lone article queries here.
-            if saved_simplified_by_root is not None:
-                return saved_simplified_by_root.get(root.id) or root
-
-            saved_simplified = (
-                Article.query
-                .join(PersonalCopy, PersonalCopy.article_id == Article.id)
-                .filter(
-                    PersonalCopy.user_id == user.id,
-                    Article.parent_article_id == root.id,
-                )
-                .first()
+        saved_simplified = (
+            Article.query
+            .join(PersonalCopy, PersonalCopy.article_id == Article.id)
+            .filter(
+                PersonalCopy.user_id == user.id,
+                Article.parent_article_id == root.id,
             )
-            return saved_simplified or root
-
-        if user_cefr_level is _UNRESOLVED:
-            try:
-                user_cefr_level = user.cefr_level_for_learned_language()
-            except (AttributeError, IndexError, TypeError):
-                user_cefr_level = None
-
-        return article.get_appropriate_version_for_user_level(user_cefr_level)
+            .first()
+        )
+        return saved_simplified or root
 
     @classmethod
     def user_article_info(
@@ -970,34 +949,12 @@ class UserArticle(db.Model):
             user_cefr_level = user.cefr_level_for_learned_language()
         except Exception:
             user_cefr_level = None
-        shows_non_simplified = user.has_feature("show_non_simplified_articles")
-        opens_externally = user.has_feature("always_open_externally")
-        is_b2_or_higher = user.is_b2_or_higher_for_learned_language()
 
         for article in articles:
             if select_appropriate:
                 article = cls.select_appropriate_article_for_user(
-                    user,
-                    article,
-                    saved_simplified_by_root=saved_simplified_by_root,
-                    user_cefr_level=user_cefr_level,
-                    opens_externally=opens_externally,
+                    user, article, saved_simplified_by_root=saved_simplified_by_root
                 )
-
-                # Don't show original articles that aren't simplified —
-                # for default users this would open externally, defeating
-                # the in-reader purpose. Three escape hatches let originals through:
-                # - show_non_simplified_articles: legacy opt-in for users
-                #   who want both originals and simplified in their feed.
-                # - always_open_externally: the new on-demand flow, where
-                #   originals are the feed default and simplified is only
-                #   used for articles the user has personal-copied.
-                # - B2+ level: simplified inventory tapers off (B2) or
-                #   doesn't exist (C1+), so simplified-only filtering would
-                #   leave the feed empty.
-                if not article.parent_article_id and not article.uploader_id:
-                    if not (shows_non_simplified or opens_externally or is_b2_or_higher):
-                        continue
 
             if article.id in seen_ids:
                 continue
