@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Backfill tokenization cache for simplified articles.
+Backfill the tokenization cache for feed-visible articles.
 
 The recommended feed renders each simplified article's title/summary as tappable
 preview cards, which requires MWE tokenization. That work is now done at crawl
@@ -10,8 +10,12 @@ backlog so no one pays the tokenization cost inline on the feed request path.
 
 Scope is capped at the cache's own retention window: cleanup_tokenization_cache
 deletes rows older than 7 days, so warming articles older than that would just be
-thrown away. Default --days matches that (7). Anything older re-warms cheaply
-on-demand (~130ms) the first time it's shown.
+thrown away. Default --days matches that (7).
+
+A miss is no longer filled on the request path at all -- the feed serves cheap
+NLTK tokens instead (words tappable, expressions missing) and relies on this
+tool to warm the real cache. So a backlog here is now visible to readers as
+missing expressions, not as a slow feed.
 
 Safe to re-run: only tokenizes articles still missing a title in the cache, and
 the cache is regenerable (see cleanup_tokenization_cache.py).
@@ -39,7 +43,12 @@ COMMIT_EVERY = 50
 
 
 def articles_needing_cache(days, language_code, limit):
-    """Simplified articles from the last `days` whose title tokens aren't cached yet."""
+    """Articles from the last `days` whose title tokens aren't cached yet.
+
+    Originals included: since on-demand simplification shipped, the feed serves
+    originals to always_open_externally users, so restricting this to simplified
+    children (as it did) skipped exactly the articles the feed shows.
+    """
     cutoff = datetime.now() - timedelta(days=days)
     q = (
         db.session.query(Article)
@@ -47,7 +56,6 @@ def articles_needing_cache(days, language_code, limit):
             ArticleTokenizationCache,
             ArticleTokenizationCache.article_id == Article.id,
         )
-        .filter(Article.parent_article_id.isnot(None))
         .filter(Article.published_time > cutoff)
         .filter((Article.broken == 0) | (Article.broken.is_(None)))
         .filter((Article.deleted == 0) | (Article.deleted.is_(None)))
@@ -86,21 +94,27 @@ def main():
 
     warmed = 0
     failed = 0
-    for i, article in enumerate(articles, 1):
+    # One stanza round trip per language per chunk instead of two per article.
+    for start in range(0, len(articles), COMMIT_EVERY):
+        chunk = articles[start : start + COMMIT_EVERY]
         try:
-            ArticleTokenizationCache.ensure_populated(db.session, article)
-            warmed += 1
+            populated, chunk_failed = ArticleTokenizationCache.ensure_populated_batch(
+                db.session, chunk
+            )
+            db.session.commit()
+            warmed += populated
+            failed += chunk_failed
         except Exception as e:
-            failed += 1
-            print(f"  ! article {article.id}: {e}")
+            failed += len(chunk)
+            print(f"  ! chunk starting at {start}: {e}")
             db.session.rollback()
             continue
-        if i % COMMIT_EVERY == 0:
-            db.session.commit()
-            print(f"  ... {i}/{len(articles)} processed ({warmed} warmed, {failed} failed)")
+        print(
+            f"  ... {min(start + COMMIT_EVERY, len(articles))}/{len(articles)} articles "
+            f"({warmed} fields warmed, {failed} failed)"
+        )
 
-    db.session.commit()
-    print(f"Done. Warmed {warmed}, failed {failed}, total {len(articles)}.")
+    print(f"Done. Warmed {warmed} fields, failed {failed}, over {len(articles)} articles.")
 
 
 if __name__ == "__main__":

@@ -97,6 +97,78 @@ class ArticleTokenizationCache(db.Model):
         return cache, modified
 
     @classmethod
+    def ensure_populated_batch(cls, session, articles):
+        """
+        Populate caches for many articles with one stanza call per language.
+
+        ensure_populated() sends one HTTP request per text, so warming N
+        articles costs 2N serial round trips against a single-threaded service.
+        The service already exposes /tokenize_batch (and the client wraps it);
+        this groups by language and uses it, because MWE enrichment afterwards
+        is local and cheap -- the round trips were the whole cost.
+
+        Returns (populated, failed). Caller commits.
+        """
+        from collections import defaultdict
+        from zeeguu.core.mwe import enrich_tokens_with_mwe
+        from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
+
+        # (article, field, text) for everything still missing
+        jobs_by_language = defaultdict(list)
+        for article in articles:
+            cache = cls.find_or_create(session, article)
+            if article.summary and not cache.tokenized_summary:
+                jobs_by_language[article.language].append((cache, "tokenized_summary", article.summary))
+            if article.title and not cache.tokenized_title:
+                jobs_by_language[article.language].append((cache, "tokenized_title", article.title))
+
+        populated = 0
+        failed = 0
+        for language, jobs in jobs_by_language.items():
+            tokenizer = get_tokenizer(language, TOKENIZER_MODEL)
+            if not hasattr(tokenizer, "tokenize_batch"):
+                # Local stanza tokenizer: no batch endpoint, one at a time.
+                results = [tokenizer.tokenize_text(t, flatten=False) for _, _, t in jobs]
+            else:
+                results = tokenizer.tokenize_batch([t for _, _, t in jobs], flatten=False)
+
+            for (cache, field, _), tokens in zip(jobs, results):
+                try:
+                    enriched = enrich_tokens_with_mwe(tokens, language.code, mode="stanza")
+                    setattr(cache, field, json.dumps(enriched))
+                    populated += 1
+                except Exception as e:
+                    failed += 1
+                    log.warning(f"[CACHE] {field} failed for article {cache.article_id}: {e}")
+
+        return populated, failed
+
+    @classmethod
+    def cheap_tokens(cls, text, language):
+        """
+        Tokenize with NLTK, locally and immediately, for a read path that must
+        not block.
+
+        Same paragraphs->sentences->tokens shape the stanza path produces, so
+        the client renders and taps words exactly as usual. What is missing is
+        MWE grouping: expressions come out as separate words until the real
+        cache lands. That is a visible downgrade, and a deliberate one --
+        the alternative on a cache miss was an inline call to the stanza
+        service, which is one single-threaded worker for the whole install and
+        has been logging 5-8s for titles of a few dozen characters.
+
+        Never persisted: writing these into the cache would make the miss
+        permanent and silently cost every reader their expressions.
+        """
+        from zeeguu.core.tokenization import get_tokenizer
+        from zeeguu.core.tokenization.zeeguu_tokenizer import TokenizerModel
+
+        if not text:
+            return None
+        tokenizer = get_tokenizer(language, TokenizerModel.NLTK)
+        return tokenizer.tokenize_text(text, flatten=False)
+
+    @classmethod
     def delete_for_article(cls, session, article_id):
         """Delete cache for a specific article. Returns True if deleted."""
         deleted = session.query(cls).filter_by(article_id=article_id).delete()
