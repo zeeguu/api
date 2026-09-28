@@ -241,20 +241,24 @@ def create_app(testing=False):
     if app.config.get("PRELOAD_WORDSTATS", False):
         warning("*** Preloading wordstats dictionaries...")
         start_time = time.time()
-        from wordstats import LanguageInfo
-
-        # Get all supported languages from the database
+        from wordstats import LanguageInfo, Word
         from zeeguu.core.model import Language
 
-        # Use CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED for preloading
-        # (these are the languages that have wordstats data)
-        language_codes = Language.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED
-
-        # Preload all language dictionaries
-        LanguageInfo.load_in_memory_for(language_codes)
+        # Not every learnable language has wordstats data (bg doesn't), and one
+        # missing file used to kill every worker at boot. Skip those; lookups
+        # for them fail per request, as they do with lazy loading.
+        loaded, missing = [], []
+        for code in Language.CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED:
+            try:
+                Word.stats_dict[code] = LanguageInfo.load(code)
+                loaded.append(code)
+            except FileNotFoundError:
+                missing.append(code)
 
         elapsed = time.time() - start_time
-        warning(f"*** Wordstats preloaded {len(language_codes)} languages in {elapsed:.2f}s")
+        warning(f"*** Wordstats preloaded {len(loaded)} languages in {elapsed:.2f}s")
+        if missing:
+            warning(f"*** No wordstats data for {missing}; not preloaded")
     else:
         warning("*** Wordstats will use lazy loading (PRELOAD_WORDSTATS=False)")
 
