@@ -5,10 +5,6 @@
 # ML/NLP frameworks (HEAVY - includes PyTorch via stanza)
 torch
 stanza==1.11.0
-spacy>=3.0.0,<4.0.0
-en_core_web_md @ https://github.com/explosion/spacy-models/releases/download/en_core_web_md-3.7.1/en_core_web_md-3.7.1-py3-none-any.whl
-de_core_news_md @ https://github.com/explosion/spacy-models/releases/download/de_core_news_md-3.7.0/de_core_news_md-3.7.0-py3-none-any.whl
-da_core_news_md @ https://github.com/explosion/spacy-models/releases/download/da_core_news_md-3.7.0/da_core_news_md-3.7.0-py3-none-any.whl
 nltk
 
 # Scientific computing stack
@@ -49,7 +45,6 @@ lxml_html_clean
 # Zeeguu custom packages
 git+https://github.com/zeeguu/apimux.git@master#egg=apimux
 git+https://github.com/zeeguu/python-translators@master#egg=python_translators
-git+https://github.com/zeeguu/confusionwords.git@main#egg=confusionwords
 wordstats @ git+https://github.com/zeeguu/python-wordstats@7e60ff9be3ba604ab1ec9043acd815570c3405fa
 
 # Web scraping & parsing
