@@ -860,6 +860,20 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
                 f"   ✗ LLM failed after {llm_duration:.1f}s for article {new_article.id}: {str(e)}"
             )
             capture_to_sentry(e)
+            # ... but do say so on the article. Without this it is committed with
+            # a summary and fragments and no assessment, which means no CEFR
+            # level, no classifications, no simplified versions, and no ES
+            # document -- so it is never recommended and never seen, while
+            # looking healthy in the database (broken = 0).
+            #
+            # That silence cost real time: such articles look like "tokenization
+            # cache is missing for healthy articles" when you count rows, and
+            # the only way to tell them apart was to ask Elasticsearch one id at
+            # a time. Marking them makes the half-failure countable, keeps the
+            # row as the URL tombstone the crawler needs (Article.find(url)
+            # skips it), and lets a future sweep strip the content it will never
+            # serve.
+            new_article.set_as_broken(session, LowQualityTypes.LLM_PASS_FAILED)
 
     return new_article
 
