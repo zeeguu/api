@@ -98,3 +98,27 @@ class LevelAdaptedArticleTitleContext(db.Model):
         ).all()
 
         return [each.to_json(True) if as_json_serializable else each for each in result]
+
+    @classmethod
+    def bookmarks_by_level_adapted_text(cls, user_id: int, level_adapted_article_text_ids):
+        """{level_adapted_article_text_id: [bookmark json]} in one query.
+
+        Batch form of get_all_user_bookmarks_for_level_adapted_title: the feed would
+        otherwise ask once per article.
+        """
+        from zeeguu.core.model import Bookmark, UserWord
+
+        if not level_adapted_article_text_ids:
+            return {}
+        rows = (
+            db.session.query(cls.level_adapted_article_text_id, Bookmark)
+            .select_from(Bookmark)
+            .join(cls)
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(cls.level_adapted_article_text_id.in_(level_adapted_article_text_ids))
+            .filter(UserWord.user_id == user_id)
+        ).all()
+        result = {}
+        for key, bookmark in rows:
+            result.setdefault(key, []).append(bookmark.to_json(True))
+        return result

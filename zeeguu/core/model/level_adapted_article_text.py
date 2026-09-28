@@ -190,6 +190,39 @@ class LevelAdaptedArticleText(db.Model):
         ).all()
         return cls.pick_best(rows, user_level, article_own_level)
 
+    @classmethod
+    def best_for_user_level_by_article(cls, own_level_by_article_id, user_level: str):
+        """{article_id: best row} for many articles -- the batch form of
+        best_for_user_level. Takes {article_id: article's own CEFR level}.
+
+        Two steps, like the feed overlay in elastic_recommender, so the heavy
+        token JSON is loaded for the one chosen row per article, not every level.
+        """
+        allowed = cls.allowed_levels(user_level)
+        if not allowed or not own_level_by_article_id:
+            return {}
+        candidates = cls.query.with_entities(
+            cls.id, cls.article_id, cls.cefr_level
+        ).filter(
+            cls.article_id.in_(list(own_level_by_article_id)),
+            cls.cefr_level.in_(allowed),
+        ).all()
+
+        by_article = {}
+        for row in candidates:
+            by_article.setdefault(row.article_id, []).append(row)
+        chosen_ids = []
+        for article_id, rows in by_article.items():
+            best = cls.pick_best(rows, user_level, own_level_by_article_id[article_id])
+            if best:
+                chosen_ids.append(best.id)
+        if not chosen_ids:
+            return {}
+        return {
+            row.article_id: row
+            for row in cls.query.filter(cls.id.in_(chosen_ids)).all()
+        }
+
     def get_tokenized_summary(self):
         """Parse the cached token stream, tolerating either JSON text or a dict."""
         return _parsed_tokens(self.tokenized_summary)

@@ -194,14 +194,7 @@ def article_recommendations_for_user(
     res = es.search(index=ES_ZINDEX, body=query_body)
     hit_list = res["hits"].get("hits")
     # Handle both articles and videos in organic recommendations
-    content_objects = [
-        (
-            _get_article_from_ES_hit(h)
-            if "article_id" in h["_source"]
-            else _get_video_from_ES_hit(h)
-        )
-        for h in hit_list
-    ]
+    content_objects = _content_from_ES_hits(hit_list)
     final_article_mix.extend([c for c in content_objects if c is not None])
 
     # Get articles based on Search preferences and track which search matched
@@ -296,7 +289,7 @@ def video_recommendations_for_user(
 
     video_res = es.search(index=ES_ZINDEX, body=video_query)
 
-    video_list = _to_videos_from_ES_hits(video_res["hits"].get("hits"))
+    video_list = _content_from_ES_hits(video_res["hits"].get("hits"))
     return video_list
 
 
@@ -362,14 +355,7 @@ def article_and_video_search_for_user(
     if score_threshold > 0:
         hit_list = filter_hits_on_score(hit_list, score_threshold)
 
-    content_objects = [
-        (
-            _get_article_from_ES_hit(h)
-            if "article_id" in h["_source"]
-            else _get_video_from_ES_hit(h)
-        )
-        for h in hit_list
-    ]
+    content_objects = _content_from_ES_hits(hit_list)
 
     final_mix = [
         each for each in content_objects if each is not None and not each.broken
@@ -443,7 +429,7 @@ def topic_filter_for_user(
 
     hit_list = res["hits"].get("hits")
 
-    final_article_mix = _to_articles_from_ES_hits(hit_list)
+    final_article_mix = _content_from_ES_hits(hit_list)
 
     articles = [a for a in final_article_mix if a is not None and not a.broken]
 
@@ -458,35 +444,45 @@ def _topics_to_string(input_list):
     return ",".join(input_list)
 
 
-def _get_video_from_ES_hit(hit):
-    return Video.find_by_id(hit["_source"]["video_id"])
+def _content_from_ES_hits(hits):
+    """The Article or Video behind each ES hit, in the hits' (ranked) order.
+
+    A hit is only the search index's copy of the document; this loads the real
+    rows -- one query per kind for all the hits rather than one per hit. An
+    IN query does not keep the ranking, so rows are looked up by id in hit
+    order. None where a row has gone since it was indexed, as before.
+    """
+    sources = [h["_source"] for h in hits]
+    articles = _hydrate_articles(
+        [s["article_id"] for s in sources if "article_id" in s]
+    )
+    video_ids = [s["video_id"] for s in sources if "article_id" not in s]
+    videos = (
+        {v.id: v for v in Video.query.filter(Video.id.in_(video_ids)).all()}
+        if video_ids
+        else {}
+    )
+    return [
+        articles.get(s["article_id"]) if "article_id" in s else videos.get(s["video_id"])
+        for s in sources
+    ]
 
 
-def _get_article_from_ES_hit(hit):
-    return Article.find_by_id(hit["_source"]["article_id"])
+def _hydrate_articles(article_ids):
+    """Load many articles in one query, with the relationships article_info reads.
 
-
-def _to_articles_from_ES_hits(hits, with_score=False):
-    articles = []
-    for hit in hits:
-        article = _get_article_from_ES_hit(hit)
-        if with_score:
-            articles.append((hit.get("_score", 0), article))
-        else:
-            articles.append(article)
-
-    return articles
-
-
-def _to_videos_from_ES_hits(hits, with_score=False):
-    videos = []
-    for hit in hits:
-        video = _get_video_from_ES_hit(hit)
-        if with_score:
-            videos.append((hit.get("_score", 0), video))
-        else:
-            videos.append(video)
-    return videos
+    Every relationship on Article is lazy, so article_info's touches of them
+    would each cost a query per article; Article.article_info_loads turns that
+    into a handful of queries for the page.
+    """
+    if not article_ids:
+        return {}
+    rows = (
+        Article.query.filter(Article.id.in_(article_ids))
+        .options(*Article.article_info_loads())
+        .all()
+    )
+    return {a.id: a for a in rows}
 
 
 def __find_articles_like(
@@ -513,7 +509,7 @@ def __find_articles_like(
     )
 
     res = es.search(index=ES_ZINDEX, body=mlt_query, size=limit)
-    articles = _to_articles_from_ES_hits(res["hits"]["hits"])
+    articles = _content_from_ES_hits(res["hits"]["hits"])
     articles = [a for a in articles if a.broken == 0]
     return articles
 
@@ -557,180 +553,6 @@ def get_user_info_from_content_recommendations(user, content_list):
         if root_id and root_id in matched_searches_by_root:
             result['matched_searches'] = matched_searches_by_root[root_id]
 
-    # Home-page display overlay: always_open_externally users get originals
-    # in their feed (link target stays external), but the card should still
-    # preview the level-matched simplified title/summary when one exists.
-    if user.has_feature("always_open_externally"):
-        _apply_simplified_display_overlay(user, results)
-
     results.extend([UserVideo.user_video_info(user, v) for v in videos])
 
     return results
-
-
-def _apply_simplified_display_overlay(user, results):
-    """
-    Overlay a CEFR-level-matched preview *summary* onto feed-card result dicts
-    that point at an original article, using the per-level LevelAdaptedArticleText
-    rows (on-demand simplification means there are no simplified child articles
-    to borrow a summary from anymore).
-
-    Sets both the plain ``summary`` teaser (Preview mode) and the tappable
-    ``interactiveSummary`` payload (Interactive mode), the latter anchored to the
-    specific level-summary row so tap-to-translate and past-bookmark highlighting
-    land on the right tokens. The level's ``title``/``interactiveTitle`` are
-    overlaid the same way when the row has one — which is what makes the level
-    selector visible in Headlines mode, where the title is the only text on the
-    card. Falls back silently to the article's own title/summary when the
-    learner's level has no simpler one.
-
-    Batched in two queries: a columns-only pick of the best level per article,
-    then a load of just those chosen rows (so the heavy tokenized_summary JSON is
-    deserialized once per article, not once per level).
-    """
-    from zeeguu.core.model.level_adapted_article_text import (
-        LevelAdaptedArticleText,
-        CEFR_ORDER,
-    )
-    from zeeguu.core.model.level_adapted_article_summary_context import (
-        LevelAdaptedArticleSummaryContext,
-    )
-    from zeeguu.core.model.level_adapted_article_title_context import (
-        LevelAdaptedArticleTitleContext,
-    )
-    from zeeguu.core.model.context_identifier import ContextIdentifier
-    from zeeguu.core.model.context_type import ContextType
-    from zeeguu.core.model.user_article import UserArticle
-    from zeeguu.core.model.user_mwe_override import UserMweOverride
-    from sqlalchemy.orm.exc import NoResultFound
-
-    try:
-        user_cefr_level = user.cefr_level_for_learned_language()
-    except (AttributeError, IndexError, TypeError, NoResultFound):
-        return
-    if not user_cefr_level or user_cefr_level not in CEFR_ORDER:
-        return
-
-    candidate_ids = [
-        r["id"] for r in results
-        if not r.get("parent_article_id") and not r.get("has_uploader")
-    ]
-    if not candidate_ids:
-        return
-
-    allowed = LevelAdaptedArticleText.allowed_levels(user_cefr_level)
-
-    # Two steps so we deserialize the heavy tokenized_summary JSON for only the ONE
-    # best row per article, never every level: first a columns-only query to pick
-    # the best-matching level per article, then load just those chosen rows.
-    # Article.cefr_level rides along so pick_best can tell "this learner reads at
-    # or above the article's own level" (→ use the article's own summary) from
-    # "this learner needs a simpler one". Joined here rather than read off the
-    # result dicts, whose metrics.cefr_level is the *effective* level and can come
-    # back compound ("B1/B2") — see article_info.
-    lightweight = (
-        LevelAdaptedArticleText.query
-        .with_entities(
-            LevelAdaptedArticleText.id,
-            LevelAdaptedArticleText.article_id,
-            LevelAdaptedArticleText.cefr_level,
-            Article.cefr_level.label("article_own_level"),
-        )
-        .join(Article, Article.id == LevelAdaptedArticleText.article_id)
-        .filter(
-            LevelAdaptedArticleText.article_id.in_(candidate_ids),
-            LevelAdaptedArticleText.cefr_level.in_(allowed),
-        )
-        .all()
-    )
-    if not lightweight:
-        return
-
-    by_article = {}
-    own_level_by_article = {}
-    for row in lightweight:
-        by_article.setdefault(row.article_id, []).append(row)
-        own_level_by_article[row.article_id] = row.article_own_level
-
-    chosen_id_by_article = {}
-    for article_id, rows in by_article.items():
-        best_row = LevelAdaptedArticleText.pick_best(
-            rows, user_cefr_level, own_level_by_article.get(article_id)
-        )
-        if best_row:
-            chosen_id_by_article[article_id] = best_row.id
-    if not chosen_id_by_article:
-        return
-
-    full_by_id = {
-        als.id: als
-        for als in LevelAdaptedArticleText.query.filter(
-            LevelAdaptedArticleText.id.in_(chosen_id_by_article.values())
-        ).all()
-    }
-
-    # Batch-fetch the user's MWE ungroup overrides for every candidate article in
-    # one query (overrides are stored keyed by the parent article id), so we can
-    # clear disabled MWE metadata from each overlaid summary without an N+1.
-    overrides_by_article = UserMweOverride.get_disabled_mwes_for_user_articles(
-        user.id, list(chosen_id_by_article.keys())
-    )
-
-    for result in results:
-        chosen_id = chosen_id_by_article.get(result["id"])
-        display = full_by_id.get(chosen_id) if chosen_id else None
-        if not display:
-            continue
-
-        # The bookmark mapping keys on level_adapted_article_text_id; article_id is
-        # carried only for the client's MWE-ungroup path (parent article id).
-        def _payload(tokens, context_type, past_bookmarks):
-            overrides_by_hash = overrides_by_article.get(display.article_id)
-            if overrides_by_hash:
-                # Returns a cleared copy; never mutates the ORM-loaded token list.
-                tokens = UserArticle._apply_mwe_overrides_to_summary_tokens(
-                    tokens, overrides_by_hash
-                )
-            ctx = ContextIdentifier(
-                context_type,
-                article_id=display.article_id,
-                level_adapted_article_text_id=display.id,
-            )
-            return {
-                "tokens": tokens,
-                "context_identifier": ctx.as_dictionary(),
-                "past_bookmarks": past_bookmarks,
-            }
-
-        if display.summary and len(display.summary.strip()) > 10:
-            result["summary"] = display.summary.strip()
-
-        summary_tokens = display.get_tokenized_summary()
-        if summary_tokens:
-            result["interactiveSummary"] = _payload(
-                summary_tokens,
-                ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY,
-                LevelAdaptedArticleSummaryContext.get_all_user_bookmarks_for_level_adapted_summary(
-                    user.id, display.id
-                ),
-            )
-
-        # Title is overlaid independently of the summary: a row can carry one and
-        # not the other (rows written before per-level titles existed have no
-        # title; the language check can drop a title while keeping its summary).
-        if display.title and display.title.strip():
-            result["title"] = display.title.strip()
-            title_tokens = display.get_tokenized_title()
-            if title_tokens:
-                result["interactiveTitle"] = _payload(
-                    title_tokens,
-                    ContextType.LEVEL_ADAPTED_ARTICLE_TITLE,
-                    LevelAdaptedArticleTitleContext.get_all_user_bookmarks_for_level_adapted_title(
-                        user.id, display.id
-                    ),
-                )
-            else:
-                # Plain title replaced but no tokens to tap: drop any bundled
-                # interactiveTitle rather than leave the ORIGINAL title's tokens
-                # sitting under the level title — they'd translate the wrong words.
-                result.pop("interactiveTitle", None)

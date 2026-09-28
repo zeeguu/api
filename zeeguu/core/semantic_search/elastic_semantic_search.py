@@ -12,7 +12,7 @@ from zeeguu.core.elastic.elastic_query_builder import (
     more_like_this_query,
 )
 from zeeguu.core.content_recommender.elastic_recommender import (
-    _to_articles_from_ES_hits,
+    _content_from_ES_hits,
 )
 from zeeguu.core.util.timer_logging_decorator import time_this
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
@@ -38,7 +38,7 @@ def articles_like_this_tfidf(article: Article):
     res = es.search(index=ES_ZINDEX, body=query_body)
     final_article_mix = []
     hit_list = res["hits"].get("hits")
-    final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+    final_article_mix.extend(_content_from_ES_hits(hit_list))
 
     return [a for a in final_article_mix if a is not None and not a.broken], hit_list
 
@@ -55,7 +55,7 @@ def articles_like_this_semantic(article: Article):
         res = es.search(index=ES_ZINDEX, body=query_body)
 
         hit_list = res["hits"].get("hits")
-        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+        final_article_mix.extend(_content_from_ES_hits(hit_list))
 
         return [
             a for a in final_article_mix if a is not None and not a.broken
@@ -87,7 +87,7 @@ def get_article_w_topics_based_on_text_similarity(text, k: int = 9, filter_ids=N
         res = es.search(index=ES_ZINDEX, body=query_body)
 
         hit_list = res["hits"].get("hits")
-        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+        final_article_mix.extend(_content_from_ES_hits(hit_list))
 
         return [
             a for a in final_article_mix if a is not None and not a.broken
@@ -146,7 +146,7 @@ def find_articles_based_on_text(text, k: int = 9):  # hood = (slang) neighborhoo
         res = es.search(index=ES_ZINDEX, body=query_body)
 
         hit_list = res["hits"].get("hits")
-        final_article_mix.extend(_to_articles_from_ES_hits(hit_list))
+        final_article_mix.extend(_content_from_ES_hits(hit_list))
 
         return [
             a for a in final_article_mix if a is not None and not a.broken

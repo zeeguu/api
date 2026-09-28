@@ -57,6 +57,19 @@ class ArticleDifficultyFeedback(db.Model):
             return None
 
     @classmethod
+    def find_all_for_articles(cls, user: User, article_ids):
+        """{article_id: most recent feedback} for one user in a single query."""
+        if not article_ids:
+            return {}
+        rows = (
+            cls.query.filter(cls.user_id == user.id, cls.article_id.in_(article_ids))
+            .order_by(cls.date.asc())
+            .all()
+        )
+        # ascending, so the last write per article wins -- same row find() picks
+        return {r.article_id: r for r in rows}
+
+    @classmethod
     def find_or_create(
         cls, session, user: User, article: Article, date: datetime, difficulty
     ):

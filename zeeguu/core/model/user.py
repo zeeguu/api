@@ -1312,15 +1312,6 @@ class User(db.Model):
     def cefr_level_for_learned_language(self):
         return self.cefr_level_for_language(self.learned_language)
 
-    def is_b2_or_higher_for_learned_language(self):
-        """B2+ users see thin (B2: ~10% of inventory) or zero (C1+) simplified
-        content, so the simplified-only feed leaves them empty. They should
-        see originals too."""
-        try:
-            return self.cefr_level_for_learned_language() in ("B2", "C1", "C2")
-        except Exception:
-            return False
-
     def get_all_languages(self):
         """Get all languages that this user has words in."""
         from zeeguu.core.model import Language, Phrase, Meaning, UserWord
