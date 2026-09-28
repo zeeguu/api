@@ -237,7 +237,10 @@ def create_app(testing=False):
         from zeeguu.api.utils.security_checks import check_security_config
         check_security_config(app)
 
-    # Preload wordstats in production for faster response times
+    # Open every language's wordstats store up front. Since wordstats 1.2 a
+    # store is a read-only SQLite file shared through the page cache, not
+    # ~1GB of objects per worker; the first boot after an install builds
+    # the files (~8s, one worker builds while the others wait).
     if app.config.get("PRELOAD_WORDSTATS", False):
         warning("*** Preloading wordstats dictionaries...")
         start_time = time.time()

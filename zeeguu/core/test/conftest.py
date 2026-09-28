@@ -5,6 +5,8 @@ Creates the Flask app and schema once. Cleans per-test data between tests.
 Mocks wordstats to avoid loading 400k WordInfo objects (~12s).
 """
 
+import random
+
 import requests_mock
 
 from zeeguu.core.test.test_app import create_test_app
@@ -43,6 +45,9 @@ class _FakeLanguageInfo:
     def all_words(self):
         return []
 
+    def random_word(self):
+        return random.choice(("hus", "bil", "kat", "hund"))
+
     @property
     def word_info_dict(self):
         return {}
@@ -54,14 +59,12 @@ def _install_wordstats_mock():
     Must be called before any code touches Word.stats() or lang_info().
     """
     from wordstats import Word
-    from zeeguu.core import word_stats
 
     fake = _FakeLanguageInfo()
 
     # Mock Word.stats_dict for all languages tests use
     for lang in ("de", "en", "da", "es", "fr", "it", "pt", "nl", "el"):
         Word.stats_dict[lang] = fake
-        word_stats.lang_cache[lang] = fake
 
 
 def get_shared_app():

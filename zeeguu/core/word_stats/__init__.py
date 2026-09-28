@@ -1,15 +1,9 @@
-from wordstats import LanguageInfo
-
-lang_cache = {}
+from wordstats import LanguageInfo, Word
 
 
 def lang_info(lang_code):
-    if not lang_cache.get(lang_code):
-        print(f"loading word stats for {lang_code}")
-        lang_cache[lang_code] = LanguageInfo.load(lang_code)
-    return lang_cache[lang_code]
-
-
-# lang_info("da")
-# lang_info("de")
-# lang_info("nl")
+    """The language's wordstats store, shared with Word.stats(): one cache, so
+    the preload in create_app serves both, and a language is never held twice."""
+    if lang_code not in Word.stats_dict:
+        Word.stats_dict[lang_code] = LanguageInfo.load(lang_code)
+    return Word.stats_dict[lang_code]

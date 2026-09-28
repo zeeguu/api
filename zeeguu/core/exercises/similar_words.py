@@ -1,11 +1,7 @@
 import random
 
 from zeeguu.core.word_stats import lang_info
-from zeeguu.core.word_filter import (
-    BAD_WORD_LIST,
-    PROPER_NAMES_LIST,
-    remove_words_based_on_list,
-)
+from zeeguu.core.word_filter import BAD_WORD_LIST, PROPER_NAMES_LIST
 
 
 def similar_words(word, language, user, number_of_words_to_return=2):
@@ -16,17 +12,33 @@ def similar_words(word, language, user, number_of_words_to_return=2):
 
     if len(words_the_user_must_study) == 10:
         candidates = [each.meaning.origin.content for each in words_the_user_must_study]
-    else:
-        candidates = lang_info(language.code).all_words()
-        candidates_filtered = remove_words_based_on_list(candidates, BAD_WORD_LIST)
-        candidates_filtered = remove_words_based_on_list(
-            candidates_filtered, PROPER_NAMES_LIST
-        )
-        # Update candidates to be based on the filtered words.
-        candidates = [w for w in candidates_filtered if len(w) > 1]
-
-    random_sample = random.sample(candidates, number_of_words_to_return)
-    while word in random_sample:
         random_sample = random.sample(candidates, number_of_words_to_return)
+        while word in random_sample:
+            random_sample = random.sample(candidates, number_of_words_to_return)
+        return random_sample
 
-    return random_sample
+    return _random_frequency_list_words(word, language, number_of_words_to_return)
+
+
+_EXCLUDED = None
+
+
+def _random_frequency_list_words(word, language, how_many):
+    # Draw from the store instead of copying its whole word list (~170k
+    # strings) on every request, only to keep two of them.
+    global _EXCLUDED
+    if _EXCLUDED is None:
+        _EXCLUDED = set(BAD_WORD_LIST) | set(PROPER_NAMES_LIST)
+
+    store = lang_info(language.code)
+    result = []
+    while len(result) < how_many:
+        candidate = store.random_word()
+        if (
+            len(candidate) > 1
+            and candidate != word
+            and candidate not in _EXCLUDED
+            and candidate not in result
+        ):
+            result.append(candidate)
+    return result
