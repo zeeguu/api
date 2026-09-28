@@ -50,7 +50,7 @@ lxml_html_clean
 git+https://github.com/zeeguu/apimux.git@master#egg=apimux
 git+https://github.com/zeeguu/python-translators@master#egg=python_translators
 git+https://github.com/zeeguu/confusionwords.git@main#egg=confusionwords
-wordstats @ git+https://github.com/zeeguu/python-wordstats@e6fbceb6ff501431ad8572a8b97e30d32c506a84
+wordstats @ git+https://github.com/zeeguu/python-wordstats@7e60ff9be3ba604ab1ec9043acd815570c3405fa
 
 # Web scraping & parsing
 newspaper3k==0.2.7
