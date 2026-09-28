@@ -22,7 +22,7 @@ Flask>=3.0.0
 Werkzeug>=3.0.6
 flask_sqlalchemy>=3.0
 flask_cors
-flask_monitoringdashboard
+flask_monitoringdashboard>=5.0.3  # 5.0.3: per-row timestamps, Request indexes
 Flask-Limiter>=3.0.0  # Rate limiting for security
 
 # Cloud services
