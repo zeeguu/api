@@ -688,6 +688,31 @@ class Article(db.Model):
         except Exception as e:
             log(f"[CACHE-WRITE-FAIL] Article {self.id} - Failed to cache: {e}")
 
+    @classmethod
+    def article_info_loads(cls):
+        """selectinload options for every relationship article_info reads.
+
+        They are all lazy, so without these each touch is a query per article.
+        Anything that loads articles to render them in bulk should use this
+        list, so a relationship added to article_info is warmed everywhere.
+        """
+        from sqlalchemy.orm import selectinload
+        from zeeguu.core.model.article_topic_map import ArticleTopicMap
+        from zeeguu.core.model.url import Url
+
+        return [
+            selectinload(cls.uploader),
+            # as_string() reads url.domain, so the hop has to be loaded too
+            selectinload(cls.url).selectinload(Url.domain),
+            selectinload(cls.img_url).selectinload(Url.domain),
+            selectinload(cls.language),
+            # get_fk_difficulty falls back to it when the article has no own value
+            selectinload(cls.source),
+            selectinload(cls.cefr_assessment),
+            # topics_as_tuple reads topic.topic.title: same second hop
+            selectinload(cls.topics).selectinload(ArticleTopicMap.topic),
+        ]
+
     def article_info(self, with_content=False):
         """
 
@@ -720,7 +745,6 @@ class Article(db.Model):
             title=self.title,
             summary=summary,
             language=self.language.code,
-            topics=self.topics_as_string(),
             topics_list=self.topics_as_tuple(),
             video=False,
             metrics=dict(
@@ -808,16 +832,6 @@ class Article(db.Model):
 
         if self.published_time:
             result_dict["published"] = datetime_to_json(self.published_time)
-
-        if self.feed:
-            # Is this supposed to be a tuple?
-            result_dict["feed_id"] = (self.feed.id,)
-            result_dict["feed_icon_name"] = self.feed.icon_name
-
-            # TO DO: remove feed_image_url from RSSFeed --- this is here for compatibility
-            # until the codebase is moved to zorg.
-            if self.feed.image_url:
-                result_dict["feed_image_url"] = self.feed.image_url.as_string()
 
         if with_content:
             tokenized_content = self.get_tokenized_content()
@@ -910,58 +924,6 @@ class Article(db.Model):
 
     def is_owned_by(self, user):
         return self.uploader_id == user.id
-
-    def get_appropriate_version_for_user_level(self, user_cefr_level):
-        """
-        Returns the appropriate article version for the user's CEFR level.
-        Supports compound levels: B1 user can read "B1/B2" articles.
-        Falls back to original if no simplified version exists.
-        """
-        if not user_cefr_level:
-            return self
-
-        def matches_user_level(article):
-            """Check if article matches user level (using assessment table as source of truth)."""
-            # Get effective level from assessment table (source of truth)
-            if article.cefr_assessment and article.cefr_assessment.effective_cefr_level:
-                article_level = article.cefr_assessment.effective_cefr_level
-            else:
-                # Legacy fallback
-                article_level = article.cefr_level
-
-            if not article_level:
-                return False
-
-            # Exact match
-            if article_level == user_cefr_level:
-                return True
-
-            # Compound level match: "B1/B2" matches both B1 and B2 users
-            if "/" in article_level:
-                lower, upper = article_level.split("/")
-                return user_cefr_level in [lower, upper]
-
-            return False
-
-        # If this is already a simplified version, check if it matches
-        if self.parent_article_id:
-            if matches_user_level(self):
-                return self
-            else:
-                # Delegate to parent article to find the right version
-                return self.parent_article.get_appropriate_version_for_user_level(
-                    user_cefr_level
-                )
-
-        # Look for simplified version matching user's level. usable_ excludes
-        # broken children and cross-language friend-share copies — a German copy
-        # of this Danish article is not the B1 version of it.
-        for simplified in self.available_simplified_versions:
-            if matches_user_level(simplified):
-                return simplified
-
-        # Fallback to original article
-        return self
 
     @classmethod
     def create_simplified_version(

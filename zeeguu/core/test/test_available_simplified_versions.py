@@ -38,9 +38,8 @@ class AvailableSimplifiedVersionsTest(ModelTestMixIn, TestCase):
         assert child in self.original.available_simplified_versions
 
     def test_a_child_without_a_level_is_still_listed(self):
-        # Nothing here filters on cefr_level — a level-less child is simply never
-        # matched by get_appropriate_version_for_user_level, which is where the
-        # decision belongs.
+        # Nothing here filters on cefr_level: which level to show is decided
+        # by whoever reads the list, not by the list itself.
         child = self._child(self.original.language, cefr_level=None)
         assert child in self.original.available_simplified_versions
 

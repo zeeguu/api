@@ -9,7 +9,9 @@ def test_article_info(client):
     print(article_info)
 
     assert "content" in article_info
-    assert "translations" in article_info
+    # The reader rebuilds past translations from these, not from a
+    # "translations" list (dropped: no client has read it since Mar 2025).
+    assert "tokenized_title_new" in article_info
 
 
 def test_article_update(client):
@@ -51,3 +53,21 @@ def _create_new_article(client):
     )
     article_id = article["id"]
     return article_id
+
+
+def test_difficulty_rating_is_sent_to_the_reader_only(client):
+    # The rating box is inside the reader, which loads its article through
+    # /user_article; list endpoints skip the lookup.
+    article_id = _create_new_article(client)
+    client.post("/user_article", data=dict(article_id=article_id, starred="True"))
+    client.post(
+        "/article_difficulty_feedback",
+        data=dict(article_id=article_id, difficulty=5),
+    )
+
+    article_info = client.get(f"/user_article?article_id={article_id}")
+    assert article_info["relative_difficulty"] == 5
+
+    listed = client.get("/user_articles/starred_or_liked")
+    assert [a["id"] for a in listed] == [article_id]
+    assert "relative_difficulty" not in listed[0]
