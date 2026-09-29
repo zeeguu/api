@@ -427,7 +427,7 @@ class Article(db.Model):
         This preserves the structure and formatting from the original article.
         """
         from zeeguu.core.model.article_fragment import ArticleFragment
-        from bs4 import BeautifulSoup
+        from bs4 import BeautifulSoup, Tag
 
         # Get HTML content - use htmlContent if available, otherwise fall back to plain text
         html_content = getattr(self, "htmlContent", None) or self.source.get_content()
@@ -444,35 +444,50 @@ class Article(db.Model):
         # Note: We skip ul/ol containers to avoid duplication, only process individual li items
         # Note: We skip inline elements like strong, em here as they should be preserved within their parent blocks
         block_elements = ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "blockquote"]
+        text_blocks = [b for b in block_elements if b not in ("li", "blockquote")]
+
+        # A list item may hold its text directly (<li>X</li>) or in blocks
+        # (<li><p>X</p></li>, the shape the teacher editor saves; or a heading
+        # followed by paragraphs). In the latter case the blocks are emitted one
+        # by one, and the first of them carries the bullet.
+        bullet_carriers = set()
 
         for element in soup.find_all(block_elements):
             # Skip blockquote containers - we'll process their paragraph children instead
             if element.name == "blockquote":
                 continue
 
-            # A block nested in a list item (e.g. <li><p>X</p></li>, the shape the
-            # teacher editor saves) was already emitted as part of its nearest li
-            if element.name != "li" and element.find_parent("li"):
-                continue
-
-            # For paragraphs inside blockquotes, use special formatting to indicate they're part of a quote
-            if element.name == "p" and element.find_parent("blockquote"):
-                tag_name = "blockquote"
-                text_content = element.get_text().strip()
-            # For list items, get direct text content (not nested lists)
-            elif element.name == "li":
-                # Get only direct text content, excluding nested ul/ol
+            if element.name == "li":
+                own_blocks = [
+                    b
+                    for b in element.find_all(text_blocks)
+                    if b.find_parent("li") is element
+                ]
+                own_block_ids = {id(b) for b in own_blocks}
+                # Direct text content, excluding nested ul/ol and the blocks
                 text_parts = []
                 for content in element.contents:
-                    if hasattr(content, "get_text"):
-                        # Skip nested lists
-                        if content.name not in ["ul", "ol"]:
-                            text_parts.append(content.get_text().strip())
-                    else:
-                        # Direct text node
+                    if not isinstance(content, Tag):
                         text_parts.append(str(content).strip())
+                    elif content.name in ["ul", "ol"]:
+                        continue
+                    elif id(content) in own_block_ids or any(
+                        id(b) in own_block_ids for b in content.find_all(text_blocks)
+                    ):
+                        continue
+                    else:
+                        text_parts.append(content.get_text().strip())
                 text_content = " ".join(text_parts).strip()
                 tag_name = element.name
+                if not text_content and own_blocks:
+                    bullet_carriers.add(id(own_blocks[0]))
+            elif id(element) in bullet_carriers:
+                text_content = element.get_text().strip()
+                tag_name = "li"
+            # For paragraphs inside blockquotes, use special formatting to indicate they're part of a quote
+            elif element.name == "p" and element.find_parent("blockquote"):
+                tag_name = "blockquote"
+                text_content = element.get_text().strip()
             else:
                 # For other elements, preserve some inline formatting by getting inner HTML
                 # and then extracting text, but keep track of formatting

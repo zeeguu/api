@@ -37,6 +37,20 @@ class ArticleFragmentsTest(ModelTestMixIn, TestCase):
             self._fragments(html),
         )
 
+    def test_list_item_with_several_blocks_keeps_them_apart(self):
+        html = "<ul><li><h3>Container ships</h3><p>Carry boxes.</p><p>Largest class.</p></li></ul>"
+        self.assertEqual(
+            [("li", "Container ships"), ("p", "Carry boxes."), ("p", "Largest class.")],
+            self._fragments(html),
+        )
+
+    def test_loose_text_before_blocks_carries_the_bullet(self):
+        html = "<ul><li><strong>Tankers</strong><p>Carry oil.</p></li></ul>"
+        self.assertEqual(
+            [("li", "Tankers"), ("p", "Carry oil.")],
+            self._fragments(html),
+        )
+
     def test_plain_list_items_and_quotes_unchanged(self):
         html = "<ol><li>One</li></ol><blockquote><p>Quoted</p></blockquote>"
         self.assertEqual(
