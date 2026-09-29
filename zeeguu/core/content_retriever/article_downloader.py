@@ -107,6 +107,15 @@ SOURCE_CONTENT_FILTERS = {
     # Add more sources and their filter keywords here as needed
 }
 
+# Same idea, matched against the URL instead of the title: whole sections of a
+# site that are never articles. Checked before the download, so they cost nothing.
+SOURCE_URL_FILTERS = {
+    # CHIP's software directory ("WinDirStat", "Franz für macOS") comes through
+    # its news feed. The LLM rejected ~40% of these as advertorial, one LLM call
+    # each, and passed the rest into feeds as articles.
+    "chip.de": ["/download/"],
+}
+
 
 def _cache_article_tokenization(article, session):
     """
@@ -165,6 +174,12 @@ def should_filter_by_source_keywords(url, title):
     """
     url_lower = url.lower()
     title_lower = title.lower()
+
+    for domain, path_fragments in SOURCE_URL_FILTERS.items():
+        if domain in url_lower:
+            for fragment in path_fragments:
+                if fragment in url_lower:
+                    return True, f"Filtered by source rule: {domain} + '{fragment}' in URL"
 
     for domain, keywords in SOURCE_CONTENT_FILTERS.items():
         if domain in url_lower:
@@ -724,9 +739,6 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         print(f"Article was skipped, reason: '{reason}'")
         raise SkippedForLowQuality(reason)
 
-    # Create fragments only if article isn't broken.
-    new_article.create_article_fragments(session)
-
     main_img_url = extract_article_image(np_article)
     if main_img_url:
         new_article.img_url = Url.find_or_create(session, main_img_url)
@@ -745,9 +757,8 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     article_topic_ids = [t.topic_id for t in new_article.topics]
     article_topic_names = [t.topic.title for t in new_article.topics]
 
-    # Pre-tokenize and cache summary/title to avoid expensive CPU work during user requests
-    log(f"   Caching tokenization...")
-    _cache_article_tokenization(new_article, session)
+    # Fragments and the tokenization cache are built only once the article has
+    # survived every rejection below (see _prepare_for_reading).
 
     # Check for advertorial content before expensive simplification
     log(f"   Checking for advertorial content...")
@@ -798,6 +809,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
 
             if not needs_simplification:
                 log(f"   ⏭ Skipping simplification - daily cap ({max_for_lang}/topic) reached for: {article_topic_names}")
+                _prepare_for_reading(new_article, session)
                 return new_article
 
     # On-demand mode: assess + summarize + classify only (no simplified children).
@@ -883,7 +895,27 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
             # serve.
             new_article.set_as_broken(session, LowQualityTypes.LLM_PASS_FAILED)
 
+    if not new_article.broken:
+        _prepare_for_reading(new_article, session)
+
     return new_article
+
+
+def _prepare_for_reading(new_article, session):
+    """
+    The per-article work only a readable article needs: HTML fragments, and the
+    stanza tokenization of title and summary.
+
+    Runs AFTER the LLM pass, for two reasons. The LLM rejects a few percent of
+    articles as paywalled or advertorial, and building both for those was
+    thrown away. And the LLM replaces the RSS blurb with its own summary: cached
+    before that, the cache held the tokenized blurb, and ensure_populated never
+    refills a summary it already has — so the feed card tokenized text the
+    article no longer shows.
+    """
+    new_article.create_article_fragments(session)
+    log(f"   Caching tokenization...")
+    _cache_article_tokenization(new_article, session)
 
 
 def add_topics(new_article, feed, url_keywords, session):
