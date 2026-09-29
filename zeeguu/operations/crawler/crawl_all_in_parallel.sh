@@ -35,6 +35,7 @@ LANG_CONFIG_pt="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
 LANG_CONFIG_ro="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
 LANG_CONFIG_es="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
 LANG_CONFIG_it="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
+LANG_CONFIG_bg="5 $DEFAULT_MAX_TIME_MIN"        # new
 LANG_CONFIG_sv="5 $DEFAULT_MAX_TIME_MIN"        # 0 users
 
 # Default languages (when no language args provided)
