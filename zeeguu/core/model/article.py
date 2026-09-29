@@ -450,6 +450,11 @@ class Article(db.Model):
             if element.name == "blockquote":
                 continue
 
+            # A block nested in a list item (e.g. <li><p>X</p></li>, the shape the
+            # teacher editor saves) was already emitted as part of its nearest li
+            if element.name != "li" and element.find_parent("li"):
+                continue
+
             # For paragraphs inside blockquotes, use special formatting to indicate they're part of a quote
             if element.name == "p" and element.find_parent("blockquote"):
                 tag_name = "blockquote"
