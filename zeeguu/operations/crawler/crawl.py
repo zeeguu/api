@@ -7,12 +7,12 @@ slow feeds or timeouts. Processes feeds in a fair rotation: one feed from each
 language, then repeat.
 
 Usage:
-    python tools/crawler/crawl_roundrobin.py                    # Crawl all languages
-    python tools/crawler/crawl_roundrobin.py --all              # Crawl all languages (explicit)
-    python tools/crawler/crawl_roundrobin.py da pt en           # Crawl specific languages
-    python tools/crawler/crawl_roundrobin.py --max-time 600 da  # Set max 10 minutes per feed
-    python tools/crawler/crawl_roundrobin.py --recent-days 2    # Only articles from last 2 days
-    python tools/crawler/crawl_roundrobin.py --max-articles 50  # Process max 50 articles per feed
+    python zeeguu/operations/crawler/crawl.py                    # Crawl all languages
+    python zeeguu/operations/crawler/crawl.py --all              # Crawl all languages (explicit)
+    python zeeguu/operations/crawler/crawl.py da pt en           # Crawl specific languages
+    python zeeguu/operations/crawler/crawl.py --max-time 600 da  # Set max 10 minutes per feed
+    python zeeguu/operations/crawler/crawl.py --recent-days 2    # Only articles from last 2 days
+    python zeeguu/operations/crawler/crawl.py --max-articles 50  # Process max 50 articles per feed
 
 Options:
     --max-time SECONDS     Maximum time in seconds to spend per feed (default: 300)
@@ -324,8 +324,7 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
     return crawl_reports
 
 
-# Single source of truth for crawlable languages, so a newly added language
-# (e.g. bg) isn't rejected here as "invalid" while the rest of the system has it.
+# From zeeguu/core/crawl_schedule.py, the one place that lists crawled languages.
 ALL_LANGUAGES = Language.CODES_OF_LANGUAGES_BEING_CRAWLED
 
 # Parse command line arguments
