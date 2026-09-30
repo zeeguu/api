@@ -324,8 +324,9 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
     return crawl_reports
 
 
-# All available languages in order of priority
-ALL_LANGUAGES = ['da', 'pt', 'sv', 'ro', 'nl', 'fr', 'en', 'el', 'de', 'es', 'it']
+# Single source of truth for crawlable languages, so a newly added language
+# (e.g. bg) isn't rejected here as "invalid" while the rest of the system has it.
+ALL_LANGUAGES = Language.CODES_OF_LANGUAGES_BEING_CRAWLED
 
 # Parse command line arguments
 parser = argparse.ArgumentParser(description='Crawl articles in round-robin fashion across languages')
