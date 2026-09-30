@@ -1963,7 +1963,7 @@ def monthly_active_users_page():
             background: transparent;
             padding: 10px;
         }}
-        body.embed h1, body.embed .subtitle, body.embed .footer, body.embed .breadcrumb {{
+        body.embed h1, body.embed .subtitle, body.embed .footer, body.embed .breadcrumb, body.embed .table-section {{
             display: none;
         }}
         body.embed .chart-section, body.embed .table-section {{
@@ -1972,7 +1972,7 @@ def monthly_active_users_page():
         }}
     </style>
 </head>
-<body{"class='embed'" if request.args.get('embed') else ''}>
+<body{" class='embed'" if request.args.get('embed') else ''}>
     <div class="container">
         <a href="/stats" class="breadcrumb">&larr; All Stats</a>
         <h1>Monthly Active Users</h1>
@@ -2456,7 +2456,7 @@ def monthly_activity_page():
             background: transparent;
             padding: 10px;
         }}
-        body.embed h1, body.embed .subtitle, body.embed .footer, body.embed .breadcrumb {{
+        body.embed h1, body.embed .subtitle, body.embed .footer, body.embed .breadcrumb, body.embed .table-section {{
             display: none;
         }}
         body.embed .chart-section, body.embed .table-section {{
@@ -2465,7 +2465,7 @@ def monthly_activity_page():
         }}
     </style>
 </head>
-<body{"class='embed'" if request.args.get('embed') else ''}>
+<body{" class='embed'" if request.args.get('embed') else ''}>
     <div class="container">
         <a href="/stats" class="breadcrumb">&larr; All Stats</a>
         <h1>Monthly Activity Breakdown</h1>
