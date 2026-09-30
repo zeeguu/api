@@ -5,42 +5,19 @@
 # invocation with `flock -n /tmp/zeeguu-crawl.lock ...` so a slow run doesn't collide
 # with the next scheduled one.
 #
+# Which languages run when, and with what limits, lives in zeeguu/core/crawl_schedule.py.
+# Cron calls this once an hour with no language args; the schedule decides what's due.
+#
 # Usage:
-#   ./crawl_all_in_parallel.sh                           # Crawl default languages
-#   ./crawl_all_in_parallel.sh da fr                     # Crawl only Danish and French
+#   ./crawl_all_in_parallel.sh                           # Crawl the languages due this hour
+#   ./crawl_all_in_parallel.sh da fr                     # Crawl only Danish and French, now
 #   ./crawl_all_in_parallel.sh --provider anthropic da   # Crawl Danish with Anthropic
-#   ./crawl_all_in_parallel.sh --provider deepseek       # Crawl defaults with Deepseek
+#   ./crawl_all_in_parallel.sh --provider deepseek       # Crawl what's due with Deepseek
 
 API_DIR="/home/zeeguu/ops/running/api"
 DOCKER_COMPOSE="docker compose -f $API_DIR/docker-compose.yml"
 
-# Per-language hard-timeout ceiling, in minutes (enforced by run_crawler_with_hard_timeout).
-DEFAULT_MAX_TIME_MIN=25         # most languages
-HIGH_VOLUME_MAX_TIME_MIN=50     # da/fr: more users + bigger backlogs, so a longer ceiling
-
-# Per-language configuration: MAX_ARTICLES MAX_TIME_MINUTES
-# Format: LANG_CONFIG_<code>="max_articles max_time_minutes"
-# High activity languages (20+ active users in last 2 weeks)
-LANG_CONFIG_da="100 $HIGH_VOLUME_MAX_TIME_MIN"  # 22 users - runs hourly
-LANG_CONFIG_fr="40 $HIGH_VOLUME_MAX_TIME_MIN"   # 45 users - runs hourly
-LANG_CONFIG_de="20 $DEFAULT_MAX_TIME_MIN"       # 31 users - runs hourly
-LANG_CONFIG_en="20 $DEFAULT_MAX_TIME_MIN"       # 26 users
-
-# Medium activity languages (10+ users)
-LANG_CONFIG_nl="15 $DEFAULT_MAX_TIME_MIN"       # 10 users
-
-# Low activity languages (1-3 users)
-LANG_CONFIG_el="5 $DEFAULT_MAX_TIME_MIN"        # 3 users
-LANG_CONFIG_pt="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
-LANG_CONFIG_ro="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
-LANG_CONFIG_es="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
-LANG_CONFIG_it="5 $DEFAULT_MAX_TIME_MIN"        # 1 user
-LANG_CONFIG_bg="5 $DEFAULT_MAX_TIME_MIN"        # new
-LANG_CONFIG_sv="5 $DEFAULT_MAX_TIME_MIN"        # 0 users
-
-# Default languages (when no language args provided)
-# Note: da, fr, de run hourly via separate cron job
-DEFAULT_LANGUAGES="pt sv ro nl en el es it"
+SCHEDULE="$(dirname "$0")/../../core/crawl_schedule.py"
 
 # Default provider
 PROVIDER="deepseek"
@@ -63,11 +40,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Use provided languages or defaults
-if [[ -n "$LANG_ARGS" ]]; then
-    LANGUAGES="$LANG_ARGS"
-else
-    LANGUAGES="$DEFAULT_LANGUAGES"
+# One "code max_articles max_minutes" line per language to crawl, in order.
+# Runs with the host python3 (stdlib only), so "due this hour" uses cron's clock.
+if ! PLAN=$(python3 "$SCHEDULE" $LANG_ARGS); then
+    exit 1
 fi
 
 # Generate timestamp for log files
@@ -76,14 +52,15 @@ TIMESTAMP=$(date +'%Y_%m_%d_%I_%M_%p')
 # Status output disabled to avoid cron emails (logs go to $LOG_FILE)
 # echo "=== Starting Parallel Crawl at $(date) ==="
 # echo "Provider: $PROVIDER"
-# echo "Languages: $LANGUAGES"
+# echo "Plan: $PLAN"
 # echo ""
 
 # Stop and remove any existing crawler containers
-for lang in $LANGUAGES; do
+while read -r lang _; do
+    [[ -z "$lang" ]] && continue
     docker stop crawler_${lang} 2>/dev/null || true
     docker rm crawler_${lang} 2>/dev/null || true
-done
+done <<< "$PLAN"
 
 # Run one crawler container under a hard wall-clock ceiling, escalating how
 # forcefully we take it down if it overruns:
@@ -117,27 +94,16 @@ run_crawler_with_hard_timeout() {
     return $rc
 }
 
-# Run one crawler container at a time, in the order languages were given.
+# Run one crawler container at a time, in schedule order.
 # Sequential by design — parallel crawls saturate Stanza and slow the live API.
-for lang in $LANGUAGES; do
-    # Get per-language config
-    config_var="LANG_CONFIG_${lang}"
-    config="${!config_var}"
-
-    if [[ -z "$config" ]]; then
-        echo "Warning: No config for language '$lang', skipping"
-        continue
-    fi
-
-    max_articles=$(echo $config | cut -d' ' -f1)
-    max_time_minutes=$(echo $config | cut -d' ' -f2)
+while read -r lang max_articles max_time_minutes; do
+    [[ -z "$lang" ]] && continue
     max_time_seconds=$((max_time_minutes * 60))
 
     LOG_FILE="/var/log/zeeguu/crawler/crawler-${lang}-${TIMESTAMP}.log"
 
+    # </dev/null: docker compose run would otherwise read the rest of $PLAN from stdin
     run_crawler_with_hard_timeout "$lang" "$max_time_seconds" "$LOG_FILE" \
-        zeeguu/operations/crawler/crawl.py "$lang" --provider "$PROVIDER" --max-articles "$max_articles" --max-time "$max_time_seconds"
-done
-
-# echo ""
-# echo "=== Parallel Crawl completed at $(date) ==="
+        zeeguu/operations/crawler/crawl.py "$lang" --provider "$PROVIDER" --max-articles "$max_articles" --max-time "$max_time_seconds" \
+        </dev/null
+done <<< "$PLAN"

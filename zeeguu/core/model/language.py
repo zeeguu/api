@@ -5,6 +5,7 @@ from zeeguu.logging import log
 
 import zeeguu
 
+from zeeguu.core.crawl_schedule import CRAWL_SCHEDULE
 from zeeguu.core.model.db import db
 
 
@@ -46,20 +47,8 @@ class Language(db.Model):
         "bg": "Bulgarian",
     }
 
-    CODES_OF_LANGUAGES_BEING_CRAWLED = [
-        "da",
-        "nl",
-        "fr",
-        "de",
-        "it",
-        "sv",
-        "pt",
-        "es",
-        "ro",
-        "en",
-        "el",
-        "bg",
-    ]
+    # Which languages get crawled (and when) lives in zeeguu/core/crawl_schedule.py
+    CODES_OF_LANGUAGES_BEING_CRAWLED = list(CRAWL_SCHEDULE)
 
     CODES_OF_LANGUAGES_THAT_CAN_BE_LEARNED = [
         "de",
