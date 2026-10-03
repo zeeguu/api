@@ -297,7 +297,7 @@ class BasicSRSchedule(db.Model):
         # The scheduled bookmarks are sorted by the most common in the language and
         # then by cooling interval, meaning the words that are closest to being learned
         # come before the ones that are just learned.
-        query.order_by(
+        query = query.order_by(
             -Phrase.rank.desc(), cls.cooling_interval.desc()
         )  # By using the negative for rank, we ensure NULL is last.
 
@@ -319,7 +319,7 @@ class BasicSRSchedule(db.Model):
         query = cls._scheduled_user_words_query(user)
         query = query.filter(cls.next_practice_time <= datetime.now())
 
-        query.order_by(
+        query = query.order_by(
             -Phrase.rank.desc(), cls.cooling_interval.desc()
         )
 
