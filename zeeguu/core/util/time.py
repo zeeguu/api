@@ -58,8 +58,21 @@ def user_zone(user):
     return SERVER_TZ
 
 
+def _now_utc():
+    """
+    The single clock reading every date computation in this module derives from.
+
+    Everything else here (server_now, user_local_today) is a projection of this
+    one instant into a different timezone, so a test that patches this function
+    moves *all* of them together and can pin what happens on either side of a
+    midnight -- without depending on the wall clock of the machine running it.
+    See zeeguu/core/test/frozen_clock.py.
+    """
+    return datetime.now(timezone.utc)
+
+
 def user_local_today(user):
-    return datetime.now(user_zone(user)).date()
+    return _now_utc().astimezone(user_zone(user)).date()
 
 
 def to_user_local_date(user, naive_server_dt):
@@ -78,7 +91,7 @@ def server_now():
     but it says *which* clock it means, so it stays correct if the constants
     at the top of this file ever change.
     """
-    return datetime.now(SERVER_TZ).replace(tzinfo=None)
+    return _now_utc().astimezone(SERVER_TZ).replace(tzinfo=None)
 
 
 """
