@@ -18,9 +18,11 @@ from zeeguu.core.llm_services.prompts.level_simplification import (
     paragraphs,
 )
 
-# A whole article rewritten at one level, in one reply
+# A whole article rewritten at one level, in one reply. A ~550-word article takes
+# 8-13s with either provider; the learner waits, and a wrong-language reply is asked
+# again before the next provider is tried, so the timeout bounds that wait 4 times over.
 LEVEL_MAX_TOKENS = 8000
-LEVEL_TIMEOUT = 120
+LEVEL_TIMEOUT = 60
 
 
 def _text_fields(result: Dict) -> list:

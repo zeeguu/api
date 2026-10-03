@@ -77,7 +77,16 @@ def language_name(language_code: str) -> str:
 
 
 def paragraphs(text: str) -> list[str]:
-    return [p.strip() for p in re.split(r"\n\s*\n", text.strip()) if p.strip()]
+    blocks = re.split(r"\n\s*\n", text.strip())
+    if len(blocks) == 1:
+        # Crawled articles separate paragraphs with a blank line, but pasted texts and
+        # ~1 in 7 uploads use a single newline. Read as one paragraph, the prompt would
+        # ask for exactly one back and the simplified version would lose its structure.
+        # A break after a sentence ends a paragraph; any other is line wrapping (text
+        # pasted from a PDF) and is joined.
+        lines = re.split(r"(?<=[.!?…:\"'»”])[ \t]*\n", blocks[0])
+        blocks = [re.sub(r"\s*\n\s*", " ", line) for line in lines]
+    return [p.strip() for p in blocks if p.strip()]
 
 
 def rare_words(text: str, language_code: str, level: str, limit: int = MAX_WORDS_TO_AVOID) -> list[str]:
@@ -97,7 +106,8 @@ def rare_words(text: str, language_code: str, level: str, limit: int = MAX_WORDS
     if level not in RARE_WORD_ZIPF:
         return []
     try:
-        from wordfreq import zipf_frequency
+        # wordfreq's frequencies, read from SQLite rather than held in every worker's memory
+        from zeeguu.core.word_stats.wordfreq_store import zipf_frequency
 
         found = {}
         for word in WORD.findall(text):

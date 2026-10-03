@@ -13,6 +13,7 @@ from zeeguu.core.llm_services import models
 from zeeguu.core.llm_services.haiku_client import HAIKU_MODEL
 from zeeguu.core.llm_services.prompts.level_simplification import (
     get_level_simplification_prompt,
+    paragraphs,
     rare_words,
 )
 from zeeguu.core.llm_services.simplification_service import (
@@ -205,3 +206,40 @@ class LevelPromptTest(TestCase):
 
     def test_rare_words_for_unsupported_language_is_empty(self):
         self.assertEqual(rare_words(CONTENT, "xx", "A2"), [])
+
+    def test_blank_lines_separate_paragraphs(self):
+        self.assertEqual(paragraphs("A.\n\nB\nstill B.\n\nC."), ["A.", "B\nstill B.", "C."])
+
+    def test_single_newlines_separate_paragraphs_when_there_are_no_blank_lines(self):
+        # pasted texts and ~1 in 7 uploads; wrapped lines (from a PDF) are joined
+        text = "First paragraph ends here.\nSecond one is wrapped\nacross two lines.\nThird: «quote»\nFourth"
+        self.assertEqual(
+            paragraphs(text),
+            ["First paragraph ends here.", "Second one is wrapped across two lines.", "Third: «quote»", "Fourth"],
+        )
+        self.assertIn("Output exactly 4 paragraphs", get_level_simplification_prompt("en", TITLE, text, "A2"))
+
+
+class WordfreqStoreTest(TestCase):
+    """The SQLite store must answer exactly as wordfreq does: the avoid lists were evaluated with it."""
+
+    def test_matches_wordfreq(self):
+        import wordfreq
+        from zeeguu.core.word_stats.wordfreq_store import zipf_frequency
+
+        cases = {
+            "en": ["the", "microglia", "excitatory", "therapies", "don't", "covid-19", "2024", "xqzvw"],
+            "da": ["retssagen", "anklagede", "domsafsigelsen", "morgen"],
+            "de": ["körperverletzung", "gericht"],
+            "fr": ["c’est", "l’étude", "publié"],
+            "no": ["hus"],  # wordfreq has 'nb'; both pick it
+        }
+        for lang, words in cases.items():
+            for word in words:
+                self.assertEqual(zipf_frequency(word, lang), wordfreq.zipf_frequency(word, lang), (lang, word))
+
+    def test_unsupported_language_raises(self):
+        from zeeguu.core.word_stats.wordfreq_store import zipf_frequency
+
+        with self.assertRaises(LookupError):
+            zipf_frequency("word", "xx")
