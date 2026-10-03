@@ -131,6 +131,12 @@ RATE_LIMITS = {
     # same backstop as every other public endpoint.
     "endpoints.article_link_info": Limit("60 per minute;600 per hour"),
     "endpoints.article_share_link_info": Limit("60 per minute;600 per hour"),
+
+    # Onboarding funnel events. Written before there is an account, so per IP.
+    # A class onboarding together on one school NAT sends thirty newcomers'
+    # worth of steps -- a dozen or so each within a few minutes -- and has to
+    # fit; the limit is only there so one host can't fill the table.
+    "endpoints.onboarding_funnel_event": Limit("300 per minute;3000 per hour"),
 }
 
 

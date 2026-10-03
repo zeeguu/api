@@ -55,5 +55,6 @@ from . import verbal_flashcards
 from . import badges
 from . import friends
 from . import public_article
+from . import onboarding_funnel
 from . import leaderboards
 from . import status
