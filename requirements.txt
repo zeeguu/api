@@ -54,6 +54,7 @@ langdetect
 lingua-language-detector
 pyphen
 regex
+wordfreq==3.1.1  # words too rare for a level (prompts/level_simplification.py)
 
 # HTTP & APIs
 requests

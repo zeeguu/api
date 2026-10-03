@@ -1330,7 +1330,7 @@ def create_user_specific_simplified_version(session, article, target_level):
             simplified_content=simplified_content["content"],
             simplified_summary=simplified_content.get("summary", ""),
             cefr_level=target_level,
-            ai_model=models.SIMPLIFICATION,  # provenance: primary model SimplificationService uses (Haiku; DeepSeek fallback)
+            ai_model=simplified_content["model_name"],
             commit=True,
         )
 
@@ -1612,7 +1612,7 @@ def create_simplified_version_from_upload(session, upload, target_level):
             simplified_content=result["content"],
             simplified_summary=result.get("summary", ""),
             cefr_level=target_level,
-            ai_model=models.SIMPLIFICATION,  # provenance: primary model SimplificationService uses (Haiku; DeepSeek fallback)
+            ai_model=result["model_name"],
             commit=True,
         )
     except Exception as e:

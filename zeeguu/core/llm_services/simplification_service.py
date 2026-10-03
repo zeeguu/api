@@ -1,17 +1,26 @@
 """
-Text simplification service using LLM providers with Anthropic→DeepSeek fallback chain
+Text simplification service using LLM providers (Anthropic and DeepSeek, each the other's fallback)
 """
 
 import os
+import re
 import requests
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 from zeeguu.logging import log
 from zeeguu.core.language.generate_in_language import (
     LanguageMismatchError,
     generate_in_language,
 )
-from zeeguu.core.llm_services.haiku_client import haiku_completion
+from zeeguu.core.llm_services.haiku_client import HAIKU_MODEL, haiku_completion
 from zeeguu.core.llm_services import models
+from zeeguu.core.llm_services.prompts.level_simplification import (
+    get_level_simplification_prompt,
+    paragraphs,
+)
+
+# A whole article rewritten at one level, in one reply
+LEVEL_MAX_TOKENS = 8000
+LEVEL_TIMEOUT = 120
 
 
 def _text_fields(result: Dict) -> list:
@@ -73,6 +82,69 @@ def parse_llm_json(reply: str) -> Optional[Dict]:
     return (with_content or objects)[-1]
 
 
+def _strip_markdown(text: str) -> str:
+    """Remove markdown bold/italic formatting (summaries are plain text)."""
+    text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
+    text = re.sub(r"__(.+?)__", r"\1", text)
+    text = re.sub(r"\*(.+?)\*", r"\1", text)
+    text = re.sub(r"(?<!\w)_(.+?)_(?!\w)", r"\1", text)
+    return text
+
+
+def _clean(text: str) -> str:
+    return text.strip().strip("[](){}\"'")
+
+
+def _parse_fields(text: str, names: tuple, last: str) -> dict:
+    """
+    Parse 'NAME: value' sections (values may span lines). Once the `last` section
+    starts, everything after it belongs to it.
+    """
+    fields, current = {}, None
+    pattern = re.compile(rf"^\W*({'|'.join(names)})\W*:\s*(.*)$")
+    for line in text.splitlines():
+        if current == last:
+            fields[current].append(line)
+            continue
+        match = pattern.match(line.strip())
+        if match:
+            current = match.group(1)
+            fields[current] = [match.group(2)]
+        elif re.match(r"^\s*\[\d+\]", line):
+            # models sometimes skip the CONTENT: line and start with the numbered paragraphs
+            current = last
+            fields[current] = [line]
+        elif current:
+            fields[current].append(line)
+    return {k: "\n".join(v).strip() for k, v in fields.items()}
+
+
+def parse_level_reply(text: str, expected_paragraphs: int) -> Dict:
+    """
+    A reply to the level prompt (TITLE: / SUMMARY: / CONTENT: with [n]-numbered
+    paragraphs) -> {title, content, summary}, content as plain paragraphs
+    separated by blank lines. Raises if any of the three is missing.
+    """
+    fields = _parse_fields(text, ("TITLE", "SUMMARY", "CONTENT"), last="CONTENT")
+    content = fields.get("CONTENT", "")
+    # split on the [n] markers rather than on blank lines: models sometimes put the
+    # numbered paragraphs on consecutive lines
+    marker = re.compile(r"^\s*\[\d+\]\s*", re.MULTILINE)
+    parts = marker.split(content) if marker.search(content) else paragraphs(content)
+    paras = [p.strip() for p in parts if p.strip()]
+    version = {
+        "title": _clean(fields.get("TITLE", "")),
+        "content": "\n\n".join(paras),
+        "summary": _strip_markdown(_clean(fields.get("SUMMARY", ""))),
+    }
+    missing = [k for k, v in version.items() if not v]
+    if missing:
+        raise Exception(f"Unexpected response format, missing {missing}")
+    if len(paras) != expected_paragraphs:
+        log(f"  Warning: {len(paras)} paragraphs instead of {expected_paragraphs}")
+    return version
+
+
 def _title_rule(source_language: str, target_language: str) -> str:
     """
     A guard for the title, applied at every level and by both providers.
@@ -106,7 +178,7 @@ and you are tempted to keep the original's shape. Do not.
 
 
 class SimplificationService:
-    """Service for text simplification using LLM fallback chain (Anthropic → DeepSeek)"""
+    """Service for text simplification. Each method says which provider goes first."""
 
     def __init__(self):
         self.anthropic_api_key = os.getenv("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
@@ -178,76 +250,92 @@ class SimplificationService:
         language_code: str = "ro",
     ) -> Optional[Dict]:
         """
-        Simplify text using LLM fallback chain:
-        - Try Anthropic first (fast, real-time, extension use)
-        - Fall back to DeepSeek if needed (slower, batch processing)
+        Rewrite text at one CEFR level, paragraph by paragraph.
+
+        DeepSeek goes first, with the strict prompt (hard per-level limits and a
+        list of the original's words that are too rare for the level). Haiku is
+        the fallback, with the plain prompt: strict hurt its faithfulness. See
+        prompts/level_simplification.py for the evaluation behind this.
 
         Simplifying must not change the language. When the output comes back in
         another one it is re-requested once naming the mistake, and then given up
         on — the callers all treat None as "no simplified version".
 
-        Returns: Dict with 'title', 'content', 'summary' keys or None if failed
+        Returns: Dict with 'title', 'content' (HTML), 'summary' and 'model_name'
+        (the model that wrote it), or None if failed
         """
-        # Try Anthropic first (faster for real-time use)
-        if self.anthropic_api_key:
-            log(f"Using Anthropic for real-time simplification to {target_level}")
+        expected_paragraphs = len(paragraphs(content))
+        providers = [
+            ("DeepSeek", self.deepseek_api_key, models.DEEPSEEK_GENERAL, self._complete_deepseek),
+            ("Anthropic", self.anthropic_api_key, HAIKU_MODEL, self._complete_haiku),
+        ]
+        for provider, api_key, model_name, complete in providers:
+            if not api_key:
+                continue
+            log(f"Using {provider} for simplification to {target_level}")
+            prompt = get_level_simplification_prompt(
+                language_code, title, content, target_level, strict=provider == "DeepSeek"
+            )
 
-            def generate_anthropic(correction):
-                simplified_title, simplified_content, simplified_summary = self._simplify_anthropic(
-                    title, content, target_level, language_code, correction
-                )
-                if not (simplified_title and simplified_content):
-                    raise Exception("Anthropic returned an incomplete simplification")
-                if not simplified_summary:
-                    # Anthropic didn't produce a summary — strip HTML off the
-                    # content before slicing so we don't leak <p>/<strong> tags.
-                    from bs4 import BeautifulSoup
-                    plain = BeautifulSoup(simplified_content, "html.parser").get_text()
-                    simplified_summary = plain[:200] + ("..." if len(plain) > 200 else "")
-                return {
-                    "title": simplified_title,
-                    "content": simplified_content,
-                    "summary": simplified_summary,
-                }
+            def generate(correction):
+                reply = complete(prompt + correction)
+                if not reply:
+                    raise Exception(f"{provider} returned no simplification")
+                return parse_level_reply(reply, expected_paragraphs)
 
             try:
-                return generate_in_language(
-                    generate_anthropic,
+                version = generate_in_language(
+                    generate,
                     language_code,
                     _text_fields,
                     f"{target_level} simplification of '{title[:50]}'",
                 )
             except LanguageMismatchError as e:
-                log(f"Anthropic simplified into the wrong language, trying DeepSeek: {e}")
+                log(f"{provider} simplified into the wrong language: {e}")
+                continue
             except Exception as e:
-                log(f"Anthropic simplification failed, falling back to DeepSeek: {e}")
+                log(f"{provider} simplification failed: {e}")
+                continue
 
-        # Fallback to DeepSeek
-        if self.deepseek_api_key:
-            log(f"Using DeepSeek for batch simplification to {target_level}")
+            import markdown2
 
-            def generate_deepseek(correction):
-                result = self._simplify_deepseek(
-                    title, content, target_level, language_code, correction
-                )
-                if not result:
-                    raise Exception("DeepSeek returned no simplification")
-                return result
+            version["content"] = markdown2.markdown(
+                version["content"],
+                extras=["break-on-newline", "fenced-code-blocks", "tables"],
+            )
+            version["model_name"] = model_name
+            return version
 
-            try:
-                return generate_in_language(
-                    generate_deepseek,
-                    language_code,
-                    _text_fields,
-                    f"{target_level} simplification of '{title[:50]}'",
-                )
-            except LanguageMismatchError as e:
-                log(f"DeepSeek simplified into the wrong language, giving up: {e}")
-            except Exception as e:
-                log(f"DeepSeek simplification failed: {e}")
-
-        log("Neither ANTHROPIC_TEXT_SIMPLIFICATION_KEY nor DEEPSEEK_API_KEY configured")
+        log("No simplification provider succeeded (or none is configured)")
         return None
+
+    def _complete_deepseek(self, prompt: str) -> str:
+        response = requests.post(
+            "https://api.deepseek.com/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {self.deepseek_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": models.DEEPSEEK_GENERAL,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": LEVEL_MAX_TOKENS,
+                "temperature": 0.1,
+            },
+            timeout=LEVEL_TIMEOUT,
+        )
+        if response.status_code != 200:
+            raise Exception(f"DeepSeek API error: {response.status_code} - {response.text[:200]}")
+        choice = response.json()["choices"][0]
+        if choice.get("finish_reason") == "length":
+            raise Exception(f"DeepSeek output truncated at max_tokens={LEVEL_MAX_TOKENS}")
+        return (choice["message"]["content"] or "").strip()
+
+    def _complete_haiku(self, prompt: str) -> Optional[str]:
+        # None on API errors and on a reply cut off at max_tokens
+        return haiku_completion(
+            prompt, max_tokens=LEVEL_MAX_TOKENS, temperature=0.1, timeout=LEVEL_TIMEOUT
+        )
 
     def translate_and_adapt(
         self,
@@ -844,215 +932,6 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
 
         except Exception as e:
             log(f"Error in DeepSeek translation: {e}")
-            return None
-
-    def _simplify_anthropic(
-        self, title: str, content: str, target_level: str, language_code: str,
-        correction: str = ""
-    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-        """Simplify text using Anthropic with ultra-strict constraints"""
-        language_names = {
-            "ro": "Romanian",
-            "en": "English",
-            "fr": "French",
-            "es": "Spanish",
-            "de": "German",
-            "da": "Danish",
-            "nl": "Dutch",
-            "it": "Italian",
-            "pt": "Portuguese",
-            "sv": "Swedish",
-            "no": "Norwegian",
-            "fi": "Finnish",
-        }
-
-        language_name = language_names.get(language_code, "Romanian")
-
-        # Ultra-strict A2-level constraints with paragraph and language preservation
-        prompt = f"""You are an expert {language_name} language teacher. Create a simplified version of this {language_name} article at EXACTLY {target_level} level for beginner students.
-
-CRITICAL LANGUAGE REQUIREMENT:
-🚨 WRITE EVERYTHING IN {language_name.upper()} ONLY! 🚨
-- The original article is in {language_name}
-- Your simplified version MUST be in {language_name}  
-- DO NOT translate to English, Romanian, or any other language
-- Keep ALL words in {language_name}
-- This is simplification, NOT translation
-
-ULTRA-STRICT {target_level} REQUIREMENTS FOR {language_name.upper()}:
-- Use ONLY the 1500 most basic {language_name} words (like in children's books)
-- Maximum 12 words per sentence (count carefully!)
-- Use ONLY simple sentences (subject + verb + object)
-- Present tense ONLY - avoid past tense when possible
-- Replace ALL difficult words with simpler {language_name} words
-- Break long ideas into multiple short sentences
-- Write like you're explaining to a 10-year-old {language_name} learner
-
-PARAGRAPH STRUCTURE RULES:
-- PRESERVE PARAGRAPH STRUCTURE: If the original has 4 paragraphs, your simplified version must have 4 paragraphs
-- Transform each paragraph of the original into a paragraph in the simplified version
-- MAINTAIN CONTENT DEPTH: Include all main ideas from each paragraph, just in simpler {language_name}
-- DO NOT SUMMARIZE: This is simplification (easier language), not summarization (shorter content)
-- Work paragraph-by-paragraph to preserve all information and structure
-
-🚨 REMEMBER: Write your response in {language_name.upper()}, not English or any other language! 🚨
-
-Original {language_name} Title: {title}
-Original {language_name} Content: {content}
-
-Format your response EXACTLY like this (in {language_name.upper()}):
-SIMPLIFIED_TITLE: [your simplified title in {language_name}]
-SIMPLIFIED_SUMMARY: [a concise plain-text summary in {language_name}, maximum 25 words, NO Markdown or HTML]
-SIMPLIFIED_CONTENT: [your simplified content in {language_name} using Markdown formatting - preserve paragraph breaks with double newlines, use **bold**, *italics*, ## for headings, - for lists]"""
-
-        prompt += correction
-
-        result = haiku_completion(
-            prompt, max_tokens=2000, temperature=0.2, timeout=60
-        )
-        if not result:
-            return None, None, None
-
-        simplified_title = None
-        simplified_summary = None
-        simplified_content = []
-        current_section = None
-        for line in result.split("\n"):
-            if line.startswith("SIMPLIFIED_TITLE:"):
-                simplified_title = line.split(":", 1)[1].strip()
-                current_section = None
-            elif line.startswith("SIMPLIFIED_SUMMARY:"):
-                simplified_summary = line.split(":", 1)[1].strip()
-                current_section = None
-            elif line.startswith("SIMPLIFIED_CONTENT:"):
-                current_section = "content"
-                content_start = line.split(":", 1)[1].strip()
-                if content_start:
-                    simplified_content.append(content_start)
-            elif current_section == "content":
-                simplified_content.append(line.strip() if line.strip() else "")
-
-        import re
-        simplified_text = re.sub(r"\n{3,}", "\n\n", "\n".join(simplified_content))
-
-        if not (simplified_title and simplified_text):
-            log("Failed to parse Anthropic response")
-            return None, None, None
-
-        import markdown2
-        simplified_html = markdown2.markdown(
-            simplified_text,
-            extras=["break-on-newline", "fenced-code-blocks", "tables"],
-        )
-        return simplified_title, simplified_html, simplified_summary
-
-    def _simplify_deepseek(
-        self, title: str, content: str, target_level: str, language_code: str,
-        correction: str = ""
-    ) -> Optional[Dict]:
-        """Simplify text using DeepSeek"""
-        prompt = f"""You are a language learning content creator. Simplify this {language_code} article from C1 level to {target_level} level.
-
-CRITICAL: You MUST write the simplified version in {language_code} language. DO NOT translate to English or any other language.
-
-GUIDELINES FOR {target_level} LEVEL:
-- Use simple, common vocabulary appropriate for {target_level} learners of {language_code}
-- Shorter sentences (max 15-20 words for A1-A2, max 25 words for B1-B2)
-- Present tense when possible
-- Clear, direct structure
-- Remove complex grammatical constructions
-- Keep the main information but make it accessible
-- MAINTAIN THE ORIGINAL LANGUAGE ({language_code}) - do not translate
-
-ORIGINAL {language_code.upper()} ARTICLE:
-Title: {title}
-Content: {content}
-
-Please provide IN {language_code.upper()} LANGUAGE using Markdown formatting:
-SIMPLIFIED_TITLE: [simplified title in {language_code}]
-SIMPLIFIED_CONTENT: [simplified article content in {language_code} with Markdown formatting - use ## for headings, **bold**, *italics*, > for quotes, - for lists]
-SIMPLIFIED_SUMMARY: [concise summary in {language_code}, maximum 25 words]
-
-Remember: Keep the same factual information but make it appropriate for {target_level} learners of {language_code}. DO NOT TRANSLATE THE CONTENT."""
-
-        prompt += correction
-
-        try:
-            response = requests.post(
-                "https://api.deepseek.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.deepseek_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": models.DEEPSEEK_GENERAL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 2000,
-                    "temperature": 0.3,
-                },
-                timeout=60,
-            )
-
-            if response.status_code != 200:
-                log(f"DeepSeek API error: {response.status_code}")
-                return None
-
-            result = response.json()["choices"][0]["message"]["content"].strip()
-
-            # Parse the response
-            sections = {}
-            lines = result.split("\n")
-            current_section = None
-            current_content = []
-
-            for line in lines:
-                line = line.strip()
-                if any(
-                    line.startswith(prefix)
-                    for prefix in [
-                        "SIMPLIFIED_TITLE:",
-                        "SIMPLIFIED_CONTENT:",
-                        "SIMPLIFIED_SUMMARY:",
-                    ]
-                ):
-                    # Save previous section
-                    if current_section:
-                        sections[current_section] = "\n".join(current_content).strip()
-                    # Start new section
-                    section_name = line.split(":")[0]
-                    current_section = section_name
-                    current_content = [line.split(":", 1)[1].strip()]
-                elif current_section:
-                    current_content.append(line)
-
-            # Save last section
-            if current_section:
-                sections[current_section] = "\n".join(current_content).strip()
-
-            # Extract content
-            simplified_title = sections.get("SIMPLIFIED_TITLE", title).strip()
-            simplified_content = sections.get("SIMPLIFIED_CONTENT", "").strip()
-            simplified_summary = sections.get("SIMPLIFIED_SUMMARY", "").strip()
-
-            if not simplified_content:
-                log("No simplified content generated by DeepSeek")
-                return None
-
-            # Convert markdown content to HTML
-            import markdown2
-            simplified_html = markdown2.markdown(
-                simplified_content,
-                extras=['break-on-newline', 'fenced-code-blocks', 'tables']
-            )
-            
-            return {
-                "title": simplified_title,
-                "content": simplified_html,
-                "summary": simplified_summary,
-            }
-
-        except Exception as e:
-            log(f"Error in DeepSeek simplification: {e}")
             return None
 
 
