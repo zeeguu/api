@@ -972,6 +972,7 @@ def add_custom_word():
             c_sentence_i=c_sentence_i,
             c_token_i=c_token_i,
             context_identifier=context_identifier,
+            translation_source="user_added",
         )
 
         # Set this bookmark as preferred for the user word

@@ -44,8 +44,17 @@ class Bookmark(db.Model):
 
     starred = db.Column(db.Boolean, default=False)
     
-    # Track where this translation/bookmark was created
-    translation_source = db.Column(db.Enum('reading', 'exercise', 'article_preview'), default='reading')
+    # Track where this translation/bookmark was created. No default: a caller
+    # that forgets to say used to get 'reading', which mislabelled exercise
+    # pre-fetches and user-added words as reading look-ups.
+    TRANSLATION_SOURCES = (
+        'reading',
+        'exercise',
+        'article_preview',
+        'generated_example',
+        'user_added',
+    )
+    translation_source = db.Column(db.Enum(*TRANSLATION_SOURCES))
 
     # Link to browsing session if translation was made while browsing article lists
     browsing_session_id = db.Column(db.Integer, db.ForeignKey("user_browsing_session.id"), nullable=True)
@@ -71,7 +80,7 @@ class Bookmark(db.Model):
         token_i: int = None,
         total_tokens: int = None,
         context: BookmarkContext = None,
-        translation_source: str = 'reading',
+        translation_source: str = None,
         browsing_session_id: int = None,
         reading_session_id: int = None,
         is_mwe: bool = False,
@@ -81,6 +90,8 @@ class Bookmark(db.Model):
         self.source = source
         self.text = text
         self.time = time
+        if translation_source not in self.TRANSLATION_SOURCES:
+            raise ValueError(f"Invalid translation_source: {translation_source!r}")
         self.translation_source = translation_source
         self.browsing_session_id = browsing_session_id
         self.reading_session_id = reading_session_id
@@ -542,7 +553,7 @@ class Bookmark(db.Model):
         right_ellipsis: bool = None,
         context_identifier: ContextIdentifier = None,
         level: int = 0,
-        translation_source: str = 'reading',
+        translation_source: str = None,
         browsing_session_id: int = None,
         reading_session_id: int = None,
         is_mwe: bool = False,
@@ -554,6 +565,10 @@ class Bookmark(db.Model):
         """
         from zeeguu.logging import log
         import time
+
+        # Checked up front, before the Meaning and UserWord side effects below
+        if translation_source not in cls.TRANSLATION_SOURCES:
+            raise ValueError(f"Invalid translation_source: {translation_source!r}")
 
         log(f"[BOOKMARK-TIMING] find_or_create START for word='{_origin}'")
         start_time = time.time()

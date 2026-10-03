@@ -84,6 +84,7 @@ class BookmarkRule(BaseRule):
                 random_text,
                 random_date,
                 context=fake_bookmark_c,
+                translation_source="reading",
             )
 
             if force_quality and bad_quality_meaning(user_word):
