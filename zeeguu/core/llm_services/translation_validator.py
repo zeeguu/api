@@ -27,6 +27,7 @@ Usage:
 import os
 import logging
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional, List
 
 from zeeguu.logging import log
@@ -36,11 +37,19 @@ from zeeguu.core.llm_services import models
 logger = logging.getLogger(__name__)
 
 
+class ValidationOutcome(Enum):
+    """What the LLM concluded — or that it never got to conclude anything."""
+
+    VALID = "valid"  # LLM confirmed the translation
+    INVALID = "invalid"  # LLM rejected it (with or without a correction)
+    UNAVAILABLE = "unavailable"  # The check itself failed; we learned nothing
+
+
 @dataclass
 class ValidationResult:
     """Result of combined translation validation and classification."""
 
-    is_valid: bool
+    outcome: ValidationOutcome
     corrected_word: Optional[str] = None  # If word should change
     corrected_translation: Optional[str] = None  # If translation is wrong
     frequency: Optional[str] = None  # unique/common/uncommon/rare
@@ -51,6 +60,110 @@ class ValidationResult:
     reason: Optional[str] = None  # Why it was fixed
     explanation: Optional[str] = None  # Extra context for learner (usage notes, nuances)
     literal_meaning: Optional[str] = None  # Word-by-word translation for idioms
+
+    @classmethod
+    def unavailable(cls, reason: str) -> "ValidationResult":
+        """The check could not be performed (API error, unparseable response)."""
+        return cls(outcome=ValidationOutcome.UNAVAILABLE, reason=reason)
+
+    @property
+    def is_valid(self) -> bool:
+        return self.outcome is ValidationOutcome.VALID
+
+    @property
+    def check_failed(self) -> bool:
+        """True when no verdict was obtained — callers must not persist anything."""
+        return self.outcome is ValidationOutcome.UNAVAILABLE
+
+
+# --- Response layouts -------------------------------------------------------
+#
+# These mirror the pipe-delimited contracts declared in
+# prompts/translation_validator.py. The single-call and batch prompts ask for
+# DIFFERENT layouts (the batch prompt asks for no CEFR level), so each gets its
+# own field list rather than sharing one positional parser.
+#
+# In both layouts every closed-vocabulary field (frequency / cefr_level /
+# phrase_type) comes before every free-text field, so a stray "|" the model
+# types inside an explanation or reason can never shift a field we validate.
+_SINGLE_VALID_FIELDS = (
+    "frequency", "cefr_level", "phrase_type", "explanation", "literal_meaning",
+)
+_SINGLE_FIX_FIELDS = (
+    "corrected_word", "corrected_translation", "frequency", "cefr_level",
+    "phrase_type", "reason", "explanation", "literal_meaning",
+)
+_BATCH_VALID_FIELDS = ("frequency", "phrase_type")
+_BATCH_FIX_FIELDS = (
+    "corrected_word", "corrected_translation", "frequency", "phrase_type", "reason",
+)
+
+_CEFR_LEVELS = frozenset({"A1", "A2", "B1", "B2", "C1", "C2"})
+
+# The prompt's phrase-type vocabulary says "arbitrary_multi_word" but
+# PhraseType.ARBITRARY_MULTI_WORD's value is "multi_word", so from_string()
+# returns None for it. Without this alias every fragment the model correctly
+# flags loses its phrase_type, and negative_qualities.exclude_because_multi_word
+# never marks the word unfit for study.
+_PHRASE_TYPE_ALIASES = {"arbitrary_multi_word": "multi_word"}
+
+
+def _vocabularies():
+    """Closed vocabularies, read from the enums so they cannot drift."""
+    from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
+
+    return (
+        frozenset(m.value for m in MeaningFrequency),
+        frozenset(m.value for m in PhraseType),
+    )
+
+
+def _normalized_field(name, raw):
+    """
+    Clean one parsed field, or return None if it is absent or not interpretable.
+
+    Values outside a closed vocabulary are dropped rather than stored: that is
+    what a shifted line looks like (reason prose landing in phrase_type), and
+    writing it through would corrupt the meaning row.
+    """
+    value = raw.strip()
+    if not value:
+        return None
+
+    if name in ("frequency", "phrase_type"):
+        frequencies, phrase_types = _vocabularies()
+        value = value.lower()
+        if name == "phrase_type":
+            value = _PHRASE_TYPE_ALIASES.get(value, value)
+        allowed = frequencies if name == "frequency" else phrase_types
+    elif name == "cefr_level":
+        value = value.upper()
+        allowed = _CEFR_LEVELS
+    else:
+        return value  # free text: explanation / reason / corrected_* / literal_meaning
+
+    if value not in allowed:
+        log(f"Discarding out-of-vocabulary {name}: {value!r}")
+        logger.warning(f"Discarding out-of-vocabulary {name}: {value!r}")
+        return None
+    return value
+
+
+def _split_fields(line, field_names):
+    """
+    Map a pipe-delimited line onto `field_names`, skipping the leading tag.
+
+    maxsplit is bounded by the layout so extra "|" characters are absorbed by
+    the final (free-text) field instead of shifting every field after them.
+    Trailing fields the model omitted are simply absent from the result.
+    """
+    values = line.split("|", len(field_names))[1:]
+    parsed = {}
+    for name, raw in zip(field_names, values):
+        value = _normalized_field(name, raw)
+        if value is not None:
+            parsed[name] = value
+    return parsed
 
 
 class TranslationValidator:
@@ -115,8 +228,10 @@ class TranslationValidator:
         except Exception as e:
             log(f"Translation validation failed: {e}")
             logger.error(f"Translation validation failed: {e}")
-            # On error, assume valid with no classification (fail open)
-            return ValidationResult(is_valid=True)
+            # No verdict. Report it as such rather than as VALID: a transient
+            # API failure must not persist `validated = VALID` on a meaning
+            # nobody actually checked.
+            return ValidationResult.unavailable(f"validation call failed: {e}")
 
     def validate_and_classify_batch(self, items: List[dict]) -> List[ValidationResult]:
         """
@@ -168,61 +283,53 @@ class TranslationValidator:
         except Exception as e:
             log(f"Batch validation failed: {e}")
             logger.error(f"Batch validation failed: {e}")
-            # On error, return valid for all (fail open)
-            return [ValidationResult(is_valid=True) for _ in items]
+            # No verdict for any item — see validate_and_classify.
+            return [
+                ValidationResult.unavailable(f"batch validation call failed: {e}")
+                for _ in items
+            ]
 
     def _parse_response(self, response_text: str) -> ValidationResult:
+        """Parse a single-call response (see _SINGLE_* layouts)."""
+        return self._parse_line(
+            response_text, _SINGLE_VALID_FIELDS, _SINGLE_FIX_FIELDS
+        )
+
+    def _parse_line(self, line, valid_fields, fix_fields) -> ValidationResult:
         """
-        Parse LLM response into ValidationResult.
+        Parse one pipe-delimited verdict line against the given layout.
 
-        Expected formats:
-        - "VALID|frequency|phrase_type|explanation"
-        - "FIX|corrected_word|corrected_translation|frequency|phrase_type|reason|explanation"
+        The verdict token is position 0, so it is never shifted by a stray
+        delimiter; only the fields after it need defending.
         """
-        response_text = response_text.strip()
-        parts = response_text.split("|")
+        line = line.strip()
+        if not line:
+            return ValidationResult.unavailable("empty validation response")
 
-        if parts[0].upper() == "VALID":
-            if len(parts) >= 4:
-                return ValidationResult(
-                    is_valid=True,
-                    frequency=parts[1].strip().lower() if len(parts) > 1 else None,
-                    cefr_level=parts[2].strip().upper() if len(parts) > 2 and parts[2].strip() else None,
-                    phrase_type=parts[3].strip().lower() if len(parts) > 3 else None,
-                    explanation=parts[4].strip() if len(parts) > 4 and parts[4].strip() else None,
-                    literal_meaning=parts[5].strip() if len(parts) > 5 and parts[5].strip() else None,
-                )
-            return ValidationResult(is_valid=True)
+        tag = line.split("|", 1)[0].strip().upper()
 
-        if parts[0].upper() == "FIX":
-            if len(parts) >= 6:
-                return ValidationResult(
-                    is_valid=False,
-                    corrected_word=parts[1].strip() if parts[1].strip() else None,
-                    corrected_translation=(
-                        parts[2].strip() if parts[2].strip() else None
-                    ),
-                    frequency=parts[3].strip().lower() if len(parts) > 3 else None,
-                    cefr_level=parts[4].strip().upper() if len(parts) > 4 and parts[4].strip() else None,
-                    phrase_type=parts[5].strip().lower() if len(parts) > 5 else None,
-                    reason=parts[6].strip() if len(parts) > 6 else None,
-                    explanation=parts[7].strip() if len(parts) > 7 and parts[7].strip() else None,
-                    literal_meaning=parts[8].strip() if len(parts) > 8 and parts[8].strip() else None,
-                )
-            elif len(parts) >= 3:
-                # Partial response - at least word and translation
-                return ValidationResult(
-                    is_valid=False,
-                    corrected_word=parts[1].strip() if parts[1].strip() else None,
-                    corrected_translation=(
-                        parts[2].strip() if parts[2].strip() else None
-                    ),
-                )
+        if tag == "VALID":
+            # A short line still carries a trustworthy verdict - keep it and
+            # accept that classification was lost.
+            return ValidationResult(
+                outcome=ValidationOutcome.VALID, **_split_fields(line, valid_fields)
+            )
 
-        # Unexpected format - log and assume valid
-        log(f"Unexpected validation response format: {response_text}")
-        logger.warning(f"Unexpected validation response format: {response_text}")
-        return ValidationResult(is_valid=True)
+        if tag == "FIX":
+            fields = _split_fields(line, fix_fields)
+            if not (fields.get("corrected_word") or fields.get("corrected_translation")):
+                # "Invalid" with nothing to correct is not actionable, and
+                # _fix_bookmark would read it as "no correction provided" and
+                # permanently mark the meaning INVALID.
+                return ValidationResult.unavailable(
+                    f"FIX response carried no correction: {line!r}"
+                )
+            return ValidationResult(outcome=ValidationOutcome.INVALID, **fields)
+
+        # Unexpected format - we cannot tell whether the translation is good.
+        log(f"Unexpected validation response format: {line}")
+        logger.warning(f"Unexpected validation response format: {line}")
+        return ValidationResult.unavailable(f"unparseable validation response: {line!r}")
 
     def _parse_batch_response(
         self, response_text: str, expected_count: int
@@ -237,10 +344,16 @@ class TranslationValidator:
         results = []
         for i in range(expected_count):
             if i < len(lines):
-                results.append(self._parse_response(lines[i]))
+                results.append(
+                    self._parse_line(lines[i], _BATCH_VALID_FIELDS, _BATCH_FIX_FIELDS)
+                )
             else:
-                # Missing line - assume valid
-                results.append(ValidationResult(is_valid=True))
+                # Missing line - no verdict for this item.
+                results.append(
+                    ValidationResult.unavailable(
+                        f"batch response had {len(lines)} lines, expected {expected_count}"
+                    )
+                )
 
         return results
 
