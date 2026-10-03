@@ -75,6 +75,7 @@ def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):
         c_sentence_i=pos["c_sentence_i"],
         c_token_i=pos["c_token_i"],
         context_identifier=context_identifier,
+        translation_source="generated_example",
     )
 
     bookmark_dict = bookmark.as_dictionary(
@@ -443,6 +444,7 @@ def set_preferred_example(user_word_id):
         c_sentence_i=c_sentence_i,
         c_token_i=c_token_i,
         context_identifier=context_identifier,
+        translation_source="generated_example",
     )
 
     # Update the user_word's preferred_bookmark
@@ -698,6 +700,7 @@ def add_word_to_learning():
             c_sentence_i=c_sentence_i,
             c_token_i=c_token_i,
             context_identifier=context_identifier,
+            translation_source="user_added",
         )
 
         # Set as preferred bookmark and schedule for learning

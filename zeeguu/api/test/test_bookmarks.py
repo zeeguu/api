@@ -77,3 +77,31 @@ def test_bookmark_with_context_endpoint(client):
     
     # Clean up
     client.post(f"/delete_bookmark/{new_bookmark_id}")
+
+
+def test_custom_word_is_not_labelled_as_reading(client):
+    add_context_types()
+    add_source_types()
+    from zeeguu.core.model import Bookmark
+
+    response = client.post(
+        "/add_custom_word",
+        json={
+            "word": "hinter",
+            "translation": "behind",
+            "from_lang": "de",
+            "to_lang": "en",
+            "context": "stellt sich hinter Präsident",
+        },
+    )
+
+    bookmark = Bookmark.find(response["bookmark_id"])
+    assert bookmark.translation_source == "user_added"
+
+
+def test_bookmark_requires_translation_source():
+    import pytest
+    from zeeguu.core.model import Bookmark
+
+    with pytest.raises(ValueError):
+        Bookmark(None, None, None, None)

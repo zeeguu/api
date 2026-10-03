@@ -704,6 +704,7 @@ def contribute_translation(from_lang_code, to_lang_code):
         token_i=w_token_i,
         total_tokens=w_total_tokens,
         context_identifier=context_identifier,
+        translation_source="reading",
     )
 
     # Inform apimux about translation selection
