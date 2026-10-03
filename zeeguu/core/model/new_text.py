@@ -8,7 +8,12 @@ from zeeguu.core.model.db import db
 
 
 class NewText(db.Model):
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # HASH_INDEX is production's own name for this index; keep it so nobody
+    # generates a second one.
+    __table_args__ = (
+        db.UniqueConstraint("content_hash", name="HASH_INDEX"),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = db.Column(db.Integer, primary_key=True)
 
