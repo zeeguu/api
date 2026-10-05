@@ -16,7 +16,7 @@ study (is_study): a beta test, usability test or thesis experiment, whose
 members still count as learners.
 """
 
-from sqlalchemy import func, distinct
+from sqlalchemy import func, distinct, or_
 
 from zeeguu.core.model import User, Language, Article
 from zeeguu.core.model.bookmark import Bookmark
@@ -32,6 +32,16 @@ MIN_READING_SESSIONS = 5
 
 _not_dev = func.coalesce(User.is_dev, False) == False  # noqa: E712
 
+# Bookmarks the learner did not make by looking up a word: generated_example
+# ones are pre-created for exercise example sentences, user_added ones are
+# typed in. Rows from before translation_source existed are NULL and are
+# look-ups.
+_NOT_LOOKUPS = ("generated_example", "user_added")
+_is_lookup = or_(
+    Bookmark.translation_source.is_(None),
+    Bookmark.translation_source.notin_(_NOT_LOOKUPS),
+)
+
 
 def _lookups(session):
     return (
@@ -39,6 +49,7 @@ def _lookups(session):
         .join(UserWord, Bookmark.user_word_id == UserWord.id)
         .join(User, UserWord.user_id == User.id)
         .filter(_not_dev)
+        .filter(_is_lookup)
         .scalar()
     )
 
@@ -60,17 +71,25 @@ def _learners(session):
         .join(Bookmark, Bookmark.user_word_id == UserWord.id)
         .join(User, UserWord.user_id == User.id)
         .filter(_not_dev)
+        .filter(_is_lookup)
         .scalar()
     )
 
 
 def _articles(session, language_ids):
-    """Readable articles in the languages we offer."""
+    """
+    Readable articles in the languages we offer. Simplified versions are not
+    separate articles, and uploads are private to the learner who sent them.
+    The OR IS NULL form, rather than coalesce, leaves the columns indexable.
+    """
     return (
         session.query(func.count(Article.id))
         .filter(Article.language_id.in_(language_ids))
-        .filter(func.coalesce(Article.broken, 0) == 0)
-        .filter(func.coalesce(Article.deleted, 0) == 0)
+        .filter(or_(Article.broken == 0, Article.broken.is_(None)))
+        .filter(or_(Article.deleted == 0, Article.deleted.is_(None)))
+        .filter(Article.parent_article_id.is_(None))
+        .filter(Article.uploader_id.is_(None))
+        .filter(Article.source_upload_id.is_(None))
         .scalar()
     )
 
@@ -108,7 +127,13 @@ def _teachers_and_classes(session):
 
 
 def compute_platform_totals(session):
-    languages = Language.available_languages()
+    # Not Language.available_languages(): that creates missing rows, and this
+    # runs on a public GET.
+    languages = (
+        session.query(Language)
+        .filter(Language.code.in_(Language.CODES_OF_LANGUAGES_BEING_CRAWLED))
+        .all()
+    )
     teachers, classes = _teachers_and_classes(session)
     return {
         "lookups": _lookups(session),

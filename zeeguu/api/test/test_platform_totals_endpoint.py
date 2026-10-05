@@ -1,10 +1,11 @@
 import json
 
-from fixtures import logged_in_client as client
+from fixtures import client
 
 
 def test_totals_are_public_json(client):
-    response = client.client.get("/stats/totals")
+    # no session: the research page calls this anonymously
+    response = client.get("/stats/totals")
     assert response.status_code == 200
     assert response.headers["Access-Control-Allow-Origin"] == "*"
 
