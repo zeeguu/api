@@ -21,6 +21,8 @@ import hashlib
 import math
 import os
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import threading
 from functools import lru_cache
@@ -36,6 +38,10 @@ FORMAT_VERSION = 1
 MMAP_SIZE = 256 * 1024 * 1024
 # wordfreq.zipf_frequency multiplies by this per word break it had to infer (Chinese)
 INFERRED_SPACE_FACTOR = 10.0
+# zipf_frequency never reports less than zipf 0, i.e. once per billion words
+MIN_FREQ = 1e-9
+# the folder holding the zeeguu package, for the build subprocess
+PACKAGE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 
 @lru_cache(maxsize=None)
@@ -49,6 +55,7 @@ def _source_file(lang: str) -> str:
 
 
 def _cache_folder() -> str:
+    # In Docker this is on the /zeeguu-data volume, so each list is built once, not once per container
     folder = os.environ.get("WORDFREQ_CACHE_DIR")
     if not folder:
         folder = os.path.join(os.path.dirname(_source_file("en")), "sqlite")
@@ -96,6 +103,27 @@ def _build(source_file: str, path: str):
             os.remove(tmp_path)
 
 
+def _build_in_subprocess(source_file: str, path: str):
+    """
+    Building reads the whole list into memory, and a process doesn't give that
+    back: a worker that built 10 languages kept ~70 MB. So no web worker builds.
+    """
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, [PACKAGE_ROOT, env.get("PYTHONPATH")]))
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import sys; from zeeguu.core.word_stats.wordfreq_store import _build; _build(*sys.argv[1:])",
+            source_file,
+            path,
+        ],
+        env=env,
+        check=True,
+        timeout=300,
+    )
+
+
 def _ensure_store(source_file: str) -> str:
     """
     Path of the list's SQLite file, building it first if needed. A lock file
@@ -108,7 +136,7 @@ def _ensure_store(source_file: str) -> str:
     with open(path + ".lock", "w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if not os.path.exists(path):
-            _build(source_file, path)
+            _build_in_subprocess(source_file, path)
             prefix = path.rsplit("-", 1)[0]
             for old in glob.glob(f"{prefix}-*.sqlite"):
                 if old != path:
@@ -148,10 +176,14 @@ _stores_lock = threading.Lock()
 
 def _store(lang: str) -> _Store:
     source_file = _source_file(lang)
-    with _stores_lock:
-        if source_file not in _stores:
-            _stores[source_file] = _Store(_ensure_store(source_file))
-        return _stores[source_file]
+    store = _stores.get(source_file)
+    if store is None:
+        # built outside _stores_lock, so other languages aren't held up meanwhile;
+        # the file lock in _ensure_store keeps it to one build
+        path = _ensure_store(source_file)
+        with _stores_lock:
+            store = _stores.setdefault(source_file, _Store(path))
+    return store
 
 
 def zipf_frequency(word: str, lang: str) -> float:
@@ -177,6 +209,7 @@ def zipf_frequency(word: str, lang: str) -> float:
     freq = 1.0 / one_over_result
     if get_language_info(lang)["tokenizer"] == "jieba":
         freq *= INFERRED_SPACE_FACTOR ** -(len(tokens) - 1)
+    freq = max(freq, MIN_FREQ)
     # wordfreq rounds to 3 significant digits, then to hundredths of a zipf
     leading_zeroes = math.floor(-math.log(freq, 10))
     return round(freq_to_zipf(round(freq, leading_zeroes + 3)), 2)

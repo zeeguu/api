@@ -56,6 +56,10 @@ RUN uv pip install --system --no-deps -e .
 # Set NLTK data path
 ENV NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data/
 
+# wordfreq's lists as SQLite files (zeeguu/core/word_stats/wordfreq_store.py), on
+# the volume so they are built once rather than in every new container
+ENV WORDFREQ_CACHE_DIR=$ZEEGUU_RESOURCES_FOLDER/wordfreq
+
 # Note: Stanza models are downloaded at runtime on first startup
 # This allows them to persist in the volume and avoids build space issues
 

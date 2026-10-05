@@ -220,6 +220,14 @@ class LevelPromptTest(TestCase):
         self.assertIn("Output exactly 4 paragraphs", get_level_simplification_prompt("en", TITLE, text, "A2"))
 
 
+    def test_short_lines_stay_paragraphs(self):
+        # headings and list items in a pasted text are not line wrapping
+        self.assertEqual(
+            paragraphs("Ingredients\nFlour\nSugar\nHow to do it\nMix it all together."),
+            ["Ingredients", "Flour", "Sugar", "How to do it", "Mix it all together."],
+        )
+
+
 class WordfreqStoreTest(TestCase):
     """The SQLite store must answer exactly as wordfreq does: the avoid lists were evaluated with it."""
 
@@ -243,3 +251,16 @@ class WordfreqStoreTest(TestCase):
 
         with self.assertRaises(LookupError):
             zipf_frequency("word", "xx")
+
+    def test_builds_the_store_in_a_subprocess(self):
+        import os
+        import tempfile
+
+        import wordfreq
+        from zeeguu.core.word_stats import wordfreq_store
+
+        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"WORDFREQ_CACHE_DIR": folder}), patch.dict(
+            wordfreq_store._stores, clear=True
+        ), patch.object(wordfreq_store, "_build", side_effect=AssertionError("built in this process")):
+            self.assertEqual(wordfreq_store.zipf_frequency("retssagen", "da"), wordfreq.zipf_frequency("retssagen", "da"))
+            self.assertEqual(len([f for f in os.listdir(folder) if f.endswith(".sqlite")]), 1)

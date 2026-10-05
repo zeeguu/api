@@ -82,11 +82,32 @@ def paragraphs(text: str) -> list[str]:
         # Crawled articles separate paragraphs with a blank line, but pasted texts and
         # ~1 in 7 uploads use a single newline. Read as one paragraph, the prompt would
         # ask for exactly one back and the simplified version would lose its structure.
-        # A break after a sentence ends a paragraph; any other is line wrapping (text
-        # pasted from a PDF) and is joined.
-        lines = re.split(r"(?<=[.!?…:\"'»”])[ \t]*\n", blocks[0])
-        blocks = [re.sub(r"\s*\n\s*", " ", line) for line in lines]
+        lines = [line.strip() for line in blocks[0].split("\n") if line.strip()]
+        blocks, previous = [], None
+        for line in lines:
+            if previous is not None and _wrapped(previous, line):
+                blocks[-1] += " " + line
+            else:
+                blocks.append(line)
+            previous = line
     return [p.strip() for p in blocks if p.strip()]
+
+
+SENTENCE_END = re.compile(r"[.!?…:\"'»”]$")
+WRAPPED_LINE_LENGTH = 60
+
+
+def _wrapped(line: str, next_line: str) -> bool:
+    """
+    Whether the break between two lines is line wrapping (text pasted from a PDF)
+    rather than a new paragraph: the line doesn't end a sentence, and the next one
+    continues in lowercase or the line is as long as a wrapped one. Short lines
+    (headings, list items) stay on their own; a German wrap before a noun gets an
+    extra paragraph, which loses nothing.
+    """
+    if SENTENCE_END.search(line):
+        return False
+    return next_line[0].islower() or len(line) >= WRAPPED_LINE_LENGTH
 
 
 def rare_words(text: str, language_code: str, level: str, limit: int = MAX_WORDS_TO_AVOID) -> list[str]:
