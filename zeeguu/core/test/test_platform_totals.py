@@ -25,9 +25,10 @@ class PlatformTotalsTest(ModelTestMixIn, TestCase):
         self.cohort = self.class_rule.cohort
         self.teacher = self.class_rule.teacher
 
-    def _enrol(self, readers, sessions_each=MIN_READING_SESSIONS):
+    def _enrol(self, readers, sessions_each=MIN_READING_SESSIONS, dev=False):
         for _ in range(readers):
             student = UserRule().user
+            student.is_dev = dev
             db_session.add(UserCohortMap(user=student, cohort=self.cohort))
             for _ in range(sessions_each):
                 db_session.add(
@@ -70,4 +71,8 @@ class PlatformTotalsTest(ModelTestMixIn, TestCase):
         self._enrol(MIN_ACTIVE_STUDENTS)
         self.cohort.is_study = True
         db_session.commit()
+        self.assertEqual((0, 0), self._teachers_and_classes())
+
+    def test_class_of_test_accounts_does_not_count(self):
+        self._enrol(MIN_ACTIVE_STUDENTS, dev=True)
         self.assertEqual((0, 0), self._teachers_and_classes())

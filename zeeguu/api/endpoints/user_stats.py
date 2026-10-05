@@ -2018,8 +2018,9 @@ _platform_totals_cache = {"computed_at": None, "totals": None}
 def platform_totals():
     """
     All-time totals for the research page, as JSON. Definitions live in
-    zeeguu.core.user_statistics.platform_totals. Cached per worker for a day:
-    the teacher count scans every reading session.
+    zeeguu.core.user_statistics.platform_totals. Cached per worker for a day.
+    A cold computation takes about 2.5s on production (mostly the article
+    count); workers are sync, so that is once a day per worker, not a pile-up.
     """
     from flask import jsonify
     from zeeguu.core.user_statistics.platform_totals import compute_platform_totals

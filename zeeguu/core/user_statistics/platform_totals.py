@@ -78,6 +78,8 @@ def _articles(session, language_ids):
 def _teachers_and_classes(session):
     readers = (
         session.query(UserReadingSession.user_id)
+        .join(User, UserReadingSession.user_id == User.id)
+        .filter(_not_dev)
         .group_by(UserReadingSession.user_id)
         .having(func.count(UserReadingSession.id) >= MIN_READING_SESSIONS)
         .subquery()
