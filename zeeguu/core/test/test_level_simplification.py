@@ -228,39 +228,19 @@ class LevelPromptTest(TestCase):
         )
 
 
-class WordfreqStoreTest(TestCase):
-    """The SQLite store must answer exactly as wordfreq does: the avoid lists were evaluated with it."""
-
-    def test_matches_wordfreq(self):
+class RareWordsSourceTest(TestCase):
+    def test_avoid_lists_are_the_evaluated_ones(self):
+        # #773 evaluated lists computed with wordfreq; wordstats serves the same
+        # frequencies from disk, and the lists must come out identical
         import wordfreq
-        from zeeguu.core.word_stats.wordfreq_store import zipf_frequency
 
-        cases = {
-            "en": ["the", "microglia", "excitatory", "therapies", "don't", "covid-19", "2024", "xqzvw"],
-            "da": ["retssagen", "anklagede", "domsafsigelsen", "morgen"],
-            "de": ["körperverletzung", "gericht"],
-            "fr": ["c’est", "l’étude", "publié"],
-            "no": ["hus"],  # wordfreq has 'nb'; both pick it
-        }
-        for lang, words in cases.items():
-            for word in words:
-                self.assertEqual(zipf_frequency(word, lang), wordfreq.zipf_frequency(word, lang), (lang, word))
+        from zeeguu.core.llm_services.prompts import level_simplification as ls
 
-    def test_unsupported_language_raises(self):
-        from zeeguu.core.word_stats.wordfreq_store import zipf_frequency
-
-        with self.assertRaises(LookupError):
-            zipf_frequency("word", "xx")
-
-    def test_builds_the_store_in_a_subprocess(self):
-        import os
-        import tempfile
-
-        import wordfreq
-        from zeeguu.core.word_stats import wordfreq_store
-
-        with tempfile.TemporaryDirectory() as folder, patch.dict(os.environ, {"WORDFREQ_CACHE_DIR": folder}), patch.dict(
-            wordfreq_store._stores, clear=True
-        ), patch.object(wordfreq_store, "_build", side_effect=AssertionError("built in this process")):
-            self.assertEqual(wordfreq_store.zipf_frequency("retssagen", "da"), wordfreq.zipf_frequency("retssagen", "da"))
-            self.assertEqual(len([f for f in os.listdir(folder) if f.endswith(".sqlite")]), 1)
+        text = "Retten udsatte domsafsigelsen i retssagen mod den anklagede til i morgen. " + DANISH_BODY
+        expected = {}
+        for word in ls.WORD.findall(text):
+            if not word[0].isupper():
+                zipf = wordfreq.zipf_frequency(word.lower(), "da")
+                if 0 < zipf < ls.RARE_WORD_ZIPF["A2"]:
+                    expected[word] = zipf
+        self.assertEqual(rare_words(text, "da", "A2"), sorted(expected, key=expected.get))

@@ -18,6 +18,7 @@ replaced with the language name.
 import re
 
 from zeeguu.core.model.language import Language
+from zeeguu.logging import log
 
 CEFR_GUIDELINES = """CEFR Level Guidelines:
 - A1: Very basic vocabulary (1000 most common words), simple present tense, basic sentence structures
@@ -127,18 +128,24 @@ def rare_words(text: str, language_code: str, level: str, limit: int = MAX_WORDS
     if level not in RARE_WORD_ZIPF:
         return []
     try:
-        # wordfreq's frequencies, read from SQLite rather than held in every worker's memory
-        from zeeguu.core.word_stats.wordfreq_store import zipf_frequency
+        # wordfreq's frequencies, which wordstats serves from disk rather than from
+        # every worker's memory; same values as wordfreq.zipf_frequency
+        from wordstats import Word
 
         found = {}
         for word in WORD.findall(text):
             if word[0].isupper() and language_code != "de":
                 continue
-            zipf = zipf_frequency(word.lower(), language_code)
+            zipf = Word.zipf_frequency(word.lower(), language_code)
             if 0 < zipf < RARE_WORD_ZIPF[level]:
                 found[word] = zipf
-    except Exception:
-        # unsupported language or missing wordlist: simplify without an avoid list
+    except LookupError:
+        # a language wordfreq has no list for: simplify without an avoid list
+        return []
+    except Exception as e:
+        # anything else (e.g. Chinese needs a tokenizer wordfreq has as an extra) must
+        # not fail the simplification, but must not silently drop every list either
+        log(f"Could not list rare {language_code} words, simplifying without them: {e!r}")
         return []
     return sorted(found, key=found.get)[:limit]
 
