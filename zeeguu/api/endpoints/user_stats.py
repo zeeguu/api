@@ -2010,6 +2010,32 @@ def monthly_active_users_page():
     return Response(html, mimetype="text/html")
 
 
+_platform_totals_cache = {"computed_at": None, "totals": None}
+
+
+@api.route("/stats/totals", methods=["GET"])
+@cross_domain
+def platform_totals():
+    """
+    All-time totals for the research page, as JSON. Definitions live in
+    zeeguu.core.user_statistics.platform_totals. Cached per worker for a day:
+    the teacher count scans every reading session.
+    """
+    from flask import jsonify
+    from zeeguu.core.user_statistics.platform_totals import compute_platform_totals
+
+    now = datetime.now()
+    computed_at = _platform_totals_cache["computed_at"]
+    if computed_at is None or now - computed_at > timedelta(days=1):
+        _platform_totals_cache["totals"] = compute_platform_totals(db_session)
+        _platform_totals_cache["computed_at"] = now
+
+    return jsonify(
+        _platform_totals_cache["totals"]
+        | {"computed_at": _platform_totals_cache["computed_at"].isoformat(timespec="seconds")}
+    )
+
+
 @api.route("/stats", methods=["GET"])
 @cross_domain
 def stats_index():
@@ -2090,6 +2116,12 @@ def stats_index():
                 <a href="/stats/monthly_activity">
                     <div class="title">Monthly Activity Breakdown</div>
                     <div class="desc">Stacked chart showing exercises, reading, browsing, and audio minutes</div>
+                </a>
+            </li>
+            <li>
+                <a href="/stats/totals">
+                    <div class="title">All-time Totals</div>
+                    <div class="desc">Lookups, exercises, learners, articles and teachers, as JSON</div>
                 </a>
             </li>
         </ul>
