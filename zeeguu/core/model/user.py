@@ -59,6 +59,8 @@ class User(db.Model):
 
     is_dev = Column(Boolean)
     is_admin = Column(Boolean, default=False)
+    # Opens every class in the teacher dashboard, to support teachers.
+    can_see_all_classes = Column(Boolean, nullable=False, default=False)
     email_verified = Column(Boolean, default=False)
     created_at = db.Column(db.DateTime, nullable=True)
     last_seen = db.Column(db.DateTime, nullable=True)
