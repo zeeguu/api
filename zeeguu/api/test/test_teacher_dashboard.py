@@ -39,7 +39,7 @@ def test_get_class_info(client):
     assert cohorts[0]["name"] == FRENCH_B1_COHORT["name"]
 
 
-def test_dev_sees_all_cohorts(client):
+def test_supporter_sees_all_cohorts(client):
     from zeeguu.core.model import Cohort, Language, User
     from zeeguu.core.model.db import db
 
@@ -52,7 +52,12 @@ def test_dev_sees_all_cohorts(client):
     assert [c["name"] for c in client.get("/cohorts_info")] == []
     assert client.client.get(client.append_session(f"/cohort_info/{other_id}")).status_code == 401
 
+    # being a dev is not enough: that only marks the account as the team's own
     User.find(client.email).is_dev = True
+    db.session.commit()
+    assert [c["name"] for c in client.get("/cohorts_info")] == []
+
+    User.find(client.email).can_see_all_classes = True
     db.session.commit()
 
     assert [c["name"] for c in client.get("/cohorts_info")] == ["OtherClass"]

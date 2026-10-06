@@ -24,7 +24,7 @@ from .helpers import (
 from ._permissions import (
     check_permission_for_cohort,
     check_permission_for_user,
-    is_dev,
+    can_see_all_classes,
 )
 from .. import api
 from zeeguu.api.utils.route_wrappers import requires_session
@@ -250,13 +250,13 @@ def users_from_cohort(id, duration):
 def cohorts_info():
     """
     Return list of dictionaries containing cohort info for all cohorts that the logged in user owns.
-    Devs get every cohort (for supporting teachers).
+    Those who support teachers get every cohort.
 
     Each entry also carries "last_shared_time": when a text was most recently
     shared with that class, or None if none ever was.
     """
 
-    if is_dev(flask.g.user_id):
+    if can_see_all_classes(flask.g.user_id):
         cohort_ids = [c.id for c in Cohort.query.all()]
     else:
         mappings = TeacherCohortMap.query.filter_by(user_id=flask.g.user_id).all()

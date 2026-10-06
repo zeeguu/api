@@ -23,6 +23,11 @@ class Cohort(db.Model):
     # with the class: no recommendation feed, no search, no shared inbox.
     only_classroom_texts = Column(Boolean, nullable=False, default=False)
 
+    # A study, beta test or usability test rather than a classroom: its members
+    # count as learners, but it does not make its owner a teacher in the public
+    # numbers.
+    is_study = Column(Boolean, nullable=False, default=False)
+
     users = relationship("UserCohortMap", back_populates="cohort")
 
     def __init__(
@@ -43,6 +48,7 @@ class Cohort(db.Model):
         self.declared_level_max = level_max
         self.is_cohort_of_teachers = False  # by default a cohort is a student cohort!
         self.only_classroom_texts = only_classroom_texts
+        self.is_study = False
 
     def get_current_student_count(self):
         from zeeguu.core.model.user import User
