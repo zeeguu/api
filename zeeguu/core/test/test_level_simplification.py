@@ -244,3 +244,45 @@ class RareWordsSourceTest(TestCase):
                 if 0 < zipf < ls.RARE_WORD_ZIPF["A2"]:
                     expected[word] = zipf
         self.assertEqual(rare_words(text, "da", "A2"), sorted(expected, key=expected.get))
+
+
+class TextWithParagraphsTest(TestCase):
+    """Readability's textContent glues paragraphs; the HTML still has them."""
+
+    HTML = (
+        '<div><p>Efter at have analyseret data er de ikke i tvivl.</p>'
+        "<section><p>I den heftige debat er der to <b>fløje</b>.</p></section>"
+        "<ul><li><p>Den første fløj.</p></li><li>Den anden fløj.</li></ul></div>"
+    )
+    GLUED = "Efter at have analyseret data er de ikke i tvivl.I den heftige debat er der to fløje.Den første fløj.Den anden fløj."
+
+    def test_glued_text_gets_the_htmls_paragraphs(self):
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
+
+        self.assertEqual(
+            paragraphs(text_with_paragraphs(self.GLUED, self.HTML)),
+            [
+                "Efter at have analyseret data er de ikke i tvivl.",
+                "I den heftige debat er der to fløje.",
+                "Den første fløj.",
+                "Den anden fløj.",
+            ],
+        )
+
+    def test_text_with_line_breaks_is_kept(self):
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
+
+        text = "First.\n\nSecond."
+        self.assertEqual(text_with_paragraphs(text, self.HTML), text)
+
+    def test_without_html_the_text_is_kept(self):
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
+
+        self.assertEqual(text_with_paragraphs(self.GLUED, None), self.GLUED)
+        self.assertEqual(text_with_paragraphs(self.GLUED, "<p>Only one block.</p>"), self.GLUED)
+
+    def test_html_missing_much_of_the_text_is_not_used(self):
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
+
+        partial = "<p>Efter at have analyseret data.</p><p>Kort.</p>"
+        self.assertEqual(text_with_paragraphs(self.GLUED, partial), self.GLUED)

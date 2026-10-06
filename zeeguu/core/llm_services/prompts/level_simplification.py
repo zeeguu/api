@@ -94,6 +94,40 @@ def paragraphs(text: str) -> list[str]:
     return [p.strip() for p in blocks if p.strip()]
 
 
+HTML_BLOCKS = ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "pre"]
+
+
+def text_with_paragraphs(text: str, html: str) -> str:
+    """
+    `text`, with its paragraph breaks taken from `html` when it has none.
+
+    The plain text the web client and the extension send with a shared or
+    uploaded article is Readability's textContent, which glues paragraphs
+    together ("...vanskeligheder med at sove.I den heftige debat..."): 175 of 443
+    uploads and ~1 in 5 shared articles (2026-10-06). The level prompt keeps the
+    original's paragraphs, so from such a text it wrote one wall of text. The
+    article's HTML still has them.
+
+    Falls back to `text` if the HTML's paragraphs hold noticeably fewer words:
+    better a wall of text than a simplification of part of the article.
+    """
+    text = text or ""
+    if not html or "\n" in text.strip():
+        return text
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    # innermost blocks only, so a <p> inside an <li> is not counted twice
+    blocks = [block for block in soup.find_all(HTML_BLOCKS) if not block.find(HTML_BLOCKS)]
+    found = [" ".join(block.get_text().split()) for block in blocks]
+    found = [p for p in found if p]
+    if len(found) < 2:
+        return text
+    if text.strip() and sum(len(p.split()) for p in found) < 0.9 * len(text.split()):
+        return text
+    return "\n\n".join(found)
+
+
 SENTENCE_END = re.compile(r"[.!?…:\"'»”]$")
 WRAPPED_LINE_LENGTH = 60
 

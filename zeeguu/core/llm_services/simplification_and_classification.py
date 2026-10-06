@@ -21,6 +21,7 @@ from zeeguu.core.language.generate_in_language import (
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.url import Url
 from .haiku_client import HAIKU_MODEL, haiku_completion_or_raise
+from .prompts.level_simplification import text_with_paragraphs
 from .prompts.article_simplification import (
     get_adaptive_simplification_prompt,
     get_assessment_and_summary_prompt,
@@ -1311,7 +1312,7 @@ def create_user_specific_simplified_version(session, article, target_level):
 
         # Create the simplified version using targeted prompt
         simplified_content = _create_targeted_simplified_version(
-            article.content,
+            text_with_paragraphs(article.content, article.htmlContent),
             article.title,
             article.language.code,
             original_level,
@@ -1516,7 +1517,7 @@ def create_recipient_derivative(session, upload, target_language_code, target_le
     if existing and not existing.broken:
         return existing
 
-    content = upload.text_content or upload.raw_html or ""
+    content = text_with_paragraphs(upload.text_content, upload.raw_html) or upload.raw_html or ""
     title = upload.title or ""
     if not content.strip():
         return None
