@@ -4,11 +4,13 @@ Shows exercise sessions, reading sessions, and word progress grouped by language
 Replaces frequent email notifications with a consolidated dashboard view.
 """
 
+import threading
 from collections import defaultdict
 from datetime import datetime, timedelta
 
 from flask import request, Response
 
+from zeeguu.api.utils.background import run_in_background
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, only_admins
 from zeeguu.core.model import User, Language, Session
 from zeeguu.core.model.bookmark import Bookmark
@@ -2010,7 +2012,35 @@ def monthly_active_users_page():
     return Response(html, mimetype="text/html")
 
 
-_platform_totals_cache = {"computed_at": None, "totals": None}
+_PLATFORM_TOTALS_MAX_AGE = timedelta(days=1)
+_platform_totals = {"computed_at": None, "totals": None}
+_platform_totals_refreshing = threading.Lock()
+
+
+def _remember_platform_totals(entry):
+    _platform_totals["totals"] = entry.totals
+    _platform_totals["computed_at"] = entry.computed_at
+
+
+def _platform_totals_are_stale():
+    return datetime.now() - _platform_totals["computed_at"] > _PLATFORM_TOTALS_MAX_AGE
+
+
+def _refresh_platform_totals():
+    """
+    Another worker may already have recomputed; take its figures if so. Runs
+    in the background, holding _platform_totals_refreshing, which it releases.
+    """
+    from zeeguu.core.model import PlatformTotalsCache
+    from zeeguu.core.user_statistics.platform_totals import compute_platform_totals
+
+    try:
+        entry = PlatformTotalsCache.latest()
+        if entry is None or datetime.now() - entry.computed_at > _PLATFORM_TOTALS_MAX_AGE:
+            entry = PlatformTotalsCache.store(db_session, compute_platform_totals(db_session))
+        _remember_platform_totals(entry)
+    finally:
+        _platform_totals_refreshing.release()
 
 
 @api.route("/stats/totals", methods=["GET"])
@@ -2018,23 +2048,34 @@ _platform_totals_cache = {"computed_at": None, "totals": None}
 def platform_totals():
     """
     All-time totals for the research page, as JSON. Definitions live in
-    zeeguu.core.user_statistics.platform_totals. Cached per worker for a day.
-    A cold computation takes about 2.5s on production (mostly the article
-    count); workers are sync, so that is once a day per worker, not a pile-up.
+    zeeguu.core.user_statistics.platform_totals.
+
+    A computation takes about 2.5s on production (mostly the articles read),
+    so the last result is kept in the database, shared by all workers and
+    surviving restarts, and in memory per worker. Once a day old it is still
+    served, and recomputed in the background for the next request. Only the
+    very first request, with nothing stored yet, waits for the computation.
     """
     from flask import jsonify
+    from zeeguu.core.model import PlatformTotalsCache
     from zeeguu.core.user_statistics.platform_totals import compute_platform_totals
 
-    now = datetime.now()
-    computed_at = _platform_totals_cache["computed_at"]
-    if computed_at is None or now - computed_at > timedelta(days=1):
-        _platform_totals_cache["totals"] = compute_platform_totals(db_session)
-        _platform_totals_cache["computed_at"] = now
+    if _platform_totals["totals"] is None:
+        entry = PlatformTotalsCache.latest()
+        if entry is None:
+            entry = PlatformTotalsCache.store(db_session, compute_platform_totals(db_session))
+        _remember_platform_totals(entry)
 
-    return jsonify(
-        _platform_totals_cache["totals"]
-        | {"computed_at": _platform_totals_cache["computed_at"].isoformat(timespec="seconds")}
+    response = jsonify(
+        _platform_totals["totals"]
+        | {"computed_at": _platform_totals["computed_at"].isoformat(timespec="seconds")}
     )
+    response.headers["Cache-Control"] = "public, max-age=3600"
+
+    if _platform_totals_are_stale() and _platform_totals_refreshing.acquire(blocking=False):
+        run_in_background(_refresh_platform_totals)
+
+    return response
 
 
 @api.route("/stats", methods=["GET"])
