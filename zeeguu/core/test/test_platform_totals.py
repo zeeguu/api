@@ -95,18 +95,30 @@ class PlatformTotalsTest(ModelTestMixIn, TestCase):
         self.assertEqual(before["lookups"] + 1, after["lookups"])
         self.assertEqual(before["learners"] + 1, after["learners"])
 
-    def test_simplified_versions_and_uploads_are_not_articles(self):
+    def test_reading_an_original_and_its_simplification_is_one_article(self):
         german = LanguageRule.get_or_create_language("de")
         self.article.language = german
-        db_session.commit()
-        before = compute_platform_totals(db_session)["articles"]
-
         simplified = ArticleRule().article
         simplified.language = german
         simplified.parent_article_id = self.article.id
-        uploaded = ArticleRule().article
-        uploaded.language = german
-        uploaded.uploader_id = self.teacher.id
+        db_session.commit()
+        before = compute_platform_totals(db_session)["articles_read"]
+
+        learner = UserRule().user
+        for article in (self.article, simplified):
+            db_session.add(UserReadingSession(learner.id, article.id, datetime.now()))
         db_session.commit()
 
-        self.assertEqual(before, compute_platform_totals(db_session)["articles"])
+        self.assertEqual(before + 1, compute_platform_totals(db_session)["articles_read"])
+
+    def test_articles_read_by_dev_accounts_do_not_count(self):
+        self.article.language = LanguageRule.get_or_create_language("de")
+        db_session.commit()
+        before = compute_platform_totals(db_session)["articles_read"]
+
+        dev = UserRule().user
+        dev.is_dev = True
+        db_session.add(UserReadingSession(dev.id, self.article.id, datetime.now()))
+        db_session.commit()
+
+        self.assertEqual(before, compute_platform_totals(db_session)["articles_read"])
