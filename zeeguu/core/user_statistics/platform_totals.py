@@ -76,20 +76,19 @@ def _learners(session):
     )
 
 
-def _articles(session, language_ids):
+def _articles_read(session, language_ids):
     """
-    Readable articles in the languages we offer. Simplified versions are not
-    separate articles, and uploads are private to the learner who sent them.
-    The OR IS NULL form, rather than coalesce, leaves the columns indexable.
+    Articles that learners read, in the languages we offer. A simplified
+    version counts as its original. History, unlike the size of the library,
+    which the nightly pruning shrinks.
     """
+    original = func.coalesce(Article.parent_article_id, Article.id)
     return (
-        session.query(func.count(Article.id))
+        session.query(func.count(distinct(original)))
+        .join(UserReadingSession, UserReadingSession.article_id == Article.id)
+        .join(User, UserReadingSession.user_id == User.id)
+        .filter(_not_dev)
         .filter(Article.language_id.in_(language_ids))
-        .filter(or_(Article.broken == 0, Article.broken.is_(None)))
-        .filter(or_(Article.deleted == 0, Article.deleted.is_(None)))
-        .filter(Article.parent_article_id.is_(None))
-        .filter(Article.uploader_id.is_(None))
-        .filter(Article.source_upload_id.is_(None))
         .scalar()
     )
 
@@ -139,7 +138,7 @@ def compute_platform_totals(session):
         "lookups": _lookups(session),
         "exercises": _exercises(session),
         "learners": _learners(session),
-        "articles": _articles(session, [l.id for l in languages]),
+        "articles_read": _articles_read(session, [l.id for l in languages]),
         "languages": len(languages),
         "teachers": teachers,
         "classes": classes,
