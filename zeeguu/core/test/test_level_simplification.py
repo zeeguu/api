@@ -244,3 +244,106 @@ class RareWordsSourceTest(TestCase):
                 if 0 < zipf < ls.RARE_WORD_ZIPF["A2"]:
                     expected[word] = zipf
         self.assertEqual(rare_words(text, "da", "A2"), sorted(expected, key=expected.get))
+
+
+class TextWithParagraphsTest(TestCase):
+    """Readability's textContent glues paragraphs; the HTML still has them."""
+
+    HTML = (
+        '<div><p>Efter at have analyseret data er de ikke i tvivl.</p>'
+        "<section><p>I den heftige debat er der to <b>fløje</b>.</p></section>"
+        "<ul><li><p>Den første fløj.</p></li><li>Den anden fløj.</li></ul></div>"
+    )
+    GLUED = "Efter at have analyseret data er de ikke i tvivl.I den heftige debat er der to fløje.Den første fløj.Den anden fløj."
+
+    def test_glued_text_gets_the_htmls_paragraphs(self):
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
+
+        self.assertEqual(
+            paragraphs(text_with_paragraphs(self.GLUED, self.HTML)),
+            [
+                "Efter at have analyseret data er de ikke i tvivl.",
+                "I den heftige debat er der to fløje.",
+                "Den første fløj.",
+                "Den anden fløj.",
+            ],
+        )
+
+    def test_text_with_line_breaks_is_kept(self):
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
+
+        text = "First.\n\nSecond."
+        self.assertEqual(text_with_paragraphs(text, self.HTML), text)
+
+    def test_without_html_the_text_is_kept(self):
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
+
+        self.assertEqual(text_with_paragraphs(self.GLUED, None), self.GLUED)
+        self.assertEqual(text_with_paragraphs(self.GLUED, "<p>Only one block.</p>"), self.GLUED)
+
+    def test_html_missing_much_of_the_text_is_not_used(self):
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
+
+        partial = "<p>Efter at have analyseret data.</p><p>Kort.</p>"
+        self.assertEqual(text_with_paragraphs(self.GLUED, partial), self.GLUED)
+
+    def test_partly_glued_text_gets_the_htmls_paragraphs(self):
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
+
+        html = "".join(f"<p>Afsnit nummer {i} handler om noget helt bestemt i dag.</p>" for i in range(8))
+        text = (
+            "Afsnit nummer 0 handler om noget helt bestemt i dag.\n\n"
+            + "".join(f"Afsnit nummer {i} handler om noget helt bestemt i dag." for i in range(1, 8))
+        )
+        self.assertEqual(len(paragraphs(text_with_paragraphs(text, html))), 8)
+
+    def test_text_that_only_has_fewer_paragraphs_is_kept(self):
+        # crawled articles: cleaned text, and HTML with extra bits (affiliate notes, captions)
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
+
+        text = "Saugroboter scheitern oft an Schwellen.\n\nDieser hier nicht, sagt der Test."
+        html = (
+            "<p>Saugroboter scheitern oft an Schwellen.</p><p>Wenn du über diese Links einkaufst, erhalten wir eine Provision.</p>"
+            "<p>Dieser hier nicht, sagt der Test.</p><figcaption>Foto</figcaption>"
+        )
+        self.assertEqual(text_with_paragraphs(text, html), text)
+
+    def test_no_text_is_lost_from_the_html(self):
+        # text directly in a <div>, or in a quote without a <p>, is a paragraph too
+        from zeeguu.core.llm_services.prompts.level_simplification import html_paragraphs
+
+        html = "<div>Indledning uden afsnit.<blockquote>Et citat.</blockquote><p>Et <b>rigtigt</b> afsnit.</p>Til sidst.</div>"
+        self.assertEqual(html_paragraphs(html), ["Indledning uden afsnit.", "Et citat.", "Et rigtigt afsnit.", "Til sidst."])
+
+
+class SimplifyCallSitesTest(TestCase):
+    """Both Simplify paths hand the model the paragraphs, not the glued text."""
+
+    GLUED = TextWithParagraphsTest.GLUED
+    HTML = TextWithParagraphsTest.HTML
+
+    def _content_sent(self, call):
+        from zeeguu.core.llm_services import simplification_and_classification as sac
+
+        with patch.object(sac, "_create_targeted_simplified_version", return_value=None) as targeted:
+            call(sac)
+        return targeted.call_args.args[0]
+
+    def test_upload(self):
+        from types import SimpleNamespace
+
+        upload = SimpleNamespace(
+            id=1, text_content=self.GLUED, raw_html=self.HTML, title="Titel", language=SimpleNamespace(code="da")
+        )
+        content = self._content_sent(lambda sac: sac.create_simplified_version_from_upload(None, upload, "A2"))
+        self.assertEqual(len(paragraphs(content)), 4)
+
+    def test_article(self):
+        from types import SimpleNamespace
+
+        article = SimpleNamespace(
+            id=1, content=self.GLUED, htmlContent=self.HTML, title="Titel", cefr_level="B2",
+            language=SimpleNamespace(code="da"), get_fk_difficulty=lambda: 50,
+        )
+        content = self._content_sent(lambda sac: sac.create_user_specific_simplified_version(None, article, "A2"))
+        self.assertEqual(len(paragraphs(content)), 4)
