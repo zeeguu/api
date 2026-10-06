@@ -29,6 +29,7 @@ from zeeguu.core.model.user_word import UserWord
 
 MIN_ACTIVE_STUDENTS = 5
 MIN_READING_SESSIONS = 5
+MIN_READING_MINUTES = 3  # UserReadingSession.duration is in ms
 
 _not_dev = func.coalesce(User.is_dev, False) == False  # noqa: E712
 
@@ -76,19 +77,18 @@ def _learners(session):
     )
 
 
-def _articles_read(session, language_ids):
+def _reading_sessions(session, language_ids):
     """
-    Articles that learners read, in the languages we offer. A simplified
-    version counts as its original. History, unlike the size of the library,
-    which the nightly pruning shrinks.
+    Reading sessions of at least MIN_READING_MINUTES, on articles in the
+    languages we offer. Shorter ones are mostly opening an article and leaving.
     """
-    original = func.coalesce(Article.parent_article_id, Article.id)
     return (
-        session.query(func.count(distinct(original)))
-        .join(UserReadingSession, UserReadingSession.article_id == Article.id)
+        session.query(func.count(UserReadingSession.id))
         .join(User, UserReadingSession.user_id == User.id)
+        .join(Article, UserReadingSession.article_id == Article.id)
         .filter(_not_dev)
         .filter(Article.language_id.in_(language_ids))
+        .filter(UserReadingSession.duration >= MIN_READING_MINUTES * 60_000)
         .scalar()
     )
 
@@ -138,7 +138,7 @@ def compute_platform_totals(session):
         "lookups": _lookups(session),
         "exercises": _exercises(session),
         "learners": _learners(session),
-        "articles_read": _articles_read(session, [l.id for l in languages]),
+        "reading_sessions": _reading_sessions(session, [l.id for l in languages]),
         "languages": len(languages),
         "teachers": teachers,
         "classes": classes,

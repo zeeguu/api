@@ -12,6 +12,7 @@ from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.user_statistics.platform_totals import (
     MIN_ACTIVE_STUDENTS,
+    MIN_READING_MINUTES,
     MIN_READING_SESSIONS,
     compute_platform_totals,
 )
@@ -95,30 +96,34 @@ class PlatformTotalsTest(ModelTestMixIn, TestCase):
         self.assertEqual(before["lookups"] + 1, after["lookups"])
         self.assertEqual(before["learners"] + 1, after["learners"])
 
-    def test_reading_an_original_and_its_simplification_is_one_article(self):
-        german = LanguageRule.get_or_create_language("de")
-        self.article.language = german
-        simplified = ArticleRule().article
-        simplified.language = german
-        simplified.parent_article_id = self.article.id
-        db_session.commit()
-        before = compute_platform_totals(db_session)["articles_read"]
-
-        learner = UserRule().user
-        for article in (self.article, simplified):
-            db_session.add(UserReadingSession(learner.id, article.id, datetime.now()))
+    def _read(self, reader, minutes):
+        reading = UserReadingSession(reader.id, self.article.id, datetime.now())
+        reading.duration = minutes * 60_000
+        db_session.add(reading)
         db_session.commit()
 
-        self.assertEqual(before + 1, compute_platform_totals(db_session)["articles_read"])
+    def _reading_sessions(self):
+        return compute_platform_totals(db_session)["reading_sessions"]
 
-    def test_articles_read_by_dev_accounts_do_not_count(self):
+    def test_only_reading_sessions_of_some_minutes_count(self):
         self.article.language = LanguageRule.get_or_create_language("de")
         db_session.commit()
-        before = compute_platform_totals(db_session)["articles_read"]
+        before = self._reading_sessions()
+        learner = UserRule().user
+
+        self._read(learner, MIN_READING_MINUTES - 1)
+        self.assertEqual(before, self._reading_sessions())
+
+        self._read(learner, MIN_READING_MINUTES)
+        self.assertEqual(before + 1, self._reading_sessions())
+
+    def test_reading_sessions_of_dev_accounts_do_not_count(self):
+        self.article.language = LanguageRule.get_or_create_language("de")
+        db_session.commit()
+        before = self._reading_sessions()
 
         dev = UserRule().user
         dev.is_dev = True
-        db_session.add(UserReadingSession(dev.id, self.article.id, datetime.now()))
-        db_session.commit()
+        self._read(dev, MIN_READING_MINUTES)
 
-        self.assertEqual(before, compute_platform_totals(db_session)["articles_read"])
+        self.assertEqual(before, self._reading_sessions())

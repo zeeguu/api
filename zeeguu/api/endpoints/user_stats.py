@@ -2163,7 +2163,7 @@ def stats_index():
             <li>
                 <a href="/stats/totals">
                     <div class="title">All-time Totals</div>
-                    <div class="desc">Lookups, exercises, learners, articles read and teachers, as JSON</div>
+                    <div class="desc">Lookups, exercises, learners, reading sessions and teachers, as JSON</div>
                 </a>
             </li>
         </ul>
