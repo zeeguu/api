@@ -1588,7 +1588,7 @@ def create_simplified_version_from_upload(session, upload, target_level):
         log(f"Upload {upload.id} has no detected language; cannot simplify")
         return None
 
-    content = upload.text_content or upload.raw_html or ""
+    content = text_with_paragraphs(upload.text_content, upload.raw_html) or upload.raw_html or ""
     title = upload.title or ""
     if not content.strip():
         log(f"Upload {upload.id} has no content to simplify")

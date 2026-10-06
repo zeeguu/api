@@ -94,36 +94,59 @@ def paragraphs(text: str) -> list[str]:
     return [p.strip() for p in blocks if p.strip()]
 
 
-HTML_BLOCKS = ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "pre"]
+# Elements that start a new paragraph when HTML is turned into text
+HTML_BLOCKS = [
+    "address", "article", "aside", "blockquote", "br", "dd", "div", "dl", "dt",
+    "figcaption", "figure", "footer", "h1", "h2", "h3", "h4", "h5", "h6", "header",
+    "hr", "li", "main", "ol", "p", "pre", "section", "table", "tr", "ul",
+]
+
+
+def html_paragraphs(html: str) -> list[str]:
+    """The text of `html`, one entry per paragraph: every block element starts a
+    new one, and no text is dropped (text sitting directly in a <div> included)."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    for invisible in soup.find_all(["script", "style", "noscript", "template"]):
+        invisible.decompose()
+    for block in soup.find_all(HTML_BLOCKS):
+        block.insert_before("\n\n")
+        block.insert_after("\n\n")
+    return [" ".join(p.split()) for p in re.split(r"\n\s*\n", soup.get_text()) if p.strip()]
+
+
+def _words(paragraph: str) -> int:
+    return len(paragraph.split())
 
 
 def text_with_paragraphs(text: str, html: str) -> str:
     """
-    `text`, with its paragraph breaks taken from `html` when it has none.
+    `text`, or the paragraphs of `html` when `text` has lost them.
 
     The plain text the web client and the extension send with a shared or
     uploaded article is Readability's textContent, which glues paragraphs
-    together ("...vanskeligheder med at sove.I den heftige debat..."): 175 of 443
-    uploads and ~1 in 5 shared articles (2026-10-06). The level prompt keeps the
-    original's paragraphs, so from such a text it wrote one wall of text. The
-    article's HTML still has them.
+    together ("...vanskeligheder med at sove.I den heftige debat..."). In
+    production (2026-10-06) 311 of 443 uploads and 72 of 300 shared articles had
+    all or some of their paragraphs glued. The level prompt keeps the original's
+    paragraphs, so from such a text it wrote a wall of text.
 
-    Falls back to `text` if the HTML's paragraphs hold noticeably fewer words:
-    better a wall of text than a simplification of part of the article.
+    Glued text shows as a paragraph much longer than any in the HTML. Text that
+    merely has fewer paragraphs is kept: crawled articles' text is cleaned
+    (no affiliate notices, no one-word fragments) and is what the prompt was
+    evaluated on, and none of 300 crawled articles trips this. Falls back to
+    `text` if the HTML holds noticeably fewer words.
     """
     text = text or ""
-    if not html or "\n" in text.strip():
+    if not html:
         return text
-    from bs4 import BeautifulSoup
-
-    soup = BeautifulSoup(html, "html.parser")
-    # innermost blocks only, so a <p> inside an <li> is not counted twice
-    blocks = [block for block in soup.find_all(HTML_BLOCKS) if not block.find(HTML_BLOCKS)]
-    found = [" ".join(block.get_text().split()) for block in blocks]
-    found = [p for p in found if p]
+    found = html_paragraphs(html)
     if len(found) < 2:
         return text
-    if text.strip() and sum(len(p.split()) for p in found) < 0.9 * len(text.split()):
+    longest_in_text = max((_words(p) for p in paragraphs(text)), default=0)
+    if longest_in_text <= 2 * max(_words(p) for p in found):
+        return text
+    if sum(_words(p) for p in found) < 0.9 * _words(text):
         return text
     return "\n\n".join(found)
 
