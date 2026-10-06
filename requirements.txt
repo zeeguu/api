@@ -42,7 +42,7 @@ lxml_html_clean
 # Zeeguu custom packages
 git+https://github.com/zeeguu/apimux.git@master#egg=apimux
 git+https://github.com/zeeguu/python-translators@master#egg=python_translators
-wordstats==1.2.2
+wordstats[wordfreq]==1.3.0  # [wordfreq]: words too rare for a level (prompts/level_simplification.py)
 
 # Web scraping & parsing
 newspaper3k==0.2.7

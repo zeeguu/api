@@ -56,6 +56,10 @@ RUN uv pip install --system --no-deps -e .
 # Set NLTK data path
 ENV NLTK_DATA=$ZEEGUU_RESOURCES_FOLDER/nltk_data/
 
+# wordstats' SQLite files (its own lists and wordfreq's) on the volume, so each
+# is built once rather than in every new container
+ENV WORDSTATS_CACHE_DIR=$ZEEGUU_RESOURCES_FOLDER/wordstats
+
 # Note: Stanza models are downloaded at runtime on first startup
 # This allows them to persist in the volume and avoids build space issues
 
