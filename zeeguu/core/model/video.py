@@ -281,22 +281,51 @@ class Video(db.Model):
             result_dict["published_time"] = datetime_to_json(self.published_time)
 
         if with_content:
+            import json
             from zeeguu.core.mwe import tokenize_for_reading
+            from zeeguu.core.model.caption_tokenization_cache import (
+                CaptionTokenizationCache,
+            )
+            from . import db
 
-            result_dict["captions"] = [
-                {
-                    "time_start": caption.time_start / 1000,  # convert to seconds
-                    "time_end": caption.time_end / 1000,
-                    "text": caption.get_content(),
-                    "tokenized_text": tokenize_for_reading(
+            # Stanza tokenization is by far the slowest piece of this method --
+            # for a 16-min auto-captioned video, the uncached path was ~2s
+            # spread across hundreds of Stanza calls. Batch-load the cache so
+            # the typical (warm-cache) request does zero tokenization work.
+            caption_ids = [c.id for c in self.captions]
+            cached = CaptionTokenizationCache.get_many(db.session, caption_ids)
+            populated_any = False
+
+            captions_out = []
+            for caption in self.captions:
+                cache_json = cached.get(caption.id)
+                if cache_json:
+                    tokenized = json.loads(cache_json)
+                else:
+                    tokenized = tokenize_for_reading(
                         caption.get_content(), self.language, mode="stanza"
-                    ),
-                    "context_identifier": ContextIdentifier(
-                        ContextType.VIDEO_CAPTION, video_caption_id=caption.id
-                    ).as_dictionary(),
-                }
-                for caption in self.captions
-            ]
+                    )
+                    row = CaptionTokenizationCache.find_or_create(
+                        db.session, caption.id
+                    )
+                    row.tokenized_text = json.dumps(tokenized)
+                    populated_any = True
+
+                captions_out.append(
+                    {
+                        "time_start": caption.time_start / 1000,  # convert to seconds
+                        "time_end": caption.time_end / 1000,
+                        "text": caption.get_content(),
+                        "tokenized_text": tokenized,
+                        "context_identifier": ContextIdentifier(
+                            ContextType.VIDEO_CAPTION, video_caption_id=caption.id
+                        ).as_dictionary(),
+                    }
+                )
+            result_dict["captions"] = captions_out
+
+            if populated_any:
+                db.session.commit()
 
             result_dict["tokenized_title"] = {
                 "tokens": tokenize_for_reading(self.title, self.language, mode="stanza"),
