@@ -237,14 +237,23 @@ class Article(db.Model):
 
     from zeeguu.core.model.source import Source
 
-    source_id = Column(Integer, ForeignKey(Source.id), unique=True)
+    # NOT unique. Source.find_or_create deduplicates by (content, type, language),
+    # so any two articles with identical content share a source by design -- an
+    # original and a simplification that came out identical, or the same piece
+    # crawled twice. Production has 6465 source_ids held by more than one article
+    # and has never had the index; declaring it here only made the test database
+    # refuse rows production accepts every day.
+    source_id = Column(Integer, ForeignKey(Source.id))
     source = relationship(Source, foreign_keys="Article.source_id")
 
     feed_id = Column(Integer, ForeignKey(Feed.id))
     feed = relationship(Feed)
 
     url_id = Column(Integer, ForeignKey(Url.id), unique=True)
-    img_url_id = Column(Integer, ForeignKey(Url.id), unique=True)
+    # NOT unique: two articles may well share an image. The index was dropped in
+    # production by tools/migrations/24-03-26-drop_unique_constraint_from_img_url_id.sql
+    # and the model was never updated to match.
+    img_url_id = Column(Integer, ForeignKey(Url.id))
     url = relationship(Url, foreign_keys="Article.url_id")
     img_url = relationship(Url, foreign_keys="Article.img_url_id")
 

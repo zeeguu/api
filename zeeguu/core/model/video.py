@@ -37,7 +37,10 @@ class Video(db.Model):
     duration = db.Column(db.Integer)
     language_id = db.Column(db.Integer, db.ForeignKey("language.id"))
 
-    source_id = db.Column(db.Integer, db.ForeignKey(Source.id), unique=True)
+    # NOT unique, for the same reason as Article.source_id: Source.find_or_create
+    # returns an existing source for identical content. Production has never had
+    # this index.
+    source_id = db.Column(db.Integer, db.ForeignKey(Source.id))
     source = db.relationship(Source, foreign_keys="Video.source_id")
 
     broken = db.Column(db.Integer)
@@ -142,18 +145,19 @@ class Video(db.Model):
 
         url_object = Url.find_or_create(session, video_info["thumbnail"])
 
-        # TODO: Remove this temporary workaround (this is because source_id is unique in video table)
-        if video_info["broken"] != 0:
-            source = None
-        else:
-            source = Source.find_or_create(
-                session,
-                video_info["text"],
-                SourceType.find_by_type(SourceType.VIDEO),
-                language,
-                False,
-                False,
-            )
+        # Broken videos used to be stored with no source at all, to dodge the
+        # unique index on video.source_id: they often have empty or identical
+        # text, so several of them resolve to the same Source. That index is
+        # gone (it never existed in production), so they can keep their source
+        # like any other video.
+        source = Source.find_or_create(
+            session,
+            video_info["text"],
+            SourceType.find_by_type(SourceType.VIDEO),
+            language,
+            False,
+            False,
+        )
 
         new_video = cls(
             video_unique_key=video_unique_key,
