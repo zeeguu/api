@@ -25,7 +25,15 @@ class StarredArticle(db.Model):
 
     """
 
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # url_id is production's own name for this index; keep it so nobody
+    # generates a second one. This was a bare UniqueConstraint further down the
+    # class body -- which does attach to the table -- but the module was missing
+    # from zeeguu.core.model's imports, so the table never reached
+    # db.create_all() and the test database had no starred_article at all.
+    __table_args__ = (
+        UniqueConstraint("url_id", "user_id", name="url_id"),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = Column(Integer, primary_key=True)
 
@@ -42,9 +50,6 @@ class StarredArticle(db.Model):
 
     # Useful for ordering past read articles
     starred_date = Column(DateTime)
-
-    # Together an url_id and user_id identify an article
-    UniqueConstraint(url_id, user_id)
 
     def __init__(self, user, url, _title: str, language):
         self.user = user

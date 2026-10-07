@@ -38,7 +38,13 @@ class LevelAdaptedArticleText(db.Model):
     added — renaming it would have churned the two context joins and every FK.)
     """
 
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # Named for the index production already has (added by
+    # tools/migrations/26-08-12--add_article_level_summary.sql), so nobody
+    # generates a second one.
+    __table_args__ = (
+        db.UniqueConstraint("article_id", "cefr_level", name="uq_article_level"),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = db.Column(db.Integer, primary_key=True)
 

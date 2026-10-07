@@ -13,7 +13,15 @@ class UserOnboardingMessage(db.Model):
     when that dismissal was performed. If not, this field will be null
 
     """
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # Named for the index production already has, so nobody generates a second one.
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "onboarding_message_id",
+            name="ux_user_onboarding_message_user_message",
+        ),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = db.Column(db.Integer, primary_key=True)
 
