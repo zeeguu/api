@@ -41,10 +41,15 @@ class FourLevelsPerWord(BasicSRSchedule):
 
     def is_about_to_be_learned(self):
         # at level 4, the next correct answer learns the word if the word has
-        # reached the longest interval, or (fast progression) if it is clean
+        # reached the longest interval, or (on the fast track) if it is clean
         return self.user_word.level == MAX_LEVEL and (
-            self.cooling_interval == self.MAX_INTERVAL or self._fast_progression()
+            self.cooling_interval == self.MAX_INTERVAL or self.is_on_fast_track()
         )
+
+    def is_on_fast_track(self):
+        """A clean answer now moves this word up a level: every answer at this
+        level so far was clean, and the learner has fast progression."""
+        return bool(self.fast_track) and self._fast_progression()
 
     def _fast_progression(self):
         return self.user_word.user.has_feature("fast_progression")
@@ -58,20 +63,22 @@ class FourLevelsPerWord(BasicSRSchedule):
 
         level_before_this_exercises = self.user_word.level
         min_delay = MINIMUM_COOLING_INTERVAL
+        moved_up = False
 
         if correctness:
             # Update level for user_word or mark as learned
             self.consecutive_correct_answers += 1
-            # Fast progression: a clean answer (first try, no hint) is evidence
-            # enough to move up now, instead of after three spaced correct
-            # answers at this level. Answers with help ("HC", "TC") don't count.
+            # Fast progression: while every answer at this level has been clean
+            # (first try, no hint), a clean answer is evidence enough to move up
+            # now, instead of after three spaced correct answers.
             clean_and_fast = (
-                outcome == ExerciseOutcome.CORRECT and self._fast_progression()
+                outcome == ExerciseOutcome.CORRECT and self.is_on_fast_track()
             )
             if clean_and_fast or self.cooling_interval == self.MAX_INTERVAL:
                 if level_before_this_exercises < MAX_LEVEL:
                     self.user_word.level = level_before_this_exercises + 1
                     db_session.add(self.user_word)
+                    moved_up = True
 
                     # the new level starts from its first step
                     new_cooling_interval = 0
@@ -102,6 +109,20 @@ class FourLevelsPerWord(BasicSRSchedule):
                 self.cooling_interval
             ]
             self.consecutive_correct_answers = 0
+
+        # The fast track is per level: every level starts on it, and the first
+        # answer at a level that is not clean takes the word off it until the
+        # next level. "Listened" (an audio lesson) is not an answer, so it
+        # changes nothing. Kept for every user, so the comparison group shows
+        # which words would have stayed on it; only is_on_fast_track() needs
+        # the feature.
+        if moved_up:
+            self.fast_track = True
+        elif outcome is not None and outcome not in (
+            ExerciseOutcome.CORRECT,
+            ExerciseOutcome.LISTENED,
+        ):
+            self.fast_track = False
 
         # update next practice time
         self.cooling_interval = new_cooling_interval

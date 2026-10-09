@@ -1,7 +1,10 @@
 """
-Fast progression: a clean answer (first try, no hint: outcome "C") moves a word
-up a level instead of waiting for three spaced correct answers at that level.
-Any help (a hint, "HC"; a translation, "TC") keeps today's rules.
+Fast progression, per level: every level starts on the fast track, and while a
+word is on it, a clean answer (first try, no hint: outcome "C") moves it up a
+level instead of waiting for three spaced correct answers. The first answer at
+a level that is not clean (a hint "HC", a translation "TC", a wrong answer)
+takes the word off the fast track for that level; the next level starts on it
+again. So each level asks once: can you already do this?
 
 Behind the `fast_progression` feature toggle; test_scheduling.py checks that
 users without it keep the old behaviour.
@@ -162,6 +165,95 @@ class FastProgressionTest(ModelTestMixIn):
 
         self.assertEqual(schedule.user_word.level, 1)
         self.assertEqual(schedule.cooling_interval, ONE_DAY)
+
+    # ---- the fast track is per level -------------------------------------------
+
+    def test_after_a_hint_a_clean_answer_at_the_same_level_is_only_a_step(self):
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        day = datetime.now()
+
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct_after_hint, day)
+        self.assertFalse(schedule.fast_track)
+
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, day + ONE_DAY_LATER)
+        self.assertEqual((schedule.user_word.level, schedule.cooling_interval), (1, 2 * ONE_DAY))
+
+    def test_after_a_wrong_answer_a_clean_answer_at_the_same_level_is_only_a_step(self):
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        day = datetime.now()
+
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)   # level 1 -> 2
+        day += ONE_DAY_LATER
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().wrong, day)
+        self.assertFalse(schedule.fast_track)
+
+        day += ONE_DAY_LATER
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)
+        self.assertEqual((schedule.user_word.level, schedule.cooling_interval), (2, ONE_DAY))
+
+    def test_the_next_level_starts_on_the_fast_track_again(self):
+        # level 1 the slow way (a hint, then three correct answers), then level 2
+        # opens with a clean answer and moves up at once
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        day = datetime.now()
+
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct_after_hint, day)  # step 1
+        day += ONE_DAY_LATER
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)             # step 2
+        day += TWO_DAYS_LATER
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)  # level 2
+        self.assertEqual(schedule.user_word.level, 2)
+        self.assertTrue(schedule.fast_track)
+
+        day += ONE_DAY_LATER
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)
+        self.assertEqual(schedule.user_word.level, 3)
+
+    def test_an_audio_lesson_does_not_take_the_word_off_the_fast_track(self):
+        # "Listened" is not an answer, so it is not a stumble either
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        day = datetime.now()
+
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().listened, day)
+        self.assertTrue(schedule.fast_track)
+
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, day + ONE_DAY_LATER)
+        self.assertEqual(schedule.user_word.level, 2)
+
+    def test_the_fast_track_is_recorded_for_users_without_the_toggle_too(self):
+        # so the comparison group shows which words would have stayed on it
+        bookmark = BookmarkRule(self.normal_user).bookmark
+
+        schedule = self._answer(self.normal_user, bookmark, OutcomeRule().wrong, datetime.now())
+
+        self.assertFalse(schedule.fast_track)
+        self.assertFalse(schedule.is_on_fast_track())   # the column, and the toggle
+
+    def test_is_on_fast_track_needs_both_the_column_and_the_toggle(self):
+        bookmark = BookmarkRule(self.fast_user).bookmark
+
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, datetime.now())
+        self.assertTrue(schedule.is_on_fast_track())
+
+        normal_bookmark = BookmarkRule(self.normal_user).bookmark
+        normal_schedule = self._answer(self.normal_user, normal_bookmark, OutcomeRule().correct,
+                                       datetime.now())
+        self.assertTrue(normal_schedule.fast_track)
+        self.assertFalse(normal_schedule.is_on_fast_track())
+
+    def test_the_api_tells_the_frontend_whether_the_word_is_on_the_fast_track(self):
+        # the level bar and the "learned" check read this, not the user's features
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        bookmark.user_word.preferred_bookmark = bookmark   # as for any word in production
+        day = datetime.now()
+
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)
+        info = bookmark.user_word.as_dictionary(schedule=schedule, with_context_tokenized=False)
+        self.assertIs(info["fast_track"], True)
+
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().wrong, day + ONE_DAY_LATER)
+        info = bookmark.user_word.as_dictionary(schedule=schedule, with_context_tokenized=False)
+        self.assertIs(info["fast_track"], False)
 
     def _answer(self, user, bookmark, outcome, date):
         exercise_session = ExerciseSessionRule(user).exerciseSession
