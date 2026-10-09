@@ -59,8 +59,14 @@ def _daily_feedback(user):
 
 
 def is_feature_enabled_for_user(feature_name, user):
-    """Check if a specific feature is enabled for the given user."""
-    return feature_name in features_for_user(user)
+    """Check if a specific feature is enabled for the given user.
+
+    Runs only that feature's detector, not all of them: the scheduler asks
+    for fast_progression on every exercise answer and for every word in a
+    word list, and several detectors query cohorts.
+    """
+    detector_function = _feature_map().get(feature_name)
+    return bool(detector_function and detector_function(user))
 
 
 def _daily_audio(user):

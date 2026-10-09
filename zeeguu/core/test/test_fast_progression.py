@@ -75,8 +75,26 @@ class FastProgressionTest(ModelTestMixIn):
         schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, now)
 
         self.assertEqual(schedule.user_word.level, 2)
-        self.assertEqual(schedule.cooling_interval, ONE_DAY)
+        self.assertEqual(schedule.cooling_interval, 0)   # at the start of the new level
         self.assertGreaterEqual(schedule.next_practice_time, now + timedelta(days=1))
+
+    def test_after_a_fast_level_up_answers_with_a_hint_need_all_three_steps(self):
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        day = datetime.now()
+
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)   # level 1 -> 2
+
+        day += ONE_DAY_LATER
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct_after_hint, day)
+        self.assertEqual((schedule.user_word.level, schedule.cooling_interval), (2, ONE_DAY))
+
+        day += ONE_DAY_LATER
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct_after_hint, day)
+        self.assertEqual((schedule.user_word.level, schedule.cooling_interval), (2, 2 * ONE_DAY))
+
+        day += TWO_DAYS_LATER
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct_after_hint, day)
+        self.assertEqual(schedule.user_word.level, 3)
 
     def test_answer_with_a_hint_keeps_todays_rules(self):
         bookmark = BookmarkRule(self.fast_user).bookmark

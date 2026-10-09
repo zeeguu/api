@@ -40,12 +40,10 @@ class FourLevelsPerWord(BasicSRSchedule):
         super(FourLevelsPerWord, self).__init__(user_word, user_word_id)
 
     def is_about_to_be_learned(self):
-        level_before_this_exercises = self.user_word.level
-        if level_before_this_exercises == MAX_LEVEL and self._fast_progression():
-            return True   # one clean answer at level 4 is enough
-        return (
-            self.cooling_interval == self.MAX_INTERVAL
-            and level_before_this_exercises == MAX_LEVEL
+        # at level 4, the next correct answer learns the word if the word has
+        # reached the longest interval, or (fast progression) if it is clean
+        return self.user_word.level == MAX_LEVEL and (
+            self.cooling_interval == self.MAX_INTERVAL or self._fast_progression()
         )
 
     def _fast_progression(self):
@@ -59,6 +57,7 @@ class FourLevelsPerWord(BasicSRSchedule):
             exercise_time = datetime.now()
 
         level_before_this_exercises = self.user_word.level
+        min_delay = MINIMUM_COOLING_INTERVAL
 
         if correctness:
             # Update level for user_word or mark as learned
@@ -74,12 +73,15 @@ class FourLevelsPerWord(BasicSRSchedule):
                     self.user_word.level = level_before_this_exercises + 1
                     db_session.add(self.user_word)
 
+                    # the new level starts from its first step
+                    new_cooling_interval = 0
                     if clean_and_fast:
-                        # fewer steps, same spacing: the next level waits for tomorrow
-                        new_cooling_interval = ONE_DAY
-                    else:
-                        # new exercise type can be done in the same day, thus cooling interval is 0
-                        new_cooling_interval = 0
+                        # fewer steps, same spacing: the next level waits for
+                        # tomorrow. Only the practice date moves; the interval
+                        # stays 0, so an answer with help later still needs
+                        # all three steps at this level.
+                        min_delay = ONE_DAY
+                    # (otherwise the new exercise type can be done the same day)
 
                 else:
                     self.set_meaning_as_learned(db_session)
@@ -105,7 +107,7 @@ class FourLevelsPerWord(BasicSRSchedule):
         self.cooling_interval = new_cooling_interval
         # Apply minimum delay so words don't reappear immediately
         # (but keep cooling_interval unchanged for progression logic)
-        delay_minutes = max(new_cooling_interval, MINIMUM_COOLING_INTERVAL)
+        delay_minutes = max(new_cooling_interval, min_delay)
         next_practice_date = exercise_time + timedelta(minutes=delay_minutes)
         self.next_practice_time = next_practice_date
 
