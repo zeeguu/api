@@ -107,6 +107,18 @@ class FastProgressionTest(ModelTestMixIn):
         self.assertEqual(schedule.user_word.level, 1)
         self.assertEqual(schedule.cooling_interval, ONE_DAY)
 
+    def test_a_wrong_answer_after_moving_up_does_not_drop_the_word_back(self):
+        # the clean answer at level 1 still stands; the failure is about level 2,
+        # so the word restarts level 2 at step 0, as after any level-up
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        day = datetime.now()
+
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)   # level 1 -> 2
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().wrong, day + ONE_DAY_LATER)
+
+        self.assertEqual(schedule.user_word.level, 2)
+        self.assertEqual(schedule.cooling_interval, 0)
+
     def test_finishing_an_audio_lesson_is_not_a_clean_answer(self):
         # an audio lesson reports "Listened" for each of its words: nobody answered,
         # so it schedules like today's correct answer and never fast-forwards
