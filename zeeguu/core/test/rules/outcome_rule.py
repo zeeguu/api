@@ -50,6 +50,10 @@ class OutcomeRule(BaseRule):
         return self.__get_or_create_outcome(ExerciseOutcome.CORRECT)
 
     @property
+    def listened(self):
+        return self.__get_or_create_outcome(ExerciseOutcome.LISTENED)
+
+    @property
     def correct_after_hint(self):
         return self.__get_or_create_outcome(ExerciseOutcome.CORRECT_AFTER_HINT)
 

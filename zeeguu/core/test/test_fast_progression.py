@@ -89,6 +89,16 @@ class FastProgressionTest(ModelTestMixIn):
         self.assertEqual(schedule.user_word.level, 1)
         self.assertEqual(schedule.cooling_interval, ONE_DAY)
 
+    def test_finishing_an_audio_lesson_is_not_a_clean_answer(self):
+        # an audio lesson reports "Listened" for each of its words: nobody answered,
+        # so it schedules like today's correct answer and never fast-forwards
+        bookmark = BookmarkRule(self.fast_user).bookmark
+
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().listened, datetime.now())
+
+        self.assertEqual(schedule.user_word.level, 1)
+        self.assertEqual(schedule.cooling_interval, ONE_DAY)
+
     def test_known_word_is_learned_after_four_clean_answers_on_four_days(self):
         bookmark = BookmarkRule(self.fast_user).bookmark
         day = datetime.now()
