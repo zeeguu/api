@@ -40,7 +40,8 @@ def _feature_map():
         "verbal_flashcards": _verbal_flashcards,
         "show_non_simplified_articles": _show_non_simplified_articles,
         "always_open_externally": _always_open_externally,
-        "gamification": _gamification
+        "gamification": _gamification,
+        "fast_progression": _fast_progression,
     }
 
 
@@ -177,6 +178,18 @@ def _verbal_flashcards(user):
         return True
 
     return False
+
+
+def _fast_progression(user: User):
+    """
+    A clean answer (first try, no hint) moves a word up a level, instead of
+    waiting for three spaced correct answers at that level. See
+    docs/future-work/exercise-selection-from-reading-evidence.md, section 5.
+
+    Dev accounts only while we watch it; next, half of new users, to compare
+    against the other half.
+    """
+    return bool(user.is_dev)
 
 
 def _gamification(user: User):

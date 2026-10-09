@@ -57,7 +57,7 @@ class BasicSRSchedule(db.Model):
         # the exercise again; but it should not count
         return _get_end_of_date(date) < self.next_practice_time
 
-    def update_schedule(self, db_session, correctness):
+    def update_schedule(self, db_session, correctness, exercise_time=None, outcome=None):
         raise NotImplementedError
 
     def get_max_interval(self):
@@ -150,7 +150,9 @@ class BasicSRSchedule(db.Model):
                 # which answered FAIL and took the learner's exercise with it.
                 return
 
-        schedule.update_schedule(db_session, correctness, time)
+        # the outcome string too, not only correctness: fast progression needs to
+        # tell a clean answer ("C") from one that needed help ("HC", "TC")
+        schedule.update_schedule(db_session, correctness, time, outcome=outcome)
 
     @classmethod
     def user_words_not_scheduled(cls, user, limit):

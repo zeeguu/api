@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import sqlalchemy
 
 from ...model import UserWord
+from ...model.exercise_outcome import ExerciseOutcome
 
 MAX_LEVEL = 4
 
@@ -40,12 +41,19 @@ class FourLevelsPerWord(BasicSRSchedule):
 
     def is_about_to_be_learned(self):
         level_before_this_exercises = self.user_word.level
+        if level_before_this_exercises == MAX_LEVEL and self._fast_progression():
+            return True   # one clean answer at level 4 is enough
         return (
             self.cooling_interval == self.MAX_INTERVAL
             and level_before_this_exercises == MAX_LEVEL
         )
 
-    def update_schedule(self, db_session, correctness, exercise_time: datetime = None):
+    def _fast_progression(self):
+        return self.user_word.user.has_feature("fast_progression")
+
+    def update_schedule(
+        self, db_session, correctness, exercise_time: datetime = None, outcome=None
+    ):
 
         if not exercise_time:
             exercise_time = datetime.now()
@@ -55,13 +63,23 @@ class FourLevelsPerWord(BasicSRSchedule):
         if correctness:
             # Update level for user_word or mark as learned
             self.consecutive_correct_answers += 1
-            if self.cooling_interval == self.MAX_INTERVAL:
+            # Fast progression: a clean answer (first try, no hint) is evidence
+            # enough to move up now, instead of after three spaced correct
+            # answers at this level. Answers with help ("HC", "TC") don't count.
+            clean_and_fast = (
+                outcome == ExerciseOutcome.CORRECT and self._fast_progression()
+            )
+            if clean_and_fast or self.cooling_interval == self.MAX_INTERVAL:
                 if level_before_this_exercises < MAX_LEVEL:
                     self.user_word.level = level_before_this_exercises + 1
                     db_session.add(self.user_word)
 
-                    # new exercise type can be done in the same day, thus cooling interval is 0
-                    new_cooling_interval = 0
+                    if clean_and_fast:
+                        # fewer steps, same spacing: the next level waits for tomorrow
+                        new_cooling_interval = ONE_DAY
+                    else:
+                        # new exercise type can be done in the same day, thus cooling interval is 0
+                        new_cooling_interval = 0
 
                 else:
                     self.set_meaning_as_learned(db_session)
