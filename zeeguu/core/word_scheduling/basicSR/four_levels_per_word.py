@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 import sqlalchemy
 
 from ...model import UserWord
+from ...model.exercise_outcome import ExerciseOutcome
 
 MAX_LEVEL = 4
 
@@ -39,29 +40,55 @@ class FourLevelsPerWord(BasicSRSchedule):
         super(FourLevelsPerWord, self).__init__(user_word, user_word_id)
 
     def is_about_to_be_learned(self):
-        level_before_this_exercises = self.user_word.level
-        return (
-            self.cooling_interval == self.MAX_INTERVAL
-            and level_before_this_exercises == MAX_LEVEL
+        # at level 4, the next correct answer learns the word if the word has
+        # reached the longest interval, or (on the fast track) if it is clean
+        return self.user_word.level == MAX_LEVEL and (
+            self.cooling_interval == self.MAX_INTERVAL or self.is_on_fast_track()
         )
 
-    def update_schedule(self, db_session, correctness, exercise_time: datetime = None):
+    def is_on_fast_track(self):
+        """A clean answer now moves this word up a level: every answer at this
+        level so far was clean, and the learner has fast progression."""
+        return bool(self.fast_track) and self._fast_progression()
+
+    def _fast_progression(self):
+        return self.user_word.user.has_feature("fast_progression")
+
+    def update_schedule(
+        self, db_session, correctness, exercise_time: datetime = None, outcome=None
+    ):
 
         if not exercise_time:
             exercise_time = datetime.now()
 
         level_before_this_exercises = self.user_word.level
+        min_delay = MINIMUM_COOLING_INTERVAL
+        moved_up = False
 
         if correctness:
             # Update level for user_word or mark as learned
             self.consecutive_correct_answers += 1
-            if self.cooling_interval == self.MAX_INTERVAL:
+            # Fast progression: while every answer at this level has been clean
+            # (first try, no hint), a clean answer is evidence enough to move up
+            # now, instead of after three spaced correct answers.
+            clean_and_fast = (
+                outcome == ExerciseOutcome.CORRECT and self.is_on_fast_track()
+            )
+            if clean_and_fast or self.cooling_interval == self.MAX_INTERVAL:
                 if level_before_this_exercises < MAX_LEVEL:
                     self.user_word.level = level_before_this_exercises + 1
                     db_session.add(self.user_word)
+                    moved_up = True
 
-                    # new exercise type can be done in the same day, thus cooling interval is 0
+                    # the new level starts from its first step
                     new_cooling_interval = 0
+                    if clean_and_fast:
+                        # fewer steps, same spacing: the next level waits for
+                        # tomorrow. Only the practice date moves; the interval
+                        # stays 0, so an answer with help later still needs
+                        # all three steps at this level.
+                        min_delay = ONE_DAY
+                    # (otherwise the new exercise type can be done the same day)
 
                 else:
                     self.set_meaning_as_learned(db_session)
@@ -83,11 +110,25 @@ class FourLevelsPerWord(BasicSRSchedule):
             ]
             self.consecutive_correct_answers = 0
 
+        # The fast track is per level: every level starts on it, and the first
+        # answer at a level that is not clean takes the word off it until the
+        # next level. "Listened" (an audio lesson) is not an answer, so it
+        # changes nothing. Kept for every user, so the comparison group shows
+        # which words would have stayed on it; only is_on_fast_track() needs
+        # the feature.
+        if moved_up:
+            self.fast_track = True
+        elif outcome is not None and outcome not in (
+            ExerciseOutcome.CORRECT,
+            ExerciseOutcome.LISTENED,
+        ):
+            self.fast_track = False
+
         # update next practice time
         self.cooling_interval = new_cooling_interval
         # Apply minimum delay so words don't reappear immediately
         # (but keep cooling_interval unchanged for progression logic)
-        delay_minutes = max(new_cooling_interval, MINIMUM_COOLING_INTERVAL)
+        delay_minutes = max(new_cooling_interval, min_delay)
         next_practice_date = exercise_time + timedelta(minutes=delay_minutes)
         self.next_practice_time = next_practice_date
 

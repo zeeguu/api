@@ -1118,7 +1118,7 @@ class DailyLessonGenerator:
                     user_word.report_exercise_outcome(
                         db.session,
                         audio_lesson_source,
-                        ExerciseOutcome.CORRECT,
+                        ExerciseOutcome.LISTENED,
                         0,
                         None,
                         f"Audio lesson completion for lesson {lesson.id}",

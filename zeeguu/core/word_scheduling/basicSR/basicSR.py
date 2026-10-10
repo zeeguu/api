@@ -33,6 +33,9 @@ class BasicSRSchedule(db.Model):
     next_practice_time = db.Column(db.DateTime, nullable=False)
     consecutive_correct_answers = db.Column(db.Integer)
     cooling_interval = db.Column(db.Integer)
+    # every answer at the current level so far was clean ("C"); see
+    # FourLevelsPerWord.update_schedule and tools/migrations/26-10-10--...
+    fast_track = db.Column(db.Boolean, nullable=False, default=True)
 
     def __init__(self, user_word=None, user_word_id=None):
         if user_word_id:
@@ -42,6 +45,7 @@ class BasicSRSchedule(db.Model):
         self.next_practice_time = datetime.now()
         self.consecutive_correct_answers = 0
         self.cooling_interval = 0
+        self.fast_track = True
 
     def set_meaning_as_learned(self, db_session):
         self.user_word.learned_time = datetime.now()
@@ -57,7 +61,7 @@ class BasicSRSchedule(db.Model):
         # the exercise again; but it should not count
         return _get_end_of_date(date) < self.next_practice_time
 
-    def update_schedule(self, db_session, correctness):
+    def update_schedule(self, db_session, correctness, exercise_time=None, outcome=None):
         raise NotImplementedError
 
     def get_max_interval(self):
@@ -150,7 +154,9 @@ class BasicSRSchedule(db.Model):
                 # which answered FAIL and took the learner's exercise with it.
                 return
 
-        schedule.update_schedule(db_session, correctness, time)
+        # the outcome string too, not only correctness: fast progression needs to
+        # tell a clean answer ("C") from one that needed help ("HC", "TC")
+        schedule.update_schedule(db_session, correctness, time, outcome=outcome)
 
     @classmethod
     def user_words_not_scheduled(cls, user, limit):
