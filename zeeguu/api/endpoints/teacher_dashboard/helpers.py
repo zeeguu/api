@@ -79,6 +79,7 @@ def get_cohort_info(id):
             "declared_level_min": c.declared_level_min,
             "declared_level_max": c.declared_level_max,
             "only_classroom_texts": bool(c.only_classroom_texts),
+            "students_see_each_other": bool(c.students_see_each_other),
             "teachers_for_cohort": teachers_for_cohort(id),
         }
         return dictionary

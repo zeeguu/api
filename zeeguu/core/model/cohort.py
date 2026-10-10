@@ -23,6 +23,10 @@ class Cohort(db.Model):
     # with the class: no recommendation feed, no search, no shared inbox.
     only_classroom_texts = Column(Boolean, nullable=False, default=False)
 
+    # When cleared, students of this cohort do not see each other: the class
+    # does not appear as a leaderboard for them. Teachers still see it.
+    students_see_each_other = Column(Boolean, nullable=False, default=True)
+
     # A study, beta test or usability test rather than a classroom: its members
     # count as learners, but it does not make its owner a teacher in the public
     # numbers.
@@ -39,6 +43,7 @@ class Cohort(db.Model):
         level_min=0,
         level_max=10,
         only_classroom_texts=False,
+        students_see_each_other=True,
     ):
         self.inv_code = inv_code
         self.name = name
@@ -48,6 +53,7 @@ class Cohort(db.Model):
         self.declared_level_max = level_max
         self.is_cohort_of_teachers = False  # by default a cohort is a student cohort!
         self.only_classroom_texts = only_classroom_texts
+        self.students_see_each_other = students_see_each_other
         self.is_study = False
 
     def get_current_student_count(self):
@@ -97,6 +103,7 @@ class Cohort(db.Model):
             "id": self.id,
             "name": self.name,
             "language_id": self.language_id,
+            "students_see_each_other": bool(self.students_see_each_other),
         }
 
     def text_counts_by_language(self):

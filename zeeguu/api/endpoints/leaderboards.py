@@ -117,6 +117,7 @@ def cohort_leaderboard(cohort_id: int):
                 - from_date or to_date is invalid or from_date > to_date
     """
     from zeeguu.core.model import User
+    from zeeguu.core.model.cohort import Cohort
     from zeeguu.core.model.teacher_cohort_map import TeacherCohortMap
 
     params, error_response = _parse_leaderboard_query_params()
@@ -132,6 +133,11 @@ def cohort_leaderboard(cohort_id: int):
     teacher_cohort_ids = {tcm.cohort_id for tcm in TeacherCohortMap.query.filter_by(user_id=user.id).all()}
     if not user.is_member_of_cohort(cohort_id) and int(cohort_id) not in teacher_cohort_ids:
         return make_error(403, "You can only view leaderboards for cohorts you belong to or teach.")
+
+    if int(cohort_id) not in teacher_cohort_ids:
+        cohort = Cohort.find(cohort_id)
+        if not cohort.students_see_each_other:
+            return make_error(403, "The teacher of this class has chosen that students do not see each other.")
 
     rows = metric(
         cohort_leaderboard_user_ids_subquery(cohort_id),
