@@ -156,6 +156,9 @@ def create_own_cohort():
     only_classroom_texts = get_boolean_from_params(
         params, "only_classroom_texts", default=False
     )
+    students_see_each_other = get_boolean_from_params(
+        params, "students_see_each_other", default=True
+    )
 
     try:
         c = Cohort(
@@ -164,6 +167,7 @@ def create_own_cohort():
             language,
             max_students,
             only_classroom_texts=only_classroom_texts,
+            students_see_each_other=students_see_each_other,
         )
         db.session.add(c)
         db.session.commit()
@@ -210,6 +214,13 @@ def update_cohort(cohort_id):
         )
         if only_classroom_texts is not None:
             cohort_to_change.only_classroom_texts = only_classroom_texts
+
+        # Same reasoning: absent means "leave as is".
+        students_see_each_other = get_boolean_from_params(
+            params, "students_see_each_other"
+        )
+        if students_see_each_other is not None:
+            cohort_to_change.students_see_each_other = students_see_each_other
 
         db.session.commit()
         return "OK"

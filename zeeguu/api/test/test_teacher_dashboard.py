@@ -150,6 +150,35 @@ def test_student_does_not_have_access_to_cohort(client):
     assert response.status_code == 403
 
 
+def test_teacher_decides_whether_students_see_each_other(client):
+    cohort = dict(FRENCH_B1_COHORT, students_see_each_other="false")
+    client.post("/create_own_cohort", data=cohort)
+    assert client.get("/cohort_info/1")["students_see_each_other"] is False
+
+    student_data = dict(
+        password="test", username="peer", learned_language="fr", invite_code="123"
+    )
+    response = client.response_from_post("/add_user/peer@mir.lu", data=student_data)
+    student_session = response.data.decode("utf-8")
+    leaderboard = "/cohort_leaderboard/1?metric=reading_time"
+
+    def student_status():
+        url = f"{leaderboard}&session={student_session}"
+        return client.client.get(url).status_code
+
+    assert student_status() == 403
+    # the teacher still sees the whole class
+    assert client.client.get(client.append_session(leaderboard)).status_code == 200
+
+    # an update without the field leaves the choice as it was
+    update_info = dict(inv_code="123", name="FrenchB1", language_code="fr")
+    client.post("/update_cohort/1", data=update_info)
+    assert student_status() == 403
+
+    client.post("/update_cohort/1", data=dict(update_info, students_see_each_other="true"))
+    assert student_status() == 200
+
+
 FRENCH_B1_COHORT = {
     "inv_code": "123",
     "name": "FrenchB1",
