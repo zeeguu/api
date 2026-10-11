@@ -9,7 +9,7 @@ This module handles the complex logic of updating bookmarks when users edit:
 See docs/BOOKMARK_UPDATE_LOGIC.md for detailed documentation.
 """
 from zeeguu.logging import log
-from zeeguu.core.model import Meaning, Text, BookmarkContext, UserWord, Bookmark, Exercise
+from zeeguu.core.model import Meaning, BookmarkContext, UserWord, Bookmark, Exercise
 
 
 class BookmarkValidationError(Exception):
@@ -92,7 +92,7 @@ def find_or_create_meaning(db_session, word_str, origin_lang_code, translation_s
 
 def find_or_create_context(db_session, context_str, context_type, bookmark):
     """
-    Find or create Text and BookmarkContext for the new context.
+    Find or create the BookmarkContext for the new context.
 
     Preserves position information if context hasn't changed.
 
@@ -103,28 +103,11 @@ def find_or_create_context(db_session, context_str, context_type, bookmark):
         bookmark: Original bookmark
 
     Returns:
-        tuple: (Text, BookmarkContext)
+        BookmarkContext
     """
     prev_context = BookmarkContext.find_by_id(bookmark.context_id)
-    prev_text = Text.find_by_id(bookmark.text_id)
 
-    is_same_text = prev_text.content == context_str
     is_same_context = prev_context and prev_context.get_content() == context_str
-
-    # Create Text (preserves metadata if same content)
-    text = Text.find_or_create(
-        db_session,
-        context_str,
-        bookmark.user_word.meaning.origin.language,
-        bookmark.text.url,
-        bookmark.text.article if is_same_text else None,
-        prev_text.paragraph_i if is_same_text else None,
-        prev_text.sentence_i if is_same_text else None,
-        prev_text.token_i if is_same_text else None,
-        prev_text.in_content if is_same_text else None,
-        prev_text.left_ellipsis if is_same_text else None,
-        prev_text.right_ellipsis if is_same_text else None,
-    )
 
     # Create BookmarkContext (preserves position if same content)
     context = BookmarkContext.find_or_create(
@@ -138,8 +121,8 @@ def find_or_create_context(db_session, context_str, context_type, bookmark):
         prev_context.right_ellipsis if is_same_context else None,
     )
 
-    print(f"[UPDATE_BOOKMARK] Found/created Text {text.id} and Context {context.id}")
-    return text, context
+    print(f"[UPDATE_BOOKMARK] Found/created Context {context.id}")
+    return context
 
 
 def transfer_schedule(db_session, old_user_word, new_user_word):
@@ -399,15 +382,13 @@ def context_or_word_changed(word_str, context_str, bookmark, original_user_word,
     """
     # Use provided IDs if available (bookmark may have been reassigned already)
     prev_context = BookmarkContext.find_by_id(old_context_id or bookmark.context_id)
-    prev_text = Text.find_by_id(old_text_id or bookmark.text_id)
 
-    is_same_text = prev_text.content == context_str
     is_same_context = prev_context and prev_context.get_content() == context_str
     is_same_word = original_user_word.meaning.origin.content == word_str
 
     # Return True if ANY of these changed (word OR context)
     word_changed = not is_same_word
-    context_changed = not is_same_text or not is_same_context
+    context_changed = not is_same_context
 
     print(f"[UPDATE_BOOKMARK] context_or_word_changed check:")
     print(f"  original_word: '{original_user_word.meaning.origin.content}' -> new_word: '{word_str}'")

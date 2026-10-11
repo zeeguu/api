@@ -244,13 +244,9 @@ class UserWord(db.Model):
             to=translation_word,
             from_lang=self.meaning.origin.language.code,
             to_lang=translation_language,
-            url=self.preferred_bookmark.text.url(),
+            url=self.preferred_bookmark.url(),
             origin_rank=word_rank if word_rank != 100000 else "",
-            article_id=(
-                self.preferred_bookmark.text.article_id
-                if self.preferred_bookmark.text.article_id
-                else ""
-            ),
+            article_id=self.preferred_bookmark.article_id() or "",
             source_id=self.preferred_bookmark.source_id,
             fit_for_study=self.fit_for_study == 1,
             level=self.level,
@@ -260,7 +256,10 @@ class UserWord(db.Model):
             can_update_schedule=can_update_schedule,
             user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
-            context_in_content=self.preferred_bookmark.text.in_content,
+            # `in_content` lived on the old `text` table (dropped in the text
+            # migration). Default to True; revisit if the frontend needs the
+            # title-vs-body distinction (derivable from context_type).
+            context_in_content=True,
             left_ellipsis=self.preferred_bookmark.context.left_ellipsis,
             right_ellipsis=self.preferred_bookmark.context.right_ellipsis,
             next_practice_time=next_practice_time,
