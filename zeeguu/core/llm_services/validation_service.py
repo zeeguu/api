@@ -15,6 +15,7 @@ Validation outcomes:
 | Invalid with correction -> different meaning| old=INVALID, new=VALID, transfer to new_user_word|
 | Invalid with correction -> same meaning     | Mark VALID (semantic match), return user_word   |
 | Duplicate meaning (same word, equiv. trans.)| Mark fit_for_study=False, return None           |
+| Validation check unavailable (API/parse fail)| Persist nothing, return user_word (re-check later)|
 
 Usage:
     from zeeguu.core.llm_services.validation_service import UserWordValidationService
@@ -165,6 +166,18 @@ class UserWordValidationService:
             source_lang=meaning.origin.language.code,
             target_lang=meaning.translation.language.code
         )
+
+        if result.check_failed:
+            # The LLM never returned a verdict (API error / unparseable reply).
+            # Leave `meaning.validated` at NOT_VALIDATED: writing VALID here
+            # would permanently bless an unchecked translation, since this
+            # method short-circuits on VALID and would never look at it again.
+            # NOT_VALIDATED keeps the word in scope for the re-scanning tools
+            # (validate_scheduled_meanings, prefetch_example_sentences_for_users);
+            # note the scheduling path only validates before the first schedule,
+            # so it will not retry this word on its own.
+            log(f"[VALIDATION] Check unavailable for user_word {user_word.id}: {result.reason}")
+            return user_word
 
         if result.is_valid:
             return cls._apply_valid_result(db_session, user_word, meaning, result, context)
