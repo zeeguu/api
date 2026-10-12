@@ -852,8 +852,29 @@ class DailyLessonGenerator:
         )
 
         if not lesson:
-            return {"message": "No lesson found for today to delete"}
+            return {"error": "No lesson found for today to delete", "status_code": 404}
 
+        return self._delete_lesson(lesson, user)
+
+    def delete_lesson_for_user(self, user, lesson_id):
+        """
+        Delete one of the user's own daily audio lessons by id.
+
+        The app can show a lesson from an earlier day (the paused one waiting to
+        be listened to), which the today-only lookup above never finds -- so the
+        client names the lesson it is actually showing.
+        """
+        lesson = DailyAudioLesson.query.filter_by(id=lesson_id, user_id=user.id).first()
+        if not lesson:
+            return {"error": "Lesson not found", "status_code": 404}
+
+        return self._delete_lesson(lesson, user)
+
+    def _delete_lesson(self, lesson, user):
+        """Remove a lesson's record and audio file, plus any dialogue only it used."""
+        from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
+
+        lesson_id = lesson.id
         try:
             # Delete audio file if it exists
             audio_path = os.path.join(
@@ -863,32 +884,44 @@ class DailyLessonGenerator:
                 os.remove(audio_path)
                 log(f"Deleted audio file: {audio_path}")
 
-            # Delete underlying content (dialogues/meanings) and their audio files
-            lesson_id = lesson.id
+            # Dialogues are a cache shared across users, and deleting one
+            # cascades to every segment that uses it -- i.e. it would cut a
+            # piece out of someone else's lesson. Only delete a dialogue (and
+            # its audio) when no other lesson references it.
             for segment in lesson.segments:
-                if segment.audio_lesson_dialogue:
-                    dialogue = segment.audio_lesson_dialogue
-                    dialogue_audio = os.path.join(
-                        ZEEGUU_DATA_FOLDER, "audio", "lessons",
-                        f"dialogue-{dialogue.id}-{dialogue.teacher_language.code if dialogue.teacher_language else 'en'}.mp3"
-                    )
-                    if os.path.exists(dialogue_audio):
-                        os.remove(dialogue_audio)
-                    db.session.delete(dialogue)
+                dialogue = segment.audio_lesson_dialogue
+                if not dialogue:
+                    continue
+                used_elsewhere = (
+                    DailyAudioLessonSegment.query.filter(
+                        DailyAudioLessonSegment.audio_lesson_dialogue_id == dialogue.id,
+                        DailyAudioLessonSegment.daily_audio_lesson_id != lesson_id,
+                    ).first()
+                    is not None
+                )
+                if used_elsewhere:
+                    continue
+                dialogue_audio = os.path.join(
+                    ZEEGUU_DATA_FOLDER, "audio", "lessons",
+                    f"dialogue-{dialogue.id}-{dialogue.teacher_language.code if dialogue.teacher_language else 'en'}.mp3"
+                )
+                if os.path.exists(dialogue_audio):
+                    os.remove(dialogue_audio)
+                db.session.delete(dialogue)
 
             db.session.delete(lesson)
             db.session.commit()
 
-            log(f"Deleted today's lesson {lesson_id} for user {user.id}")
+            log(f"Deleted lesson {lesson_id} for user {user.id}")
             return {
-                "message": f"Today's lesson (ID: {lesson_id}) has been deleted successfully"
+                "message": f"Lesson (ID: {lesson_id}) has been deleted successfully"
             }
 
         except Exception as e:
             db.session.rollback()
-            log(f"Error deleting today's lesson for user {user.id}: {str(e)}")
+            log(f"Error deleting lesson {lesson_id} for user {user.id}: {str(e)}")
             return {
-                "error": f"Failed to delete today's lesson: {str(e)}",
+                "error": f"Failed to delete lesson: {str(e)}",
                 "status_code": 500,
             }
 

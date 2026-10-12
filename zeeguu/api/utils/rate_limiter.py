@@ -30,6 +30,8 @@ class Limit:
            rejected. Successful logins are then free, which is what lets the
            ceiling be low enough to matter without a classroom ever reaching
            it: 60 students signing in correctly cost nothing at all.
+           "successes" is the reverse, for endpoints where only the request
+           that did something is the costly one.
     """
 
     rate: str
@@ -40,8 +42,10 @@ class Limit:
         # A misspelt count would fall through to charging every request, which
         # is the same species of silent misconfiguration this whole file exists
         # to stop. (A misspelt key already fails loudly, as a KeyError.)
-        if self.count not in ("all", "failures"):
-            raise ValueError(f"unknown count {self.count!r}: expected 'all' or 'failures'")
+        if self.count not in ("all", "failures", "successes"):
+            raise ValueError(
+                f"unknown count {self.count!r}: expected 'all', 'failures' or 'successes'"
+            )
 
 
 RATE_LIMITS = {
@@ -137,12 +141,24 @@ RATE_LIMITS = {
     # worth of steps -- a dozen or so each within a few minutes -- and has to
     # fit; the limit is only there so one host can't fill the table.
     "endpoints.onboarding_funnel_event": Limit("300 per minute;3000 per hour"),
+
+    # Deleting a daily audio lesson. Any learner may do it (a lesson generated
+    # in the wrong language is useless to them), but each delete is followed by
+    # a regeneration that costs LLM and TTS calls -- the settings dialog's
+    # "apply to today" goes through here too. Only successful deletes count, so
+    # a 404 on an already-gone lesson doesn't use up the allowance.
+    "endpoints.delete_todays_lesson": Limit("3 per 5 hours", key="session", count="successes"),
 }
 
 
 def _was_rejected(response):
     """Charge the bucket only when the endpoint turned the request away."""
     return response.status_code in (400, 401, 403, 404)
+
+
+def _succeeded(response):
+    """Charge the bucket only when the endpoint did what was asked."""
+    return 200 <= response.status_code < 300
 
 
 def _target_email_key():
@@ -262,7 +278,7 @@ def apply_rate_limits_to_endpoints(app):
 
     for endpoint, limits in RATE_LIMITS.items():
         for limit in (limits,) if isinstance(limits, Limit) else limits:
-            deduct_when = _was_rejected if limit.count == "failures" else None
+            deduct_when = {"failures": _was_rejected, "successes": _succeeded}.get(limit.count)
             # The decorated function has to go back into the routing table.
             # Calling limiter.limit(...) for its side effect alone registers
             # the limit under a name that request dispatch never looks up,
