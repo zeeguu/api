@@ -852,7 +852,9 @@ class DailyLessonGenerator:
         )
 
         if not lesson:
-            return {"error": "No lesson found for today to delete", "status_code": 404}
+            # Stays a 200: clients that don't send lesson_id treat this as "clear
+            # the way" before regenerating, and a 404 would block that.
+            return {"message": "No lesson found for today to delete"}
 
         return self._delete_lesson(lesson, user)
 

@@ -21,8 +21,9 @@ class Limit:
     rate:  a flask-limiter rate string.
     key:   "ip" for endpoints reachable without a session, "session" for the
            ones behind @requires_session, where an IP bucket would put a whole
-           class behind one school NAT into a single quota, and "target_email"
-           for endpoints that act on an address named in the route.
+           class behind one school NAT into a single quota, "user" where the
+           limit caps what one account may spend across all its sessions, and
+           "target_email" for endpoints that act on an address named in the route.
 
            An endpoint may carry several limits with different keys: a tight
            one on what is being protected, and a looser per-IP backstop.
@@ -145,9 +146,10 @@ RATE_LIMITS = {
     # Deleting a daily audio lesson. Any learner may do it (a lesson generated
     # in the wrong language is useless to them), but each delete is followed by
     # a regeneration that costs LLM and TTS calls -- the settings dialog's
-    # "apply to today" goes through here too. Only successful deletes count, so
-    # a 404 on an already-gone lesson doesn't use up the allowance.
-    "endpoints.delete_todays_lesson": Limit("3 per 5 hours", key="session", count="successes"),
+    # "apply to today" goes through here too. Per account, not per session, so a
+    # second device doesn't double the allowance. Only successful deletes count,
+    # so a 404 on an already-gone lesson doesn't use any of it up.
+    "endpoints.delete_todays_lesson": Limit("3 per 5 hours", key="user", count="successes"),
 }
 
 
@@ -218,6 +220,21 @@ def _session_key():
     return f"session:{session_uuid}" if session_uuid else get_remote_address()
 
 
+def _user_key():
+    """
+    Rate-limit key for endpoints whose limit protects something the account
+    spends, so logging in again or on a second device doesn't hand out a
+    fresh allowance. The limiter runs before @requires_session, so the session
+    is resolved here. Falls back to the session key when it doesn't resolve;
+    the view rejects such a request anyway.
+    """
+    from zeeguu.core.model.session import Session
+
+    session_uuid = flask.request.args.get("session") or flask.request.cookies.get("chocolatechip")
+    session = Session.find(session_uuid) if session_uuid else None
+    return f"user:{session.user_id}" if session else _session_key()
+
+
 def init_limiter(app, enabled=True):
     """
     Initialize the rate limiter with the Flask app.
@@ -262,6 +279,7 @@ def apply_rate_limits_to_endpoints(app):
     key_funcs = {
         "ip": get_remote_address,
         "session": _session_key,
+        "user": _user_key,
         "target_email": _target_email_key,
         "target_account": _target_account_key,
     }

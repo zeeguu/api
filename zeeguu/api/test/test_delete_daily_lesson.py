@@ -107,3 +107,17 @@ def test_a_failed_delete_does_not_use_up_the_allowance(logged_in_client, limitin
 
     lesson_id = _lesson_for(logged_in_client.email)
     assert _delete(logged_in_client, lesson_id).status_code == 200
+
+
+def test_a_second_session_shares_the_allowance(logged_in_client, limiting_enabled):
+    """Logging in again must not hand out three more regenerations."""
+    for _ in range(3):
+        assert _delete(logged_in_client, _lesson_for(logged_in_client.email)).status_code == 200
+
+    second = logged_in_client.client.post(
+        f"/session/{logged_in_client.email}", data={"password": "test"}
+    ).json["session"]
+    assert second != logged_in_client.session
+    logged_in_client.session = second
+
+    assert _delete(logged_in_client, _lesson_for(logged_in_client.email)).status_code == 429

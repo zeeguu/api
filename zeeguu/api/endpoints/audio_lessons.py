@@ -355,7 +355,7 @@ def delete_todays_lesson():
     """
     Delete one of the current user's daily audio lessons.
     Removes both the database record and the audio file.
-    Rate-limited per session (see RATE_LIMITS) since every delete invites a
+    Rate-limited per account (see RATE_LIMITS) since every delete invites a
     regeneration, which costs LLM and TTS calls.
 
     Query parameters:
