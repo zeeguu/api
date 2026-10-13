@@ -121,7 +121,7 @@ class BasicSRSchedule(db.Model):
 
             return
 
-        correctness = ExerciseOutcome.is_correct(outcome)
+        correctness = _counts_as_progress(outcome)
 
         # Do we have more words scheduled than the user prefers?
         more_scheduled_words_than_user_prefers = cls.scheduled_user_words_count(
@@ -428,3 +428,19 @@ def _get_end_of_date(date):
 
 def _get_end_of_today():
     return _get_end_of_date(datetime.now())
+
+
+def _counts_as_progress(outcome: str):
+    """
+    Whether an answer moves the word forward in the schedule. Laxer than
+    ExerciseOutcome.is_correct: a hint or a looked-up translation before the
+    right answer still counts here.
+
+    TODO: the scheduler rewrite should use ExerciseOutcome.is_correct (or
+    graded outcomes) and delete this; it is the only other notion of "correct".
+    """
+    return (
+        ExerciseOutcome.is_correct(outcome)
+        or outcome == ExerciseOutcome.CORRECT_AFTER_HINT
+        or outcome in ExerciseOutcome.correct_after_translation
+    )

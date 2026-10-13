@@ -239,7 +239,7 @@ def _exercise_sessions(user_id, language_id, from_date, to_date):
                 "origin": ex.user_word.meaning.origin.content,
                 "translation": ex.user_word.meaning.translation.content,
                 # Same definition as the teacher's "correct on 1st try"
-                "correct": ExerciseOutcome.is_correct_on_first_try(ex.outcome.outcome),
+                "correct": ExerciseOutcome.is_correct(ex.outcome.outcome),
             }
             for ex in exercises[es.id]
         ]

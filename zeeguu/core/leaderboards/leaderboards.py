@@ -155,11 +155,7 @@ def exercises_done_leaderboard(
     from zeeguu.core.model.exercise_outcome import ExerciseOutcome
     from zeeguu.core.model.user_word import UserWord
 
-    correct_exercise_outcomes = [
-        ExerciseOutcome.CORRECT,
-        ExerciseOutcome.CORRECT_AFTER_HINT,
-        *ExerciseOutcome.correct_after_translation
-    ]
+    correct_exercise_outcomes = ExerciseOutcome.correct_outcomes
 
     exercises_done_count = func.coalesce(
         func.sum(
