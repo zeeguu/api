@@ -53,6 +53,7 @@ POLICIES = {
     ("example_sentence", "user_id"): MOVE,
     ("exercise_report", "user_id"): MOVE,
     ("meaning_report", "user_id"): MOVE,
+    ("onboarding_funnel_event", "user_id"): MOVE,
     ("personal_copy", "user_id"): MOVE,
     ("search_filter", "user_id"): MOVE,
     ("search_subscription", "user_id"): MOVE,
