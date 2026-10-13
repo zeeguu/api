@@ -270,3 +270,19 @@ def test_summary_positions_must_belong_to_the_article(client, link, level_summar
     assert _translate(client, link, position).status_code == 400
     position["part"] = "summary:abc"
     assert _translate(client, link, position).status_code == 400
+
+
+def test_summary_link_card_for_a_logged_in_reader(client, article_id, link):
+    card = client.get(f"/article_link_card/{link}")
+    assert card["id"] == article_id
+    assert card["interactiveSummary"]["tokens"]
+    assert "has_personal_copy" in card
+    assert client.client.get(f"/article_link_card/{link}").status_code == 401
+
+
+def test_summary_link_preview_describes_the_summary(client, link, level_summary):
+    _, text = level_summary
+    with patch("zeeguu.api.endpoints.article._ensure_article_card"):
+        html = client.client.get(f"/shared_article_preview/read/{link}/summary?level=A2").data.decode()
+    assert f'<meta property="og:url" content="https://zeeguu.org/read/{link}/summary?level=A2">' in html
+    assert f'<meta property="og:description" content="AI summary: {text}">' in html

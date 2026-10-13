@@ -18,6 +18,7 @@ import os
 import math
 import requests
 from io import BytesIO
+from urllib.parse import quote
 from markupsafe import escape
 from PIL import Image
 from zeeguu.config import ZEEGUU_DATA_FOLDER
@@ -158,10 +159,41 @@ def shared_article_preview_by_code(code):
     return _article_preview_response(article, page_url)
 
 
-def _article_preview_response(article, page_url):
+@api.route("/shared_article_preview/read/<string:code>/summary", methods=["GET"])
+@cross_domain
+def shared_summary_preview_by_code(code):
+    """Preview-bot-facing OG HTML for a summary link
+    (zeeguu.org/read/<code>/summary?level=…): the article's card, with the
+    summary the link opens as the description."""
+    from zeeguu.core.model.article_public_code import ArticlePublicCode
+    from zeeguu.api.endpoints.public_article import _summary_level_row
+
+    level = request.args.get("level")
+    page_url = f"{SHARE_WEB_ORIGIN}/read/{code}/summary"
+    if level:
+        page_url += f"?level={quote(level)}"
+    article = ArticlePublicCode.find_article(code)
+    if not article:
+        return flask.redirect(page_url, code=302)
+    level_row = _summary_level_row(article, level)
+    summary = (level_row.summary if level_row else article.summary) or ""
+    return _article_preview_response(article, page_url, summary=summary)
+
+
+def _summary_preview_description(summary):
+    """The summary itself, cut at a word near 200 characters, for og:description."""
+    text = " ".join(summary.split())
+    if len(text) > 200:
+        text = text[:200].rsplit(" ", 1)[0] + "…"
+    return f"AI summary: {text}" if text else "AI summary. Read on Zeeguu."
+
+
+def _article_preview_response(article, page_url, summary=None):
     article_id = article.id
     view = _article_card_view(article)
     og_title, description = _article_preview_texts(view)
+    if summary is not None:
+        description = _summary_preview_description(summary)
     image_url = f"{SHARE_API_ORIGIN}/shared_article_image/{article_id}.jpg"
     try:
         _ensure_article_card(view)  # best-effort cache warm
