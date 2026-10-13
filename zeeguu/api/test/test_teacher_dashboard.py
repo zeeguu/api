@@ -179,6 +179,35 @@ def test_teacher_decides_whether_students_see_each_other(client):
     assert student_status() == 200
 
 
+def test_teacher_cannot_read_students_of_another_class(client):
+    from zeeguu.core.model import Cohort, Language, User
+    from zeeguu.core.model.db import db
+
+    client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
+    other = Cohort("other123", "OtherClass", Language.find("fr"), 10)
+    db.session.add(other)
+    db.session.commit()
+    other_id = other.id
+
+    def join(email, invite_code):
+        data = dict(password="test", username=email, learned_language="fr")
+        client.response_from_post(f"/add_user/{email}", data=dict(data, invite_code=invite_code))
+        return User.find(email).id
+
+    own_student = join("own@mir.lu", FRENCH_B1_COHORT["inv_code"])
+    foreign_student = join("foreign@mir.lu", "other123")
+
+    def status(student_id, cohort_id):
+        params = dict(student_id=student_id, cohort_id=cohort_id, number_of_days=14)
+        return client.response_from_post("/student_activity_overview", data=params).status_code
+
+    assert status(own_student, 1) == 200
+    assert status(foreign_student, other_id) == 401
+
+    client.get(f"/remove_user_from_cohort/{foreign_student}/{other_id}")
+    assert User.find_by_id(foreign_student).is_member_of_cohort(other_id)
+
+
 FRENCH_B1_COHORT = {
     "inv_code": "123",
     "name": "FrenchB1",
