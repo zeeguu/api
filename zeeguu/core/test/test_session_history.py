@@ -189,6 +189,7 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
         assert by_id[practised.id]["practised"] is True
         assert by_id[not_practised.id]["practised"] is False
         assert by_id[practised.id]["context"] == practised.get_context()
+        assert by_id[practised.id]["context_cut_right"] == bool(practised.context.right_ellipsis)
 
     def test_queries_do_not_grow_with_the_number_of_sessions(self):
         # The range is unbounded, so per-session lookups would make a school

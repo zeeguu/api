@@ -91,6 +91,10 @@ def _words_by_session(session_column, session_ids, language_id, for_teacher, wit
             word["context"] = context
         if for_teacher:
             word["practised"] = b.user_word_id in practised
+            # The reader stores an excerpt around the word, not the whole
+            # sentence; these say where it was cut, so it can show "…".
+            word["context_cut_left"] = bool(b.context and b.context.left_ellipsis)
+            word["context_cut_right"] = bool(b.context and b.context.right_ellipsis)
         result[getattr(b, session_column.key)].append(word)
     return result
 
