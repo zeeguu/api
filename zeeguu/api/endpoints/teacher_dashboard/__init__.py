@@ -6,3 +6,4 @@ from .student_exercises import *
 from .student_words import *
 from .student_overviews import *
 from .student_readings import *
+from .student_session_history import *

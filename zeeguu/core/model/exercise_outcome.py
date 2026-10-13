@@ -35,6 +35,15 @@ class ExerciseOutcome(db.Model):
 
     correct_after_translation = ["TC", "TTC", "TTTC"]
 
+    # The one definition of "correct" shown to learners and teachers alike
+    # (session accuracy, the dashboard's "correct on 1st try"): solved
+    # unaided. "Correct" is the pre-2021 spelling of "C".
+    correct_on_first_try_outcomes = [CORRECT, "Correct"]
+
+    @classmethod
+    def is_correct_on_first_try(cls, outcome: str):
+        return outcome in cls.correct_on_first_try_outcomes
+
     @classmethod
     def is_valid_attempt(cls, outcome: str):
         """
