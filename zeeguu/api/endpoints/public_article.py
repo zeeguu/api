@@ -13,6 +13,7 @@ anonymous user.
 """
 
 import os
+import re
 from string import punctuation
 
 import flask
@@ -26,6 +27,7 @@ from zeeguu.api.utils.rate_limiter import get_limiter
 from zeeguu.core.model import Article, Language
 from zeeguu.core.model.article_share_link import ArticleShareLink
 from zeeguu.core.model.article_public_code import ArticlePublicCode
+from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
 from zeeguu.core.model.public_translation import PublicTranslation
 from zeeguu.core.translation_services.translator import get_best_translation
 from zeeguu.logging import log
@@ -97,6 +99,88 @@ def public_article(code):
 
 
 # ---------------------------------------------------------------------------
+@api.route("/public_article_summary/<string:code>", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+def public_article_summary(code):
+    """The article's AI summary on a page of its own (zeeguu.org/read/<code>/summary):
+    what a feed card shows, for sharing a summary with a friend or for looking
+    back at one from History without opening the reader.
+
+    ?level=B1 picks the summary for that level, as the feed would for a learner
+    at that level; without it, the article's own summary. The response says
+    which level it is (shown_level) and how to address its words for
+    /public_translate (title_part, summary_part).
+    """
+    article = ArticlePublicCode.find_article(code)
+    if not article or article.broken:
+        return json_result({"error": "Article not found"}), 404
+
+    info = article.article_info(with_content=False)
+    info.pop("uploader_name", None)
+
+    level_row = _summary_level_row(article, request.args.get("level"))
+    title_tokens, summary_tokens = _summary_tokens(article, level_row)
+    if level_row:
+        info["summary"] = level_row.summary.strip()
+        if level_row.title and title_tokens is not None:
+            info["title"] = level_row.title.strip()
+
+    title_part, summary_part = _summary_part_names(level_row, title_tokens)
+    info.update(
+        is_ai_summary=True,
+        shown_level=level_row.cefr_level if level_row else article.cefr_level,
+        title_part=title_part,
+        summary_part=summary_part,
+        interactiveTitle=_public_token_payload(title_tokens),
+        interactiveSummary=_public_token_payload(summary_tokens),
+    )
+    return json_result(info)
+
+
+def _summary_level_row(article, level):
+    """The per-level summary a learner at `level` sees on the feed card, or None
+    for the article's own (no level asked for, unknown level, or at/above the
+    article's level)."""
+    if not level:
+        return None
+    row = LevelAdaptedArticleText.best_for_user_level(article.id, level, article.cefr_level)
+    if not row or not row.summary or not row.get_tokenized_summary():
+        return None
+    return row
+
+
+def _summary_tokens(article, level_row):
+    """(title tokens, summary tokens) for the summary page, the same tokens the
+    feed card is rendered from. The title tokens are None when a level row has
+    no headline of its own; the article's title is shown then."""
+    from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+    from zeeguu.core.model.user_article import UserArticle
+
+    if level_row:
+        return level_row.get_tokenized_title(), level_row.get_tokenized_summary()
+    cache = ArticleTokenizationCache.get_for_article(db_session, article.id)
+    summary = UserArticle._summary_tokens(article, cache) if article.summary else None
+    return UserArticle._title_tokens(article, cache), summary
+
+
+def _summary_part_names(level_row, title_tokens):
+    """How /public_translate addresses this page's words: summary_title and
+    summary for the article's own text, with ":<row id>" for a level's."""
+    if not level_row:
+        return "summary_title", "summary"
+    title = f"summary_title:{level_row.id}" if title_tokens is not None else "summary_title"
+    return title, f"summary:{level_row.id}"
+
+
+def _public_token_payload(tokens):
+    # The shape InteractiveText renders; a visitor has no bookmarks.
+    if tokens is None:
+        return None
+    return {"tokens": tokens, "past_bookmarks": []}
+
+
+# ---------------------------------------------------------------------------
 @api.route("/public_translate/<string:code>/<to_lang_code>", methods=["POST"])
 # ---------------------------------------------------------------------------
 @cross_domain
@@ -152,12 +236,16 @@ def public_translate(code, to_lang_code):
 
 
 _POSITION_FIELDS = ("paragraph_i", "sent_i", "token_i", "total_tokens")
+# Words of the summary page: "summary" / "summary_title" for the article's own
+# text, "summary:<id>" / "summary_title:<id>" for a LevelAdaptedArticleText.
+SUMMARY_PART = re.compile(r"^(summary|summary_title)(?::([1-9][0-9]{0,9}))?$")
 MAX_SPAN_TOKENS = 8  # a fused phrase, never a whole sentence
 
 
 def _position_from(body):
     part = body.get("part")
-    if part != "title" and not (isinstance(part, int) and part > 0):
+    is_summary_part = isinstance(part, str) and SUMMARY_PART.match(part)
+    if part != "title" and not is_summary_part and not (isinstance(part, int) and part > 0):
         return None
     position = {"part": str(part)}
     for field in _POSITION_FIELDS:
@@ -180,6 +268,13 @@ def _word_and_sentence(article, position):
     """(word text, sentence text) at a position, read from the article's own
     tokenization -- the same tokens the page was rendered from. None if the
     position doesn't exist."""
+    summary_part = SUMMARY_PART.match(position["part"])
+    if summary_part:
+        paragraphs = _summary_part_tokens(article, *summary_part.groups())
+        if paragraphs is None:
+            return None
+        return _word_and_sentence_in(paragraphs, position)
+
     content = article.get_tokenized_content()
     if position["part"] == "title":
         paragraphs = content.get("tokenized_title_new", {}).get("tokens", [])
@@ -193,7 +288,22 @@ def _word_and_sentence(article, position):
         if fragment is None:
             return None
         paragraphs = fragment["tokens"]
+    return _word_and_sentence_in(paragraphs, position)
 
+
+def _summary_part_tokens(article, kind, level_row_id):
+    """The token stream a summary-page position points into; None if that part
+    doesn't exist for this article."""
+    level_row = None
+    if level_row_id:
+        level_row = LevelAdaptedArticleText.find_by_id(int(level_row_id))
+        if not level_row or level_row.article_id != article.id:
+            return None
+    title_tokens, summary_tokens = _summary_tokens(article, level_row)
+    return summary_tokens if kind == "summary" else title_tokens
+
+
+def _word_and_sentence_in(paragraphs, position):
     sentence = [
         token
         for paragraph in paragraphs
