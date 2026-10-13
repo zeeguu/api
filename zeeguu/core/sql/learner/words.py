@@ -1,3 +1,5 @@
+from sqlalchemy.orm import selectinload
+
 from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
@@ -89,8 +91,15 @@ def learned_words(user_id, language_id, from_date: str, to_date: str):
         },
     )
 
+    ids = [each["user_word_id"] for each in results]
+    user_words = {
+        uw.id: uw
+        for uw in UserWord.query.options(selectinload(UserWord.exercise_log))
+        .filter(UserWord.id.in_(ids))
+        .all()
+    }
     for each in results:
-        log = SortedExerciseLog(UserWord.query.get(each["user_word_id"]))
+        log = SortedExerciseLog(user_words[each["user_word_id"]])
         # a word can be marked learned without ever being exercised
         each["self_reported"] = bool(log.exercises) and log.last_exercise().is_too_easy()
         each["most_recent_correct_dates"] = log.str_most_recent_correct_dates()
