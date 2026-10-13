@@ -1,0 +1,641 @@
+{
+    "title": "zeeguu-api-inside-api",
+    "packages": [
+        {
+            "name": "api.endpoints",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "api.utils",
+            "state": "NEUTRAL"
+        }
+    ],
+    "edges": [
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "api.endpoints",
+            "toPackage": "api.utils",
+            "label": "60",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "user_articles.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_articles.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_articles.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_articles.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_preferences.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_preferences.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_preferences.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_preferences.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_notifications.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_notifications.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_notifications.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_notifications.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "exercise_sessions.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/exercise_sessions.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "exercise_sessions.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/exercise_sessions.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "sessions.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/sessions.py"
+                    },
+                    "to_file": {
+                        "name": "abort_handling.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/abort_handling.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "sessions.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/sessions.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "own_texts.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/own_texts.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "own_texts.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/own_texts.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "reading_sessions.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/reading_sessions.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "accounts.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/accounts.py"
+                    },
+                    "to_file": {
+                        "name": "abort_handling.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/abort_handling.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "accounts.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/accounts.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_article.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_article.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_article.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_article.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "feature_toggles.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/feature_toggles.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_video.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_video.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_video.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_video.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "nlp.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/nlp.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "nlp.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/nlp.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "topics.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/topics.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "topics.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/topics.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_statistics.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_statistics.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_statistics.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_statistics.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "translation.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/translation.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "translation.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/translation.py"
+                    },
+                    "to_file": {
+                        "name": "parse_json_boolean.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/parse_json_boolean.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "translation.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/translation.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "translation.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/translation.py"
+                    },
+                    "to_file": {
+                        "name": "translator.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/translator.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_languages.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_languages.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_languages.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_languages.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "system_languages.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/system_languages.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "search.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/search.py"
+                    },
+                    "to_file": {
+                        "name": "abort_handling.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/abort_handling.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "search.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/search.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "search.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/search.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "student.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/student.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "student.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/student.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "speech.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/speech.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "activity_tracking.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/activity_tracking.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "exercises.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/exercises.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "exercises.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/exercises.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "exercises.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/exercises.py"
+                    },
+                    "to_file": {
+                        "name": "parse_json_boolean.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/parse_json_boolean.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "user_watching_session.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/user_watching_session.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "bookmarks_and_words.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/bookmarks_and_words.py"
+                    },
+                    "to_file": {
+                        "name": "json_result.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/json_result.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "bookmarks_and_words.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/bookmarks_and_words.py"
+                    },
+                    "to_file": {
+                        "name": "parse_json_boolean.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/parse_json_boolean.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "bookmarks_and_words.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/bookmarks_and_words.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "article.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/article.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "article.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/article.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "cohorts.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/teacher_dashboard/cohorts.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "student_readings.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/teacher_dashboard/student_readings.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "student_overviews.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/teacher_dashboard/student_overviews.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "article_management.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/teacher_dashboard/article_management.py"
+                    },
+                    "to_file": {
+                        "name": "abort_handling.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/abort_handling.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "article_management.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/teacher_dashboard/article_management.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "student_exercises.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/teacher_dashboard/student_exercises.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "student.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/teacher_dashboard/student.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "student_words.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/teacher_dashboard/student_words.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "general.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/teacher_dashboard/general.py"
+                    },
+                    "to_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "api.utils",
+            "toPackage": "api.endpoints",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "route_wrappers.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/utils/route_wrappers.py"
+                    },
+                    "to_file": {
+                        "name": "sessions.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/api/endpoints/sessions.py"
+                    }
+                }
+            ]
+        }
+    ]
+}
