@@ -15,6 +15,8 @@ from sqlalchemy.orm import joinedload
 
 from zeeguu.core.constants import EVENT_ARTICLE_LOST_FOCUS, EVENT_EXERCISE_LOST_FOCUS
 from zeeguu.core.model.article import Article
+from zeeguu.core.model.article_summary_context import ArticleSummaryContext
+from zeeguu.core.model.article_title_context import ArticleTitleContext
 from zeeguu.core.model.url import Url
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.bookmark_context import BookmarkContext
@@ -310,6 +312,26 @@ def _exercise_sessions(user_id, language_id, from_date, to_date):
     return sessions
 
 
+def _browsed_articles(bookmark_ids):
+    """
+    {bookmark id: (article id, title)} for words translated in an article's
+    title or summary on the article list.
+    """
+    result = {}
+    if not bookmark_ids:
+        return result
+    for context in (ArticleTitleContext, ArticleSummaryContext):
+        rows = (
+            context.query.join(Article, Article.id == context.article_id)
+            .filter(context.bookmark_id.in_(bookmark_ids))
+            .with_entities(context.bookmark_id, Article.id, Article.title)
+            .all()
+        )
+        for bookmark_id, article_id, title in rows:
+            result.setdefault(bookmark_id, (article_id, title))
+    return result
+
+
 def _browsing_sessions(user_id, language_id, from_date, to_date, for_teacher):
     browsing_sessions = [
         bs
@@ -324,6 +346,14 @@ def _browsing_sessions(user_id, language_id, from_date, to_date, for_teacher):
         for_teacher,
         with_context=for_teacher,
     )
+    # Which article each word was translated in, so the words of a browsing
+    # session can be shown under the title they came from.
+    all_words = [w for ws in words.values() for w in ws]
+    articles = _browsed_articles([w["id"] for w in all_words])
+    for word in all_words:
+        word["article_id"], word["article_title"] = articles.get(
+            word["id"], (None, None)
+        )
 
     sessions = []
     for bs in browsing_sessions:

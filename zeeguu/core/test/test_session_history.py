@@ -4,6 +4,8 @@ from sqlalchemy import event
 from unittest import TestCase
 
 import zeeguu.core
+from zeeguu.core.model.article_summary_context import ArticleSummaryContext
+from zeeguu.core.model.article_title_context import ArticleTitleContext
 from zeeguu.core.model.cohort import Cohort
 from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
@@ -95,6 +97,26 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
 
         assert len(browsing) == 1
         assert browsing[0]["words"] == []
+
+    def test_browsing_words_carry_the_article_they_came_from(self):
+        session = self._browsing(self.now - timedelta(days=1))
+        article = ArticleRule().article
+        in_title = BookmarkRule(self.user).bookmark
+        in_summary = BookmarkRule(self.user).bookmark
+        elsewhere = BookmarkRule(self.user).bookmark
+        for b in (in_title, in_summary, elsewhere):
+            b.browsing_session_id = session.id
+        db_session.add(ArticleTitleContext(in_title, article))
+        db_session.add(ArticleSummaryContext(in_summary, article))
+        db_session.commit()
+
+        [browsing] = self._of_type(self._history(), "browsing")
+        by_id = {w["id"]: w for w in browsing["words"]}
+
+        for b in (in_title, in_summary):
+            assert by_id[b.id]["article_id"] == article.id
+            assert by_id[b.id]["article_title"] == article.title
+        assert by_id[elsewhere.id]["article_title"] is None
 
     def test_browsing_in_another_language_is_not_shown(self):
         other = self.user.native_language
