@@ -3,6 +3,7 @@ from sqlalchemy import text
 import zeeguu.core
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 
 
 def exercise_count_and_correctness_percentage(user_id, cohort_id, start_date, end_date):
@@ -14,7 +15,10 @@ def exercise_count_and_correctness_percentage(user_id, cohort_id, start_date, en
 
     correct_on_1st_try = "0"
     if total != 0:
-        correct_count = outcome_stats.get("C", 0) + outcome_stats.get("Correct", 0)
+        correct_count = sum(
+            outcome_stats.get(o, 0)
+            for o in ExerciseOutcome.correct_on_first_try_outcomes
+        )
         correct_on_1st_try = int(correct_count / total * 100) / 100
 
     r = {"correct_on_1st_try": correct_on_1st_try, "number_of_exercises": total}
