@@ -15,6 +15,7 @@ from sqlalchemy.orm import joinedload
 
 from zeeguu.core.constants import EVENT_ARTICLE_LOST_FOCUS, EVENT_EXERCISE_LOST_FOCUS
 from zeeguu.core.model.article import Article
+from zeeguu.core.model.url import Url
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.exercise import Exercise
@@ -195,7 +196,8 @@ def _reading_completion(user_id, article_ids):
 def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
     candidates = (
         UserReadingSession.query.options(
-            joinedload(UserReadingSession.article).joinedload(Article.cefr_assessment)
+            joinedload(UserReadingSession.article).joinedload(Article.cefr_assessment),
+            joinedload(UserReadingSession.article).joinedload(Article.url).joinedload(Url.domain),
         )
         .filter(UserReadingSession.user_id == user_id)
         .filter(UserReadingSession.start_time >= from_date)
@@ -226,6 +228,7 @@ def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
             {
                 "session_type": "reading",
                 "start_time": _utc(rs.start_time),
+                "end_time": _utc(_end_time(rs)),
                 "duration": rs.duration,
                 "duration_readable": format_duration(rs.duration),
                 "article_id": rs.article_id,
@@ -233,6 +236,8 @@ def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
                 "article_word_count": rs.article.word_count,
                 "article_difficulty": rs.article.fk_difficulty,
                 "article_cefr_level": _cefr_level(rs.article),
+                # the original, at its publisher: what a teacher opens
+                "article_url": rs.article.url.as_string() if rs.article.url else None,
                 # how far into the text the reader got, 0..1 (latest, not
                 # per session: the reader keeps one value per article)
                 "reading_completion": completion.get(rs.article_id),
@@ -411,35 +416,49 @@ def session_history(user_id, language_id, from_date, to_date, for_teacher=False)
 BROWSING_MERGE_GAP = timedelta(minutes=30)
 
 
+def _continues(previous, session):
+    """session picks up where previous left off: browsing after browsing, or
+    the same article read again, starting within BROWSING_MERGE_GAP."""
+    if not previous or previous["session_type"] != session["session_type"]:
+        return False
+    if session["session_type"] == "reading":
+        if previous.get("article_id") != session.get("article_id"):
+            return False
+    elif session["session_type"] != "browsing":
+        return False
+    gap = datetime.fromisoformat(session["start_time"]) - datetime.fromisoformat(previous["end_time"])
+    return gap <= BROWSING_MERGE_GAP
+
+
 def _merge_consecutive_browsing(sessions):
     """
-    Every visit to the article list is its own browsing session, so one sitting
-    with the app leaves several short ones. Browsing sessions with nothing else
-    in between, each starting within BROWSING_MERGE_GAP of the previous one's
-    last action, become one entry. Separate visits during a day stay separate.
-    Durations add up, so totals computed from the list stay exact.
+    Every visit to the article list is its own browsing session, and leaving
+    an article and coming back starts a new reading session, so one sitting
+    leaves several short ones. Browsing sessions with nothing else in between,
+    and readings of the same article with nothing else in between, each
+    starting within BROWSING_MERGE_GAP of the previous one's last action,
+    become one entry. Durations add up, so totals computed from the list stay
+    exact.
 
     sessions: in chronological order.
     """
     merged = []
     for session in sessions:
         previous = merged[-1] if merged else None
-        if (
-            session["session_type"] == "browsing"
-            and previous
-            and previous["session_type"] == "browsing"
-            and datetime.fromisoformat(session["start_time"])
-            - datetime.fromisoformat(previous["end_time"])
-            <= BROWSING_MERGE_GAP
-        ):
+        if _continues(previous, session):
             previous["end_time"] = max(previous["end_time"], session["end_time"])
             previous["duration"] += session["duration"]
             previous["duration_readable"] = format_duration(previous["duration"])
             previous["words"] += session["words"]
             previous["word_count"] = len(previous["words"])
             previous["merged_sessions"] += 1
+            if session["session_type"] == "reading":
+                previous["interruptions"] += session["interruptions"]
+                previous["focus_level"] = _calculate_focus_level(
+                    previous["interruptions"], previous["duration"]
+                )
             continue
-        if session["session_type"] == "browsing":
+        if session["session_type"] in ("browsing", "reading"):
             session["merged_sessions"] = 1
         merged.append(session)
     return merged
