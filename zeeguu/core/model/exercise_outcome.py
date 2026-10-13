@@ -25,6 +25,9 @@ class ExerciseOutcome(db.Model):
     # Not an answer: the word was in a daily audio lesson the learner finished.
     # It schedules like a correct answer, but it is not "C": "C" means the
     # learner answered correctly, first try, without help.
+    # "Finished" only means playback reached the end: a learner who skipped
+    # to the last seconds also gets Listened for every word in the lesson.
+    # We assume that is rare enough not to matter.
     LISTENED = "Listened"
 
     too_easy_outcomes = ["too_easy", TOO_EASY]
