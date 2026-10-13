@@ -200,7 +200,7 @@ def test_per_ip_limit(client, link, fake_translator, limiting_enabled):
 
 def _summary_positions(info, part_key, payload_key):
     return [
-        dict(part=info[part_key], paragraph_i=t["paragraph_i"], sent_i=t["sent_i"], token_i=t["token_i"], total_tokens=1)
+        dict(part=info[part_key], paragraph_i=t.get("paragraph_i", t.get("par_i")), sent_i=t["sent_i"], token_i=t["token_i"], total_tokens=1)
         for par in info[payload_key]["tokens"]
         for sent in par
         for t in sent
@@ -219,7 +219,14 @@ def level_summary(article_id):
     article.cefr_level = "B2"
     text = "Der Präsident spricht heute. Viele Leute hören zu."
     row = LevelAdaptedArticleText(article, "A2", text)
-    row.tokenized_summary = ArticleTokenizationCache.cheap_tokens(text, article.language)
+    tokens = ArticleTokenizationCache.cheap_tokens(text, article.language)
+    # Stored (stanza) summary tokens call the paragraph index par_i, unlike the
+    # cheap tokenizer; keep the fixture shaped like the real rows.
+    for par in tokens:
+        for sent in par:
+            for t in sent:
+                t["par_i"] = t.pop("paragraph_i")
+    row.tokenized_summary = tokens
     db.session.add(row)
     db.session.commit()
     return row.id, text

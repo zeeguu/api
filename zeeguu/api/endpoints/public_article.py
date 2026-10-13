@@ -309,7 +309,7 @@ def _word_and_sentence_in(paragraphs, position):
         for paragraph in paragraphs
         for sent in paragraph
         for token in sent
-        if token.get("paragraph_i") == position["paragraph_i"] and token.get("sent_i") == position["sent_i"]
+        if _paragraph_i(token) == position["paragraph_i"] and token.get("sent_i") == position["sent_i"]
     ]
     if not sentence:
         return None
@@ -325,6 +325,11 @@ def _word_and_sentence_in(paragraphs, position):
     if not word:
         return None
     return word, _join_tokens(sentence)
+
+
+def _paragraph_i(token):
+    # Article fragments name it paragraph_i; stored summary tokens, par_i.
+    return token.get("paragraph_i", token.get("par_i"))
 
 
 def _join_tokens(tokens):
