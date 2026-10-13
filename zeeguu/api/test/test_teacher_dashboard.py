@@ -242,6 +242,33 @@ def test_cohorts_info_reports_last_activity(client):
     assert cohorts_by_name[SECOND_COHORT["name"]]["last_activity"] is None
 
 
+def test_class_list_counts_browsing_in_the_class_language(client):
+    from datetime import timedelta
+    from zeeguu.core.model import Language, User, UserBrowsingSession
+    from zeeguu.core.model.db import db
+
+    client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
+    data = dict(password="test", username="b", learned_language="fr", invite_code="123")
+    client.response_from_post("/add_user/browser@mir.lu", data=data)
+    student = User.find("browser@mir.lu")
+
+    def browse(language_code, minutes):
+        session = UserBrowsingSession(
+            student.id, datetime.now() - timedelta(days=1), language_id=Language.find(language_code).id
+        )
+        session.duration = minutes * 60 * 1000
+        db.session.add(session)
+
+    browse("fr", 2)
+    browse("de", 5)  # another language: not this class's
+    db.session.commit()
+
+    [row] = client.get("/users_from_cohort/1/14")
+
+    assert row["browsing_time"] == 120
+    assert row["audio_time"] == 0
+
+
 FRENCH_B1_COHORT = {
     "inv_code": "123",
     "name": "FrenchB1",
