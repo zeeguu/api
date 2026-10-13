@@ -7,6 +7,7 @@ import zeeguu.core
 from zeeguu.core.model.cohort import Cohort
 from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
+from zeeguu.core.model.exercise_source import ExerciseSource
 from zeeguu.core.model.user_browsing_session import UserBrowsingSession
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 from zeeguu.core.model.user_reading_session import UserReadingSession
@@ -237,3 +238,32 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
             4 * MINUTE_MS,
             2 * MINUTE_MS,
         ]
+
+    def test_audio_lesson_words_are_not_dashboard_exercises(self):
+        # Session history never shows them (they belong to no exercise
+        # session), so the dashboard must not count them either.
+        cohort = Cohort("hist-audio", "Audio", self.language, 10)
+        db_session.add(cohort)
+        db_session.commit()
+        self._exercise_session(self.now - timedelta(days=1), ["C", "W"])
+        audio = ExerciseSource.find_or_create(db_session, "DAILY_AUDIO_LESSON")
+        for outcome in ["C", ExerciseOutcome.LISTENED]:
+            db_session.add(
+                Exercise(
+                    ExerciseOutcome.find_or_create(db_session, outcome),
+                    audio,
+                    0,
+                    self.now - timedelta(hours=1),
+                    None,
+                    BookmarkRule(self.user).bookmark.user_word,
+                )
+            )
+        db_session.commit()
+
+        start, end = self.from_date.isoformat(), self.to_date.isoformat()
+        stats = exercise_count_and_correctness_percentage(
+            self.user.id, cohort.id, start, end
+        )
+
+        assert stats["number_of_exercises"] == 2
+        assert stats["correct_on_1st_try"] == 0.5
