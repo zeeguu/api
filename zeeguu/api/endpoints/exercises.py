@@ -280,12 +280,18 @@ def _count_valid_user_words(user_words):
 
 
 def _user_words_as_json_result(user_words):
+    return json_result(user_words_as_dicts(user_words))
+
+
+def user_words_as_dicts(user_words):
+    """The Words pages' JSON for these user words. Repairs what it can on the
+    way (see below), as it does whenever a learner opens the page."""
     from zeeguu.logging import log
     from zeeguu.core.model import db
     from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 
     if not user_words:
-        return json_result([])
+        return []
 
     # Batch-load all schedules in ONE query to avoid N+1 problem
     # Use FourLevelsPerWord (the actual subclass) to get proper polymorphic behavior
@@ -353,7 +359,7 @@ def _user_words_as_json_result(user_words):
             db.session.rollback()
             log("Failed to commit UserWord deletions")
 
-    return json_result(dicts)
+    return dicts
 
 
 # ====================================
