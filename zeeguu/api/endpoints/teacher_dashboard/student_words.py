@@ -49,8 +49,16 @@ EXCLUDED_SHOWN = 200
 def _excluded_user_words(student, language_id):
     """Translated, not learned, and left out of exercises: by the algorithm
     (a bad example, a name, too common...) or because the student said so."""
+    from zeeguu.core.model.bookmark import Bookmark
+
     return (
-        UserWord.query.join(Meaning, UserWord.meaning_id == Meaning.id)
+        UserWord.query.options(
+            joinedload(UserWord.meaning).joinedload(Meaning.origin),
+            joinedload(UserWord.meaning).joinedload(Meaning.translation),
+            joinedload(UserWord.preferred_bookmark).joinedload(Bookmark.text),
+            joinedload(UserWord.preferred_bookmark).joinedload(Bookmark.context),
+        )
+        .join(Meaning, UserWord.meaning_id == Meaning.id)
         .join(Phrase, Meaning.origin_id == Phrase.id)
         .filter(UserWord.user_id == student.id)
         .filter(Phrase.language_id == language_id)
@@ -113,9 +121,12 @@ def student_word_lists():
 
     return json_result(
         {
-            "scheduled": _with_attempts(user_words_as_dicts(scheduled)),
-            "next_in_learning": _with_attempts(user_words_as_dicts(next_in_learning)),
-            "excluded": _with_attempts(user_words_as_dicts(_excluded_user_words(student, language_id))),
+            # a teacher's list needs no tokenized contexts (exercises do)
+            "scheduled": _with_attempts(user_words_as_dicts(scheduled, tokenize=False)),
+            "next_in_learning": _with_attempts(user_words_as_dicts(next_in_learning, tokenize=False)),
+            "excluded": _with_attempts(
+                user_words_as_dicts(_excluded_user_words(student, language_id), tokenize=False)
+            ),
             "learned": _with_attempts(learned_user_words_as_dicts(student, LEARNED_SHOWN, language_id)),
             "total_learned": student.total_learned_user_words(language_id),
         }

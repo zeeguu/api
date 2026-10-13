@@ -76,7 +76,14 @@ def test_teacher_sees_the_students_word_lists(client):
     db.session.commit()
     ids = dict(scheduled=scheduled.id, excluded=excluded.id, learned=learned.id)
 
-    lists = client.get(f"/student_word_lists?student_id={student.id}&cohort_id=1")
+    # A teacher's list never tokenizes contexts: a cache miss is a call to the
+    # stanza service, and a student can have hundreds of waiting words.
+    from unittest.mock import patch
+    from zeeguu.core.model.bookmark_context import BookmarkContext
+
+    with patch.object(BookmarkContext, "get_tokenized") as get_tokenized:
+        lists = client.get(f"/student_word_lists?student_id={student.id}&cohort_id=1")
+    assert get_tokenized.call_count == 0
 
     assert [w["user_word_id"] for w in lists["scheduled"]] == [ids["scheduled"]]
     assert [a["outcome"] for a in lists["scheduled"][0]["exercise_attempts"]] == ["C"]
