@@ -14,6 +14,7 @@ from collections import defaultdict
 from sqlalchemy.orm import joinedload
 
 from zeeguu.core.constants import EVENT_ARTICLE_LOST_FOCUS, EVENT_EXERCISE_LOST_FOCUS
+from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.exercise import Exercise
@@ -23,6 +24,7 @@ from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.model.user_browsing_session import UserBrowsingSession
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 from zeeguu.core.model.user_listening_session import UserListeningSession
+from zeeguu.core.model.user_article import UserArticle
 from zeeguu.core.model.user_reading_session import UserReadingSession
 from zeeguu.core.model.user_word import UserWord
 
@@ -170,9 +172,31 @@ def format_duration(duration_ms):
     return f"{round(hours, 1)} hr"
 
 
+def _cefr_level(article):
+    """The article's level as the reader shows it: the assessed level when
+    there is one, else the level it was crawled with."""
+    if article.cefr_assessment and article.cefr_assessment.effective_cefr_level:
+        return article.cefr_assessment.effective_cefr_level
+    return article.cefr_level
+
+
+def _reading_completion(user_id, article_ids):
+    if not article_ids:
+        return {}
+    rows = (
+        UserArticle.query.with_entities(UserArticle.article_id, UserArticle.reading_completion)
+        .filter(UserArticle.user_id == user_id)
+        .filter(UserArticle.article_id.in_(article_ids))
+        .all()
+    )
+    return {article_id: value for article_id, value in rows if value is not None}
+
+
 def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
     candidates = (
-        UserReadingSession.query.options(joinedload(UserReadingSession.article))
+        UserReadingSession.query.options(
+            joinedload(UserReadingSession.article).joinedload(Article.cefr_assessment)
+        )
         .filter(UserReadingSession.user_id == user_id)
         .filter(UserReadingSession.start_time >= from_date)
         .filter(UserReadingSession.start_time <= to_date)
@@ -184,6 +208,7 @@ def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
         # no duration: abandoned / never closed; no article: language unknown
         if rs.duration and rs.article and rs.article.language_id == language_id
     ]
+    completion = _reading_completion(user_id, {rs.article_id for rs in reading_sessions})
     words = _words_by_session(
         Bookmark.reading_session_id,
         [rs.id for rs in reading_sessions],
@@ -207,6 +232,10 @@ def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
                 "article_title": rs.article.title,
                 "article_word_count": rs.article.word_count,
                 "article_difficulty": rs.article.fk_difficulty,
+                "article_cefr_level": _cefr_level(rs.article),
+                # how far into the text the reader got, 0..1 (latest, not
+                # per session: the reader keeps one value per article)
+                "reading_completion": completion.get(rs.article_id),
                 # 'extension' or 'web'; None for sessions from before the field existed
                 "reading_source": rs.reading_source,
                 "words": bookmarks,
