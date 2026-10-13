@@ -303,7 +303,8 @@ def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
                 "interruptions": count,
                 "focus_level": _calculate_focus_level(count, rs.duration),
                 # between start_time and end_time, when the page was not in
-                # focus: [[start, end], ...]
+                # focus: [[start, end], ...]; [start, end, "closed"] when the
+                # article was closed (between readings merged into one entry)
                 "away": away.during(rs),
             }
         )
@@ -540,8 +541,11 @@ def _merge_consecutive_browsing(sessions):
             previous["word_count"] = len(previous["words"])
             previous["merged_sessions"] += 1
             if session["session_type"] == "reading":
-                # the article closed between the two counts as away
-                previous["away"] += [[previous_end, session["start_time"]]] + session["away"]
+                # the article closed between the two counts as away, marked
+                # apart from leaving it open for another tab or app
+                previous["away"] += [
+                    [previous_end, session["start_time"], "closed"]
+                ] + session["away"]
                 previous["interruptions"] += session["interruptions"]
                 previous["focus_level"] = _calculate_focus_level(
                     previous["interruptions"], previous["duration"]

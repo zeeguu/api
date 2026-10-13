@@ -364,3 +364,8 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
 
         assert [r["merged_sessions"] for r in reading] == [1, 2]
         assert reading[1]["duration"] == 6 * MINUTE_MS
+        # closed from the first reading's last action to the second's start
+        iso = lambda t: t.isoformat() + "Z"
+        assert reading[1]["away"] == [
+            [iso(start + timedelta(minutes=5)), iso(start + timedelta(minutes=7)), "closed"]
+        ]
