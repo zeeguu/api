@@ -2,7 +2,9 @@ import flask
 from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import User, Cohort
-from zeeguu.core.user_statistics.session_history import session_history
+# Underscored so `from .teacher_dashboard import *` in endpoints/__init__.py
+# does not rebind the package's `session_history` module to this function.
+from zeeguu.core.user_statistics.session_history import session_history as _session_history
 from ._permissions import check_permission_for_cohort, check_permission_for_user
 from ..session_history import date_range_from_request
 from .. import api
@@ -31,7 +33,7 @@ def student_session_history():
 
     from_date, to_date = date_range_from_request()
     return json_result(
-        session_history(
+        _session_history(
             student.id, cohort.language_id, from_date, to_date, for_teacher=True
         )
     )

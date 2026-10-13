@@ -2,20 +2,39 @@
 A learner's activity as a list of sessions: reading, exercises, browsing and
 audio lessons. Shown to the learner on Activity -> History, and to their
 teacher for the class's language.
+
+The range is unbounded (a teacher may look at a whole school year), so each
+kind of detail is fetched with one query for all sessions, not one per session.
 """
+
+from bisect import bisect_left, bisect_right
+from collections import defaultdict
+
+from sqlalchemy.orm import joinedload
 
 from zeeguu.core.constants import EVENT_ARTICLE_LOST_FOCUS, EVENT_EXERCISE_LOST_FOCUS
 from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
+from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.model.user_browsing_session import UserBrowsingSession
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 from zeeguu.core.model.user_listening_session import UserListeningSession
 from zeeguu.core.model.user_reading_session import UserReadingSession
+from zeeguu.core.model.user_word import UserWord
 
 # What the learner sees is a glimpse of the sentence; the teacher sees it whole.
 LEARNER_CONTEXT_LENGTH = 100
+
+
+def _with_meaning(user_word_relationship):
+    meaning = user_word_relationship.joinedload(UserWord.meaning)
+    return [
+        meaning.joinedload(Meaning.origin),
+        meaning.joinedload(Meaning.translation),
+    ]
 
 
 def _practised_user_word_ids(user_word_ids):
@@ -30,19 +49,34 @@ def _practised_user_word_ids(user_word_ids):
     return {row[0] for row in rows}
 
 
-def _bookmarks_in_session(session_filter, language_id, for_teacher, with_context):
-    bookmarks = Bookmark.query.filter(session_filter).order_by(Bookmark.time).all()
+def _words_by_session(session_column, session_ids, language_id, for_teacher, with_context):
+    """
+    {session id: [translated word]} for the bookmarks made in those sessions.
+    """
+    if not session_ids:
+        return {}
+
+    options = _with_meaning(joinedload(Bookmark.user_word))
+    if with_context:
+        options += [
+            joinedload(Bookmark.context).joinedload(BookmarkContext.text),
+            joinedload(Bookmark.text),
+        ]
     bookmarks = [
-        b for b in bookmarks
+        b
+        for b in Bookmark.query.options(*options)
+        .filter(session_column.in_(session_ids))
+        .order_by(Bookmark.time)
+        .all()
         if b.user_word.meaning.origin.language_id == language_id
     ]
     practised = (
-        _practised_user_word_ids([b.user_word_id for b in bookmarks])
+        _practised_user_word_ids({b.user_word_id for b in bookmarks})
         if for_teacher
         else set()
     )
 
-    result = []
+    result = defaultdict(list)
     for b in bookmarks:
         word = {
             "id": b.id,
@@ -56,74 +90,37 @@ def _bookmarks_in_session(session_filter, language_id, for_teacher, with_context
             word["context"] = context
         if for_teacher:
             word["practised"] = b.user_word_id in practised
-        result.append(word)
+        result[getattr(b, session_column.key)].append(word)
     return result
 
 
-def _words_for_audio_lesson(audio_lesson, language_id):
-    """Get all words/meanings included in an audio lesson."""
-    result = []
-    for segment in audio_lesson.segments:
-        if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
-            meaning = segment.audio_lesson_meaning.meaning
-            if meaning.origin.language_id != language_id:
-                continue
-            result.append({
-                "origin": meaning.origin.content,
-                "translation": meaning.translation.content,
-            })
-    return result
+class _Interruptions:
+    """Focus-lost events of one kind, fetched once and counted per session."""
 
+    def __init__(self, user_id, event_type, sessions):
+        self.times = []
+        if not sessions:
+            return
+        earliest = min(s.start_time for s in sessions)
+        latest = max(_end_time(s) for s in sessions)
+        rows = (
+            UserActivityData.query.with_entities(UserActivityData.time)
+            .filter(UserActivityData.user_id == user_id)
+            .filter(UserActivityData.event == event_type)
+            .filter(UserActivityData.time >= earliest)
+            .filter(UserActivityData.time <= latest)
+            .all()
+        )
+        self.times = sorted(row[0] for row in rows)
 
-def _exercises_for_session(session_id, language_id):
-    """Get exercise summary for an exercise session."""
-    exercises = (
-        Exercise.query.filter(Exercise.session_id == session_id)
-        .order_by(Exercise.time)
-        .all()
-    )
-
-    words_practiced = []
-    correct_count = 0
-    total_count = 0
-
-    for ex in exercises:
-        if ex.user_word.meaning.origin.language_id != language_id:
-            continue
-        total_count += 1
-        # Same definition as the teacher's "correct on 1st try"
-        is_correct = ExerciseOutcome.is_correct_on_first_try(ex.outcome.outcome)
-        if is_correct:
-            correct_count += 1
-
-        words_practiced.append(
-            {
-                # preferred bookmark, so the learner can edit the word
-                "id": ex.user_word.preferred_bookmark_id,
-                "origin": ex.user_word.meaning.origin.content,
-                "translation": ex.user_word.meaning.translation.content,
-                "correct": is_correct,
-            }
+    def during(self, session):
+        return bisect_right(self.times, _end_time(session)) - bisect_left(
+            self.times, session.start_time
         )
 
-    return {
-        "words_practiced": words_practiced,
-        "total": total_count,
-        "correct": correct_count,
-        "accuracy": round(correct_count / total_count * 100) if total_count > 0 else 0,
-    }
 
-
-def _count_interruptions(user_id, start_time, end_time, event_type):
-    """Count focus-lost events during a session."""
-    return (
-        UserActivityData.query
-        .filter(UserActivityData.user_id == user_id)
-        .filter(UserActivityData.event == event_type)
-        .filter(UserActivityData.time >= start_time)
-        .filter(UserActivityData.time <= end_time)
-        .count()
-    )
+def _end_time(session):
+    return session.last_action_time if session.last_action_time else session.start_time
 
 
 def _calculate_focus_level(interruptions, duration_ms):
@@ -161,22 +158,32 @@ def format_duration(duration_ms):
 
 
 def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
+    candidates = (
+        UserReadingSession.query.options(joinedload(UserReadingSession.article))
+        .filter(UserReadingSession.user_id == user_id)
+        .filter(UserReadingSession.start_time >= from_date)
+        .filter(UserReadingSession.start_time <= to_date)
+        .all()
+    )
+    reading_sessions = [
+        rs
+        for rs in candidates
+        # no duration: abandoned / never closed; no article: language unknown
+        if rs.duration and rs.article and rs.article.language_id == language_id
+    ]
+    words = _words_by_session(
+        Bookmark.reading_session_id,
+        [rs.id for rs in reading_sessions],
+        language_id,
+        for_teacher,
+        with_context=True,
+    )
+    interruptions = _Interruptions(user_id, EVENT_ARTICLE_LOST_FOCUS, reading_sessions)
+
     sessions = []
-    for rs in UserReadingSession.find_by_user(user_id, from_date, to_date):
-        # Skip sessions with no duration (abandoned/not properly closed)
-        if not rs.duration:
-            continue
-        if rs.article and rs.article.language_id != language_id:
-            continue
-        bookmarks = _bookmarks_in_session(
-            Bookmark.reading_session_id == rs.id, language_id, for_teacher, True
-        )
-
-        end_time = rs.last_action_time if rs.last_action_time else rs.start_time
-        interruptions = _count_interruptions(
-            user_id, rs.start_time, end_time, EVENT_ARTICLE_LOST_FOCUS
-        )
-
+    for rs in reading_sessions:
+        bookmarks = words.get(rs.id, [])
+        count = interruptions.during(rs)
         sessions.append(
             {
                 "session_type": "reading",
@@ -184,63 +191,100 @@ def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
                 "duration": rs.duration,
                 "duration_readable": format_duration(rs.duration),
                 "article_id": rs.article_id,
-                "article_title": rs.article.title if rs.article else None,
-                "article_word_count": rs.article.word_count if rs.article else None,
-                "article_difficulty": rs.article.fk_difficulty if rs.article else None,
+                "article_title": rs.article.title,
+                "article_word_count": rs.article.word_count,
+                "article_difficulty": rs.article.fk_difficulty,
                 # 'extension' or 'web'; None for sessions from before the field existed
                 "reading_source": rs.reading_source,
                 "words": bookmarks,
                 "word_count": len(bookmarks),
-                "interruptions": interruptions,
-                "focus_level": _calculate_focus_level(interruptions, rs.duration),
+                "interruptions": count,
+                "focus_level": _calculate_focus_level(count, rs.duration),
             }
         )
     return sessions
 
 
-def _exercise_sessions(user_id, language_id, from_date, to_date):
-    sessions = []
-    for es in UserExerciseSession.find_by_user_id(user_id, from_date, to_date):
-        exercise_data = _exercises_for_session(es.id, language_id)
-        # Only include sessions with exercises in this language
-        if exercise_data["total"] == 0:
-            continue
-        end_time = es.last_action_time if es.last_action_time else es.start_time
-        interruptions = _count_interruptions(
-            user_id, es.start_time, end_time, EVENT_EXERCISE_LOST_FOCUS
+def _exercises_by_session(session_ids, language_id):
+    if not session_ids:
+        return {}
+    exercises = (
+        Exercise.query.options(
+            joinedload(Exercise.outcome), *_with_meaning(joinedload(Exercise.user_word))
         )
+        .filter(Exercise.session_id.in_(session_ids))
+        .order_by(Exercise.time)
+        .all()
+    )
+    result = defaultdict(list)
+    for ex in exercises:
+        if ex.user_word.meaning.origin.language_id == language_id:
+            result[ex.session_id].append(ex)
+    return result
 
+
+def _exercise_sessions(user_id, language_id, from_date, to_date):
+    exercise_sessions = UserExerciseSession.find_by_user_id(user_id, from_date, to_date)
+    exercises = _exercises_by_session([es.id for es in exercise_sessions], language_id)
+    # Only sessions with exercises in this language
+    exercise_sessions = [es for es in exercise_sessions if exercises.get(es.id)]
+    interruptions = _Interruptions(user_id, EVENT_EXERCISE_LOST_FOCUS, exercise_sessions)
+
+    sessions = []
+    for es in exercise_sessions:
+        words_practiced = [
+            {
+                # preferred bookmark, so the learner can edit the word
+                "id": ex.user_word.preferred_bookmark_id,
+                "origin": ex.user_word.meaning.origin.content,
+                "translation": ex.user_word.meaning.translation.content,
+                # Same definition as the teacher's "correct on 1st try"
+                "correct": ExerciseOutcome.is_correct_on_first_try(ex.outcome.outcome),
+            }
+            for ex in exercises[es.id]
+        ]
+        total = len(words_practiced)
+        correct = sum(1 for w in words_practiced if w["correct"])
+        count = interruptions.during(es)
         sessions.append(
             {
                 "session_type": "exercise",
                 "start_time": es.start_time.isoformat(),
                 "duration": es.duration,
                 "duration_readable": format_duration(es.duration),
-                "words": exercise_data["words_practiced"],
-                "word_count": exercise_data["total"],
-                "correct_count": exercise_data["correct"],
-                "accuracy": exercise_data["accuracy"],
-                "interruptions": interruptions,
-                "focus_level": _calculate_focus_level(interruptions, es.duration),
+                "words": words_practiced,
+                "word_count": total,
+                "correct_count": correct,
+                "accuracy": round(correct / total * 100),
+                "interruptions": count,
+                "focus_level": _calculate_focus_level(count, es.duration),
             }
         )
     return sessions
 
 
 def _browsing_sessions(user_id, language_id, from_date, to_date, for_teacher):
-    sessions = []
-    for bs in UserBrowsingSession.find_by_user(user_id, from_date, to_date):
-        # Browsing without translating (previews, search) still counts:
-        # a student who browsed but never opened an article must not look idle.
-        if not bs.duration:
-            continue
+    browsing_sessions = [
+        bs
+        for bs in UserBrowsingSession.find_by_user(user_id, from_date, to_date)
         # language_id is the learned language when the session started
-        if bs.language_id is not None and bs.language_id != language_id:
-            continue
-        bookmarks = _bookmarks_in_session(
-            Bookmark.browsing_session_id == bs.id, language_id, for_teacher, for_teacher
-        )
-        # Older sessions have no language; their translations are all we have to go on
+        if bs.duration and bs.language_id in (None, language_id)
+    ]
+    words = _words_by_session(
+        Bookmark.browsing_session_id,
+        [bs.id for bs in browsing_sessions],
+        language_id,
+        for_teacher,
+        with_context=for_teacher,
+    )
+
+    sessions = []
+    for bs in browsing_sessions:
+        bookmarks = words.get(bs.id, [])
+        # Browsing without translating (previews, search) still counts: a
+        # student who browsed but never opened an article must not look idle.
+        # Older sessions have no language; their translations are all we have
+        # to go on.
         if bs.language_id is None and not bookmarks:
             continue
         sessions.append(
@@ -256,7 +300,23 @@ def _browsing_sessions(user_id, language_id, from_date, to_date, for_teacher):
     return sessions
 
 
+def _words_for_audio_lesson(audio_lesson, language_id):
+    """Get all words/meanings included in an audio lesson."""
+    result = []
+    for segment in audio_lesson.segments:
+        if segment.segment_type == "meaning_lesson" and segment.audio_lesson_meaning:
+            meaning = segment.audio_lesson_meaning.meaning
+            if meaning.origin.language_id != language_id:
+                continue
+            result.append({
+                "origin": meaning.origin.content,
+                "translation": meaning.translation.content,
+            })
+    return result
+
+
 def _audio_sessions(user_id, language_id, from_date, to_date):
+    # At most one lesson a day, so the per-lesson word lookup stays small.
     sessions = []
     listening_sessions = UserListeningSession.find_by_user_and_language(
         user_id, language_id, from_date, to_date

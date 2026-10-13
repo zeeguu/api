@@ -34,9 +34,12 @@ def date_range_from_request():
         except ValueError:
             flask.abort(400)
 
-    days = int(flask.request.args.get("days", 7))
-    to_date = datetime.now()
-    return to_date - timedelta(days=days), to_date
+    try:
+        days = int(flask.request.args.get("days", 7))
+        to_date = datetime.now()
+        return to_date - timedelta(days=days), to_date
+    except (ValueError, OverflowError):
+        flask.abort(400)
 
 
 @api.route("/session_history", methods=["GET"])

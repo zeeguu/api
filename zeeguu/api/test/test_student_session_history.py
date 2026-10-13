@@ -72,3 +72,17 @@ def test_learner_history_goes_back_beyond_thirty_days(client):
     sessions = client.client.get(url).get_json()
 
     assert len(sessions) == 1
+
+
+def test_bad_days_is_a_bad_request(client):
+    for days in ("abc", "100000000"):
+        url = client.append_session(f"/session_history?days={days}")
+        assert client.client.get(url).status_code == 400
+
+
+def test_learner_endpoint_is_registered_after_the_teacher_package():
+    # endpoints/__init__.py star-imports teacher_dashboard before it imports
+    # the session_history module; nothing may shadow that module's name.
+    import zeeguu.api.endpoints as endpoints
+
+    assert hasattr(endpoints.session_history, "session_history_api")

@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+
+from sqlalchemy import event
 from unittest import TestCase
 
 import zeeguu.core
@@ -186,3 +188,35 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
         assert by_id[practised.id]["practised"] is True
         assert by_id[not_practised.id]["practised"] is False
         assert by_id[practised.id]["context"] == practised.get_context()
+
+    def test_queries_do_not_grow_with_the_number_of_sessions(self):
+        # The range is unbounded, so per-session lookups would make a school
+        # year cost thousands of round trips.
+        def add_day(days_ago):
+            start = self.now - timedelta(days=days_ago)
+            reading = self._reading(start)
+            for _ in range(2):
+                BookmarkRule(self.user).bookmark.reading_session_id = reading.id
+            self._exercise_session(start - timedelta(hours=2), ["C", "W"])
+            self._browsing(start - timedelta(hours=4))
+            db_session.commit()
+
+        def queries():
+            db_session.expire_all()
+            count = [0]
+
+            def on_query(*_):
+                count[0] += 1
+
+            engine = db_session.get_bind()
+            event.listen(engine, "before_cursor_execute", on_query)
+            self._history(for_teacher=True)
+            event.remove(engine, "before_cursor_execute", on_query)
+            return count[0]
+
+        add_day(1)
+        with_one_day = queries()
+        for days_ago in range(2, 6):
+            add_day(days_ago)
+
+        assert queries() == with_one_day
