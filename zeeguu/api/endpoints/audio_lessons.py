@@ -353,19 +353,28 @@ def get_todays_lesson():
 @requires_session
 def delete_todays_lesson():
     """
-    Delete today's daily audio lesson for the current user.
+    Delete one of the current user's daily audio lessons.
     Removes both the database record and the audio file.
+    Rate-limited per account (see RATE_LIMITS) since every delete invites a
+    regeneration, which costs LLM and TTS calls.
 
     Query parameters:
-    - timezone_offset (optional): Client's timezone offset in minutes from UTC
+    - lesson_id (optional): the lesson to delete; must belong to the user.
+      Clients should send it: the lesson on screen may be a paused one from an
+      earlier day, which the today-only fallback below does not find.
+    - timezone_offset (optional): Client's timezone offset in minutes from UTC,
+      used only when lesson_id is absent
     """
     user = User.find_by_id(flask.g.user_id)
     generator = DailyLessonGenerator()
 
-    # Get timezone offset from query parameter (default to 0 for UTC)
-    timezone_offset = flask.request.args.get("timezone_offset", 0, type=int)
-
-    result = generator.delete_todays_lesson_for_user(user, timezone_offset)
+    lesson_id = flask.request.args.get("lesson_id", type=int)
+    if lesson_id is not None:
+        result = generator.delete_lesson_for_user(user, lesson_id)
+    else:
+        # Get timezone offset from query parameter (default to 0 for UTC)
+        timezone_offset = flask.request.args.get("timezone_offset", 0, type=int)
+        result = generator.delete_todays_lesson_for_user(user, timezone_offset)
 
     # Check if there's a specific status code to return
     status_code = result.pop("status_code", 200)
