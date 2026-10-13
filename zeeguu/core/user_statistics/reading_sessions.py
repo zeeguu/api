@@ -108,7 +108,7 @@ def translations_in_interval(start_time, end_time, user_id):
             origin_phrase.content as word,  
             translation_phrase.content as translation,
             t.content as context,
-            IF(e.user_word_id IS NULL, FALSE, TRUE) as practiced
+            CASE WHEN e.user_word_id IS NULL THEN FALSE ELSE TRUE END as practiced
             
         from bookmark as b	
             
