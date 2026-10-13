@@ -239,6 +239,17 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
             2 * MINUTE_MS,
         ]
 
+    def test_browsing_hours_apart_stays_separate(self):
+        # The 13 Oct case: two translations at 08:01, a quick browse at 17:30
+        # with none. Merged, the second visit vanished into the morning one.
+        day = self.now.replace(hour=8) - timedelta(days=1)
+        self._browsing(day)
+        self._browsing(day + timedelta(hours=9))
+
+        browsing = self._of_type(self._history(), "browsing")
+
+        assert [b["merged_sessions"] for b in browsing] == [1, 1]
+
     def test_audio_lesson_words_are_not_dashboard_exercises(self):
         # Session history never shows them (they belong to no exercise
         # session), so the dashboard must not count them either.

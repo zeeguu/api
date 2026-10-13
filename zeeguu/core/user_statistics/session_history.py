@@ -8,6 +8,7 @@ kind of detail is fetched with one query for all sessions, not one per session.
 """
 
 from bisect import bisect_left, bisect_right
+from datetime import datetime, timedelta
 from collections import defaultdict
 
 from sqlalchemy.orm import joinedload
@@ -291,6 +292,7 @@ def _browsing_sessions(user_id, language_id, from_date, to_date, for_teacher):
             {
                 "session_type": "browsing",
                 "start_time": bs.start_time.isoformat(),
+                "end_time": _end_time(bs).isoformat(),
                 "duration": bs.duration,
                 "duration_readable": format_duration(bs.duration),
                 "words": bookmarks,
@@ -364,12 +366,17 @@ def session_history(user_id, language_id, from_date, to_date, for_teacher=False)
     return list(reversed(_merge_consecutive_browsing(sessions)))
 
 
+# Browsing sessions closer together than this are one visit to the app
+BROWSING_MERGE_GAP = timedelta(minutes=30)
+
+
 def _merge_consecutive_browsing(sessions):
     """
-    Every visit to the article list is its own browsing session, so a day of
-    using the app leaves a dozen short ones. Back-to-back browsing sessions on
-    the same day (nothing else in between) become one entry. Durations add up,
-    so totals computed from the list stay exact.
+    Every visit to the article list is its own browsing session, so one sitting
+    with the app leaves several short ones. Browsing sessions with nothing else
+    in between, each starting within BROWSING_MERGE_GAP of the previous one's
+    last action, become one entry. Separate visits during a day stay separate.
+    Durations add up, so totals computed from the list stay exact.
 
     sessions: in chronological order.
     """
@@ -380,8 +387,11 @@ def _merge_consecutive_browsing(sessions):
             session["session_type"] == "browsing"
             and previous
             and previous["session_type"] == "browsing"
-            and previous["start_time"][:10] == session["start_time"][:10]
+            and datetime.fromisoformat(session["start_time"])
+            - datetime.fromisoformat(previous["end_time"])
+            <= BROWSING_MERGE_GAP
         ):
+            previous["end_time"] = max(previous["end_time"], session["end_time"])
             previous["duration"] += session["duration"]
             previous["duration_readable"] = format_duration(previous["duration"])
             previous["words"] += session["words"]
