@@ -209,19 +209,35 @@ def test_teacher_cannot_read_students_of_another_class(client):
 
 
 def test_cohorts_info_reports_last_activity(client):
-    from zeeguu.core.model import User
+    from zeeguu.core.model import Language, User
     from zeeguu.core.model.db import db
+    from zeeguu.core.model.user_language import UserLanguage
 
     client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
     client.post("/create_own_cohort", data=SECOND_COHORT)
-    student_data = dict(password="test", username="s", learned_language="fr", invite_code="123")
-    client.response_from_post("/add_user/active@mir.lu", data=student_data)
-    User.find("active@mir.lu").last_seen = datetime(2026, 10, 1, 12, 0)
+
+    def member(email, invite_code):
+        data = dict(password="test", username=email, learned_language="fr", invite_code=invite_code)
+        client.response_from_post(f"/add_user/{email}", data=data)
+        return User.find(email)
+
+    def practised_french(user, when):
+        ul = UserLanguage.find_or_create(db.session, user, Language.find("fr"))
+        ul.last_practiced = when
+        db.session.commit()  # before the next request ends the session
+
+    practised_french(member("student@mir.lu", "123"), datetime(2026, 10, 1, 12, 0))
+    # later, but doesn't count: a developer practising, a member merely seen
+    dev = member("dev@mir.lu", "123")
+    dev.is_dev = True
+    practised_french(dev, datetime(2026, 10, 5, 12, 0))
+    seen = member("seen@mir.lu", "456")
+    seen.last_seen = datetime(2026, 10, 9, 12, 0)
     db.session.commit()
 
     cohorts_by_name = {c["name"]: c for c in client.get("/cohorts_info")}
 
-    # the client sorts classes by this: a student seen, or a text shared
+    # the client sorts classes by this: a student practising, or a text shared
     assert cohorts_by_name[FRENCH_B1_COHORT["name"]]["last_activity"].startswith("2026-10-01")
     assert cohorts_by_name[SECOND_COHORT["name"]]["last_activity"] is None
 
