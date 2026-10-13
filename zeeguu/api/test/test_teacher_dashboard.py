@@ -204,6 +204,9 @@ def test_teacher_cannot_read_students_of_another_class(client):
     assert status(own_student, 1) == 200
     assert status(foreign_student, other_id) == 401
 
+    client.get(f"/remove_user_from_cohort/{foreign_student}/{other_id}")
+    assert User.find_by_id(foreign_student).is_member_of_cohort(other_id)
+
 
 FRENCH_B1_COHORT = {
     "inv_code": "123",

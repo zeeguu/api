@@ -33,6 +33,12 @@ def check_permission_for_cohort(cohort_id):
 
 
 def check_permission_for_user(user_id, cohort_id):
+    """
+    The requester may see this student: they teach (or support) the cohort,
+    and the student is in it. Checking membership alone let any logged-in
+    user read, or any teacher remove, any other class's students.
+    """
+    check_permission_for_cohort(cohort_id)
     try:
         user = User.query.filter_by(id=user_id).one()
         if user.is_member_of_cohort(cohort_id):
