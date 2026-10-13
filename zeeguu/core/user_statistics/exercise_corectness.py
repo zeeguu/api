@@ -5,6 +5,9 @@ import zeeguu.core
 from zeeguu.core.model.db import db
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 
+# ExerciseSource.source of the rows a finished daily audio lesson writes
+AUDIO_LESSON_SOURCE = "DAILY_AUDIO_LESSON"
+
 
 def exercise_count_and_correctness_percentage(user_id, cohort_id, start_date, end_date):
     outcome_stats = exercise_outcome_stats(user_id, cohort_id, start_date, end_date)
@@ -112,6 +115,7 @@ def number_of_distinct_words_in_exercises(user_id, cohort_id, start_date, end_da
                     and	e.time > :startDate
                     and	e.time < :endDate
                     and origin_phrase.language_id = (select language_id from cohort where cohort.id=:cohortId)        
+                    and (e.source_id is null or e.source_id not in (select id from exercise_source where source = :audioLesson))
     """
 
     rows = db.session.execute(
@@ -121,6 +125,7 @@ def number_of_distinct_words_in_exercises(user_id, cohort_id, start_date, end_da
             "startDate": start_date,
             "endDate": end_date,
             "cohortId": cohort_id,
+            "audioLesson": AUDIO_LESSON_SOURCE,
         },
     )
     number_of_practiced_words = rows.first()[0]
@@ -172,6 +177,9 @@ def exercise_outcome_stats(user_id, cohort_id, start_date: str, end_date: str):
             and	e.time > :startDate
             and	e.time < :endDate
             and origin_phrase.language_id = (select language_id from cohort where cohort.id=:cohortId)            
+            -- a word heard in a finished audio lesson is logged as an exercise
+            -- ("C" before Oct 2026, "Listened" since) but was not answered
+            and (e.source_id is null or e.source_id not in (select id from exercise_source where source = :audioLesson))
                     
         group by outcome; 
     """
@@ -183,6 +191,7 @@ def exercise_outcome_stats(user_id, cohort_id, start_date: str, end_date: str):
             "startDate": start_date,
             "endDate": end_date,
             "cohortId": cohort_id,
+            "audioLesson": AUDIO_LESSON_SOURCE,
         },
     )
 

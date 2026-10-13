@@ -22,6 +22,10 @@ class ExerciseOutcome(db.Model):
     # TODO: Rename to EXERCISE_FEEDBACK
     OTHER_FEEDBACK = "other_feedback"
     CORRECT_AFTER_HINT = "HC"
+    # Not an answer: the word was in a daily audio lesson the learner finished.
+    # It schedules like a correct answer, but it is not "C": "C" means the
+    # learner answered correctly, first try, without help.
+    LISTENED = "Listened"
 
     too_easy_outcomes = ["too_easy", TOO_EASY]
 
@@ -71,6 +75,7 @@ class ExerciseOutcome(db.Model):
     def free_text_feedback(self):
         result = (
             self.outcome not in self.correct_outcomes
+            and self.outcome != ExerciseOutcome.LISTENED
             and self.outcome not in self.wrong_outcomes
             and self.outcome not in self.too_easy_outcomes
             and not ExerciseOutcome.is_valid_attempt(self.outcome)
