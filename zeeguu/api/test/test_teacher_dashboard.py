@@ -267,6 +267,7 @@ def test_class_list_counts_browsing_in_the_class_language(client):
 
     assert row["browsing_time"] == 120
     assert row["audio_time"] == 0
+    assert row["last_active"] is None  # never practised (no session started)
 
 
 FRENCH_B1_COHORT = {
