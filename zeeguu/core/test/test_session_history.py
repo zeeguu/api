@@ -122,6 +122,18 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
 
         assert reading["article_word_count"] == session.article.word_count
         assert reading["article_difficulty"] == session.article.fk_difficulty
+        assert reading["article_cefr_level"] == session.article.cefr_level
+
+    def test_reading_session_says_how_far_the_reader_got(self):
+        from zeeguu.core.model.user_article import UserArticle
+
+        session = self._reading(self.now - timedelta(days=1))
+        db_session.add(UserArticle(self.user, session.article, reading_completion=0.8))
+        db_session.commit()
+
+        [reading] = self._of_type(self._history(), "reading")
+
+        assert reading["reading_completion"] == 0.8
 
     def test_only_unaided_answers_count_as_correct(self):
         self._exercise_session(self.now - timedelta(days=1), ["C", "HC", "TC", "W"])
