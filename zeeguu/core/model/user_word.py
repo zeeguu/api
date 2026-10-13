@@ -27,6 +27,13 @@ class UserWord(db.Model):
 
     fit_for_study = db.Column(db.Boolean)
 
+    # Reading evidence (ADR 032): log-odds that the learner already knows the
+    # word, from the articles they read it in without a look-up; NULL = none.
+    # known_from_reading = the practice gate is closed for this word.
+    # Both written nightly by tools/update_reading_evidence.py.
+    reading_log_odds = db.Column(db.Float)
+    known_from_reading = db.Column(db.Boolean, nullable=False, default=False)
+
     user_preference = db.Column(db.Integer)
 
     learned_time = db.Column(db.DateTime)
