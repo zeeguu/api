@@ -208,6 +208,24 @@ def test_teacher_cannot_read_students_of_another_class(client):
     assert User.find_by_id(foreign_student).is_member_of_cohort(other_id)
 
 
+def test_cohorts_info_reports_last_activity(client):
+    from zeeguu.core.model import User
+    from zeeguu.core.model.db import db
+
+    client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
+    client.post("/create_own_cohort", data=SECOND_COHORT)
+    student_data = dict(password="test", username="s", learned_language="fr", invite_code="123")
+    client.response_from_post("/add_user/active@mir.lu", data=student_data)
+    User.find("active@mir.lu").last_seen = datetime(2026, 10, 1, 12, 0)
+    db.session.commit()
+
+    cohorts_by_name = {c["name"]: c for c in client.get("/cohorts_info")}
+
+    # the client sorts classes by this: a student seen, or a text shared
+    assert cohorts_by_name[FRENCH_B1_COHORT["name"]]["last_activity"].startswith("2026-10-01")
+    assert cohorts_by_name[SECOND_COHORT["name"]]["last_activity"] is None
+
+
 FRENCH_B1_COHORT = {
     "inv_code": "123",
     "name": "FrenchB1",
