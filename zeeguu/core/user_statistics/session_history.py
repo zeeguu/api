@@ -360,5 +360,35 @@ def session_history(user_id, language_id, from_date, to_date, for_teacher=False)
         + _browsing_sessions(user_id, language_id, from_date, to_date, for_teacher)
         + _audio_sessions(user_id, language_id, from_date, to_date)
     )
-    sessions.sort(key=lambda s: s["start_time"], reverse=True)
-    return sessions
+    sessions.sort(key=lambda s: s["start_time"])
+    return list(reversed(_merge_consecutive_browsing(sessions)))
+
+
+def _merge_consecutive_browsing(sessions):
+    """
+    Every visit to the article list is its own browsing session, so a day of
+    using the app leaves a dozen short ones. Back-to-back browsing sessions on
+    the same day (nothing else in between) become one entry. Durations add up,
+    so totals computed from the list stay exact.
+
+    sessions: in chronological order.
+    """
+    merged = []
+    for session in sessions:
+        previous = merged[-1] if merged else None
+        if (
+            session["session_type"] == "browsing"
+            and previous
+            and previous["session_type"] == "browsing"
+            and previous["start_time"][:10] == session["start_time"][:10]
+        ):
+            previous["duration"] += session["duration"]
+            previous["duration_readable"] = format_duration(previous["duration"])
+            previous["words"] += session["words"]
+            previous["word_count"] = len(previous["words"])
+            previous["merged_sessions"] += 1
+            continue
+        if session["session_type"] == "browsing":
+            session["merged_sessions"] = 1
+        merged.append(session)
+    return merged

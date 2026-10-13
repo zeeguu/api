@@ -220,3 +220,20 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
             add_day(days_ago)
 
         assert queries() == with_one_day
+
+    def test_back_to_back_browsing_is_one_entry(self):
+        day = self.now.replace(hour=12) - timedelta(days=1)
+        self._browsing(day)
+        self._browsing(day + timedelta(minutes=10))
+        self._reading(day + timedelta(minutes=20))
+        self._browsing(day + timedelta(minutes=40))
+        self._browsing(day - timedelta(days=1))
+
+        browsing = self._of_type(self._history(), "browsing")
+
+        assert [b["merged_sessions"] for b in browsing] == [1, 2, 1]
+        assert [b["duration"] for b in browsing] == [
+            2 * MINUTE_MS,
+            4 * MINUTE_MS,
+            2 * MINUTE_MS,
+        ]
