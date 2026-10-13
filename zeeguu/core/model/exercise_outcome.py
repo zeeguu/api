@@ -22,8 +22,12 @@ class ExerciseOutcome(db.Model):
     # TODO: Rename to EXERCISE_FEEDBACK
     OTHER_FEEDBACK = "other_feedback"
     CORRECT_AFTER_HINT = "HC"
+    # Not an answer: the word was in a daily audio lesson the learner finished.
+    # It schedules like a correct answer, but it is not "C": "C" means the
+    # learner answered correctly, first try, without help.
+    LISTENED = "Listened"
 
-    correct_outcomes = [CORRECT, TOO_EASY, "Correct"]
+    correct_outcomes = [CORRECT, TOO_EASY, "Correct", LISTENED]
 
     too_easy_outcomes = ["too_easy", TOO_EASY]
 
@@ -51,7 +55,8 @@ class ExerciseOutcome(db.Model):
         is_correct_after_translation = outcome in ExerciseOutcome.correct_after_translation
         # if it's correct after hint it should still be fine
         is_correct_after_hint = outcome == ExerciseOutcome.CORRECT_AFTER_HINT
-        return is_correct or is_correct_after_translation or is_correct_after_hint
+        listened = outcome == ExerciseOutcome.LISTENED
+        return is_correct or is_correct_after_translation or is_correct_after_hint or listened
 
     def __init__(self, outcome):
         self.outcome = outcome

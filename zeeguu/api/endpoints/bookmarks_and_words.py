@@ -5,7 +5,7 @@ from flask import request
 from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeeguu.core.model import User, Article, Bookmark, ExerciseSource, ExerciseOutcome
+from zeeguu.core.model import User, Article, Bookmark
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
@@ -271,22 +271,6 @@ def delete_bookmark(bookmark_id):
         db_session.commit()
     except NoResultFound:
         return "Inexistent"
-
-    return "OK"
-
-
-@api.route("/report_correct_mini_exercise/<bookmark_id>", methods=["POST"])
-@cross_domain
-@requires_session
-def report_learned_bookmark(bookmark_id):
-    bookmark = get_bookmark_if_owned(bookmark_id)
-    bookmark.user_word.report_exercise_outcome(
-        db_session,
-        ExerciseSource.TOP_BOOKMARKS_MINI_EXERCISE,
-        ExerciseOutcome.CORRECT,
-        -1,
-        db_session,
-    )
 
     return "OK"
 
