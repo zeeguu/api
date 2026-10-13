@@ -123,6 +123,7 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
         assert reading["article_word_count"] == session.article.word_count
         assert reading["article_difficulty"] == session.article.fk_difficulty
         assert reading["article_cefr_level"] == session.article.cefr_level
+        assert reading["article_url"] == session.article.url.as_string()
 
     def test_reading_session_says_how_far_the_reader_got(self):
         from zeeguu.core.model.user_article import UserArticle
@@ -301,3 +302,18 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
 
         assert browsing["start_time"].endswith("Z")
         assert browsing["end_time"].endswith("Z")
+
+    def test_rereading_the_same_article_is_one_entry(self):
+        start = self.now.replace(hour=12) - timedelta(days=1)
+        first = self._reading(start, duration_ms=5 * MINUTE_MS)
+        again = UserReadingSession(self.user.id, first.article_id, start + timedelta(minutes=7))
+        again.duration = MINUTE_MS
+        again.last_action_time = start + timedelta(minutes=8)
+        db_session.add(again)
+        db_session.commit()
+        self._reading(start + timedelta(minutes=10))  # another article
+
+        reading = self._of_type(self._history(), "reading")
+
+        assert [r["merged_sessions"] for r in reading] == [1, 2]
+        assert reading[1]["duration"] == 6 * MINUTE_MS
