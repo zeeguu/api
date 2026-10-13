@@ -7,6 +7,7 @@ import zeeguu.core.friends.listeners  # noqa: F401
 from zeeguu.core.friends.friend_streak import update_streak
 from zeeguu.core.model.friendship import Friendship
 from zeeguu.core.model.user_language import UserLanguage
+from zeeguu.core.test.frozen_clock import clock_at
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.util.time import SERVER_TZ, server_now, user_local_today, user_zone
@@ -52,6 +53,33 @@ class FriendTest(ModelTestMixIn):
       user_language.last_practiced = practiced_at
       session.add(user_language)
       session.commit()
+
+   def test_streak_counts_the_same_on_both_sides_of_a_users_midnight(self):
+      """
+      One scenario, two pinned instants: at 06:00 UTC it is still the 1st in
+      Auckland, at 12:00 UTC it is already the 2nd, while the server is on the
+      1st either way. The streak must come out the same.
+
+      Without a frozen clock this test can only ever exercise whichever of the
+      two relationships happens to hold when the suite runs -- the reason a
+      green afternoon run could fail after midnight.
+      """
+      self.user.timezone = "Pacific/Auckland"  # UTC+13 on this date
+      session.add(self.user)
+      session.commit()
+
+      for utc_moment in ["2026-03-01 06:00", "2026-03-01 12:00"]:
+         with clock_at(utc_moment):
+            self.friendship.friend_streak = 0
+            self.friendship.friend_streak_last_updated = None
+            self._set_last_practiced(self.user, practiced_days_ago(self.user))
+            self._set_last_practiced(
+               self.friend_user, practiced_days_ago(self.friend_user)
+            )
+
+            update_streak(self.friendship, session=session)
+
+            assert self.friendship.friend_streak == 1, f"at {utc_moment} UTC"
 
    def test_update_friend_streak_multiple_friends(self):
       from zeeguu.core.model.language import Language
