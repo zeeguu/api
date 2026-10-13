@@ -48,6 +48,27 @@ def test_teacher_sees_the_article_with_the_students_translations(client):
 
     past = info["tokenized_title_new"]["past_bookmarks"]
     assert [b["from"] for b in past] == ["hinter"]
+    assert info["student_reading_seconds"] == 0
+
+
+def test_the_students_time_on_the_text_over_every_session(client):
+    from zeeguu.core.model import Article
+    from zeeguu.core.model.db import db
+    from zeeguu.core.model.user_reading_session import UserReadingSession
+
+    client.post("/create_own_cohort", data=GERMAN_CLASS)
+    student, _ = _join(client, "student@mir.lu")
+    article = create_and_get_article(client)
+    for minutes in (2, 3):  # read, then reread
+        reading = UserReadingSession(student.id, article["id"])
+        reading.duration = minutes * 60 * 1000
+        db.session.add(reading)
+    db.session.commit()
+
+    info = client.get(f"/student_article/{article['id']}?student_id={student.id}&cohort_id=1")
+
+    assert info["student_reading_seconds"] == 300
+    assert info["reading_completion"] == 0.0
 
 
 def test_only_the_classes_teacher(client):
