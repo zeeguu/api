@@ -13,6 +13,7 @@ from zeeguu.core.model import (
     TeacherCohortMap,
     CohortArticleMap,
     Teacher,
+    UserCohortMap,
 )
 from zeeguu.core.model.user_reading_session import UserReadingSession
 from ._common_api_parameters import _convert_number_of_days_to_date_interval
@@ -264,7 +265,8 @@ def cohorts_info():
     Those who support teachers get every cohort.
 
     Each entry also carries "last_shared_time": when a text was most recently
-    shared with that class, or None if none ever was.
+    shared with that class, or None if none ever was; and "last_activity": the
+    latest of that and when one of its students was last seen, or None.
     """
 
     if can_see_all_classes(flask.g.user_id):
@@ -276,11 +278,14 @@ def cohorts_info():
     # So the client can put the classes a teacher actually uses on top: some
     # teachers own ~100 classes, most of them long dormant.
     last_shared = CohortArticleMap.last_shared_time_per_cohort(cohort_ids)
+    last_seen = UserCohortMap.last_member_activity_per_cohort(cohort_ids)
 
     cohorts = []
     for cohort_id in cohort_ids:
         info = get_cohort_info(cohort_id)
         info["last_shared_time"] = datetime_to_json(last_shared.get(cohort_id))
+        times = [t for t in (last_shared.get(cohort_id), last_seen.get(cohort_id)) if t]
+        info["last_activity"] = datetime_to_json(max(times)) if times else None
         cohorts.append(info)
     return json.dumps(cohorts)
 
