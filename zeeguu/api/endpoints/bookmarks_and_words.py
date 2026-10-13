@@ -78,7 +78,11 @@ def learned_user_words(count):
     this endpoint returns unique learned user words.
     """
     user = User.find_by_id(flask.g.user_id)
-    learned_words = list(user.learned_user_words(count))
+    return json_result(learned_user_words_as_dicts(user, count))
+
+
+def learned_user_words_as_dicts(user, count, language_id=None):
+    learned_words = list(user.learned_user_words(count, language_id))
 
     # Batch load schedules to avoid N+1 queries
     # Use FourLevelsPerWord (concrete class) not BasicSRSchedule (abstract) for get_max_interval()
@@ -98,7 +102,7 @@ def learned_user_words(count):
         )
         for word in learned_words
     ]
-    return json_result(json_words)
+    return json_words
 
 
 @api.route("/total_learned_user_words", methods=["GET"])

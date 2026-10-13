@@ -942,7 +942,7 @@ class User(db.Model):
             .count()
         )
 
-    def learned_user_words(self, count=50):
+    def learned_user_words(self, count=50, language_id=None):
         """
         Returns unique learned user words (deduplicated).
         Unlike learned_bookmarks which can have duplicates for the same word from different contexts,
@@ -970,7 +970,7 @@ class User(db.Model):
                 joinedload(UserWord.preferred_bookmark)
                 .joinedload(Bookmark.context),
             )
-            .filter(Phrase.language_id == self.learned_language_id)
+            .filter(Phrase.language_id == (language_id or self.learned_language_id))
             .filter(UserWord.user_id == self.id)
             .filter(UserWord.learned_time != None)
             .order_by(UserWord.learned_time.desc())
@@ -978,7 +978,7 @@ class User(db.Model):
         )
         return learned
 
-    def total_learned_user_words(self):
+    def total_learned_user_words(self, language_id=None):
         """
         Returns the count of unique user words that have been learned.
         """
@@ -988,7 +988,7 @@ class User(db.Model):
             zeeguu.core.model.db.session.query(UserWord)
             .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
-            .filter(Phrase.language_id == self.learned_language_id)
+            .filter(Phrase.language_id == (language_id or self.learned_language_id))
             .filter(UserWord.user_id == self.id)
             .filter(UserWord.learned_time != None)
             .count()

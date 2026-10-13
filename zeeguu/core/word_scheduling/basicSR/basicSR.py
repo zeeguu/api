@@ -159,7 +159,7 @@ class BasicSRSchedule(db.Model):
         schedule.update_schedule(db_session, correctness, time, outcome=outcome)
 
     @classmethod
-    def user_words_not_scheduled(cls, user, limit):
+    def user_words_not_scheduled(cls, user, limit, language_id=None):
         # Import here to avoid circular imports
         from zeeguu.core.model.bookmark import Bookmark
 
@@ -187,7 +187,7 @@ class BasicSRSchedule(db.Model):
             .filter(UserWord.fit_for_study == 1)
             .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
-            .filter(Phrase.language_id == user.learned_language_id)
+            .filter(Phrase.language_id == (language_id or user.learned_language_id))
             .filter(BasicSRSchedule.cooling_interval == None)
             .order_by(
                 -Phrase.rank.desc()
