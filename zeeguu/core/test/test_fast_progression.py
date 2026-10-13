@@ -13,6 +13,7 @@ See docs/future-work/exercise-selection-from-reading-evidence.md, section 5.
 from datetime import datetime, timedelta
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.user import User
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
@@ -270,3 +271,15 @@ class FastProgressionTest(ModelTestMixIn):
         return SchedulerRule(
             bookmark.user_word.get_scheduler(), bookmark.user_word, db_session
         ).schedule
+
+
+def test_listened_is_not_correct_and_not_free_text_feedback():
+    # Listened schedules like a correct answer but is not one; and it must not
+    # read as free-text feedback, or fit_for_study would drop every word of a
+    # finished audio lesson.
+    from zeeguu.core.word_scheduling.basicSR.basicSR import _counts_as_progress
+
+    listened = ExerciseOutcome(ExerciseOutcome.LISTENED)
+    assert not ExerciseOutcome.is_correct(ExerciseOutcome.LISTENED)
+    assert not listened.free_text_feedback()
+    assert _counts_as_progress(ExerciseOutcome.LISTENED)

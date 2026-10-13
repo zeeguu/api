@@ -20,7 +20,7 @@ def exercise_count_and_correctness_percentage(user_id, cohort_id, start_date, en
     if total != 0:
         correct_count = sum(
             outcome_stats.get(o, 0)
-            for o in ExerciseOutcome.correct_on_first_try_outcomes
+            for o in ExerciseOutcome.correct_outcomes
         )
         correct_on_1st_try = int(correct_count / total * 100) / 100
 

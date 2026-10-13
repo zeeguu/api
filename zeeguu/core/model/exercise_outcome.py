@@ -25,9 +25,10 @@ class ExerciseOutcome(db.Model):
     # Not an answer: the word was in a daily audio lesson the learner finished.
     # It schedules like a correct answer, but it is not "C": "C" means the
     # learner answered correctly, first try, without help.
+    # "Finished" only means playback reached the end: a learner who skipped
+    # to the last seconds also gets Listened for every word in the lesson.
+    # We assume that is rare enough not to matter.
     LISTENED = "Listened"
-
-    correct_outcomes = [CORRECT, TOO_EASY, "Correct", LISTENED]
 
     too_easy_outcomes = ["too_easy", TOO_EASY]
 
@@ -35,14 +36,10 @@ class ExerciseOutcome(db.Model):
 
     correct_after_translation = ["TC", "TTC", "TTTC"]
 
-    # The one definition of "correct" shown to learners and teachers alike
-    # (session accuracy, the dashboard's "correct on 1st try"): solved
-    # unaided. "Correct" is the pre-2021 spelling of "C".
-    correct_on_first_try_outcomes = [CORRECT, "Correct"]
-
-    @classmethod
-    def is_correct_on_first_try(cls, outcome: str):
-        return outcome in cls.correct_on_first_try_outcomes
+    # The one definition of "correct": solved on the first try, unaided.
+    # A hint (HC) or looking up the translation first (TC, TTC, ...) is not
+    # correct. "Correct" is the pre-2021 spelling of "C".
+    correct_outcomes = [CORRECT, "Correct"]
 
     @classmethod
     def is_valid_attempt(cls, outcome: str):
@@ -59,13 +56,7 @@ class ExerciseOutcome(db.Model):
 
     @classmethod
     def is_correct(cls, outcome: str):
-        is_correct = outcome == ExerciseOutcome.CORRECT
-        # allow for a few translations before hitting the correct; they work like hints
-        is_correct_after_translation = outcome in ExerciseOutcome.correct_after_translation
-        # if it's correct after hint it should still be fine
-        is_correct_after_hint = outcome == ExerciseOutcome.CORRECT_AFTER_HINT
-        listened = outcome == ExerciseOutcome.LISTENED
-        return is_correct or is_correct_after_translation or is_correct_after_hint or listened
+        return outcome in cls.correct_outcomes
 
     def __init__(self, outcome):
         self.outcome = outcome
@@ -75,7 +66,7 @@ class ExerciseOutcome(db.Model):
 
     @property
     def correct(self):
-        return self.outcome in self.correct_outcomes
+        return ExerciseOutcome.is_correct(self.outcome)
 
     @property
     def wrong(self):
@@ -87,6 +78,7 @@ class ExerciseOutcome(db.Model):
     def free_text_feedback(self):
         result = (
             self.outcome not in self.correct_outcomes
+            and self.outcome != ExerciseOutcome.LISTENED
             and self.outcome not in self.wrong_outcomes
             and self.outcome not in self.too_easy_outcomes
             and not ExerciseOutcome.is_valid_attempt(self.outcome)
