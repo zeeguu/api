@@ -4,7 +4,12 @@ from sqlalchemy import event
 from unittest import TestCase
 
 import zeeguu.core
-from zeeguu.core.constants import EVENT_ARTICLE_FOCUSED, EVENT_ARTICLE_LOST_FOCUS
+from zeeguu.core.constants import (
+    EVENT_ARTICLE_ACTIVE,
+    EVENT_ARTICLE_FOCUSED,
+    EVENT_ARTICLE_IDLE,
+    EVENT_ARTICLE_LOST_FOCUS,
+)
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.model.article_summary_context import ArticleSummaryContext
 from zeeguu.core.model.article_title_context import ArticleTitleContext
@@ -142,6 +147,41 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
             [iso(5), iso(5.5)],
             [iso(9), iso(10)],
         ]
+
+    def test_reading_session_says_when_the_page_was_idle(self):
+        start = (self.now - timedelta(days=1)).replace(microsecond=0)
+        self._reading(start, duration_ms=60 * MINUTE_MS)
+        at = lambda minutes: start + timedelta(minutes=minutes)
+        for minutes, event in [
+            (2, EVENT_ARTICLE_IDLE),
+            (10, EVENT_ARTICLE_ACTIVE),
+            (20, EVENT_ARTICLE_LOST_FOCUS),  # away, not idle
+            (25, EVENT_ARTICLE_FOCUSED),  # back, idle until the first action
+            (27, EVENT_ARTICLE_ACTIVE),
+            (50, EVENT_ARTICLE_IDLE),  # never active again
+        ]:
+            db_session.add(UserActivityData(self.user, at(minutes), event, "", ""))
+        db_session.commit()
+
+        [reading] = self._of_type(self._history(), "reading")
+
+        iso = lambda minutes: at(minutes).isoformat() + "Z"
+        assert reading["idle_tracked"] is True
+        assert reading["away"] == [
+            [iso(20), iso(25)],
+            [iso(2), iso(10), "idle"],
+            [iso(25), iso(27), "idle"],
+            [iso(50), iso(60), "idle"],
+        ]
+
+    def test_idle_is_unknown_for_readers_that_did_not_log_it(self):
+        start = (self.now - timedelta(days=1)).replace(microsecond=0)
+        self._reading(start, duration_ms=10 * MINUTE_MS)
+
+        [reading] = self._of_type(self._history(), "reading")
+
+        assert reading["idle_tracked"] is False
+        assert reading["away"] == []
 
     def test_browsing_in_another_language_is_not_shown(self):
         other = self.user.native_language
