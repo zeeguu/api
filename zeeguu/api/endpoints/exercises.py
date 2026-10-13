@@ -283,9 +283,13 @@ def _user_words_as_json_result(user_words):
     return json_result(user_words_as_dicts(user_words))
 
 
-def user_words_as_dicts(user_words):
+def user_words_as_dicts(user_words, tokenize=True):
     """The Words pages' JSON for these user words. Repairs what it can on the
-    way (see below), as it does whenever a learner opens the page."""
+    way (see below), as it does whenever a learner opens the page.
+
+    tokenize=False leaves out the tokenized context, which only exercises
+    need: a miss costs a call to the stanza service (seconds under load), and
+    a teacher's list of a student's 500 waiting words must not make 500."""
     from zeeguu.logging import log
     from zeeguu.core.model import db
     from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
@@ -306,7 +310,7 @@ def user_words_as_dicts(user_words):
     # Get tokenized contexts - use cache when available
     context_map = {}  # user_word_id -> tokenized_context
 
-    for uw in user_words:
+    for uw in user_words if tokenize else []:
         try:
             bm = uw.preferred_bookmark
             if bm and bm.context:
@@ -327,7 +331,8 @@ def user_words_as_dicts(user_words):
             tokenized_context = context_map.get(user_word.id)
             dicts.append(user_word.as_dictionary(
                 schedule=schedule,
-                pre_tokenized_context=tokenized_context
+                pre_tokenized_context=tokenized_context,
+                with_context_tokenized=tokenize,
             ))
         except ValueError as e:
             # This means validate_data_integrity() couldn't repair the issue
