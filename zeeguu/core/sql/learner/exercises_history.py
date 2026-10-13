@@ -39,8 +39,9 @@ def exercise_history(user_id: int, language_id: int, from_date: str, to_date: st
                 eo.outcome, 
                 e.time,
                 e.solving_speed,
-                o_uw.content,
-                t_uw.content as translation
+                o_uw.content as word,
+                t_uw.content as translation,
+                um.id as user_word_id
         from exercise as e 
             join exercise_outcome as eo on e.outcome_id = eo.id
             join exercise_source as es on e.source_id = es.id
@@ -75,26 +76,26 @@ def exercises_grouped_by_word(
     practiced_dict = {}
 
     for exercise_details in exercise_details_list:
-        bookmark_id = exercise_details["bookmark_id"]
+        user_word_id = exercise_details["user_word_id"]
 
-        if not practiced_dict.get(bookmark_id):
-            practiced_dict[bookmark_id] = {}
-            practiced_dict[bookmark_id]["exerciseAttempts"] = []
+        if not practiced_dict.get(user_word_id):
+            practiced_dict[user_word_id] = {}
+            practiced_dict[user_word_id]["exerciseAttempts"] = []
 
-        practiced_dict[bookmark_id]["word"] = exercise_details["word"]
-        practiced_dict[bookmark_id]["translation"] = exercise_details["translation"]
+        practiced_dict[user_word_id]["word"] = exercise_details["word"]
+        practiced_dict[user_word_id]["translation"] = exercise_details["translation"]
 
         exercise_data = dict(
             (k, exercise_details[k])
             for k in ["source", "outcome", "time", "exercise_id"]
         )
-        practiced_dict[bookmark_id]["exerciseAttempts"].append(exercise_data)
+        practiced_dict[user_word_id]["exerciseAttempts"].append(exercise_data)
 
     result = []
     for key, value in practiced_dict.items():
         result.append(
             {
-                "bookmark_id": key,
+                "user_word_id": key,
                 "word": value["word"],
                 "translation": value["translation"],
                 "exerciseAttempts": value["exerciseAttempts"],

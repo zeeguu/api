@@ -1,4 +1,5 @@
-from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.sorted_exercise_log import SortedExerciseLog
+from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.sql.query_building import list_of_dicts_from_query
 
 
@@ -54,7 +55,7 @@ def learned_words(user_id, language_id, from_date: str, to_date: str):
     query = """
         select 
         um.id as user_word_id,
-        origin_phrase.content,
+        origin_phrase.content as word,
         translation_phrase.content as translation,
         um.learned_time
         
@@ -89,12 +90,9 @@ def learned_words(user_id, language_id, from_date: str, to_date: str):
     )
 
     for each in results:
-        bookmark = Bookmark.find(each["bookmark_id"])
-        each["self_reported"] = (
-            bookmark.sorted_exercise_log().last_exercise().is_too_easy()
-        )
-        each["most_recent_correct_dates"] = (
-            bookmark.sorted_exercise_log().str_most_recent_correct_dates()
-        )
+        log = SortedExerciseLog(UserWord.query.get(each["user_word_id"]))
+        # a word can be marked learned without ever being exercised
+        each["self_reported"] = bool(log.exercises) and log.last_exercise().is_too_easy()
+        each["most_recent_correct_dates"] = log.str_most_recent_correct_dates()
 
     return results
