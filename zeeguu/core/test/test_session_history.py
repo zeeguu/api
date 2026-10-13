@@ -278,3 +278,13 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
 
         assert stats["number_of_exercises"] == 2
         assert stats["correct_on_1st_try"] == 0.5
+
+    def test_times_are_marked_utc(self):
+        # Stored naive in UTC; without the marker the browser reads them as
+        # local time (2 h early in Copenhagen in summer).
+        self._browsing(self.now - timedelta(days=1))
+
+        [browsing] = self._of_type(self._history(), "browsing")
+
+        assert browsing["start_time"].endswith("Z")
+        assert browsing["end_time"].endswith("Z")

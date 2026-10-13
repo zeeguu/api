@@ -120,6 +120,14 @@ class _Interruptions:
         )
 
 
+def _utc(timestamp):
+    """
+    Session times are stored as naive UTC (the server's clock). Mark them as
+    UTC so the browser shows them in the viewer's own time zone.
+    """
+    return timestamp.isoformat() + "Z"
+
+
 def _end_time(session):
     return session.last_action_time if session.last_action_time else session.start_time
 
@@ -188,7 +196,7 @@ def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
         sessions.append(
             {
                 "session_type": "reading",
-                "start_time": rs.start_time.isoformat(),
+                "start_time": _utc(rs.start_time),
                 "duration": rs.duration,
                 "duration_readable": format_duration(rs.duration),
                 "article_id": rs.article_id,
@@ -250,7 +258,7 @@ def _exercise_sessions(user_id, language_id, from_date, to_date):
         sessions.append(
             {
                 "session_type": "exercise",
-                "start_time": es.start_time.isoformat(),
+                "start_time": _utc(es.start_time),
                 "duration": es.duration,
                 "duration_readable": format_duration(es.duration),
                 "words": words_practiced,
@@ -291,8 +299,8 @@ def _browsing_sessions(user_id, language_id, from_date, to_date, for_teacher):
         sessions.append(
             {
                 "session_type": "browsing",
-                "start_time": bs.start_time.isoformat(),
-                "end_time": _end_time(bs).isoformat(),
+                "start_time": _utc(bs.start_time),
+                "end_time": _utc(_end_time(bs)),
                 "duration": bs.duration,
                 "duration_readable": format_duration(bs.duration),
                 "words": bookmarks,
@@ -335,7 +343,7 @@ def _audio_sessions(user_id, language_id, from_date, to_date):
         sessions.append(
             {
                 "session_type": "audio",
-                "start_time": ls.start_time.isoformat(),
+                "start_time": _utc(ls.start_time),
                 "duration": ls.duration,  # Already in milliseconds
                 "duration_readable": format_duration(ls.duration),
                 "words": words,
