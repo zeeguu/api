@@ -150,8 +150,30 @@ def public_article_summary(code):
         summary_part=summary_part,
         interactiveTitle=_public_token_payload(title_tokens),
         interactiveSummary=_public_token_payload(summary_tokens),
+        levels=_summary_levels(article),
     )
     return json_result(info)
+
+
+def _summary_levels(article):
+    """The summaries this page can switch between, easiest first: one per stored
+    level below the article's own, then the article's own ("original"). Each
+    `level` is what ?level= takes to show it; the original's is None when the
+    article has no single CEFR level. Only stored text: a visitor switching
+    levels never sets off a new summary."""
+    from zeeguu.core.model.level_adapted_article_text import CEFR_ORDER
+
+    own = article.cefr_level if article.cefr_level in CEFR_ORDER else None
+    stored = {
+        level
+        for (level,) in LevelAdaptedArticleText.query.with_entities(LevelAdaptedArticleText.cefr_level).filter(
+            LevelAdaptedArticleText.article_id == article.id,
+            LevelAdaptedArticleText.summary.isnot(None),
+            LevelAdaptedArticleText.tokenized_summary.isnot(None),
+        )
+    }
+    below = [l for l in CEFR_ORDER if l in stored and (own is None or CEFR_ORDER.index(l) < CEFR_ORDER.index(own))]
+    return [{"level": l, "original": False} for l in below] + [{"level": own, "original": True}]
 
 
 def _summary_level_row(article, level):

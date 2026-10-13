@@ -286,3 +286,8 @@ def test_summary_link_preview_describes_the_summary(client, link, level_summary)
         html = client.client.get(f"/shared_article_preview/read/{link}/summary?level=A2").data.decode()
     assert f'<meta property="og:url" content="https://zeeguu.org/read/{link}/summary?level=A2">' in html
     assert f'<meta property="og:description" content="AI summary: {text}">' in html
+
+
+def test_summary_lists_the_levels_it_can_switch_to(client, link, level_summary):
+    _, info = _anon_get(client, f"/public_article_summary/{link}")
+    assert info["levels"] == [{"level": "A2", "original": False}, {"level": "B2", "original": True}]
