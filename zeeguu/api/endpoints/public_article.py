@@ -24,7 +24,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from limits import parse as parse_limit
 
 from zeeguu.api.utils.rate_limiter import get_limiter
-from zeeguu.core.model import Article, Language
+from zeeguu.core.model import Article, Language, User, UserArticle
 from zeeguu.core.model.article_share_link import ArticleShareLink
 from zeeguu.core.model.article_public_code import ArticlePublicCode
 from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
@@ -68,6 +68,22 @@ def article_link_info(code):
     if not article:
         return json_result({"error": "Unknown link"}), 404
     return json_result({"article_id": article.id})
+
+
+# ---------------------------------------------------------------------------
+@api.route("/article_link_card/<string:code>", methods=["GET"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def article_link_card(code):
+    """A summary link (/read/<code>/summary) opened by a logged-in reader: the
+    article as their feed card carries it -- the summary at their own level,
+    tokenized with their past translations -- for the preview overlay."""
+    article = ArticlePublicCode.find_article(code)
+    if not article or article.broken:
+        return json_result({"error": "Article not found"}), 404
+    user = User.find_by_id(flask.g.user_id)
+    return json_result(UserArticle.user_article_info(user, article, with_content=False, with_summary=True))
 
 
 # ---------------------------------------------------------------------------
