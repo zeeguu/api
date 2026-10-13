@@ -13,7 +13,11 @@ from collections import defaultdict
 
 from sqlalchemy.orm import joinedload
 
-from zeeguu.core.constants import EVENT_ARTICLE_LOST_FOCUS, EVENT_EXERCISE_LOST_FOCUS
+from zeeguu.core.constants import (
+    EVENT_ARTICLE_FOCUSED,
+    EVENT_ARTICLE_LOST_FOCUS,
+    EVENT_EXERCISE_LOST_FOCUS,
+)
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.article_summary_context import ArticleSummaryContext
 from zeeguu.core.model.article_title_context import ArticleTitleContext
@@ -129,6 +133,54 @@ class _Interruptions:
         )
 
 
+class _Away:
+    """
+    When the article page was not in focus, from its lost-focus and focused
+    events: fetched once, cut into intervals per session.
+    """
+
+    def __init__(self, user_id, sessions):
+        self.events = []
+        if not sessions:
+            return
+        rows = (
+            UserActivityData.query.with_entities(
+                UserActivityData.time, UserActivityData.event
+            )
+            .filter(UserActivityData.user_id == user_id)
+            .filter(
+                UserActivityData.event.in_(
+                    [EVENT_ARTICLE_LOST_FOCUS, EVENT_ARTICLE_FOCUSED]
+                )
+            )
+            .filter(UserActivityData.time >= min(s.start_time for s in sessions))
+            .filter(UserActivityData.time <= max(_end_time(s) for s in sessions))
+            .all()
+        )
+        self.events = sorted(rows)
+        self.times = [time for time, _ in self.events]
+
+    def during(self, session):
+        """[[start, end], ...] (UTC ISO) of the session's time away. Away
+        from the session start when its first event is coming back (the page
+        had not got focus yet); to its end when it never came back."""
+        start, end = session.start_time, _end_time(session)
+        events = self.events[
+            bisect_left(self.times, start) : bisect_right(self.times, end)
+        ]
+        intervals = []
+        left = start if events and events[0][1] == EVENT_ARTICLE_FOCUSED else None
+        for time, event in events:
+            if event == EVENT_ARTICLE_LOST_FOCUS and left is None:
+                left = time
+            elif event == EVENT_ARTICLE_FOCUSED and left is not None:
+                intervals.append([_utc(left), _utc(time)])
+                left = None
+        if left is not None and left < end:
+            intervals.append([_utc(left), _utc(end)])
+        return intervals
+
+
 def _utc(timestamp):
     """
     Session times are stored as naive UTC (the server's clock). Mark them as
@@ -221,6 +273,7 @@ def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
         with_context=True,
     )
     interruptions = _Interruptions(user_id, EVENT_ARTICLE_LOST_FOCUS, reading_sessions)
+    away = _Away(user_id, reading_sessions)
 
     sessions = []
     for rs in reading_sessions:
@@ -249,6 +302,9 @@ def _reading_sessions(user_id, language_id, from_date, to_date, for_teacher):
                 "word_count": len(bookmarks),
                 "interruptions": count,
                 "focus_level": _calculate_focus_level(count, rs.duration),
+                # between start_time and end_time, when the page was not in
+                # focus: [[start, end], ...]
+                "away": away.during(rs),
             }
         )
     return sessions
@@ -476,6 +532,7 @@ def _merge_consecutive_browsing(sessions):
     for session in sessions:
         previous = merged[-1] if merged else None
         if _continues(previous, session):
+            previous_end = previous["end_time"]
             previous["end_time"] = max(previous["end_time"], session["end_time"])
             previous["duration"] += session["duration"]
             previous["duration_readable"] = format_duration(previous["duration"])
@@ -483,6 +540,8 @@ def _merge_consecutive_browsing(sessions):
             previous["word_count"] = len(previous["words"])
             previous["merged_sessions"] += 1
             if session["session_type"] == "reading":
+                # the article closed between the two counts as away
+                previous["away"] += [[previous_end, session["start_time"]]] + session["away"]
                 previous["interruptions"] += session["interruptions"]
                 previous["focus_level"] = _calculate_focus_level(
                     previous["interruptions"], previous["duration"]

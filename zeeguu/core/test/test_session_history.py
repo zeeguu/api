@@ -4,6 +4,8 @@ from sqlalchemy import event
 from unittest import TestCase
 
 import zeeguu.core
+from zeeguu.core.constants import EVENT_ARTICLE_FOCUSED, EVENT_ARTICLE_LOST_FOCUS
+from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.model.article_summary_context import ArticleSummaryContext
 from zeeguu.core.model.article_title_context import ArticleTitleContext
 from zeeguu.core.model.cohort import Cohort
@@ -117,6 +119,29 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
             assert by_id[b.id]["article_id"] == article.id
             assert by_id[b.id]["article_title"] == article.title
         assert by_id[elsewhere.id]["article_title"] is None
+
+    def test_reading_session_says_when_the_page_was_away(self):
+        start = (self.now - timedelta(days=1)).replace(microsecond=0)
+        self._reading(start, duration_ms=10 * MINUTE_MS)
+        at = lambda minutes: start + timedelta(minutes=minutes)
+        for minutes, event in [
+            (1, EVENT_ARTICLE_LOST_FOCUS),
+            (2, EVENT_ARTICLE_FOCUSED),
+            (5, EVENT_ARTICLE_LOST_FOCUS),
+            (5.5, EVENT_ARTICLE_FOCUSED),
+            (9, EVENT_ARTICLE_LOST_FOCUS),  # never came back
+        ]:
+            db_session.add(UserActivityData(self.user, at(minutes), event, "", ""))
+        db_session.commit()
+
+        [reading] = self._of_type(self._history(), "reading")
+
+        iso = lambda minutes: at(minutes).isoformat() + "Z"
+        assert reading["away"] == [
+            [iso(1), iso(2)],
+            [iso(5), iso(5.5)],
+            [iso(9), iso(10)],
+        ]
 
     def test_browsing_in_another_language_is_not_shown(self):
         other = self.user.native_language
