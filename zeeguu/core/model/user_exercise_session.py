@@ -59,7 +59,7 @@ class UserExerciseSession(db.Model):
     # time to read the feedback. Past that, a session whose clock kept running
     # with nothing answered (a page left open, something resting on a key)
     # counts no further (Oct 2026: 85 idle minutes counted after 11 answers).
-    TIME_AFTER_LAST_ANSWER_MS = 2 * 60 * 1000
+    TIME_AFTER_LAST_ANSWER_MS = 60 * 1000
 
     @staticmethod
     def capped_duration(duration_ms, start_time, last_answer_time):
