@@ -193,3 +193,73 @@ def test_per_ip_limit(client, link, fake_translator, limiting_enabled):
     codes = [_translate(client, link, position, headers).status_code for _ in range(21)]
     assert codes[:20] == [200] * 20
     assert codes[20] == 429
+
+
+# --- the summary page --------------------------------------------------------
+
+
+def _summary_positions(info, part_key, payload_key):
+    return [
+        dict(part=info[part_key], paragraph_i=t["paragraph_i"], sent_i=t["sent_i"], token_i=t["token_i"], total_tokens=1)
+        for par in info[payload_key]["tokens"]
+        for sent in par
+        for t in sent
+        if not t["is_punct"]
+    ]
+
+
+@pytest.fixture
+def level_summary(article_id):
+    """An A2 card summary for a B2 article, as the crawler writes them."""
+    from zeeguu.core.model import Article
+    from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
+    from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
+
+    article = Article.find_by_id(article_id)
+    article.cefr_level = "B2"
+    text = "Der Präsident spricht heute. Viele Leute hören zu."
+    row = LevelAdaptedArticleText(article, "A2", text)
+    row.tokenized_summary = ArticleTokenizationCache.cheap_tokens(text, article.language)
+    db.session.add(row)
+    db.session.commit()
+    return row.id, text
+
+
+def test_summary_opens_by_code_without_a_session(client, link):
+    status, info = _anon_get(client, f"/public_article_summary/{link}")
+    assert status == 200
+    assert info["is_ai_summary"] is True
+    assert info["summary_part"] == "summary"
+    assert info["interactiveSummary"]["tokens"]
+    assert info["interactiveSummary"]["past_bookmarks"] == []
+    assert "url" in info and "uploader_name" not in info
+
+
+def test_summary_for_a_level_is_the_cards_summary(client, link, level_summary):
+    row_id, text = level_summary
+
+    _, own = _anon_get(client, f"/public_article_summary/{link}")
+    _, at_a2 = _anon_get(client, f"/public_article_summary/{link}?level=A2")
+    _, at_c1 = _anon_get(client, f"/public_article_summary/{link}?level=C1")
+
+    assert (at_a2["summary"], at_a2["shown_level"], at_a2["summary_part"]) == (text, "A2", f"summary:{row_id}")
+    # at or above the article's level a reader gets the article's own summary
+    assert at_c1["summary"] == own["summary"] and at_c1["summary_part"] == "summary"
+
+
+def test_translates_words_of_either_summary(client, link, level_summary, fake_translator):
+    _, own = _anon_get(client, f"/public_article_summary/{link}")
+    _, at_a2 = _anon_get(client, f"/public_article_summary/{link}?level=A2")
+
+    for info in (own, at_a2):
+        position = _summary_positions(info, "summary_part", "interactiveSummary")[0]
+        response = _translate(client, link, position)
+        assert response.status_code == 200, info["summary_part"]
+
+
+def test_summary_positions_must_belong_to_the_article(client, link, level_summary, fake_translator):
+    row_id, _ = level_summary
+    position = dict(part=f"summary:{row_id + 1}", paragraph_i=0, sent_i=0, token_i=0, total_tokens=1)
+    assert _translate(client, link, position).status_code == 400
+    position["part"] = "summary:abc"
+    assert _translate(client, link, position).status_code == 400
