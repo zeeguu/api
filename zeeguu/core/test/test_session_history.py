@@ -9,6 +9,10 @@ from zeeguu.core.constants import (
     EVENT_ARTICLE_FOCUSED,
     EVENT_ARTICLE_IDLE,
     EVENT_ARTICLE_LOST_FOCUS,
+    EVENT_EXERCISE_ACTIVE,
+    EVENT_EXERCISE_FOCUSED,
+    EVENT_EXERCISE_IDLE,
+    EVENT_EXERCISE_LOST_FOCUS,
 )
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.model.article_summary_context import ArticleSummaryContext
@@ -182,6 +186,33 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
 
         assert reading["idle_tracked"] is False
         assert reading["away"] == []
+
+    def test_exercise_session_says_when_it_was_away_or_idle(self):
+        start = (self.now - timedelta(days=1)).replace(microsecond=0)
+        session = self._exercise_session(start, ["C", "W"])
+        session.last_action_time = start + timedelta(minutes=10)
+        db_session.commit()
+        at = lambda minutes: start + timedelta(minutes=minutes)
+        for minutes, event in [
+            (1, EVENT_EXERCISE_LOST_FOCUS),
+            (2, EVENT_EXERCISE_FOCUSED),
+            (3, EVENT_EXERCISE_ACTIVE),
+            (6, EVENT_EXERCISE_IDLE),
+            (8, EVENT_EXERCISE_ACTIVE),
+        ]:
+            db_session.add(UserActivityData(self.user, at(minutes), event, "", ""))
+        db_session.commit()
+
+        [exercise] = self._of_type(self._history(), "exercise")
+
+        iso = lambda minutes: at(minutes).isoformat() + "Z"
+        assert exercise["end_time"] == iso(10)
+        assert exercise["idle_tracked"] is True
+        assert exercise["away"] == [
+            [iso(1), iso(2)],
+            [iso(2), iso(3), "idle"],
+            [iso(6), iso(8), "idle"],
+        ]
 
     def test_browsing_in_another_language_is_not_shown(self):
         other = self.user.native_language

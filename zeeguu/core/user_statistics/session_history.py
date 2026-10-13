@@ -18,6 +18,9 @@ from zeeguu.core.constants import (
     EVENT_ARTICLE_FOCUSED,
     EVENT_ARTICLE_IDLE,
     EVENT_ARTICLE_LOST_FOCUS,
+    EVENT_EXERCISE_ACTIVE,
+    EVENT_EXERCISE_FOCUSED,
+    EVENT_EXERCISE_IDLE,
     EVENT_EXERCISE_LOST_FOCUS,
 )
 from zeeguu.core.model.article import Article
@@ -135,14 +138,37 @@ class _Interruptions:
         )
 
 
+class _FocusEvents:
+    """The four events that say where a kind of session's page was."""
+
+    def __init__(self, lost, focused, idle, active):
+        self.lost, self.focused, self.idle, self.active = lost, focused, idle, active
+
+
+ARTICLE_FOCUS = _FocusEvents(
+    EVENT_ARTICLE_LOST_FOCUS,
+    EVENT_ARTICLE_FOCUSED,
+    EVENT_ARTICLE_IDLE,
+    EVENT_ARTICLE_ACTIVE,
+)
+EXERCISE_FOCUS = _FocusEvents(
+    EVENT_EXERCISE_LOST_FOCUS,
+    EVENT_EXERCISE_FOCUSED,
+    EVENT_EXERCISE_IDLE,
+    EVENT_EXERCISE_ACTIVE,
+)
+
+
 class _Away:
     """
-    When the article page was not in focus, from its lost-focus and focused
-    events, and when it was idle in focus, from the reader's idle and active
-    events: fetched once, cut into intervals per session.
+    When a session's page was not in focus, from its lost-focus and focused
+    events, and when it was idle in focus, from its idle and active events
+    (ARTICLE_FOCUS or EXERCISE_FOCUS): fetched once, cut into intervals per
+    session.
     """
 
-    def __init__(self, user_id, sessions):
+    def __init__(self, user_id, sessions, kind=ARTICLE_FOCUS):
+        self.kind = kind
         self.events = []
         if not sessions:
             return
@@ -153,12 +179,7 @@ class _Away:
             .filter(UserActivityData.user_id == user_id)
             .filter(
                 UserActivityData.event.in_(
-                    [
-                        EVENT_ARTICLE_LOST_FOCUS,
-                        EVENT_ARTICLE_FOCUSED,
-                        EVENT_ARTICLE_IDLE,
-                        EVENT_ARTICLE_ACTIVE,
-                    ]
+                    [kind.lost, kind.focused, kind.idle, kind.active]
                 )
             )
             .filter(UserActivityData.time >= min(s.start_time for s in sessions))
@@ -182,14 +203,14 @@ class _Away:
         focus = [
             (t, e)
             for t, e in self._events(session)
-            if e in (EVENT_ARTICLE_LOST_FOCUS, EVENT_ARTICLE_FOCUSED)
+            if e in (self.kind.lost, self.kind.focused)
         ]
         intervals = []
-        left = start if focus and focus[0][1] == EVENT_ARTICLE_FOCUSED else None
+        left = start if focus and focus[0][1] == self.kind.focused else None
         for time, event in focus:
-            if event == EVENT_ARTICLE_LOST_FOCUS and left is None:
+            if event == self.kind.lost and left is None:
                 left = time
-            elif event == EVENT_ARTICLE_FOCUSED and left is not None:
+            elif event == self.kind.focused and left is not None:
                 intervals.append([_utc(left), _utc(time)])
                 left = None
         if left is not None and left < end:
@@ -200,7 +221,7 @@ class _Away:
         """Whether the reader logged its idle and active moments in this
         session (readers before Oct 2026 did not)."""
         return any(
-            e in (EVENT_ARTICLE_IDLE, EVENT_ARTICLE_ACTIVE)
+            e in (self.kind.idle, self.kind.active)
             for _, e in self._events(session)
         )
 
@@ -221,15 +242,15 @@ class _Away:
             idle_from = None
 
         for time, event in self._events(session):
-            if event == EVENT_ARTICLE_LOST_FOCUS:
+            if event == self.kind.lost:
                 close(time)
                 away = True
-            elif event == EVENT_ARTICLE_FOCUSED:
+            elif event == self.kind.focused:
                 away = False
                 idle_from = time  # until the first action back
-            elif event == EVENT_ARTICLE_IDLE and not away and idle_from is None:
+            elif event == self.kind.idle and not away and idle_from is None:
                 idle_from = time
-            elif event == EVENT_ARTICLE_ACTIVE:
+            elif event == self.kind.active:
                 close(time)
         if not away:
             close(_end_time(session))
@@ -395,6 +416,7 @@ def _exercise_sessions(user_id, language_id, from_date, to_date):
     # Only sessions with exercises in this language
     exercise_sessions = [es for es in exercise_sessions if exercises.get(es.id)]
     interruptions = _Interruptions(user_id, EVENT_EXERCISE_LOST_FOCUS, exercise_sessions)
+    away = _Away(user_id, exercise_sessions, EXERCISE_FOCUS)
 
     sessions = []
     for es in exercise_sessions:
@@ -416,6 +438,7 @@ def _exercise_sessions(user_id, language_id, from_date, to_date):
             {
                 "session_type": "exercise",
                 "start_time": _utc(es.start_time),
+                "end_time": _utc(_end_time(es)),
                 "duration": es.duration,
                 "duration_readable": format_duration(es.duration),
                 "words": words_practiced,
@@ -424,6 +447,9 @@ def _exercise_sessions(user_id, language_id, from_date, to_date):
                 "accuracy": round(correct / total * 100),
                 "interruptions": count,
                 "focus_level": _calculate_focus_level(count, es.duration),
+                # as for reading sessions
+                "away": away.during(es) + away.idle(es),
+                "idle_tracked": away.idle_tracked(es),
             }
         )
     return sessions
