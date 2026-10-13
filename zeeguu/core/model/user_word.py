@@ -232,12 +232,15 @@ class UserWord(db.Model):
             consecutive_correct_answers = schedule.consecutive_correct_answers
             is_last_in_cycle = schedule.get_max_interval() == schedule.cooling_interval
             is_about_to_be_learned = schedule.is_about_to_be_learned()
+            # a clean answer now moves the word up a level (fast progression)
+            fast_track = schedule.is_on_fast_track()
         else:
             cooling_interval_in_days = None
             can_update_schedule = None
             consecutive_correct_answers = None
             is_last_in_cycle = None
             is_about_to_be_learned = None
+            fast_track = None
             next_practice_time = None
 
         exercise_info_dict = dict(
@@ -257,6 +260,7 @@ class UserWord(db.Model):
             cooling_interval=cooling_interval_in_days,
             is_last_in_cycle=is_last_in_cycle,
             is_about_to_be_learned=is_about_to_be_learned,
+            fast_track=fast_track,
             can_update_schedule=can_update_schedule,
             user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
