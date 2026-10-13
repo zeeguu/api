@@ -7,6 +7,7 @@ import flask
 from datetime import datetime
 
 from zeeguu.core.model import User
+from zeeguu.core.model.user_exercise_session import UserExerciseSession
 from zeeguu.core.model.user_language import UserLanguage
 
 
@@ -16,6 +17,10 @@ def update_activity_session(session_class, request, db_session):
     duration = int(form.get("duration", 0))
 
     session = session_class.find_by_id(session_id)
+    if isinstance(session, UserExerciseSession):
+        duration = session.capped_duration(
+            duration, session.start_time, session.last_answer_time()
+        )
     session.duration = duration
     session.last_action_time = datetime.now()
     db_session.add(session)

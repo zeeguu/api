@@ -440,3 +440,17 @@ class SessionHistoryTest(ModelTestMixIn, TestCase):
         assert reading[1]["away"] == [
             [iso(start + timedelta(minutes=5)), iso(start + timedelta(minutes=7)), "closed"]
         ]
+
+
+class ExerciseTimeCapTest(TestCase):
+    def test_no_more_than_up_to_the_last_answer_plus_two_minutes(self):
+        start = datetime(2026, 10, 9, 21, 42, 53)
+        last_answer = start + timedelta(minutes=3, seconds=42)
+        capped = UserExerciseSession.capped_duration(87.6 * MINUTE_MS, start, last_answer)
+        assert capped == int((3 * 60 + 42) * 1000 + 2 * MINUTE_MS)
+
+    def test_a_session_still_going_is_left_alone(self):
+        start = datetime(2026, 10, 9, 21, 42, 53)
+        last_answer = start + timedelta(minutes=10)
+        assert UserExerciseSession.capped_duration(9 * MINUTE_MS, start, last_answer) == 9 * MINUTE_MS
+        assert UserExerciseSession.capped_duration(5 * MINUTE_MS, start, None) == 5 * MINUTE_MS

@@ -1,5 +1,6 @@
 import sqlalchemy
 import zeeguu.core
+from sqlalchemy import func
 
 from datetime import datetime, timedelta
 from zeeguu.core.model.user import User
@@ -53,6 +54,31 @@ class UserExerciseSession(db.Model):
 
         duration = self.last_action_time - self.start_time
         self.duration = duration.total_seconds() * 1000
+
+    # How long after its last answer an exercise session can still count:
+    # time to read the feedback. Past that, a session whose clock kept running
+    # with nothing answered (a page left open, something resting on a key)
+    # counts no further (Oct 2026: 85 idle minutes counted after 11 answers).
+    TIME_AFTER_LAST_ANSWER_MS = 2 * 60 * 1000
+
+    @staticmethod
+    def capped_duration(duration_ms, start_time, last_answer_time):
+        """duration_ms, but no more than up to the last answer plus
+        TIME_AFTER_LAST_ANSWER_MS; unchanged before the first answer."""
+        if last_answer_time is None:
+            return duration_ms
+        cap = (last_answer_time - start_time).total_seconds() * 1000
+        cap += UserExerciseSession.TIME_AFTER_LAST_ANSWER_MS
+        return int(max(0, min(duration_ms, cap)))
+
+    def last_answer_time(self):
+        from zeeguu.core.model.exercise import Exercise
+
+        return (
+            db.session.query(func.max(Exercise.time))
+            .filter(Exercise.session_id == self.id)
+            .scalar()
+        )
 
     def exercises_in_session_string(self):
         from zeeguu.core.sql.learner.exercises_history import exercises_in_session
