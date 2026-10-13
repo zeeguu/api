@@ -11,6 +11,9 @@ from zeeguu.core.user_statistics.exercise_sessions import (
     total_time_in_exercise_sessions,
 )
 from zeeguu.core.user_statistics.reading_sessions import summarize_reading_activity
+from zeeguu.core.user_statistics.browsing_and_listening import (
+    browsing_and_listening_time,
+)
 
 
 def student_info_for_teacher_dashboard(user, cohort, from_date: str, to_date: str):
@@ -23,6 +26,9 @@ def student_info_for_teacher_dashboard(user, cohort, from_date: str, to_date: st
         exercise_count_and_correctness_percentage(
             user.id, cohort.id, from_date, to_date
         )
+    )
+    info.update(
+        browsing_and_listening_time(user.id, cohort.id, from_date, to_date)
     )
 
     return info
