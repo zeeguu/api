@@ -92,7 +92,8 @@ def _with_attempts(word_dicts):
 def student_word_lists():
     """
     What a student sees on their own Words pages, in the class's language, for
-    their teacher: scheduled (Learning), next in exercises, excluded from
+    their teacher: scheduled (Learning), waiting to enter exercises (all of
+    them, not the learner page's next 6), excluded from
     exercises, learned. Words carry their exercise attempts.
 
     Query params: student_id, cohort_id.
@@ -106,7 +107,9 @@ def student_word_lists():
 
     language_id = cohort.language_id
     scheduled = BasicSRSchedule.scheduled_user_words(student, cohort.language)
-    next_in_learning = BasicSRSchedule.user_words_not_scheduled(student, 6, language_id)
+    # all of them, not the learner page's next 6: the old teacher list showed
+    # every translated word not yet in exercises
+    next_in_learning = BasicSRSchedule.user_words_not_scheduled(student, None, language_id)
 
     return json_result(
         {
