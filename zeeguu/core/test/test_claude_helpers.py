@@ -25,6 +25,12 @@ def test_other_models_get_nothing_they_would_reject():
     assert claude.request_options("claude-sonnet-4-5-20250929") == {}
 
 
+def test_temperature_goes_only_to_models_that_take_it():
+    assert claude.sampling_options("claude-haiku-4-5-20251001", 0.1) == {"extra_body": {"temperature": 0.1}}
+    assert claude.sampling_options("claude-haiku-5-5", 0.1) == {}
+    assert claude.sampling_options("claude-sonnet-5-5", 0.1) == {}
+
+
 def test_every_sonnet_role_is_on_5_5():
     for role in (models.WORD_TRANSLATION, models.MWE_TRANSLATION, models.MWE_DETECTION,
                  models.TRANSLATION_VALIDATION, models.MEANING_FREQUENCY, models.ANTHROPIC_GENERAL):

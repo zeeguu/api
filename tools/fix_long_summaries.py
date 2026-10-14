@@ -14,7 +14,6 @@ Usage:
 import sys
 import os
 import argparse
-import requests
 from datetime import datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -23,7 +22,7 @@ from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.language import Language
-from zeeguu.core.llm_services import models
+from zeeguu.core.llm_services.haiku_client import haiku_completion
 
 app = create_app_for_scripts()
 app.app_context().push()
@@ -67,52 +66,24 @@ Current summary (too long): {summary}
 
 Shortened summary (max 25 words):"""
 
-    api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
-    if not api_key:
-        print("  ERROR: ANTHROPIC_TEXT_SIMPLIFICATION_KEY not set")
+    # None on any failure; haiku_completion logs why
+    result = haiku_completion(prompt, max_tokens=200, temperature=0.1)
+    if not result:
+        print("  ERROR: Failed to call LLM")
         return None
+    result = result.strip()
 
-    try:
-        headers = {
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json",
-        }
-        data = {
-            "model": models.ANTHROPIC_HAIKU,  # Haiku 3 retired 2026-04-19
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 200,
-            "temperature": 0.1,
-        }
+    # Validate the result
+    word_count = count_words(result)
+    if word_count > MAX_SUMMARY_WORDS:
+        print(f"  WARNING: LLM returned {word_count} words, still too long")
+        # Try to truncate intelligently
+        words = result.split()[:MAX_SUMMARY_WORDS]
+        result = " ".join(words)
+        if not result.endswith("."):
+            result += "."
 
-        response = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers=headers,
-            json=data,
-            timeout=30,
-        )
-
-        if response.status_code != 200:
-            print(f"  ERROR: API error {response.status_code}: {response.text[:200]}")
-            return None
-
-        result = response.json()["content"][0]["text"].strip()
-
-        # Validate the result
-        word_count = count_words(result)
-        if word_count > MAX_SUMMARY_WORDS:
-            print(f"  WARNING: LLM returned {word_count} words, still too long")
-            # Try to truncate intelligently
-            words = result.split()[:MAX_SUMMARY_WORDS]
-            result = " ".join(words)
-            if not result.endswith("."):
-                result += "."
-
-        return result
-
-    except Exception as e:
-        print(f"  ERROR: Failed to call LLM: {e}")
-        return None
+    return result
 
 
 def find_long_summaries(language_code, days_back=3):

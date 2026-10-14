@@ -194,18 +194,27 @@ class HaikuStopSequenceTest(TestCase):
     caller parses the flag the model actually wrote."""
 
     def _complete(self, payload):
+        from anthropic.types import Message
         from zeeguu.core.llm_services import haiku_client
 
-        response = type(
-            "R", (), {"status_code": 200, "json": lambda self: payload, "text": ""}
-        )()
+        response = Message.model_validate(
+            {
+                "id": "msg_1",
+                "type": "message",
+                "role": "assistant",
+                "model": haiku_client.HAIKU_MODEL,
+                "usage": {"input_tokens": 1, "output_tokens": 1},
+                **payload,
+            }
+        )
         with patch.dict("os.environ", {"ANTHROPIC_TEXT_SIMPLIFICATION_KEY": "k"}), patch.object(
-            haiku_client.requests, "post", return_value=response
-        ) as post:
+            haiku_client.anthropic, "Anthropic"
+        ) as client:
+            client.return_value.messages.create.return_value = response
             text = haiku_client.haiku_completion_or_raise(
                 "p", max_tokens=10, stop_sequences=sac.REJECTION_STOPS
             )
-        assert post.call_args.kwargs["json"]["stop_sequences"] == sac.REJECTION_STOPS
+        assert client.return_value.messages.create.call_args.kwargs["stop_sequences"] == sac.REJECTION_STOPS
         return text
 
     def test_the_matched_sequence_is_put_back(self):
@@ -232,6 +241,20 @@ class HaikuStopSequenceTest(TestCase):
         text = self._complete(
             {
                 "content": [{"type": "text", "text": "ORIGINAL_LEVEL: B1"}],
+                "stop_reason": "end_turn",
+                "stop_sequence": None,
+            }
+        )
+        assert text == "ORIGINAL_LEVEL: B1"
+
+    def test_a_reply_that_starts_with_thinking(self):
+        # Haiku 5.5 thinks by default; the thinking block has no .text
+        text = self._complete(
+            {
+                "content": [
+                    {"type": "thinking", "thinking": "", "signature": "sig"},
+                    {"type": "text", "text": "ORIGINAL_LEVEL: B1"},
+                ],
                 "stop_reason": "end_turn",
                 "stop_sequence": None,
             }
