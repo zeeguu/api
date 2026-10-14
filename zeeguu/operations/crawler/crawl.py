@@ -26,6 +26,8 @@ import argparse
 from collections import defaultdict
 import traceback
 
+import sentry_sdk
+
 from sqlalchemy.exc import PendingRollbackError
 from time import time
 
@@ -251,34 +253,38 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
                 continue
 
             # Process this feed
-            try:
-                log("")
-                log(f"[{lang_code.upper()}] >>>>> {feed.title} ({idx+1}/{len(feeds)}) <<<<<")
+            # One Sentry transaction per feed, so its calls (readability, stanza, LLM, db)
+            # show up as spans; one per whole crawl would hit the 1000-span cap.
+            # Sampled at the API's rate (30%), since there are hundreds of feeds an hour.
+            with sentry_sdk.start_transaction(op="task", name="task:crawl"):
+                try:
+                    log("")
+                    log(f"[{lang_code.upper()}] >>>>> {feed.title} ({idx+1}/{len(feeds)}) <<<<<")
 
-                feed_start_time = time()
+                    feed_start_time = time()
 
-                # Download from feed (this already handles article limits internally)
-                download_from_feed(
-                    feed,
-                    db_session,
-                    crawl_report,
-                    limit=max_articles_per_feed,
-                    simplification_provider=simplification_provider,
-                    topic_simplification_counts=topic_simplification_counts,
-                )
+                    # Download from feed (this already handles article limits internally)
+                    download_from_feed(
+                        feed,
+                        db_session,
+                        crawl_report,
+                        limit=max_articles_per_feed,
+                        simplification_provider=simplification_provider,
+                        topic_simplification_counts=topic_simplification_counts,
+                    )
 
-                feed_time = time() - feed_start_time
-                log(f"*** Feed processing time: {feed_time:.1f}s")
+                    feed_time = time() - feed_start_time
+                    log(f"*** Feed processing time: {feed_time:.1f}s")
 
-            except PendingRollbackError as e:
-                db_session.rollback()
-                log("Rollback required; full stack trace:")
-                traceback.print_exc()
-                crawl_report.add_feed_error(feed, str(e))
+                except PendingRollbackError as e:
+                    db_session.rollback()
+                    log("Rollback required; full stack trace:")
+                    traceback.print_exc()
+                    crawl_report.add_feed_error(feed, str(e))
 
-            except Exception as e:
-                traceback.print_exc()
-                crawl_report.add_feed_error(feed, str(e))
+                except Exception as e:
+                    traceback.print_exc()
+                    crawl_report.add_feed_error(feed, str(e))
 
             # Move to next feed for this language
             feed_indices[lang_code] += 1
