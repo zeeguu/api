@@ -24,8 +24,11 @@ from zeeguu.core.model import db
 app = create_app_for_scripts()
 app.app_context().push()
 
-from zeeguu.core.exercises.example_contexts import is_fragment, replace_fragment_with_example
-from zeeguu.core.model import UserWord
+from zeeguu.core.exercises.example_contexts import replace_fragment_with_example
+from sqlalchemy import or_
+
+from zeeguu.core.model import Bookmark, UserWord
+from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
@@ -33,18 +36,21 @@ db_session = db.session
 
 
 def in_study_fragment_words(limit=None):
+    # The fragment test runs in SQL and the result is loaded in one go: with
+    # yield_per, lazy-loading each preferred_bookmark mid-stream sent a second
+    # query down the connection that was still streaming, and MySQLdb fails
+    # with "Commands out of sync".
     query = (
         UserWord.query.join(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
+        .join(Bookmark, Bookmark.id == UserWord.preferred_bookmark_id)
+        .join(BookmarkContext, BookmarkContext.id == Bookmark.context_id)
         .filter(UserWord.fit_for_study == True)
+        .filter(or_(BookmarkContext.left_ellipsis == True, BookmarkContext.right_ellipsis == True))
         .order_by(UserWord.id)
     )
-    found = []
-    for user_word in query.yield_per(500):
-        if user_word.preferred_bookmark and is_fragment(user_word.preferred_bookmark):
-            found.append(user_word)
-            if limit and len(found) >= limit:
-                break
-    return found
+    if limit:
+        query = query.limit(limit)
+    return query.all()
 
 
 def main():
