@@ -185,6 +185,9 @@ def _install_model_switch(c_thinking_headroom):
         kwargs = dict(claude.request_options(model))
         kwargs.update(claude.sampling_options(model, temperature))
         if variant == "B":
+            # Production's Haiku 5.5 options set effort low; B measures thinking
+            # off at the model's default effort, so drop that.
+            kwargs.pop("output_config", None)
             kwargs["thinking"] = {"type": "disabled"}
         elif variant == "C":
             kwargs["thinking"] = {"type": "adaptive"}
