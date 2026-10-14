@@ -182,6 +182,28 @@ class Meaning(db.Model):
             return ""
         return text.lower().strip()
 
+    @staticmethod
+    def _pick_case_variant(meanings, _origin, _translation, user=None):
+        """Of several meanings that differ only in case: the one the user
+        already has a word for, then the exact spelling, then the oldest."""
+        owned = set()
+        if user is not None:
+            from zeeguu.core.model.user_word import UserWord
+
+            owned = {
+                row.meaning_id
+                for row in UserWord.query.with_entities(UserWord.meaning_id).filter(
+                    UserWord.user_id == user.id,
+                    UserWord.meaning_id.in_([m.id for m in meanings]),
+                )
+            }
+
+        def rank(m):
+            exact = m.origin.content == _origin.strip() and m.translation.content == _translation.strip()
+            return (m.id not in owned, not exact, m.id)
+
+        return min(meanings, key=rank)
+
     def __repr__(self):
         freq_str = f", frequency={self.frequency.value}" if self.frequency else ""
         return (
@@ -198,7 +220,13 @@ class Meaning(db.Model):
         _translation_lang: str,
         frequency=None,
         phrase_type=None,
+        user=None,
     ):
+        """
+        user: prefer a meaning this user already has a word for, so that
+        looking up 'mientras' again doesn't give them a second word next to
+        their 'Mientras'.
+        """
         from zeeguu.core.model import Phrase, Language
 
         origin_lang = Language.find_or_create(_origin_lang)
@@ -238,16 +266,20 @@ class Meaning(db.Model):
                 .filter(translation_filter)
                 .all()
             )
-            
-            # After consolidation migration, there should be exactly one
-            # Before migration or in edge cases, we might have multiple - take first
+
+            # The DB comparison also ignores accents (utf8mb4_unicode_ci), so
+            # 'accompagne' matched 'accompagné'. Keep only case variants.
+            potential_meanings = [
+                m
+                for m in potential_meanings
+                if cls._canonicalize(m.origin.content) == canonical_origin
+                and cls._canonicalize(m.translation.content) == canonical_translation
+            ]
+
             if potential_meanings:
                 if len(potential_meanings) > 1:
-                    # This shouldn't happen after migration, but handle it gracefully
-                    log(f"Found {len(potential_meanings)} semantic duplicates for '{canonical_origin}' -> '{canonical_translation}'")
-                    log(f"This indicates the consolidation migration needs to run")
-
-                meaning = potential_meanings[0]
+                    log(f"Found {len(potential_meanings)} case variants for '{canonical_origin}' -> '{canonical_translation}'")
+                meaning = cls._pick_case_variant(potential_meanings, _origin, _translation, user)
                 
                 # Update metadata if provided
                 updated = False

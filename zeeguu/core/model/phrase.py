@@ -188,6 +188,11 @@ class Phrase(db.Model):
             .all()
         )
 
+        # The column's collation (utf8mb4_unicode_ci) ignores accents as well
+        # as case: 'accompagne' also returns 'accompagné', a different word.
+        # Re-check in Python, where lower() keeps the accents.
+        ci_matches = [each for each in ci_matches if each.content.lower() == _content.lower()]
+
         if len(ci_matches) == 0:
             raise NoResultFound()
 
