@@ -6,8 +6,11 @@ validator.
 "som skal = which must/which should" and "ved at = by (doing something)"
 were marked validated before the validator learned to insist on one
 translation, and validated meanings are never checked again. Resetting them
-to NOT_VALIDATED makes ValidationService re-check each before its next
-exercise; the validator now reduces such translations to one option.
+to NOT_VALIDATED sends them back to the validator, which now reduces such
+translations to one option. A word not yet scheduled is re-checked before its
+first exercise; a scheduled one only by the nightly
+tools/validate_scheduled_meanings.py, which skips learners inactive for 30
+days, so theirs wait until they come back.
 
 Dates, slashes the source word has too (roll-on/roll-off) and glosses that
 are in the source word ("... (ICE)") are left alone; see single_translation.
