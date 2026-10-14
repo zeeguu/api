@@ -10,6 +10,9 @@ What stays, segment by segment (one exempt slash doesn't exempt the rest):
 - a slash between digits: dates like 09/10/2024, "24/7";
 - a slash inside a token the source word has too: "roll-on/roll-off",
   "Mannheim / Heidelberg" for "Mannheim/Heidelberg";
+- the forms of one word: "твій/твоя/твоє/твої" for "your", "αυτοί/αυτές/αυτά"
+  for "they". The source doesn't say which gender or number, and picking
+  one would make the flashcard wrong for the others;
 - a parenthetical whose words are all words of the source:
   "Immigration and Customs Enforcement (ICE)" for "Einwanderungsbehörde ICE";
 - the translation of the source's own slashes and parentheticals, one for
@@ -17,6 +20,7 @@ What stays, segment by segment (one exempt slash doesn't exempt the rest):
   Only the ones beyond what the source has are options.
 """
 
+import os
 import re
 
 _PARENTHETICAL = re.compile(r"\s*\(([^()]*)\)")
@@ -56,6 +60,8 @@ def _alternative_slashes(translation, word):
         if token.group().lower().strip(_TOKEN_EDGES) in word_tokens:
             matched += token.group().count("/")
             continue
+        if _forms_of_one_word(token.group()):
+            continue
         for slash in re.finditer("/", token.group()):
             i = token.start() + slash.start()
             if not _between_digits(text, i):
@@ -63,6 +69,18 @@ def _alternative_slashes(translation, word):
     # The source's own slashes that weren't matched verbatim, translated.
     mirrored = len([i for i, c in enumerate(word) if c == "/" and not _between_digits(word, i)])
     return text, positions[max(mirrored - matched, 0):]
+
+
+def _forms_of_one_word(token):
+    """"твій/твоя/твоє/твої", "αυτοί/αυτές/αυτά", "nuevo/nueva": single words
+    sharing a stem of at least two letters and half the shortest of them.
+    "zo/dus" and "to/towards" are other words, not forms."""
+    forms = [f.strip(_TOKEN_EDGES) for f in token.lower().split("/")]
+    if len(forms) < 2 or not all(f.isalpha() for f in forms):
+        return False
+    stem = len(os.path.commonprefix(forms))
+    shortest = min(len(f) for f in forms)
+    return stem >= 2 and stem * 2 >= shortest and stem < shortest
 
 
 def _between_digits(text, i):

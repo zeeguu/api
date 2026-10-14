@@ -16,7 +16,8 @@ from zeeguu.core.llm_services.translation_validator import TranslationValidator
         ("ved at", "by (doing something)", "by"),
         ("pour autant", "nevertheless/for all that", "nevertheless"),
         ("Ha fatto", "he did / he made", "he did"),
-        ("your", "твій/твоя/твоє/твої", "твій"),
+        ("ainsi", "zo/dus", "zo"),
+        ("vers", "to/towards", "to"),
         ("Lupin", "lupine (peulvrucht)", "lupine"),
         ("s'entourer", "zich omringen (met)", "zich omringen"),
     ],
@@ -40,6 +41,24 @@ def test_options_are_reduced_to_one(word, translation, one):
 def test_legitimate_translations_are_left_alone(word, translation):
     assert not lists_options(translation, word)
     assert pick_one(translation, word) == translation
+
+
+@pytest.mark.parametrize(
+    "word, translation",
+    [
+        ("your", "твій/твоя/твоє/твої"),
+        ("they", "αυτοί/αυτές/αυτά"),
+        ("new", "nuevo / nueva"),
+    ],
+)
+def test_forms_of_one_word_are_not_options(word, translation):
+    # The source doesn't say which gender or number; each form is right.
+    assert not lists_options(translation, word)
+    assert pick_one(translation, word) == translation
+
+
+def test_forms_exempt_only_their_own_segment():
+    assert pick_one("твій/твоя (informal)", "your") == "твій/твоя"
 
 
 def test_nothing_left_after_dropping_keeps_the_original():
