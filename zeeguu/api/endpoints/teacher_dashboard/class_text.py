@@ -28,8 +28,8 @@ def class_text(cohort_id, article_id):
     One text, as a whole class read it: who opened it, and the words they
     looked up in it, the ones most students needed first.
 
-    The text itself comes too (tokenized_title_new, tokenized_fragments), each
-    part with the class's bookmarks made in it. The teacher's page places them
+    The text itself comes too, as `text`: {title, fragments}, tokenized as the
+    reader gets them, each part with the class's bookmarks made in it. The teacher's page places them
     on the text and colours it by how many students looked each word up.
 
     For the teachers who give a class one text at a time: a word half the
@@ -81,8 +81,7 @@ def class_text(cohort_id, article_id):
             "student_count": len(students),
             "readers": _readers(students, opened, bookmarks, reading_ms_per_student),
             "words": _words(students, bookmarks),
-            "tokenized_title_new": title,
-            "tokenized_fragments": fragments,
+            "text": {"title": title, "fragments": fragments},
         }
     )
 

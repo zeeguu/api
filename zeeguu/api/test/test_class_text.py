@@ -57,7 +57,7 @@ def test_the_words_most_students_needed_come_first(client):
     assert hinter["context"] == "stellt sich hinter Präsident"
     assert info["student_count"] == 2
     # the title comes with the class's bookmarks in it, for the heatmap
-    title = info["tokenized_title_new"]
+    title = info["text"]["title"]
     assert title["tokens"]
     placed = sorted((b["t_token_i"], b["translation"]) for b in title["class_bookmarks"])
     assert placed == [(2, "after"), (2, "behind"), (3, "president")]
