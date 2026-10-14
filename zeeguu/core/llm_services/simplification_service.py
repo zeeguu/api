@@ -13,6 +13,7 @@ from zeeguu.core.language.generate_in_language import (
 )
 from zeeguu.core.llm_services.haiku_client import HAIKU_MODEL, haiku_completion
 from zeeguu.core.llm_services import models
+from zeeguu.core.model.language import Language
 from zeeguu.core.llm_services.prompts.level_simplification import (
     get_level_simplification_prompt,
     paragraphs,
@@ -358,26 +359,8 @@ class SimplificationService:
 
         Returns: Dict with 'title', 'content', 'summary' keys or None if failed
         """
-        # Map language codes to names
-        language_names = {
-            "ro": "Romanian",
-            "en": "English",
-            "de": "German",
-            "es": "Spanish",
-            "fr": "French",
-            "nl": "Dutch",
-            "it": "Italian",
-            "da": "Danish",
-            "pl": "Polish",
-            "sv": "Swedish",
-            "ru": "Russian",
-            "no": "Norwegian",
-            "hu": "Hungarian",
-            "pt": "Portuguese",
-        }
-        
-        source_lang_name = language_names.get(source_language, source_language)
-        target_lang_name = language_names.get(target_language, target_language)
+        source_lang_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
+        target_lang_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
         
         context = f"{target_lang_name} translation of '{title[:50]}'"
 
@@ -516,22 +499,7 @@ Focus on accurate translation while maintaining natural, fluent {target_language
         self, title: str, content: str, language_code: str
     ) -> Optional[str]:
         """Assess CEFR level using Anthropic"""
-        language_names = {
-            "ro": "Romanian",
-            "en": "English",
-            "fr": "French",
-            "es": "Spanish",
-            "de": "German",
-            "da": "Danish",
-            "nl": "Dutch",
-            "it": "Italian",
-            "pt": "Portuguese",
-            "sv": "Swedish",
-            "no": "Norwegian",
-            "fi": "Finnish",
-        }
-
-        language_name = language_names.get(language_code, "Romanian")
+        language_name = Language.LANGUAGE_NAMES.get(language_code, language_code)
 
         prompt = f"""Assess the CEFR level and identify the main topic of this {language_name} article.
 
@@ -592,19 +560,7 @@ TOPIC: Business"""
         self, title: str, content: str, language_code: str
     ) -> str:
         """Assess CEFR level using DeepSeek"""
-        language_names = {
-            "da": "Danish",
-            "es": "Spanish",
-            "en": "English",
-            "de": "German",
-            "fr": "French",
-            "nl": "Dutch",
-            "it": "Italian",
-            "pt": "Portuguese",
-            "ro": "Romanian",
-        }
-
-        language_name = language_names.get(language_code, language_code)
+        language_name = Language.LANGUAGE_NAMES.get(language_code, language_code)
 
         prompt = f"""You are a language learning expert. Assess the CEFR difficulty level and identify the main topic of this {language_name} article.
 
