@@ -440,7 +440,8 @@ def _counts_as_progress(outcome: str):
     """
     Whether an answer moves the word forward in the schedule. Laxer than
     ExerciseOutcome.is_correct: a hint or a looked-up translation before the
-    right answer still counts here, and so does hearing the word in a
+    right answer still counts here, as does another word that fits the blank
+    just as well (ALTERNATIVE), and so does hearing the word in a
     finished audio lesson (LISTENED), which is not an answer at all.
 
     TODO: the scheduler rewrite should use ExerciseOutcome.is_correct (or
@@ -449,6 +450,7 @@ def _counts_as_progress(outcome: str):
     return (
         ExerciseOutcome.is_correct(outcome)
         or outcome == ExerciseOutcome.CORRECT_AFTER_HINT
+        or outcome in ExerciseOutcome.alternative_outcomes
         or outcome in ExerciseOutcome.correct_after_translation
         or outcome == ExerciseOutcome.LISTENED
     )

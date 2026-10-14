@@ -22,6 +22,11 @@ class ExerciseOutcome(db.Model):
     # TODO: Rename to EXERCISE_FEEDBACK
     OTHER_FEEDBACK = "other_feedback"
     CORRECT_AFTER_HINT = "HC"
+    # A different word that fits the blank just as well ("tænker" where the
+    # cloze expected "synes"), as judged by meaning_alternative. It moves the
+    # word forward like an answer after a hint, but it is not "C": the learner
+    # did not produce the word they are learning.
+    ALTERNATIVE = "A"
     # Not an answer: the word was in a daily audio lesson the learner finished.
     # It schedules like a correct answer, but it is not "C": "C" means the
     # learner answered correctly, first try, without help.
@@ -35,6 +40,9 @@ class ExerciseOutcome(db.Model):
     wrong_outcomes = ["W", WRONG, SHOW_SOLUTION, ASKED_FOR_HINT]
 
     correct_after_translation = ["TC", "TTC", "TTTC"]
+
+    # An alternative ("A") after the same help that "HC" and "TC" record.
+    alternative_outcomes = [ALTERNATIVE, "HA", "TA", "TTA", "TTTA"]
 
     # The one definition of "correct": solved on the first try, unaided.
     # A hint (HC) or looking up the translation first (TC, TTC, ...) is not
@@ -51,7 +59,7 @@ class ExerciseOutcome(db.Model):
         of the set of possible reports of the exercise, we can
         conclude it is a user attempt.
         """
-        allowed_attempts = set(["C", "W", "T", "S", "H"])
+        allowed_attempts = set(["C", "W", "T", "S", "H", "A"])
         return allowed_attempts.issuperset(set([c for c in outcome]))
 
     @classmethod

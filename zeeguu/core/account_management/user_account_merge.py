@@ -52,6 +52,8 @@ POLICIES = {
     ("daily_audio_subscription", "user_id"): MOVE,
     ("example_sentence", "user_id"): MOVE,
     ("exercise_report", "user_id"): MOVE,
+    # A cloze verdict kept for this learner only (not yet shared).
+    ("meaning_alternative", "user_id"): MOVE,
     ("meaning_report", "user_id"): MOVE,
     ("onboarding_funnel_event", "user_id"): MOVE,
     ("personal_copy", "user_id"): MOVE,

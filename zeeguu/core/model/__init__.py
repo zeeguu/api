@@ -15,6 +15,7 @@ from .phrase import Phrase
 from .user import User
 from .meaning import Meaning
 from .meaning_report import MeaningReport
+from .meaning_alternative import MeaningAlternative
 from .user_word import UserWord
 from .bookmark import Bookmark
 

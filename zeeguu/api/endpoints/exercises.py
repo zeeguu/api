@@ -248,6 +248,37 @@ def similar_words_api(bookmark_id):
     )
 
 
+@api.route("/judge_cloze_alternative", methods=["POST"])
+@cross_domain
+@requires_session
+def judge_cloze_alternative():
+    """
+    Whether a word the learner typed into a cloze, other than the expected one,
+    also fits the blank ("tænker" where the exercise expected "synes").
+
+    JSON body: {"bookmark_id": int, "typed": str}
+    Returns:   {"relation": "SYNONYM" | "NEAR_SYNONYM_NOT_IDIOMATIC"
+                            | "NOT_SYNONYM" | "UNKNOWN",
+                "explanation": str, "cached": bool}
+
+    UNKNOWN: the judge could not be asked in time; the client treats the
+    answer as wrong, as it did before this existed.
+    """
+    from zeeguu.core.exercises.cloze_alternatives import judge_alternative
+
+    data = request.get_json(silent=True) or {}
+    bookmark_id = data.get("bookmark_id")
+    typed = data.get("typed")
+    if not bookmark_id or not isinstance(typed, str):
+        return json_result({"error": "bookmark_id and typed are required"}, status=400)
+
+    bookmark = Bookmark.query.get(bookmark_id)
+    if not bookmark or bookmark.user_word.user_id != flask.g.user_id:
+        return json_result({"error": "Bookmark not found"}, status=404)
+
+    return json_result(judge_alternative(db_session, bookmark, typed))
+
+
 def _bookmarks_as_json_result(bookmarks, with_exercise_info, with_tokens):
     bookmark_dicts = [
         b.as_dictionary(
