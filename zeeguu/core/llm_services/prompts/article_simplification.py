@@ -7,18 +7,22 @@ from zeeguu.core.model.language import Language
 # What counts as disturbing, shared by both prompts below. Rewritten 14 Oct 2026
 # from a hand check of 15 articles the models disagreed on: the old rule (violence,
 # death or disaster as an event) missed sexual violence and harm to children, and
-# flagged stories where nobody was hurt or where a war was only context.
+# flagged political stories in which nobody was hurt. A short YES list with NO as
+# the default: on the borderline cases deepseek-chat's reading was the right one,
+# and narrow exceptions only made the rule fit those few articles.
 # No newlines in it: tools/judge_haiku_eval.py cuts the rule out of the prompt by line.
 DISTURBING_RULE = (
-    "[YES or NO - should a reader who has asked to avoid disturbing material, including a young learner, have this article hidden? Answer YES when the article's focus, or a substantial part of it, is any of: "
-    "(a) people killed or seriously hurt - deadly violence, war with casualties, terror attacks, accidents or disasters with deaths; "
-    "(b) sexual violence, sexual abuse or sexual harassment - also when it is the background of a court case, or the subject of a book or film being reviewed; "
-    "(c) abuse of children, or children in danger - including missing children; "
-    "(d) graphic bodily harm or gore, or dwelling on corpses, coffins, burial or death imagery - also in a lifestyle or novelty piece (e.g. "
-    '"coffin therapy"). '
-    "Answer NO when nobody was killed or hurt (an attack that was stopped, a fire or accident without casualties), when the story is about something else and violence, war or deaths are only its context or are mentioned in passing (a political or economic story about a war, travel disruption caused by a storm), for an obituary of someone who died of natural causes, and for hunting or culling animals. "
+    "[YES or NO - should a reader who has asked to avoid disturbing material, including a young learner, have this article hidden? "
+    "Answer YES if the article reports at least one of these, even briefly: "
+    "(1) people killed or seriously hurt - by violence, war, terrorism, an animal, an accident or a disaster - or an attempted terror attack; "
+    "(2) sexual violence, sexual abuse or sexual harassment - also as the background of a court case, or in a book or film being reviewed; "
+    "(3) abuse of children, or children in danger - including missing children; "
+    "(4) graphic bodily harm or gore, or dwelling on corpses, coffins, burial or death imagery - also in a lifestyle or novelty piece such as coffin therapy. "
+    "Otherwise NO - for example a fire or accident in which nobody was hurt, an obituary of someone who died of illness or old age, "
+    "illness, depression or grief, or war and military news in which nobody is reported killed or hurt. "
     "Purely historical or educational treatment of a difficult topic is NO, unless it is about sexual violence or child abuse.]"
 )
+
 
 
 def get_adaptive_simplification_prompt(language: str) -> str:
