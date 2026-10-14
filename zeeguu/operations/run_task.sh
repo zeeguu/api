@@ -32,4 +32,5 @@ if docker ps -a --format '{{.Names}}' | grep -q "^${TASK_NAME}$"; then
     docker rm "$TASK_NAME" 2>/dev/null || true
 fi
 
-docker compose -f "$API_DIR/docker-compose.yml" run --rm --name "$TASK_NAME" run_task python "$@" >> "$LOG_FILE" 2>&1
+# traced_task wraps the script in a Sentry transaction named task:$TASK_NAME
+docker compose -f "$API_DIR/docker-compose.yml" run --rm --name "$TASK_NAME" run_task python -m zeeguu.operations.traced_task "$TASK_NAME" "$@" >> "$LOG_FILE" 2>&1
