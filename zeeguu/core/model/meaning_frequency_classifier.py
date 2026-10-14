@@ -13,6 +13,7 @@ from zeeguu.core.llm_services.prompts.meaning_frequency_classifier import (
 from zeeguu.core.model.meaning import MeaningFrequency
 from zeeguu.core.model.meaning import PhraseType
 from zeeguu.core.llm_services import models
+from zeeguu.core.llm_services import claude
 from zeeguu.logging import log
 
 
@@ -52,12 +53,13 @@ class MeaningFrequencyClassifier:
 
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
+                **claude.request_options(self.MODEL_NAME),
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
 
             # Extract and validate response
-            result_text = response.content[0].text.strip()
+            result_text = claude.response_text(response).strip()
             result_lines = [
                 line.strip() for line in result_text.split("\n") if line.strip()
             ]
@@ -117,12 +119,13 @@ class MeaningFrequencyClassifier:
 
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
+                **claude.request_options(self.MODEL_NAME),
                 max_tokens=20,  # Need space for "frequency,phrase_type"
                 messages=[{"role": "user", "content": prompt}],
             )
 
             # Extract and validate response
-            result = response.content[0].text.strip().lower()
+            result = claude.response_text(response).strip().lower()
 
             # Parse comma-separated response
             if "," not in result:

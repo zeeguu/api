@@ -13,12 +13,12 @@ snapshot (404 ``not_found_error``), and the "Ask LLM" action silently failed
 than by vendor keeps "what model runs where" readable at a glance and makes
 re-pointing a feature to a cheaper/faster tier a one-line edit.
 
-Model IDs are authoritative as of 2026-07. See
+Model IDs are authoritative as of 2026-10 (Sonnet 4.5 retires 2026-11-30). See
 https://platform.claude.com/docs/en/about-claude/models/overview for current IDs.
 """
 
 # --- Canonical model IDs — the ONLY place a raw model string appears ---
-ANTHROPIC_SONNET = "claude-sonnet-4-5-20250929"  # current Sonnet tier
+ANTHROPIC_SONNET = "claude-sonnet-5-5"  # current Sonnet tier; thinking off via claude.request_options
 ANTHROPIC_HAIKU = "claude-haiku-4-5-20251001"    # current Haiku (fast / cheap)
 DEEPSEEK_CHAT = "deepseek-chat"
 
