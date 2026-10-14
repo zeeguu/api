@@ -1,10 +1,15 @@
+from collections import defaultdict
+
 import flask
 from sqlalchemy import func
+from sqlalchemy.orm import joinedload
 
 from zeeguu.core.model import Article, Cohort
 from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
 from zeeguu.core.model.article_title_context import ArticleTitleContext
 from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.bookmark_context import BookmarkContext
+from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.core.model.user_reading_session import UserReadingSession
@@ -45,6 +50,13 @@ def class_text(cohort_id, article_id):
         Bookmark.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
         .filter(Bookmark.source_id == article.source_id)
         .filter(UserWord.user_id.in_(students.keys()))
+        # everything the three views below read, in this one query: lazily,
+        # it was five queries per bookmark, and a class text has hundreds
+        .options(
+            joinedload(Bookmark.user_word).joinedload(UserWord.meaning).joinedload(Meaning.origin),
+            joinedload(Bookmark.user_word).joinedload(UserWord.meaning).joinedload(Meaning.translation),
+            joinedload(Bookmark.context).joinedload(BookmarkContext.text),
+        )
         .order_by(Bookmark.time)
         .all()
     )
@@ -126,70 +138,73 @@ def _words(students, bookmarks):
 def _text_with_lookups(article, bookmarks):
     """
     The article's tokenized title and fragments, each with `lookups`:
-    [{sent_i, token_i, students: [{id, translation}]}] for every token a
+    [{sent_i, token_i, students: [{id, translation}]}], one entry per token a
     student looked up, with the translation each of them got.
-
-    A bookmark's position is its context's offset plus its own, the same sum
-    the reader does (bookmarkRestoration.js). A phrase colours all its tokens,
-    and a separated multi-word expression its two parts only.
     """
-    content = article.article_info(with_content=True)
-    title = content.get("tokenized_title_new") or {}
-    fragments = content.get("tokenized_fragments") or []
-
-    ids = [b.id for b in bookmarks]
-    fragment_of = dict(
-        db.session.query(ArticleFragmentContext.bookmark_id, ArticleFragmentContext.article_fragment_id)
-        .filter(ArticleFragmentContext.bookmark_id.in_(ids))
-        .all()
-    )
-    in_title = {
-        bookmark_id
-        for (bookmark_id,) in db.session.query(ArticleTitleContext.bookmark_id)
-        .filter(ArticleTitleContext.bookmark_id.in_(ids))
-        .all()
-    }
-
-    # part ("title" or a fragment id) -> (sent_i, token_i) -> {student id: their translation}
-    lookups = {}
+    # part ("title" or a fragment id) -> (sent_i, token_i) -> {student id: translation}
+    found = defaultdict(lambda: defaultdict(dict))
+    part_of = _part_of_each(bookmarks)
     for bookmark in bookmarks:
-        part = "title" if bookmark.id in in_title else fragment_of.get(bookmark.id)
-        if part is None or bookmark.context is None:
+        part = part_of.get(bookmark.id)
+        if part is None:
             continue
-        sent_i = (bookmark.context.sentence_i or 0) + (bookmark.sentence_i or 0)
-        token_i = (bookmark.context.token_i or 0) + (bookmark.token_i or 0)
-        if bookmark.is_mwe and bookmark.mwe_partner_token_i is not None:
-            # the partner's index is already the token's own (validateMweBookmark)
-            positions = [token_i, bookmark.mwe_partner_token_i]
-        else:
-            positions = [token_i + k for k in range(bookmark.total_tokens or 1)]
-        for position in positions:
-            # a student who looked the word up twice shows their first translation
-            lookups.setdefault(part, {}).setdefault((sent_i, position), {}).setdefault(
+        for position in _tokens_covered(bookmark):
+            # looked up twice: their first translation stands
+            found[part][position].setdefault(
                 bookmark.user_word.user_id, bookmark.user_word.meaning.translation.content
             )
 
     def with_lookups(tokenized, part):
-        found = lookups.get(part, {})
         return {
             **tokenized,
             "lookups": [
                 {
                     "sent_i": sent_i,
                     "token_i": token_i,
-                    "students": [
-                        {"id": user_id, "translation": translation}
-                        for user_id, translation in sorted(who.items())
-                    ],
+                    "students": [{"id": id, "translation": t} for id, t in sorted(who.items())],
                 }
-                for (sent_i, token_i), who in sorted(found.items())
+                for (sent_i, token_i), who in sorted(found[part].items())
             ],
         }
 
+    content = article.article_info(with_content=True)
     return {
-        "tokenized_title_new": with_lookups(title, "title"),
+        "tokenized_title_new": with_lookups(content.get("tokenized_title_new") or {}, "title"),
         "tokenized_fragments": [
             with_lookups(fragment, fragment["context_identifier"]["article_fragment_id"])
-            for fragment in fragments
+            for fragment in content.get("tokenized_fragments") or []
         ],
     }
+
+
+def _part_of_each(bookmarks):
+    """{bookmark id: "title" or the id of the fragment it was made in}."""
+    ids = [b.id for b in bookmarks]
+    part_of = dict(
+        db.session.query(ArticleFragmentContext.bookmark_id, ArticleFragmentContext.article_fragment_id)
+        .filter(ArticleFragmentContext.bookmark_id.in_(ids))
+        .all()
+    )
+    for (bookmark_id,) in (
+        db.session.query(ArticleTitleContext.bookmark_id).filter(ArticleTitleContext.bookmark_id.in_(ids)).all()
+    ):
+        part_of[bookmark_id] = "title"
+    return part_of
+
+
+def _tokens_covered(bookmark):
+    """
+    The (sent_i, token_i) of every token the bookmark covers.
+
+    Its position is its context's offset plus its own, the same sum the reader
+    does (bookmarkRestoration.js). A phrase covers all its tokens; a separated
+    multi-word expression only its two parts.
+    """
+    if bookmark.context is None:
+        return []
+    sent_i = (bookmark.context.sentence_i or 0) + (bookmark.sentence_i or 0)
+    token_i = (bookmark.context.token_i or 0) + (bookmark.token_i or 0)
+    if bookmark.is_mwe and bookmark.mwe_partner_token_i is not None:
+        # the partner's index is already absolute (validateMweBookmark)
+        return [(sent_i, token_i), (sent_i, bookmark.mwe_partner_token_i)]
+    return [(sent_i, token_i + k) for k in range(bookmark.total_tokens or 1)]
