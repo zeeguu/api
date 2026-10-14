@@ -74,13 +74,15 @@ def class_text(cohort_id, article_id):
         .all()
     )
 
+    title, fragments = _text_with_bookmarks(article, bookmarks)
     return json_result(
         {
             "article": {"id": article.id, "title": article.title},
             "student_count": len(students),
             "readers": _readers(students, opened, bookmarks, reading_ms_per_student),
             "words": _words(students, bookmarks),
-            **_text_with_bookmarks(article, bookmarks),
+            "tokenized_title_new": title,
+            "tokenized_fragments": fragments,
         }
     )
 
@@ -137,7 +139,7 @@ def _words(students, bookmarks):
 
 def _text_with_bookmarks(article, bookmarks):
     """
-    The article's tokenized title and fragments, each with `class_bookmarks`:
+    (title, fragments): the article's tokenized parts, each with `class_bookmarks`:
     the class's lookups made in that part, with the fields the reader needs to
     place a bookmark on its tokens, plus whose it is and what they got.
 
@@ -153,13 +155,13 @@ def _text_with_bookmarks(article, bookmarks):
 
     content = article.article_info(with_content=True)
     title = content.get("tokenized_title_new") or {}
-    return {
-        "tokenized_title_new": {**title, "class_bookmarks": in_part["title"]},
-        "tokenized_fragments": [
+    return (
+        {**title, "class_bookmarks": in_part["title"]},
+        [
             {**fragment, "class_bookmarks": in_part[fragment["context_identifier"]["article_fragment_id"]]}
             for fragment in content.get("tokenized_fragments") or []
         ],
-    }
+    )
 
 
 def _placeable(bookmark):
