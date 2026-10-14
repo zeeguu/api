@@ -132,7 +132,7 @@ def validate_user_word(user_word: UserWord) -> dict:
             return {
                 "success": True,
                 "action": "skipped",
-                "details": f"'{original_word}' -> '{original_translation}' skipped (no context)"
+                "details": f"'{original_word}' -> '{original_translation}' skipped (no context, or no verdict from the validator)"
             }
 
     except Exception as e:
