@@ -72,13 +72,15 @@ def main():
 
     swapped = failed = 0
     for i, user_word in enumerate(with_examples, 1):
+        user_word_id = user_word.id
         try:
             if replace_fragment_with_example(db_session, user_word):
                 swapped += 1
         except Exception as e:
             failed += 1
-            print(f"user_word {user_word.id}: {e}")
+            # Roll back first: after a failed flush any ORM access raises.
             db_session.rollback()
+            print(f"user_word {user_word_id}: {e}")
         if i % 100 == 0:
             print(f"{i}/{len(with_examples)}: {swapped} switched, {failed} failed")
 

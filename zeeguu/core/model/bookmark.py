@@ -564,10 +564,18 @@ class Bookmark(db.Model):
         reading_session_id: int = None,
         is_mwe: bool = False,
         mwe_partner_token_i: int = None,
+        user_word=None,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
         if it exists, it ** updates the translation** and returns the bookmark object
+
+        user_word: attach the bookmark to this word instead of looking the word
+        up from the origin/translation strings. Meaning lookup ignores case, so
+        for a learner with 'mientras' the strings can resolve to an older
+        'Mientras' meaning and silently create a second word. Passing it also
+        skips the translation bookkeeping: placing a known word in a new
+        sentence is not a translation.
         """
         from zeeguu.logging import log
         import time
@@ -581,31 +589,34 @@ class Bookmark(db.Model):
 
         log(f"[BOOKMARK-TIMING] Creating Meaning for '{_origin}' -> '{_translation}'")
         meaning_start = time.time()
-        meaning = Meaning.find_or_create(
-            session, _origin, _origin_lang, _translation, _translation_lang
-        )
-        log(f"[BOOKMARK-TIMING] Meaning.find_or_create took {time.time() - meaning_start:.3f}s")
+        if user_word is not None:
+            meaning = user_word.meaning
+        else:
+            meaning = Meaning.find_or_create(
+                session, _origin, _origin_lang, _translation, _translation_lang
+            )
+            log(f"[BOOKMARK-TIMING] Meaning.find_or_create took {time.time() - meaning_start:.3f}s")
 
-        log(f"[BOOKMARK-TIMING] Creating UserWord")
-        uw_start = time.time()
-        user_word = UserWord.find_or_create(session, user, meaning)
-        log(f"[BOOKMARK-TIMING] UserWord.find_or_create took {time.time() - uw_start:.3f}s")
+            log(f"[BOOKMARK-TIMING] Creating UserWord")
+            uw_start = time.time()
+            user_word = UserWord.find_or_create(session, user, meaning)
+            log(f"[BOOKMARK-TIMING] UserWord.find_or_create took {time.time() - uw_start:.3f}s")
 
-        # Log every translation
-        from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-        from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
+            # Log every translation
+            from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+            from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
 
-        UserWordInteractionHistory.log(
-            session, user_word, UserWordInteractionHistory.TRANSLATED
-        )
+            UserWordInteractionHistory.log(
+                session, user_word, UserWordInteractionHistory.TRANSLATED
+            )
 
-        # Erode "declared known" confidence on re-translation
-        if UserWordExPreference.is_declared_known(user_word.user_preference):
-            user_word.user_preference += 2
-            if user_word.user_preference >= UserWordExPreference.NO_PREFERENCE:
-                user_word.user_preference = UserWordExPreference.NO_PREFERENCE
-                user_word.update_fit_for_study(session)
-            session.add(user_word)
+            # Erode "declared known" confidence on re-translation
+            if UserWordExPreference.is_declared_known(user_word.user_preference):
+                user_word.user_preference += 2
+                if user_word.user_preference >= UserWordExPreference.NO_PREFERENCE:
+                    user_word.user_preference = UserWordExPreference.NO_PREFERENCE
+                    user_word.update_fit_for_study(session)
+                session.add(user_word)
 
         log(f"[BOOKMARK-TIMING] Getting Source")
         source = Source.find_by_id(source_id)

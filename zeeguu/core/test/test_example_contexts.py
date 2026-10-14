@@ -9,6 +9,10 @@ from unittest.mock import patch
 
 import zeeguu.core
 from zeeguu.core.exercises import example_contexts
+from zeeguu.core.model import Bookmark, Meaning, Phrase, UserWord
+from zeeguu.core.model.context_identifier import ContextIdentifier
+from zeeguu.core.model.context_type import ContextType
+from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.exercises.example_contexts import (
     is_fragment,
     replace_fragments_before_first_exercise,
@@ -69,3 +73,59 @@ class ExampleContextsTest(ModelTestMixIn, TestCase):
 
         with patch.object(example_contexts, "replace_fragment_with_example", side_effect=swap):
             self.assertEqual(replace_fragments_before_first_exercise(session, [first, second]), 1)
+
+
+class ExampleBookmarkStaysOnTheWordTest(ModelTestMixIn, TestCase):
+    """Meaning lookup ignores case. A learner's 'mientras' must not resolve to
+    an older 'Mientras' meaning and get a second word (user_word 532196)."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = UserRule().user
+        learned = self.user.learned_language.code
+        native = self.user.native_language.code
+        # The older capitalised meaning is what the strings resolve to.
+        self.older = Meaning.find_or_create(session, "Mientras", learned, "While", native)
+        # Built directly: find_or_create can't make a case variant any more,
+        # but prod has such pairs from older data (meanings 131704 / 264078).
+        self.meaning = Meaning(
+            Phrase("mientras", self.user.learned_language),
+            Phrase("while", self.user.native_language),
+        )
+        session.add(self.meaning)
+        session.commit()
+        self.user_word = UserWord.find_or_create(session, self.user, self.meaning)
+        session.commit()
+
+    def test_bookmark_goes_to_the_given_word(self):
+        example = ExampleSentence(
+            "Mientras comíamos, empezó a llover.", self.user.learned_language, self.meaning
+        )
+        session.add(example)
+        session.commit()
+        words_before = UserWord.query.filter_by(user_id=self.user.id).count()
+
+        bookmark = Bookmark.find_or_create(
+            session,
+            self.user,
+            "mientras",
+            self.user.learned_language.code,
+            "while",
+            self.user.native_language.code,
+            "Mientras comíamos, empezó a llover.",
+            None,
+            None,
+            sentence_i=0,
+            token_i=0,
+            total_tokens=1,
+            c_sentence_i=0,
+            c_token_i=0,
+            context_identifier=ContextIdentifier(
+                context_type=ContextType.EXAMPLE_SENTENCE, example_sentence_id=example.id
+            ),
+            translation_source="generated_example",
+            user_word=self.user_word,
+        )
+
+        self.assertEqual(bookmark.user_word_id, self.user_word.id)
+        self.assertEqual(UserWord.query.filter_by(user_id=self.user.id).count(), words_before)
