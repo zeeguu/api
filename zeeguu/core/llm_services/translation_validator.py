@@ -106,7 +106,6 @@ class TranslationValidator:
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
                 max_tokens=200,
-                extra_body={"temperature": 0},  # Deterministic for validation
                 messages=[{"role": "user", "content": prompt}],
             )
             response_text = response.content[0].text.strip()
@@ -159,7 +158,6 @@ class TranslationValidator:
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
                 max_tokens=max_tokens,
-                extra_body={"temperature": 0},
                 messages=[{"role": "user", "content": prompt}],
             )
             response_text = response.content[0].text.strip()
@@ -299,7 +297,6 @@ class TranslationValidator:
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
                 max_tokens=10,
-                extra_body={"temperature": 0},
                 messages=[{"role": "user", "content": prompt}],
             )
             response_text = response.content[0].text.strip().upper()
