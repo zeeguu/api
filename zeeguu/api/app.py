@@ -119,6 +119,12 @@ def create_app(testing=False):
             "pool_pre_ping": True,  # Verify connections before using them
         }
 
+        # Report any use of a pooled connection by a thread other than the
+        # one that checked it out ("already in use from another thread")
+        from zeeguu.core.model import connection_thread_guard
+
+        connection_thread_guard.install()
+
     from zeeguu.core.model.db import db
 
     db.init_app(app)
