@@ -168,8 +168,10 @@ class UserWordValidationService:
         )
 
         if result is None:
-            # The validator could not answer. Keep the word NOT_VALIDATED so the
-            # next schedule or validation run tries again; the exercise goes on.
+            # The validator could not answer. Keep the word NOT_VALIDATED, which
+            # is what tools/validate_scheduled_meanings.py picks up; the
+            # exercise goes on meanwhile. Scheduling validates only once, before
+            # the first schedule, so it will not retry by itself.
             log(f"[VALIDATION] No verdict for user_word {user_word.id}, left unvalidated")
             return user_word
 
