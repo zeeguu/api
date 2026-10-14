@@ -23,6 +23,7 @@ class LowQualityTypes:
     USER_REPORTED = "USER_REPORTED"
     NON_ARTICLE = "NON_ARTICLE"                    # Interactive/non-prose page (crossword, sudoku, quiz...)
     LLM_PASS_FAILED = "LLM_PASS_FAILED"            # assess/summarize/classify errored; never assessed, never indexed
+    DUPLICATE_IN_OUTLET = "DUPLICATE_IN_OUTLET"    # same story as another article of its outlet (e.g. a republished update)
 
 
 class ArticleBrokenMap(db.Model):

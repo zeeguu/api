@@ -166,6 +166,10 @@ class Article(db.Model):
     deleted = Column(Integer)
     video = Column(Integer)
     content_simhash = Column(UnsignedBigInteger)
+    # Articles reporting the same story share this: the id of the story's first
+    # article; NULL = its own story. Assigned at indexing time by
+    # zeeguu.core.story_clustering, used to show one card per story in the feed.
+    story_id = Column(Integer)
 
     # Simplified article relationship fields
     parent_article_id = Column(Integer, ForeignKey("article.id"))
