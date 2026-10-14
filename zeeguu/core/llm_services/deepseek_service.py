@@ -4,6 +4,7 @@ DeepSeek API service implementation
 
 import os
 import json
+import time
 import requests
 from typing import List, Dict, Optional
 
@@ -45,20 +46,36 @@ class DeepSeekService(LLMService):
             "temperature": temperature
         }
 
+        # self.timeout is a deadline for the whole request. requests' own timeout
+        # only bounds each read, and while DeepSeek queues a request it keeps the
+        # connection alive by sending empty lines, so that never fires: on Oct 1
+        # 2026 alternative_sentences calls hung 900s and then got a body with no
+        # "choices". Stream the body and give up at the deadline instead.
+        deadline = time.monotonic() + self.timeout
         try:
-            response = requests.post(
+            with requests.post(
                 f"{self.base_url}/chat/completions",
                 headers=headers,
                 json=payload,
-                timeout=self.timeout
-            )
-            
-            if response.status_code == 200:
-                result = response.json()
-                return result["choices"][0]["message"]["content"]
-            else:
-                raise Exception(f"DeepSeek API error {response.status_code}: {response.text}")
-                
+                timeout=self.timeout,
+                stream=True,
+            ) as response:
+                # chunk_size=1: a bigger chunk blocks until it fills, and the
+                # keep-alive lines are one byte each. Answers are a few KB.
+                body = bytearray()
+                for chunk in response.iter_content(chunk_size=1):
+                    body += chunk
+                    if time.monotonic() > deadline:
+                        raise requests.exceptions.Timeout()
+                status = response.status_code
+
+            if status != 200:
+                raise Exception(f"DeepSeek API error {status}: {bytes(body[:500])!r}")
+            result = json.loads(body)  # leading keep-alive newlines are whitespace
+            if "choices" not in result:
+                raise Exception(f"DeepSeek API returned no choices: {str(result)[:500]}")
+            return result["choices"][0]["message"]["content"]
+
         except requests.exceptions.Timeout:
             raise Exception("DeepSeek API timeout")
         except requests.exceptions.RequestException as e:

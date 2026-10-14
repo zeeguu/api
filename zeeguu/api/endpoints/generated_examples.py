@@ -28,6 +28,11 @@ MAX_EXAMPLES_ALTERNATIVE = 5  # Max examples for alternative_sentences endpoint
 MAX_EXAMPLES_GENERATE = 3     # Max examples for generate_examples endpoint
 DEFAULT_CEFR_LEVEL = "B1"
 
+# A learner is waiting on these calls. With the service defaults (120s per
+# attempt, 2 SDK retries, then DeepSeek) one request ran for 15 minutes.
+# One 20s try per provider: at worst ~40s, then an error.
+INTERACTIVE_LLM = dict(timeout=20, max_retries=0)
+
 
 def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):
     """
@@ -211,7 +216,7 @@ def alternative_sentences(user_word_id):
 
     try:
         # Get the LLM service
-        llm_service = get_llm_service()
+        llm_service = get_llm_service(**INTERACTIVE_LLM)
 
         # Generate examples
         examples = llm_service.generate_examples(
@@ -545,7 +550,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
         # Get LLM service and generate examples
         # NOTE: We don't cache here - caching happens only when user saves to learning
         # This avoids filling DB with unvalidated AI content for words users just browse
-        llm_service = get_llm_service()
+        llm_service = get_llm_service(**INTERACTIVE_LLM)
         examples = llm_service.generate_examples(
             word=word,
             translation=translation,

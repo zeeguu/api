@@ -16,7 +16,8 @@ from zeeguu.logging import log
 class AnthropicService(LLMService):
     """Service for Anthropic's Claude API"""
     
-    def __init__(self, api_key: Optional[str] = None, timeout: int = 120):
+    def __init__(self, api_key: Optional[str] = None, timeout: int = 120,
+                 max_retries: Optional[int] = None):
         self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY")
         if not self.api_key:
             raise ValueError("ANTHROPIC_API_KEY environment variable not set")
@@ -27,7 +28,9 @@ class AnthropicService(LLMService):
         # Import anthropic only if we're going to use it
         try:
             import anthropic
-            self.client = anthropic.Anthropic(api_key=self.api_key, timeout=self.timeout)
+            # max_retries=None keeps the SDK default (2 retries, timeouts included)
+            retries = {} if max_retries is None else {"max_retries": max_retries}
+            self.client = anthropic.Anthropic(api_key=self.api_key, timeout=self.timeout, **retries)
             self.model = models.ANTHROPIC_GENERAL
         except ImportError:
             raise ImportError("anthropic package not installed. Run: pip install anthropic")

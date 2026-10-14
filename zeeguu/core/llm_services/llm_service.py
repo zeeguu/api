@@ -21,25 +21,33 @@ class LLMService:
         raise NotImplementedError
 
 
+def _client_options(timeout=None, max_retries=None):
+    """Only the options a caller set, so the services keep their own defaults."""
+    options = {"timeout": timeout, "max_retries": max_retries}
+    return {k: v for k, v in options.items() if v is not None}
+
+
 class UnifiedLLMService(LLMService):
     """Unified service that tries Anthropic first, then DeepSeek on failure"""
-    
-    def __init__(self):
+
+    def __init__(self, timeout: Optional[int] = None, max_retries: Optional[int] = None):
         self.anthropic_service = None
         self.deepseek_service = None
-    
+        self.timeout = timeout
+        self.max_retries = max_retries
+
     def _get_anthropic_service(self):
         """Lazy load Anthropic service"""
         if self.anthropic_service is None:
             from .anthropic_service import AnthropicService
-            self.anthropic_service = AnthropicService()
+            self.anthropic_service = AnthropicService(**_client_options(self.timeout, self.max_retries))
         return self.anthropic_service
-    
+
     def _get_deepseek_service(self):
         """Lazy load DeepSeek service"""
         if self.deepseek_service is None:
             from .deepseek_service import DeepSeekService
-            self.deepseek_service = DeepSeekService()
+            self.deepseek_service = DeepSeekService(**_client_options(self.timeout))
         return self.deepseek_service
     
     def generate_examples(self, word: str, translation: str, source_lang: str, 
@@ -94,19 +102,24 @@ class UnifiedLLMService(LLMService):
         return text
 
 
-def get_llm_service(provider: Optional[str] = None) -> LLMService:
-    """Factory function to get the appropriate LLM service"""
+def get_llm_service(provider: Optional[str] = None, timeout: Optional[int] = None,
+                    max_retries: Optional[int] = None) -> LLMService:
+    """Factory function to get the appropriate LLM service.
+
+    timeout / max_retries are for callers a user is waiting on: the defaults
+    (120s per attempt, the SDK's 2 retries, then the fallback provider) can
+    keep a request open for many minutes."""
     if provider is None:
         provider = os.environ.get("LLM_PROVIDER", "unified")
-    
+
     if provider == "anthropic":
         from .anthropic_service import AnthropicService
-        return AnthropicService()
+        return AnthropicService(**_client_options(timeout, max_retries))
     elif provider == "deepseek":
         from .deepseek_service import DeepSeekService
-        return DeepSeekService()
+        return DeepSeekService(**_client_options(timeout))
     elif provider == "unified":
-        return UnifiedLLMService()
+        return UnifiedLLMService(timeout=timeout, max_retries=max_retries)
     else:
         raise ValueError(f"Unknown LLM provider: {provider}")
 
