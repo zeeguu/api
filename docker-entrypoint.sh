@@ -14,6 +14,7 @@ exec gunicorn \
     --workers "${GUNICORN_WORKERS:-4}" \
     --threads 15 \
     --timeout 300 \
+    --graceful-timeout 90 \
     --access-logfile - \
     --error-logfile - \
     --log-level info \
