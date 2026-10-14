@@ -78,6 +78,15 @@ Examples:
 """
 
 
+# Appended when a reply's translation lists options; see TranslationValidator.
+SINGLE_TRANSLATION_REMINDER = """
+
+The translation "{translation}" lists options. A flashcard needs ONE translation
+the learner can type: no alternatives with "/", no explanation in parentheses.
+Reply FIX with the single translation that fits this sentence best.
+"""
+
+
 # The reply shape for COMBINED_VALIDATION_PROMPT, enforced by the API through
 # structured outputs: with thinking off, Sonnet 5.5 often wrote its reasoning
 # before the requested one-line format, and ran out of tokens before reaching

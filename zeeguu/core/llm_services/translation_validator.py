@@ -35,6 +35,7 @@ from zeeguu.logging import log
 from zeeguu.core.model.language import Language
 from zeeguu.core.llm_services import models
 from zeeguu.core.llm_services import claude
+from zeeguu.core.llm_services.single_translation import lists_options, pick_one
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,11 @@ class TranslationValidator:
             ValidationResult with validation status, corrections, and classification,
             or None when no verdict could be had (API error, refusal, unparseable reply)
         """
-        from .prompts.translation_validator import create_combined_validation_prompt, VALIDATION_SCHEMA
+        from .prompts.translation_validator import (
+            create_combined_validation_prompt,
+            SINGLE_TRANSLATION_REMINDER,
+            VALIDATION_SCHEMA,
+        )
 
         # Convert language codes to names
         source_name = Language.LANGUAGE_NAMES.get(source_lang, source_lang)
@@ -112,18 +117,7 @@ class TranslationValidator:
         )
 
         try:
-            response = self.client.messages.create(
-                model=self.MODEL_NAME,
-                **claude.request_options(self.MODEL_NAME),
-                # Replies run ~200 tokens (max 266 on 50 prod cases). A cut-off
-                # reply is unparseable JSON and gets no verdict, so leave room.
-                max_tokens=1000,
-                output_config={"format": {"type": "json_schema", "schema": VALIDATION_SCHEMA}},
-                messages=[{"role": "user", "content": prompt}],
-            )
-            response_text = claude.response_text(response).strip()
-            return self._parse_response(response_text)
-
+            result = self._ask(prompt, VALIDATION_SCHEMA)
         except Exception as e:
             # No verdict is not a VALID verdict. Returning is_valid=True here
             # stamped every word "checked" for two weeks from 28 Sep 2026, when
@@ -134,6 +128,70 @@ class TranslationValidator:
             import sentry_sdk
             sentry_sdk.capture_exception(e)
             return None
+
+        if self._lists_options(result, word, translation):
+            # The prompt already forbids "/" alternatives and glosses in
+            # parentheses; ask once more about this very translation, so the
+            # model, which sees the sentence, picks the option that fits.
+            offending = result.corrected_translation or translation
+            try:
+                result = self._ask(
+                    prompt + SINGLE_TRANSLATION_REMINDER.format(translation=offending),
+                    VALIDATION_SCHEMA,
+                )
+            except Exception as e:
+                # Keep the first reply and its classification; the fallback
+                # below still reduces it to one option.
+                log(f"Translation validation retry failed: {e}")
+
+        if self._lists_options(result, word, translation):
+            result = self._with_one_option(result, word, translation)
+        return result
+
+    def _ask(self, prompt, schema) -> "ValidationResult":
+        response = self.client.messages.create(
+            model=self.MODEL_NAME,
+            **claude.request_options(self.MODEL_NAME),
+            # Replies run ~200 tokens (max 266 on 50 prod cases). A cut-off
+            # reply is unparseable JSON and gets no verdict, so leave room.
+            max_tokens=1000,
+            output_config={"format": {"type": "json_schema", "schema": schema}},
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return self._parse_response(claude.response_text(response).strip())
+
+    @staticmethod
+    def _lists_options(result, word, translation):
+        """Would the flashcard end up as "which must/which should" or
+        "by (doing something)"? Checks the corrected translation of a FIX,
+        and the current one of a VALID (old translations predate the rule)."""
+        if result.is_valid:
+            return lists_options(translation, word)
+        # A FIX may correct only the word; the old translation then stays.
+        return lists_options(
+            result.corrected_translation or translation, result.corrected_word or word
+        )
+
+    @staticmethod
+    def _with_one_option(result, word, translation):
+        """Last resort when the model keeps listing options: keep the first
+        one ourselves. A VALID becomes a FIX so the meaning gets replaced."""
+        from dataclasses import replace
+
+        source = translation if result.is_valid else (result.corrected_translation or translation)
+        one = pick_one(source, result.corrected_word or word)
+        if one == source:
+            # Nothing we can safely drop ("(something)"): a FIX with the same
+            # translation would only get the meaning marked invalid.
+            log(f"[VALIDATION] '{source}' lists options but can't be reduced; leaving it")
+            return result
+        log(f"[VALIDATION] '{source}' lists options; keeping '{one}'")
+        return replace(
+            result,
+            is_valid=False,
+            corrected_translation=one,
+            reason=(result.reason or "") + f" [kept one option of '{source}']",
+        )
 
     def _parse_response(self, response_text: str) -> ValidationResult:
         """ValidationResult from the reply, which the API holds to VALIDATION_SCHEMA.
