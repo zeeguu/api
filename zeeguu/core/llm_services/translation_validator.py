@@ -108,7 +108,9 @@ class TranslationValidator:
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
                 **claude.request_options(self.MODEL_NAME),
-                max_tokens=500,
+                # Replies run ~200 tokens (max 266 on 50 prod cases). A cut-off
+                # reply is unparseable JSON and fails open, so leave room.
+                max_tokens=1000,
                 output_config={"format": {"type": "json_schema", "schema": VALIDATION_SCHEMA}},
                 messages=[{"role": "user", "content": prompt}],
             )
