@@ -111,23 +111,30 @@ class TranslationValidator:
 
         try:
             result = self._ask(prompt, VALIDATION_SCHEMA)
-            if self._lists_options(result, word, translation):
-                # The prompt already forbids "/" alternatives and glosses in
-                # parentheses; say it once more, about this very reply.
-                offending = result.corrected_translation or translation
-                result = self._ask(
-                    prompt + SINGLE_TRANSLATION_REMINDER.format(translation=offending),
-                    VALIDATION_SCHEMA,
-                )
-            if self._lists_options(result, word, translation):
-                result = self._with_one_option(result, word, translation)
-            return result
-
         except Exception as e:
             log(f"Translation validation failed: {e}")
             logger.error(f"Translation validation failed: {e}")
             # On error, assume valid with no classification (fail open)
             return ValidationResult(is_valid=True)
+
+        if self._lists_options(result, word, translation):
+            # The prompt already forbids "/" alternatives and glosses in
+            # parentheses; ask once more about this very translation, so the
+            # model, which sees the sentence, picks the option that fits.
+            offending = result.corrected_translation or translation
+            try:
+                result = self._ask(
+                    prompt + SINGLE_TRANSLATION_REMINDER.format(translation=offending),
+                    VALIDATION_SCHEMA,
+                )
+            except Exception as e:
+                # Keep the first reply and its classification; the fallback
+                # below still reduces it to one option.
+                log(f"Translation validation retry failed: {e}")
+
+        if self._lists_options(result, word, translation):
+            result = self._with_one_option(result, word, translation)
+        return result
 
     def _ask(self, prompt, schema) -> "ValidationResult":
         response = self.client.messages.create(
@@ -148,7 +155,10 @@ class TranslationValidator:
         and the current one of a VALID (old translations predate the rule)."""
         if result.is_valid:
             return lists_options(translation, word)
-        return lists_options(result.corrected_translation, result.corrected_word or word)
+        # A FIX may correct only the word; the old translation then stays.
+        return lists_options(
+            result.corrected_translation or translation, result.corrected_word or word
+        )
 
     @staticmethod
     def _with_one_option(result, word, translation):
@@ -156,8 +166,13 @@ class TranslationValidator:
         one ourselves. A VALID becomes a FIX so the meaning gets replaced."""
         from dataclasses import replace
 
-        source = result.corrected_translation if not result.is_valid else translation
+        source = translation if result.is_valid else (result.corrected_translation or translation)
         one = pick_one(source, result.corrected_word or word)
+        if one == source:
+            # Nothing we can safely drop ("(something)"): a FIX with the same
+            # translation would only get the meaning marked invalid.
+            log(f"[VALIDATION] '{source}' lists options but can't be reduced; leaving it")
+            return result
         log(f"[VALIDATION] '{source}' lists options; keeping '{one}'")
         return replace(
             result,

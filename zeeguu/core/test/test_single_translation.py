@@ -46,6 +46,34 @@ def test_nothing_left_after_dropping_keeps_the_original():
     assert pick_one("(something)", "noget") == "(something)"
 
 
+def test_slashes_between_digits_are_not_alternatives():
+    assert pick_one("24/7 service/support", "døgnservice") == "24/7 service"
+
+
+def test_a_gloss_counts_as_in_the_source_only_by_whole_words():
+    assert lists_options("book(s)", "Bücher")
+    assert pick_one("book(s)", "Bücher") == "book"
+    assert pick_one("dog ()", "hund") == "dog"  # an empty gloss is no exemption
+
+
+def test_the_source_exempts_only_its_own_segments():
+    assert pick_one("roll-on/roll-off ferry/boat", "roll-on/roll-off") == "roll-on/roll-off ferry"
+    assert pick_one("far (to) (away)", "lointains (à)") == "far (to)"
+
+
+@pytest.mark.parametrize(
+    "word, translation",
+    [
+        ("12-talspigerne m/k", "The 12s girls m / f"),
+        ("som/være", "as / be"),
+        ("(Prellung)", "(Blauwe plek)"),
+        ("lointains (à)", "ver (naar)"),
+    ],
+)
+def test_the_translation_of_the_sources_own_segments_is_not_an_option(word, translation):
+    assert not lists_options(translation, word)
+
+
 class FakeClient:
     """Answers with the given replies in order; records the prompts."""
 
@@ -56,6 +84,8 @@ class FakeClient:
 
     def create(self, messages, **_):
         self.prompts.append(messages[0]["content"])
+        if isinstance(self.replies[0], Exception):
+            raise self.replies.pop(0)
         reply = {
             "reason": "",
             "verdict": "VALID",
@@ -98,3 +128,29 @@ def test_a_clean_answer_costs_one_call():
     client = FakeClient({"verdict": "VALID"})
     result = validate(client, "hund", "dog")
     assert len(client.prompts) == 1 and result.is_valid
+
+
+def test_a_failed_retry_keeps_the_first_reply_and_its_classification():
+    client = FakeClient(
+        {"verdict": "FIX", "corrected_translation": "which must/which should", "cefr": "B1"},
+        TimeoutError("retry timed out"),
+    )
+    result = validate(client, "som skal", "will")
+    assert (result.is_valid, result.corrected_translation, result.cefr_level) == (False, "which must", "B1")
+
+
+def test_a_translation_that_cannot_be_reduced_is_not_turned_into_a_fix():
+    client = FakeClient({"verdict": "VALID"}, {"verdict": "VALID"})
+    result = validate(client, "noget", "(something)")
+    assert result.is_valid and result.corrected_translation is None
+
+
+def test_a_fix_of_the_word_alone_still_checks_the_kept_translation():
+    client = FakeClient(
+        {"verdict": "FIX", "corrected_word": "som skal"},
+        {"verdict": "FIX", "corrected_word": "som skal"},
+    )
+    result = validate(client, "skal", "which must/which should")
+    assert len(client.prompts) == 2
+    assert (result.corrected_word, result.corrected_translation) == ("som skal", "which must")
+
