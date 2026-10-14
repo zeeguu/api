@@ -14,6 +14,8 @@ def _join(client, email, invite_code="de123"):
 
 
 def _translate(client, session, article, word, translation):
+    # where the word sits in "stellt sich hinter Präsident"
+    token_i = {"hinter": 2, "Präsident": 3}[word]
     context_i = ContextIdentifier(ContextType.ARTICLE_TITLE, None, article["id"])
     client.client.post(
         f"/contribute_translation/de/en?session={session}",
@@ -21,6 +23,11 @@ def _translate(client, session, article, word, translation):
             "word": word,
             "translation": translation,
             "context": "stellt sich hinter Präsident",
+            "w_sent_i": 0,
+            "w_token_i": token_i,
+            "w_total_tokens": 1,
+            "c_sent_i": 0,
+            "c_token_i": 0,
             "url": URL_SPIEGEL_VENEZUELA,
             "source_id": article["source_id"],
             "context_identifier": context_i.as_dictionary(),
@@ -49,6 +56,11 @@ def test_the_words_most_students_needed_come_first(client):
     assert hinter["translations"] == ["behind", "after"]
     assert hinter["context"] == "stellt sich hinter Präsident"
     assert info["student_count"] == 2
+    # the title's tokens come with who looked each up, for the heatmap
+    title = info["tokenized_title_new"]
+    assert title["tokens"]
+    counts = {(l["sent_i"], l["token_i"]): len(l["students"]) for l in title["lookups"]}
+    assert counts == {(0, 2): 2, (0, 3): 1}
     assert {r["id"]: r["translations"] for r in info["readers"]} == {
         User.find("max@mir.lu").id: 2,
         User.find("ana@mir.lu").id: 1,

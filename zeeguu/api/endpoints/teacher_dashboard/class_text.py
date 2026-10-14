@@ -2,6 +2,8 @@ import flask
 from sqlalchemy import func
 
 from zeeguu.core.model import Article, Cohort
+from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
+from zeeguu.core.model.article_title_context import ArticleTitleContext
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user_article import UserArticle
@@ -20,6 +22,10 @@ def class_text(cohort_id, article_id):
     """
     One text, as a whole class read it: who opened it, and the words they
     looked up in it, the ones most students needed first.
+
+    The text itself comes too (tokenized_title_new, tokenized_fragments), each
+    part with `lookups`: for every token some student translated, the students
+    who did. The teacher's page colours the text by it, as a heatmap.
 
     For the teachers who give a class one text at a time: a word half the
     class translated is one to go over in the lesson.
@@ -62,6 +68,7 @@ def class_text(cohort_id, article_id):
             "student_count": len(students),
             "readers": _readers(students, opened, bookmarks, milliseconds),
             "words": _words(students, bookmarks),
+            **_text_with_lookups(article, bookmarks),
         }
     )
 
@@ -114,3 +121,66 @@ def _words(students, bookmarks):
             word["students"].append({"id": user_id, "name": students[user_id].name})
 
     return sorted(words.values(), key=lambda w: (-len(w["students"]), w["word"].lower()))
+
+
+def _text_with_lookups(article, bookmarks):
+    """
+    The article's tokenized title and fragments, each with `lookups`:
+    [{sent_i, token_i, students: [ids]}] for every token a student looked up.
+
+    A bookmark's position is its context's offset plus its own, the same sum
+    the reader does (bookmarkRestoration.js). A phrase colours all its tokens,
+    and a separated multi-word expression its two parts only.
+    """
+    content = article.article_info(with_content=True)
+    title = content.get("tokenized_title_new") or {}
+    fragments = content.get("tokenized_fragments") or []
+
+    ids = [b.id for b in bookmarks]
+    fragment_of = dict(
+        db.session.query(ArticleFragmentContext.bookmark_id, ArticleFragmentContext.article_fragment_id)
+        .filter(ArticleFragmentContext.bookmark_id.in_(ids))
+        .all()
+    )
+    in_title = {
+        bookmark_id
+        for (bookmark_id,) in db.session.query(ArticleTitleContext.bookmark_id)
+        .filter(ArticleTitleContext.bookmark_id.in_(ids))
+        .all()
+    }
+
+    # part ("title" or a fragment id) -> (sent_i, token_i) -> {student ids}
+    lookups = {}
+    for bookmark in bookmarks:
+        part = "title" if bookmark.id in in_title else fragment_of.get(bookmark.id)
+        if part is None or bookmark.context is None:
+            continue
+        sent_i = (bookmark.context.sentence_i or 0) + (bookmark.sentence_i or 0)
+        token_i = (bookmark.context.token_i or 0) + (bookmark.token_i or 0)
+        if bookmark.is_mwe and bookmark.mwe_partner_token_i is not None:
+            # the partner's index is already the token's own (validateMweBookmark)
+            positions = [token_i, bookmark.mwe_partner_token_i]
+        else:
+            positions = [token_i + k for k in range(bookmark.total_tokens or 1)]
+        for position in positions:
+            lookups.setdefault(part, {}).setdefault((sent_i, position), set()).add(
+                bookmark.user_word.user_id
+            )
+
+    def with_lookups(tokenized, part):
+        found = lookups.get(part, {})
+        return {
+            **tokenized,
+            "lookups": [
+                {"sent_i": sent_i, "token_i": token_i, "students": sorted(who)}
+                for (sent_i, token_i), who in sorted(found.items())
+            ],
+        }
+
+    return {
+        "tokenized_title_new": with_lookups(title, "title"),
+        "tokenized_fragments": [
+            with_lookups(fragment, fragment["context_identifier"]["article_fragment_id"])
+            for fragment in fragments
+        ],
+    }
