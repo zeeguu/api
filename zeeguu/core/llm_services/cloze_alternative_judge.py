@@ -1,11 +1,10 @@
 """
 Asks an LLM whether a word a learner typed into a cloze also fits the blank.
 Callers go through zeeguu.core.exercises.cloze_alternatives, which stores the
-verdicts so each (meaning, typed word) is judged once for everybody.
+verdicts so each (meaning, typed word) is judged once.
 """
 
 import json
-import os
 from dataclasses import dataclass
 
 from zeeguu.core.llm_services import claude, models
@@ -15,6 +14,21 @@ from zeeguu.logging import log
 # A learner is waiting with the exercise open. Past this, the answer is judged
 # the way it always was (wrong), which is no worse than before.
 TIMEOUT_SECONDS = 6
+
+_service = None
+
+
+def _client():
+    """One Anthropic client for the process, built the way the other services
+    build theirs (llm_service._client_options), with this feature's timeout
+    and no retries: a retry would only make the learner wait longer."""
+    global _service
+    if _service is None:
+        from zeeguu.core.llm_services.anthropic_service import AnthropicService
+        from zeeguu.core.llm_services.llm_service import _client_options
+
+        _service = AnthropicService(**_client_options(TIMEOUT_SECONDS, 0))
+    return _service.client
 
 
 @dataclass
@@ -27,16 +41,9 @@ class ClozeAlternativeVerdict:
 class ClozeAlternativeJudge:
     MODEL_NAME = models.CLOZE_ALTERNATIVE_JUDGE
 
-    def __init__(self):
-        import anthropic
-
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            raise ValueError("ANTHROPIC_API_KEY not set")
-        self.client = anthropic.Anthropic(api_key=api_key, timeout=TIMEOUT_SECONDS, max_retries=0)
-
     def judge(self, expected, typed, translation, blanked, source_lang, target_lang):
-        """The verdict, or None if the model could not be asked in time."""
+        """The verdict, or None if the model could not be asked in time (or at
+        all: no API key, network down)."""
         from .prompts.cloze_alternative import CLOZE_ALTERNATIVE_SCHEMA, create_cloze_alternative_prompt
 
         prompt = create_cloze_alternative_prompt(
@@ -48,7 +55,7 @@ class ClozeAlternativeJudge:
             target_lang=Language.LANGUAGE_NAMES.get(target_lang, target_lang),
         )
         try:
-            response = self.client.messages.create(
+            response = _client().messages.create(
                 model=self.MODEL_NAME,
                 **claude.request_options(self.MODEL_NAME),
                 max_tokens=300,

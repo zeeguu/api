@@ -41,6 +41,9 @@ class ExerciseOutcome(db.Model):
 
     correct_after_translation = ["TC", "TTC", "TTTC"]
 
+    # An alternative ("A") after the same help that "HC" and "TC" record.
+    alternative_outcomes = [ALTERNATIVE, "HA", "TA", "TTA", "TTTA"]
+
     # The one definition of "correct": solved on the first try, unaided.
     # A hint (HC) or looking up the translation first (TC, TTC, ...) is not
     # correct. "Correct" is the pre-2021 spelling of "C".

@@ -450,7 +450,7 @@ def _counts_as_progress(outcome: str):
     return (
         ExerciseOutcome.is_correct(outcome)
         or outcome == ExerciseOutcome.CORRECT_AFTER_HINT
-        or outcome == ExerciseOutcome.ALTERNATIVE
+        or outcome in ExerciseOutcome.alternative_outcomes
         or outcome in ExerciseOutcome.correct_after_translation
         or outcome == ExerciseOutcome.LISTENED
     )
