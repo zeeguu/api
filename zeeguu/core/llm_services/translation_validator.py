@@ -25,6 +25,7 @@ Usage:
 """
 
 import os
+import re
 import logging
 from dataclasses import dataclass
 from typing import Optional, List
@@ -107,7 +108,12 @@ class TranslationValidator:
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
                 **claude.request_options(self.MODEL_NAME),
-                max_tokens=200,
+                # With thinking off, Sonnet 5.5 often reasons in the visible
+                # text before the verdict line (21 of 50 prod cases). At 200
+                # tokens it ran out before reaching the line on 22 of 50, which
+                # parsed as VALID: mostly the pairs that needed a FIX. Measured
+                # output on those 50: avg 156, max 391.
+                max_tokens=1000,
                 messages=[{"role": "user", "content": prompt}],
             )
             response_text = claude.response_text(response).strip()
@@ -172,6 +178,23 @@ class TranslationValidator:
             # On error, return valid for all (fail open)
             return [ValidationResult(is_valid=True) for _ in items]
 
+    # A verdict line, possibly wrapped in markdown (`VALID|...`, **FIX|...**).
+    _VERDICT_LINE = re.compile(r"^[\W_]*(VALID|FIX)\|", re.IGNORECASE)
+
+    @classmethod
+    def _verdict_line(cls, response_text: str) -> str:
+        """The VALID|... or FIX|... line of a reply that may explain itself first.
+
+        The last such line wins: when the model reasons in the text it can quote
+        a format line before settling on its own. A reply with no verdict line
+        is returned whole, so the parser logs it as an unexpected format.
+        """
+        lines = [line.strip() for line in response_text.strip().splitlines()]
+        verdicts = [line for line in lines if cls._VERDICT_LINE.match(line)]
+        if not verdicts:
+            return response_text.strip()
+        return verdicts[-1].strip("`*_ ")
+
     def _parse_response(self, response_text: str) -> ValidationResult:
         """
         Parse LLM response into ValidationResult.
@@ -180,7 +203,7 @@ class TranslationValidator:
         - "VALID|frequency|phrase_type|explanation"
         - "FIX|corrected_word|corrected_translation|frequency|phrase_type|reason|explanation"
         """
-        response_text = response_text.strip()
+        response_text = self._verdict_line(response_text)
         parts = response_text.split("|")
 
         if parts[0].upper() == "VALID":
