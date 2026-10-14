@@ -22,6 +22,7 @@ from typing import List, Dict, Optional
 from threading import Lock
 
 from zeeguu.core.llm_services import models
+from zeeguu.core.llm_services import claude
 
 logger = logging.getLogger(__name__)
 
@@ -181,11 +182,12 @@ JSON:"""
         try:
             response = self.client.messages.create(
                 model=models.MWE_DETECTION,
+                **claude.request_options(models.MWE_DETECTION),
                 max_tokens=500,
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            response_text = response.content[0].text.strip()
+            response_text = claude.response_text(response).strip()
             mwe_groups = self._parse_response(response_text, len(tokens))
 
             if mwe_groups:
@@ -451,11 +453,12 @@ JSON:"""
         try:
             response = self.client.messages.create(
                 model=models.MWE_DETECTION,
+                **claude.request_options(models.MWE_DETECTION),
                 max_tokens=2000,
                 messages=[{"role": "user", "content": prompt}]
             )
 
-            response_text = response.content[0].text.strip()
+            response_text = claude.response_text(response).strip()
             batch_results = self._parse_batch_response_full(response_text, all_sentences)
 
             # Build final results array

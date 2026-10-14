@@ -32,6 +32,7 @@ from typing import Optional, List
 from zeeguu.logging import log
 from zeeguu.core.model.language import Language
 from zeeguu.core.llm_services import models
+from zeeguu.core.llm_services import claude
 
 logger = logging.getLogger(__name__)
 
@@ -105,10 +106,11 @@ class TranslationValidator:
         try:
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
+                **claude.request_options(self.MODEL_NAME),
                 max_tokens=200,
                 messages=[{"role": "user", "content": prompt}],
             )
-            response_text = response.content[0].text.strip()
+            response_text = claude.response_text(response).strip()
             return self._parse_response(response_text)
 
         except Exception as e:
@@ -157,10 +159,11 @@ class TranslationValidator:
 
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
+                **claude.request_options(self.MODEL_NAME),
                 max_tokens=max_tokens,
                 messages=[{"role": "user", "content": prompt}],
             )
-            response_text = response.content[0].text.strip()
+            response_text = claude.response_text(response).strip()
             return self._parse_batch_response(response_text, len(items))
 
         except Exception as e:
@@ -296,10 +299,11 @@ class TranslationValidator:
         try:
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
+                **claude.request_options(self.MODEL_NAME),
                 max_tokens=10,
                 messages=[{"role": "user", "content": prompt}],
             )
-            response_text = response.content[0].text.strip().upper()
+            response_text = claude.response_text(response).strip().upper()
             return response_text == "YES"
 
         except Exception as e:

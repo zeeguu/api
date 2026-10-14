@@ -23,6 +23,7 @@ from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.language import Language
+from zeeguu.core.llm_services import models
 
 app = create_app_for_scripts()
 app.app_context().push()
@@ -78,7 +79,7 @@ Shortened summary (max 25 words):"""
             "Content-Type": "application/json",
         }
         data = {
-            "model": "claude-3-haiku-20240307",
+            "model": models.ANTHROPIC_HAIKU,  # Haiku 3 retired 2026-04-19
             "messages": [{"role": "user", "content": prompt}],
             "max_tokens": 200,
             "temperature": 0.1,

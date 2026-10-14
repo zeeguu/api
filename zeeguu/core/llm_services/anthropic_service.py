@@ -11,6 +11,7 @@ from .prompts import example_sentence_fields, format_prompt, PROMPT_VERSION_V3
 from zeeguu.core.language.generate_in_language import generate_in_language
 from zeeguu.core.llm_services import models
 from zeeguu.logging import log
+from zeeguu.core.llm_services import claude
 
 
 class AnthropicService(LLMService):
@@ -45,13 +46,14 @@ class AnthropicService(LLMService):
         try:
             response = self.client.messages.create(
                 model=self.model,
+                **claude.request_options(self.model),
                 max_tokens=max_tokens,
                 system=prompt["system"],
                 messages=[
                     {"role": "user", "content": prompt["user"]}
                 ]
             )
-            return response.content[0].text
+            return claude.response_text(response)
         except Exception as e:
             log(f"Anthropic API failed: {e}")
             raise e

@@ -23,6 +23,7 @@ import anthropic
 
 from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db
+from zeeguu.core.llm_services import claude, models
 
 app = create_app_for_scripts()
 app.app_context().push()
@@ -74,14 +75,15 @@ Or if all are correct:
 
     try:
         response = client.messages.create(
-            model="claude-sonnet-4-5-20250929",
+            model=models.ANTHROPIC_SONNET,
+            **claude.request_options(models.ANTHROPIC_SONNET),
             max_tokens=500,
             system="You are a language expert validating example sentences for language learning. Return only JSON arrays with no additional text.",
             messages=[{"role": "user", "content": prompt}],
         )
 
         # Parse the response
-        content = response.content[0].text.strip()
+        content = claude.response_text(response).strip()
 
         # Log raw response for debugging
         if len(content) > 500:

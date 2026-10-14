@@ -23,6 +23,7 @@ import logging
 from typing import Optional
 
 from zeeguu.core.llm_services import models
+from zeeguu.core.llm_services import claude
 
 logger = logging.getLogger(__name__)
 
@@ -105,11 +106,12 @@ def translate_word_in_context(
 
         response = client.messages.create(
             model=models.WORD_TRANSLATION,
+            **claude.request_options(models.WORD_TRANSLATION),
             max_tokens=50,
             messages=[{"role": "user", "content": prompt}],
         )
 
-        translation = response.content[0].text.strip().strip('"\'.')
+        translation = claude.response_text(response).strip().strip('"\'.')
         logger.debug(f"LLM translated '{word}' -> '{translation}'")
         return translation or None
     except ImportError:
@@ -162,11 +164,12 @@ def translate_separated_mwe(
 
         response = client.messages.create(
             model=models.MWE_TRANSLATION,
+            **claude.request_options(models.MWE_TRANSLATION),
             max_tokens=50,  # Short response expected
             messages=[{"role": "user", "content": prompt}]
         )
 
-        translation = response.content[0].text.strip()
+        translation = claude.response_text(response).strip()
 
         # Clean up translation (remove quotes, punctuation)
         translation = translation.strip('"\'.')
@@ -233,11 +236,12 @@ JSON:"""
 
         response = client.messages.create(
             model=models.MWE_TRANSLATION,
+            **claude.request_options(models.MWE_TRANSLATION),
             max_tokens=200,
             messages=[{"role": "user", "content": prompt}]
         )
 
-        content = response.content[0].text.strip()
+        content = claude.response_text(response).strip()
 
         # Parse JSON from response
         if "```json" in content:
