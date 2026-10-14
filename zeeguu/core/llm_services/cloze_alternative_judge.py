@@ -15,21 +15,6 @@ from zeeguu.logging import log
 # the way it always was (wrong), which is no worse than before.
 TIMEOUT_SECONDS = 6
 
-_service = None
-
-
-def _client():
-    """One Anthropic client for the process, built the way the other services
-    build theirs (llm_service._client_options), with this feature's timeout
-    and no retries: a retry would only make the learner wait longer."""
-    global _service
-    if _service is None:
-        from zeeguu.core.llm_services.anthropic_service import AnthropicService
-        from zeeguu.core.llm_services.llm_service import _client_options
-
-        _service = AnthropicService(**_client_options(TIMEOUT_SECONDS, 0))
-    return _service.client
-
 
 @dataclass
 class ClozeAlternativeVerdict:
@@ -55,7 +40,7 @@ class ClozeAlternativeJudge:
             target_lang=Language.LANGUAGE_NAMES.get(target_lang, target_lang),
         )
         try:
-            response = _client().messages.create(
+            response = claude.shared_client(TIMEOUT_SECONDS, max_retries=0).messages.create(
                 model=self.MODEL_NAME,
                 **claude.request_options(self.MODEL_NAME),
                 max_tokens=300,

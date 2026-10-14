@@ -9,6 +9,8 @@ short classifications and translations that ran without thinking on Sonnet
 model, and every other model rejects `between_tools`).
 """
 
+import functools
+
 # Models on which `thinking: {"type": "between_tools"}` is the way to turn
 # thinking off. Any other model rejects the value, so only send it to these.
 _THINKING_OFF_WITH_BETWEEN_TOOLS = ("claude-sonnet-5-5",)
@@ -26,3 +28,16 @@ def response_text(response) -> str:
     """The reply's text, read by block type: a response may start with a
     `thinking` block, which has no `.text`."""
     return "".join(block.text for block in response.content if block.type == "text")
+
+
+@functools.cache
+def shared_client(timeout: float, max_retries: int = 2):
+    """One Anthropic client per process for each (timeout, max_retries), so
+    calls reuse its connections instead of opening new ones per request.
+
+    max_retries=0 for calls a learner waits on: a retry only makes them wait
+    longer. The key comes from ANTHROPIC_API_KEY; without it the constructor
+    raises, and since a raise isn't cached, the next call tries again."""
+    import anthropic
+
+    return anthropic.Anthropic(timeout=timeout, max_retries=max_retries)

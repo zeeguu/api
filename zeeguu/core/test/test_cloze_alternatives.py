@@ -3,6 +3,7 @@
 The LLM is replaced by a fake that counts its calls: the point of
 meaning_alternative is that each (meaning, typed word) is judged once.
 """
+import os
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -14,6 +15,7 @@ from zeeguu.core.exercises.cloze_alternatives import (
     judge_alternative,
     normalize,
 )
+from zeeguu.core.llm_services import claude
 from zeeguu.core.llm_services.cloze_alternative_judge import ClozeAlternativeVerdict
 from zeeguu.core.model import Phrase
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
@@ -138,8 +140,10 @@ class ClozeAlternativesTest(ModelTestMixIn, TestCase):
         self.assertEqual(MeaningAlternative.query.count(), 0)
 
     def test_without_an_api_key_the_answer_is_unknown_not_an_error(self):
-        with patch.dict("os.environ", {"ANTHROPIC_API_KEY": ""}), \
-                patch("zeeguu.core.llm_services.cloze_alternative_judge._service", None):
+        claude.shared_client.cache_clear()
+        self.addCleanup(claude.shared_client.cache_clear)
+        with patch.dict("os.environ"):
+            os.environ.pop("ANTHROPIC_API_KEY", None)
             result = judge_alternative(session, self.bookmark, "tænker")
 
         self.assertEqual(result["relation"], UNKNOWN)
