@@ -154,13 +154,20 @@ def _text_with_bookmarks(article, bookmarks):
 
     content = article.article_info(with_content=True)
     title = content.get("tokenized_title_new") or {}
+    fragments = content.get("tokenized_fragments") or []
     return (
-        {**title, "class_bookmarks": in_part["title"]},
-        [
-            {**fragment, "class_bookmarks": in_part[fragment["context_identifier"]["article_fragment_id"]]}
-            for fragment in content.get("tokenized_fragments") or []
-        ],
+        _part(title, in_part["title"]),
+        [_part(f, in_part[f["context_identifier"]["article_fragment_id"]]) for f in fragments],
     )
+
+
+def _part(tokenized, class_bookmarks):
+    """One part of the text, as the heatmap draws it."""
+    return {
+        "tokens": tokenized.get("tokens"),
+        "formatting": tokenized.get("formatting"),  # h1, p, li...; None for the title
+        "class_bookmarks": class_bookmarks,
+    }
 
 
 def _placeable(bookmark):
