@@ -417,6 +417,7 @@ def set_preferred_example(user_word_id):
         c_token_i=c_token_i,
         context_identifier=context_identifier,
         translation_source="generated_example",
+        user_word=user_word,
     )
 
     # Update the user_word's preferred_bookmark
