@@ -5,6 +5,7 @@ import os
 from typing import List, Dict, Optional
 
 from zeeguu.logging import log
+from .tasks import run_llm_task
 
 
 class LLMService:
@@ -28,9 +29,10 @@ def _client_options(timeout=None, max_retries=None):
 
 
 class UnifiedLLMService(LLMService):
-    """Unified service that tries Anthropic first, then DeepSeek on failure"""
+    """Runs one task (llm_services/tasks.py) on its models, in the order listed there."""
 
-    def __init__(self, timeout: Optional[int] = None, max_retries: Optional[int] = None):
+    def __init__(self, task, timeout: Optional[int] = None, max_retries: Optional[int] = None):
+        self.task = task
         self.anthropic_service = None
         self.deepseek_service = None
         self.timeout = timeout
@@ -49,62 +51,45 @@ class UnifiedLLMService(LLMService):
             from .deepseek_service import DeepSeekService
             self.deepseek_service = DeepSeekService(**_client_options(self.timeout))
         return self.deepseek_service
-    
-    def generate_examples(self, word: str, translation: str, source_lang: str, 
+
+    def _service_for(self, model):
+        service = self._get_deepseek_service() if model.startswith("deepseek") else self._get_anthropic_service()
+        service.model = model
+        return service
+
+    def generate_examples(self, word: str, translation: str, source_lang: str,
                          target_lang: str, cefr_level: str, prompt_version: str, count: int = 3) -> List[Dict]:
-        """Generate examples with Anthropic -> DeepSeek fallback"""
-        try:
-            # Try Anthropic first
-            anthropic = self._get_anthropic_service()
-            return anthropic.generate_examples(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
-        except Exception as anthropic_error:
-            log(f"Anthropic API failed for examples: {anthropic_error}")
-            
-            # Fallback to DeepSeek
-            log(f"Falling back to DeepSeek for word '{word}'")
-            try:
-                deepseek = self._get_deepseek_service()
-                return deepseek.generate_examples(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
-            except Exception as deepseek_error:
-                log(f"DeepSeek fallback also failed: {deepseek_error}")
-                raise Exception(f"Failed to generate examples (both APIs failed): Anthropic: {anthropic_error}, DeepSeek: {deepseek_error}")
-    
+        """Generate examples, falling back along the task's chain"""
+        examples, _ = run_llm_task(self.task, lambda model: self._service_for(model).generate_examples(
+            word, translation, source_lang, target_lang, cefr_level, prompt_version, count))
+        return examples
+
     def generate_text_with_model(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
                                  system: str = None) -> tuple:
         """
-        Generate text with Anthropic -> DeepSeek fallback, reporting who answered.
+        Generate text, falling back along the task's chain, reporting who answered.
 
         Returns (text, model_name). Callers that persist the result need the second
         element: under a fallback chain the model named in the configuration is not
         the model that served, so provenance has to be recorded at generation time
         rather than inferred later.
         """
-        try:
-            # Try Anthropic first
-            anthropic = self._get_anthropic_service()
-            return anthropic.generate_text(prompt, max_tokens, temperature, system), anthropic.model
-        except Exception as anthropic_error:
-            log(f"Anthropic API failed for text generation: {anthropic_error}")
-
-            # Fallback to DeepSeek
-            log(f"Falling back to DeepSeek for text generation")
-            try:
-                deepseek = self._get_deepseek_service()
-                return deepseek.generate_text(prompt, max_tokens, temperature, system), deepseek.model
-            except Exception as deepseek_error:
-                log(f"DeepSeek fallback also failed: {deepseek_error}")
-                raise Exception(f"Text generation failed (both APIs failed): Anthropic: {anthropic_error}, DeepSeek: {deepseek_error}")
+        return run_llm_task(self.task, lambda model: self._service_for(model).generate_text(
+            prompt, max_tokens, temperature, system))
 
     def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
                       system: str = None) -> str:
-        """Generate text with Anthropic -> DeepSeek fallback"""
+        """Generate text, falling back along the task's chain"""
         text, _ = self.generate_text_with_model(prompt, max_tokens, temperature, system)
         return text
 
 
 def get_llm_service(provider: Optional[str] = None, timeout: Optional[int] = None,
-                    max_retries: Optional[int] = None) -> LLMService:
+                    max_retries: Optional[int] = None, *, task=None) -> LLMService:
     """Factory function to get the appropriate LLM service.
+
+    task: the llm_services.tasks entry this is for; "unified" (the default
+    provider) runs it on that task's models, in the task's order.
 
     timeout / max_retries are for callers a user is waiting on: the defaults
     (120s per attempt, the SDK's 2 retries, then the fallback provider) can
@@ -119,7 +104,9 @@ def get_llm_service(provider: Optional[str] = None, timeout: Optional[int] = Non
         from .deepseek_service import DeepSeekService
         return DeepSeekService(**_client_options(timeout))
     elif provider == "unified":
-        return UnifiedLLMService(timeout=timeout, max_retries=max_retries)
+        if task is None:
+            raise ValueError("The unified LLM service needs a task from llm_services.tasks")
+        return UnifiedLLMService(task, timeout=timeout, max_retries=max_retries)
     else:
         raise ValueError(f"Unknown LLM provider: {provider}")
 
@@ -127,12 +114,13 @@ def get_llm_service(provider: Optional[str] = None, timeout: Optional[int] = Non
 def generate_audio_lesson_script(prompt: str, max_tokens: int = 2500, system: str = None) -> tuple:
     """
     Convenience function for generating audio lesson scripts.
-    Uses the unified service with automatic Anthropic -> DeepSeek fallback.
+    Runs the AUDIO_SCRIPT task (llm_services/tasks.py) with its fallback.
     Default 2500 tokens for single-word meaning lessons.
 
     Returns (script, model_name): which provider served has to be recorded, not assumed.
     """
-    llm_service = get_llm_service("unified")
+    from . import tasks
+    llm_service = get_llm_service("unified", task=tasks.AUDIO_SCRIPT)
     return llm_service.generate_text_with_model(prompt, max_tokens=max_tokens, temperature=0.7, system=system)
 
 
@@ -167,7 +155,7 @@ def explain_selection(
     fit; see the measurements in the prompt module.
     """
     from .prompts.word_explanation import create_word_explanation_prompt
-    from . import models
+    from . import tasks
 
     prompt, system = create_word_explanation_prompt(
         selection=selection,
@@ -177,20 +165,9 @@ def explain_selection(
         cefr_level=cefr_level,
     )
 
-    def ask(service, model):
-        service.model = model
-        return service.generate_text(
-            prompt, max_tokens=300, temperature=0.0, system=system
-        )
-
-    unified = UnifiedLLMService()
-    try:
-        explanation = ask(unified._get_deepseek_service(), models.WORD_EXPLANATION)
-    except Exception as deepseek_error:
-        log(f"DeepSeek failed explaining '{selection}': {deepseek_error}")
-        explanation = ask(
-            unified._get_anthropic_service(), models.WORD_EXPLANATION_FALLBACK
-        )
+    explanation = UnifiedLLMService(tasks.EXPLAIN).generate_text(
+        prompt, max_tokens=300, temperature=0.0, system=system
+    )
 
     if not explanation or not explanation.strip():
         raise Exception("Empty explanation from LLM")
@@ -229,7 +206,8 @@ def prepare_learning_card(
         examples=examples
     )
 
-    llm_service = get_llm_service("unified")
+    from . import tasks
+    llm_service = get_llm_service("unified", task=tasks.LEARNING_CARD)
     response = llm_service.generate_text(prompt, max_tokens=500, temperature=0.3)
 
     result = parse_learning_card_response(response)

@@ -194,10 +194,10 @@ def delete_examples(example_ids):
 
 def regenerate_examples_for_meanings(meaning_ids, target_count=5):
     """Regenerate examples for specific meanings."""
-    from zeeguu.core.llm_services import get_llm_service
+    from zeeguu.core.llm_services import get_llm_service, tasks
     from zeeguu.core.model.ai_generator import AIGenerator
 
-    llm_service = get_llm_service()
+    llm_service = get_llm_service(task=tasks.EXAMPLES)
     regenerated_count = 0
 
     for meaning_id in meaning_ids:

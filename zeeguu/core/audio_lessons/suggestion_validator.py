@@ -4,7 +4,7 @@ Uses an LLM to classify whether the input is appropriate and to produce a canoni
 """
 
 import json
-from zeeguu.core.llm_services import get_llm_service
+from zeeguu.core.llm_services import get_llm_service, tasks
 from zeeguu.logging import log
 
 VALIDATION_PROMPT = """You are a content classifier for a language learning app. A user wants to generate a listening lesson about a topic or situation.
@@ -58,7 +58,7 @@ def validate_suggestion(suggestion, lesson_type, native_language="English"):
         return False, {"reason": "Suggestion too long"}
 
     try:
-        llm = get_llm_service("unified")
+        llm = get_llm_service("unified", task=tasks.TOPIC_CHECK)
         prompt = VALIDATION_PROMPT.format(
             suggestion=suggestion,
             lesson_type=lesson_type or "topic",

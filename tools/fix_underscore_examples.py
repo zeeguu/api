@@ -116,7 +116,7 @@ def delete_examples(example_ids):
 
 def regenerate_examples_for_meaning(meaning_id, target_count=5):
     """Regenerate examples for a specific meaning."""
-    from zeeguu.core.llm_services import get_llm_service
+    from zeeguu.core.llm_services import get_llm_service, tasks
 
     meaning = Meaning.query.get(meaning_id)
     if not meaning:
@@ -141,7 +141,7 @@ def regenerate_examples_for_meaning(meaning_id, target_count=5):
     print(f"  Generating {examples_to_generate} examples for '{origin_word}' -> '{translation}'...")
 
     try:
-        llm_service = get_llm_service()
+        llm_service = get_llm_service(task=tasks.EXAMPLES)
         examples = llm_service.generate_examples(
             word=origin_word,
             translation=translation,
