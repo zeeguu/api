@@ -37,6 +37,12 @@ MWE_DETECTION = ANTHROPIC_SONNET
 # Translation validation / provider-agreement checks before exercises.
 TRANSLATION_VALIDATION = ANTHROPIC_SONNET
 
+# Judging whether another word a learner typed into a cloze also fits
+# ("tænker" where the exercise expected "synes"). A learner is waiting, but
+# each verdict is stored and shared by all learners, so accuracy on nuance
+# (register, idiomaticity) is worth the slower tier.
+CLOZE_ALTERNATIVE_JUDGE = ANTHROPIC_SONNET
+
 # Meaning-frequency classification (COMMON / RARE / …). NOTE: also used as the
 # DB lookup key in AiGenerator.get_current_classification_model — keep the model
 # a classification run records and the model looked up in sync via this one constant.
