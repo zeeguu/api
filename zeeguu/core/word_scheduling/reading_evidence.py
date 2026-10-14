@@ -20,6 +20,13 @@ read article (a skimmed article, an exercise, a preview); here they count as a
 plain -BETA. The gate only ever errs by keeping a word out of practice, so any
 sign the learner did not know it is worth taking.
 
+The gate decides on the FORM: every meaning of a word the learner reads
+fluently is gated (det = it / this / the). Reading cannot tell senses apart,
+and meaning.frequency, an LLM label without context, cannot either. A
+genuine second sense hidden this way comes back with its next look-up, since
+look-ups count against every meaning of the form. Scheduling itself stays
+per meaning.
+
 Only the stems of the learner's own user_words are tracked: a word can only be
 practised if it was translated, so those are the only words the gate can act
 on (ADR 032, "gate scope").
@@ -263,12 +270,10 @@ def update_reading_evidence(session, user, language):
     reduce = stemmer_for(language.code)
 
     stem_of = {}
-    forms = defaultdict(int)
     for user_word in user_words:
         origin = user_word.meaning.origin.content
         if is_single_word(origin):
             stem_of[user_word.id] = reduce(split_words_from_text(origin)[0])
-            forms[origin.lower()] += 1
 
     events = reading_events(user, language, reduce, set(stem_of.values()))
     evidence = replay(events)
@@ -282,9 +287,6 @@ def update_reading_evidence(session, user, language):
         known = bool(
             word_evidence
             and log_odds >= GATE_LOG_ODDS
-            # Two meanings of one form: reading cannot tell which sense it
-            # saw, and a look-up of the second sense is real ignorance.
-            and forms[user_word.meaning.origin.content.lower()] == 1
             # The learner asked for this word in exercises.
             and int(user_word.user_preference or 0)
             != UserWordExPreference.USE_IN_EXERCISES

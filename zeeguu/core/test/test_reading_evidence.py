@@ -153,6 +153,26 @@ class ReadingGateTest(ModelTestMixIn):
         self.assertGreaterEqual(word.reading_log_odds, GATE_LOG_ODDS)
         self.assertIn(word, [uw for uw, _ in changed])
 
+    def test_every_meaning_of_a_fluently_read_form_is_gated(self):
+        # det = it / this / the: reading shows the form, not the meaning.
+        # Three meanings are three look-ups, so it takes more reading.
+        user = self.gated_user
+        meanings = [self._word(user, "hejre", looked_up_at=at(0))]
+        for _ in range(2):
+            bookmark = BookmarkRule(user).bookmark
+            bookmark.time = at(0)
+            other = bookmark.user_word
+            other.meaning.origin = meanings[0].meaning.origin  # same form, other translation
+            db_session.add_all([bookmark, other])
+            meanings.append(other)
+        db_session.commit()
+        for i in range(1, 21):
+            self._read(user, f"en hejre ved søen nummer {i}", at(i * 60))
+
+        self._update(user)
+
+        self.assertTrue(all(uw.known_from_reading for uw in meanings))
+
     def test_too_little_reading_leaves_the_gate_open(self):
         user = self.gated_user
         word = self._word(user, "regnorm", looked_up_at=at(0))
