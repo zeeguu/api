@@ -35,10 +35,12 @@ def test_story_members_collapse_into_the_first_ones_position():
     ]
 
 
-def test_member_with_image_wins_over_a_newer_one_without():
+def test_the_newest_member_gets_the_card_even_without_an_image():
+    # An outlet's follow-up carries the latest news; a photo on the older
+    # article must not hide it
     with_image = article(1, image=True, hour=6)
     newer = article(2, story_id=1, hour=12)
-    assert ids(collapse_stories([newer, with_image])) == [("Article", 1)]
+    assert ids(collapse_stories([with_image, newer])) == [("Article", 2)]
 
 
 def test_videos_never_collapse_with_articles_of_the_same_id():
@@ -118,7 +120,7 @@ class StoryClusteringTest(ModelTestMixIn, TestCase):
         self._assign(self.later, [(self.first.id, 0.80)])
         assert self.later.story_id is None
 
-    def test_same_outlet_keeps_the_newer_and_breaks_the_older(self):
+    def test_a_republish_keeps_the_newer_copy_and_breaks_the_older(self):
         self._same_outlet(self.later, as_article=self.first)
         removed = self._assign_as_same_story()
 
@@ -127,7 +129,7 @@ class StoryClusteringTest(ModelTestMixIn, TestCase):
         removed.assert_called_once_with(self.first)
         assert story_outlets([self.later]) == {}
 
-    def test_same_outlet_prefers_the_one_with_an_image(self):
+    def test_a_republish_keeps_the_copy_with_an_image(self):
         self._same_outlet(self.later, as_article=self.first)
         self.first.img_url = UrlRule().url
         session.add(self.first)
@@ -136,19 +138,48 @@ class StoryClusteringTest(ModelTestMixIn, TestCase):
 
         assert self.later.broken and not self.first.broken
 
-    def test_same_outlet_is_found_anywhere_in_the_story(self):
-        # DR's long piece, Politiken's wire copy, then DR's wire copy: the last
-        # is nearest to Politiken's, yet it is DR's second take on the story.
+    def test_same_outlet_follow_up_joins_the_story_and_stays_live(self):
+        self._same_outlet(self.later, as_article=self.first)
+        self._assign(self.later, [(self.first.id, 0.92)])
+
+        assert self.later.story_id == self.first.id
+        assert not self.first.broken and not self.later.broken
+
+    def test_same_outlet_near_copy_a_day_later_is_not_a_republish(self):
+        self.later.published_time = self.first.published_time + timedelta(hours=30)
+        self._same_outlet(self.later, as_article=self.first)
+        self._assign(self.later, [(self.first.id, 0.97)])
+
+        assert self.later.story_id == self.first.id
+        assert not self.first.broken and not self.later.broken
+
+    def _dr_politiken_dr(self):
+        # DR's piece, Politiken's wire copy, then DR's wire copy: the last is
+        # nearest to Politiken's, with DR's own piece behind it
         politiken = self.later
         self._assign_as_same_story()
         dr_again = self._article_after(politiken, hours=1)
         self._same_outlet(dr_again, as_article=self.first)
+        return politiken, dr_again
 
-        self._assign(dr_again, [(politiken.id, 0.97), (self.first.id, 0.90)])
+    def test_a_republish_behind_another_outlets_copy_is_still_caught(self):
+        politiken, dr_again = self._dr_politiken_dr()
+
+        self._assign(dr_again, [(politiken.id, 1.0), (self.first.id, 0.99)])
 
         assert dr_again.story_id == self.first.id
         assert self.first.broken and not dr_again.broken
         outlets = story_outlets([dr_again])[dr_again.id]
+        assert [o["id"] for o in outlets] == [politiken.id, dr_again.id]
+
+    def test_two_distinct_articles_of_one_outlet_are_listed_once(self):
+        politiken, dr_again = self._dr_politiken_dr()
+
+        self._assign(dr_again, [(politiken.id, 1.0), (self.first.id, 0.91)])
+
+        assert not self.first.broken and not dr_again.broken
+        outlets = story_outlets([politiken])[politiken.id]
+        # DR once, by its preferred article: the newer
         assert [o["id"] for o in outlets] == [politiken.id, dr_again.id]
 
     def test_an_uploaded_text_never_joins_or_anchors_a_story(self):
