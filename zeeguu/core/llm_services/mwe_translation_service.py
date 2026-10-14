@@ -17,7 +17,6 @@ Usage:
     # Returns: "call (phone)"
 """
 
-import os
 import json
 import logging
 from typing import Optional
@@ -95,14 +94,7 @@ def translate_word_in_context(
     )
 
     try:
-        import anthropic
-
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            logger.warning("ANTHROPIC_API_KEY not set, cannot ask LLM for translation")
-            return None
-
-        client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
+        client = claude.shared_client(timeout)
 
         response = client.messages.create(
             model=models.WORD_TRANSLATION,
@@ -114,9 +106,6 @@ def translate_word_in_context(
         translation = claude.response_text(response).strip().strip('"\'.')
         logger.debug(f"LLM translated '{word}' -> '{translation}'")
         return translation or None
-    except ImportError:
-        logger.error("anthropic package not installed")
-        return None
     except Exception as e:
         logger.error(f"LLM word translation failed for '{word}': {e}")
         return None
@@ -154,13 +143,7 @@ def translate_separated_mwe(
     )
 
     try:
-        import anthropic
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            logger.warning("ANTHROPIC_API_KEY not set, cannot translate separated MWE")
-            return None
-
-        client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
+        client = claude.shared_client(timeout)
 
         response = client.messages.create(
             model=models.MWE_TRANSLATION,
@@ -177,9 +160,6 @@ def translate_separated_mwe(
         logger.debug(f"Translated MWE '{mwe_text}' -> '{translation}'")
         return translation
 
-    except ImportError:
-        logger.error("anthropic package not installed")
-        return None
     except Exception as e:
         logger.error(f"MWE translation failed: {e}")
         return None
@@ -227,12 +207,7 @@ Return JSON mapping each MWE to its translation:
 JSON:"""
 
     try:
-        import anthropic
-        api_key = os.environ.get("ANTHROPIC_API_KEY")
-        if not api_key:
-            return {}
-
-        client = anthropic.Anthropic(api_key=api_key, timeout=timeout)
+        client = claude.shared_client(timeout)
 
         response = client.messages.create(
             model=models.MWE_TRANSLATION,
