@@ -27,6 +27,7 @@ Usage:
 import json
 import os
 import logging
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -36,6 +37,11 @@ from zeeguu.core.llm_services import models
 from zeeguu.core.llm_services import claude
 
 logger = logging.getLogger(__name__)
+
+# The model sometimes escapes a letter twice inside its JSON ("\\u0153"), so
+# after json.loads the string still holds the six characters \u0153 instead
+# of œ. Seen 14 Oct 2026: main-d'\u0153uvre, est soumis \u00e0, l'\u00e9poque.
+LEFTOVER_UNICODE_ESCAPE = re.compile(r"\\u([0-9a-fA-F]{4})")
 
 
 @dataclass
@@ -76,7 +82,7 @@ class TranslationValidator:
         context: str,
         source_lang: str,
         target_lang: str,
-    ) -> ValidationResult:
+    ) -> Optional[ValidationResult]:
         """
         Validate a translation and classify its frequency/phrase_type in one call.
 
@@ -88,7 +94,8 @@ class TranslationValidator:
             target_lang: Target language code or name
 
         Returns:
-            ValidationResult with validation status, corrections, and classification
+            ValidationResult with validation status, corrections, and classification,
+            or None when no verdict could be had (API error, refusal, unparseable reply)
         """
         from .prompts.translation_validator import create_combined_validation_prompt, VALIDATION_SCHEMA
 
@@ -109,7 +116,7 @@ class TranslationValidator:
                 model=self.MODEL_NAME,
                 **claude.request_options(self.MODEL_NAME),
                 # Replies run ~200 tokens (max 266 on 50 prod cases). A cut-off
-                # reply is unparseable JSON and fails open, so leave room.
+                # reply is unparseable JSON and gets no verdict, so leave room.
                 max_tokens=1000,
                 output_config={"format": {"type": "json_schema", "schema": VALIDATION_SCHEMA}},
                 messages=[{"role": "user", "content": prompt}],
@@ -118,10 +125,15 @@ class TranslationValidator:
             return self._parse_response(response_text)
 
         except Exception as e:
+            # No verdict is not a VALID verdict. Returning is_valid=True here
+            # stamped every word "checked" for two weeks from 28 Sep 2026, when
+            # an SDK change made every call raise. Report it so an outage shows
+            # up in Sentry, and let the caller leave the word unvalidated.
             log(f"Translation validation failed: {e}")
             logger.error(f"Translation validation failed: {e}")
-            # On error, assume valid with no classification (fail open)
-            return ValidationResult(is_valid=True)
+            import sentry_sdk
+            sentry_sdk.capture_exception(e)
+            return None
 
     def _parse_response(self, response_text: str) -> ValidationResult:
         """ValidationResult from the reply, which the API holds to VALIDATION_SCHEMA.
@@ -133,6 +145,7 @@ class TranslationValidator:
 
         def field(name):
             value = (reply.get(name) or "").strip()
+            value = LEFTOVER_UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), value)
             return value or None
 
         return ValidationResult(
