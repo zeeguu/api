@@ -12,10 +12,17 @@ Variants
     A  claude-haiku-4-5-20251001, exactly as production calls it today
        (same max_tokens, same temperature via claude.sampling_options).
     B  claude-haiku-5-5, thinking off ({"type": "disabled"}), default effort.
-    C  claude-haiku-5-5, adaptive thinking at effort "low" (only with --with-c).
+    C  claude-haiku-5-5, adaptive thinking at effort "low".
        Thinking tokens count toward max_tokens, so C gets the production
        max_tokens plus --c-thinking-headroom; without it the 30-token CEFR call
        would be cut off every time.
+    D  deepseek-chat (models.DEEPSEEK_GENERAL) through the production DeepSeek
+       paths: assess_and_summarize(provider="deepseek"), _assess_cefr_deepseek
+       (a different prompt from the Anthropic one), _correct_with_deepseek.
+       This is what production runs today (the crawler runs --provider
+       deepseek), so the report compares every variant with D as well as A.
+       Calls are recorded by wrapping requests.post. Cost: --deepseek-prices.
+    Choose with --variants (default A,B), e.g. --variants A,C,D.
 
 Tasks (--tasks, default all three)
     assess      Crawl-time assessment: simplification_and_classification
@@ -32,20 +39,23 @@ Sample
     extra weight on German and Danish (--lang-weights), plus a share
     (--junk-fraction) of articles prod already rejected through the LLM:
     article_broken_code_map.broken_code in (LLM_PAYWALL, ADVERTORIAL_LLM).
-    Note: prod labels come from whichever provider assessed the article at crawl
-    time (DeepSeek and Haiku 4.5 alternate), so they are a reference, not truth.
+    Prod labels were mostly written by DeepSeek at crawl time, so D vs prod is
+    the noise floor (DeepSeek disagreeing with itself), not an error rate.
     Articles under 100 words are skipped, as the crawler does.
     "Recent" means among the last --recent article ids (a primary-key range, so
     it does not scan the article table). --article-ids replaces the sampling.
     The ids used are saved in sample.json; pass them back with --article-ids
-    to rerun on the same set.
+    to rerun on the same set, or pass the file itself with --sample-from (it also
+    reuses the grammar ids; --n is then ignored).
 
 Cost
     Before anything is generated, the exact prompts of a few sampled items per
-    task are measured with the API's count_tokens (free) for each model, and the
+    task are measured with the API's count_tokens (free) for each model (for D,
+    Haiku 4.5's count stands in: DeepSeek has no token counter), and the
     estimated cost of the whole run is printed. The run needs --yes (or an
     interactive "y") to go on. --max-cost aborts mid-run once the cost of what
-    has actually been generated (from usage) passes it.
+    has actually been generated (from usage) passes it. The report states the
+    prices it used.
 
 Output (in --out-dir, default $ZEEGUU_DATA_FOLDER/haiku_eval/<timestamp>)
     rows.jsonl   one row per (article, task, variant): raw output, parsed
@@ -57,7 +67,8 @@ Output (in --out-dir, default $ZEEGUU_DATA_FOLDER/haiku_eval/<timestamp>)
 
 Usage
     python -m tools.eval_haiku_models --n 200 --yes
-    python -m tools.eval_haiku_models --n 200 --with-c --yes
+    python -m tools.eval_haiku_models --variants A,C,D --yes \
+        --sample-from /zeeguu-data/haiku_eval/<earlier ts>/sample.json
     python -m tools.eval_haiku_models --article-ids 123,456 --tasks assess
     python -m tools.eval_haiku_models --estimate-only --n 200
     python -m tools.eval_haiku_models --report-only /zeeguu-data/haiku_eval/<ts>
@@ -89,15 +100,29 @@ import anthropic
 
 HAIKU_45 = "claude-haiku-4-5-20251001"
 HAIKU_55 = "claude-haiku-5-5"
+DEEPSEEK = "deepseek-chat"  # models.DEEPSEEK_GENERAL; checked at startup
 
 # $ per million tokens (input, output). Haiku 5.5 has a second rate card
 # ($0.50/$2.50) above 100K prompt tokens; no prompt here comes near that.
 PRICES = {HAIKU_45: (1.00, 5.00), HAIKU_55: (0.10, 0.50)}
 
+# DeepSeek, $ per million tokens. Nothing in the repo records these. Requests for
+# `deepseek-chat` come back with model `deepseek-flash` (checked 2026-10-14; each
+# call's served_model is in rows.jsonl), so the defaults are the PEAK prices of
+# `deepseek-flash` on api-docs.deepseek.com/quick_start/pricing as read that day.
+# Off-peak on the same page: 0.003 / 0.15 / 0.6 (peak is 01:00-04:00 and
+# 06:00-10:00 UTC on weekdays). Override with --deepseek-prices.
+DEEPSEEK_PRICES = {
+    "hit": 0.006, "miss": 0.30, "out": 1.20,
+    "source": "defaults: peak prices of deepseek-flash, which serves deepseek-chat requests, from the "
+              "DeepSeek pricing page as read 2026-10-14; off-peak is half",
+}
+
 VARIANTS = {
     "A": {"model": HAIKU_45, "label": "Haiku 4.5 (current)"},
     "B": {"model": HAIKU_55, "label": "Haiku 5.5, thinking off"},
     "C": {"model": HAIKU_55, "label": "Haiku 5.5, adaptive thinking, effort low"},
+    "D": {"model": DEEPSEEK, "label": "DeepSeek (production crawl provider today)"},
 }
 
 TASKS = ["assess", "cefr_topic", "grammar"]
@@ -115,7 +140,11 @@ EST_C_THINKING_TOKENS = {"assess": 300, "cefr_topic": 150, "grammar": 300}
 TOKENIZER_GROWTH_55 = 1.3  # Haiku 5.5 counts the same text as ~30% more tokens
 
 
-def cost(model, input_tokens, output_tokens):
+def cost(model, input_tokens, output_tokens, cache_hit_tokens=0):
+    if model == DEEPSEEK:
+        p = DEEPSEEK_PRICES
+        miss = input_tokens - cache_hit_tokens
+        return (cache_hit_tokens * p["hit"] + miss * p["miss"] + output_tokens * p["out"]) / 1_000_000
     pin, pout = PRICES[model]
     return (input_tokens * pin + output_tokens * pout) / 1_000_000
 
@@ -188,10 +217,67 @@ def _install_model_switch(c_thinking_headroom):
 
     haiku_client._create = _create
 
+    # DeepSeek: the production paths call requests.post themselves (the module
+    # attribute, looked up at call time), so wrapping it records them without
+    # changing what they send or how they parse.
+    import requests
+
+    real_post = requests.post
+
+    def _post(url, *args, **kwargs):
+        if "api.deepseek.com" not in str(url) or getattr(_tls, "calls", None) is None:
+            return real_post(url, *args, **kwargs)
+        payload = kwargs.get("json") or {}
+        if getattr(_tls, "count_only", False):
+            # No free token counter for DeepSeek: Haiku 4.5's count stands in.
+            client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_TEXT_SIMPLIFICATION_KEY"])
+            n = client.messages.count_tokens(model=HAIKU_45, messages=payload["messages"]).input_tokens
+            _tls.counted.append(n)
+            raise _CountOnly(n)
+        call = {"model": payload.get("model"), "max_tokens": payload.get("max_tokens")}
+        start = time.time()
+        # Retries, as for Anthropic above: a 429/5xx is not the model's answer.
+        for attempt in range(4):
+            try:
+                response = real_post(url, *args, **kwargs)
+            except requests.RequestException as e:
+                if attempt == 3:
+                    call.update(latency_s=time.time() - start, error=f"{type(e).__name__}: {e}")
+                    _tls.calls.append(call)
+                    raise
+            else:
+                if response.status_code not in (429, 500, 502, 503) or attempt == 3:
+                    break
+            time.sleep(2 ** attempt)
+        call["latency_s"] = time.time() - start
+        call["http_status"] = response.status_code
+        if response.status_code == 200:
+            body = response.json()
+            choice = body["choices"][0]
+            usage = body.get("usage") or {}
+            call.update(
+                served_model=body.get("model"),
+                stop_reason=choice.get("finish_reason"),
+                input_tokens=usage.get("prompt_tokens", 0),
+                output_tokens=usage.get("completion_tokens", 0),
+                cache_hit_tokens=usage.get("prompt_cache_hit_tokens", 0),
+                text=(choice.get("message") or {}).get("content") or "",
+            )
+        else:
+            call["error"] = f"HTTP {response.status_code}: {response.text[:300]}"
+        _tls.calls.append(call)
+        return response
+
+    requests.post = _post
+
 
 # ---------------------------------------------------------------------------
 # Tasks: each returns the parsed fields; the raw calls are in _tls.calls
 # ---------------------------------------------------------------------------
+
+
+def _provider():
+    return "deepseek" if _tls.variant == "D" else "anthropic"
 
 
 def _run_assess(item):
@@ -200,7 +286,7 @@ def _run_assess(item):
     out = {"outcome": "ok"}
     try:
         result = sac.assess_and_summarize(
-            item["title"], item["content"], item["lang"], simplification_provider="anthropic"
+            item["title"], item["content"], item["lang"], simplification_provider=_provider()
         )
     except _CountOnly:
         raise
@@ -218,7 +304,7 @@ def _run_assess(item):
     calls_ok = [c for c in _tls.calls if "text" in c]
     if result is None and calls_ok:
         # Rejected: read the fields off the last reply ourselves.
-        result = sac._parse_assessment_and_summary(calls_ok[-1]["text"], "anthropic", "")
+        result = sac._parse_assessment_and_summary(calls_ok[-1]["text"], _provider(), "")
     if result is None:
         return out
 
@@ -238,7 +324,7 @@ def _run_assess(item):
     if not rejected:
         # What production would have dropped: the last reply had a summary but
         # the returned one is empty -> the language check removed it.
-        parsed_last = sac._parse_assessment_and_summary(calls_ok[-1]["text"], "anthropic", "") if calls_ok else {}
+        parsed_last = sac._parse_assessment_and_summary(calls_ok[-1]["text"], _provider(), "") if calls_ok else {}
         out["summary_dropped_for_language"] = bool(parsed_last.get("original_summary")) and not out["summary"]
     out["parse_ok"] = rejected or (
         out["cefr"] in CEFR and out["article_type"] in ("news", "general") and bool(
@@ -256,8 +342,11 @@ def _run_assess(item):
 def _run_cefr_topic(item):
     from zeeguu.core.llm_services.simplification_service import SimplificationService
 
-    result = SimplificationService()._assess_cefr_anthropic(item["title"], item["content"], item["lang"])
-    if not result:
+    service = SimplificationService()
+    assess = service._assess_cefr_deepseek if _tls.variant == "D" else service._assess_cefr_anthropic
+    result = assess(item["title"], item["content"], item["lang"])
+    # Anthropic returns None on failure, DeepSeek (None, None).
+    if not result or result[0] is None:
         return {"parse_ok": False, "cefr": None, "topic": None}
     cefr_level, topic = result
     return {"parse_ok": cefr_level in CEFR and topic in TOPICS, "cefr": cefr_level, "topic": topic}
@@ -271,7 +360,8 @@ def _run_grammar(item):
     service = GrammarCorrectionService()
     original = {"title": item["title"], "content": item["content"], "summary": item["summary"]}
     prompt = get_full_article_correction_prompt(item["lang"]).format(**original)
-    text = service._correct_with_anthropic(prompt)
+    correct = service._correct_with_deepseek if _tls.variant == "D" else service._correct_with_anthropic
+    text = correct(prompt)
     corrected = service._parse_correction_response(text, original)
     mismatches = field_mismatches([(f, corrected.get(f, "")) for f in original], item["lang"])
     labels_found = all(f"{label}:" in text for label in ("TITLE", "CONTENT", "SUMMARY"))
@@ -300,6 +390,7 @@ def run_one(task, variant, item):
     model = VARIANTS[variant]["model"]
     tin = sum(c.get("input_tokens", 0) for c in calls)
     tout = sum(c.get("output_tokens", 0) for c in calls)
+    thit = sum(c.get("cache_hit_tokens", 0) for c in calls)
     stops = [c.get("stop_reason") for c in calls]
     return {
         "article_id": item["id"],
@@ -308,13 +399,14 @@ def run_one(task, variant, item):
         "variant": variant,
         "model": model,
         "parse_ok": bool(parsed.get("parse_ok")),
-        "truncated": "max_tokens" in stops,
-        "refused": "refusal" in stops,
+        "truncated": "max_tokens" in stops or "length" in stops,
+        "refused": "refusal" in stops or "content_filter" in stops,
         "stop_reasons": stops,
         "n_calls": len(calls),
         "input_tokens": tin,
         "output_tokens": tout,
-        "cost_usd": cost(model, tin, tout),
+        "cache_hit_tokens": thit,
+        "cost_usd": cost(model, tin, tout, thit),
         "latency_s": sum(c.get("latency_s", 0) for c in calls),
         "wall_s": wall,
         "raw_output": calls[-1].get("text") if calls else None,
@@ -509,24 +601,60 @@ def _confusion(pairs, title, rows_label="A", cols_label="other"):
     ]
 
 
+def _rejected(r):
+    outcome = r["parsed"].get("outcome", "")
+    if outcome == "error" or not r["n_calls"]:
+        return None
+    return outcome.startswith("rejected")
+
+
+def _cefr_line(diffs, label):
+    n = len(diffs)
+    return (f"**CEFR {label}** (n={n}): exact {_pct(diffs.count(0), n)}, "
+            f"off by one {_pct(diffs.count(1), n)}, off by more {_pct(sum(d > 1 for d in diffs), n)}")
+
+
+def _prices_line(meta):
+    ds = meta.get("deepseek_prices") or DEEPSEEK_PRICES
+    return (
+        "Cost uses the token counts each API reported. Prices per million tokens: "
+        + ", ".join(f"`{m}` ${p[0]} in / ${p[1]} out" for m, p in PRICES.items())
+        + f"; `{DEEPSEEK}` ${ds['hit']} cache-hit in / ${ds['miss']} cache-miss in / ${ds['out']} out "
+        f"({ds.get('source', 'set on the command line')}). DeepSeek input is split with "
+        "`usage.prompt_cache_hit_tokens`."
+    )
+
+
 def write_report(rows, out_dir, meta):
     by = defaultdict(dict)  # (task, article_id) -> variant -> row
     for r in rows:
         by[(r["task"], r["article_id"])][r["variant"]] = r
     variants = sorted({r["variant"] for r in rows})
     tasks = [t for t in TASKS if any(r["task"] == t for r in rows)]
-    others = [v for v in variants if v != "A"]
+    # D is production today (the crawler runs --provider deepseek); A is the
+    # Haiku path the switch would replace. Everything is compared to both.
+    baselines = [b for b in ("D", "A") if b in variants]
+    comparisons = [(b, v) for b in baselines for v in variants if v != b and not (b == "A" and v == "D")]
+
+    def pairs_for(task, base, v):
+        return [(d[base], d[v]) for (t, _), d in sorted(by.items()) if t == task and base in d and v in d]
+
     L = [f"# Haiku model comparison — {meta.get('started', '')}", ""]
     L += [f"- {v}: {VARIANTS[v]['label']} (`{VARIANTS[v]['model']}`)" for v in variants]
-    L += ["- B sends `thinking: {type: disabled}` at the default effort (medium); C sends adaptive "
-          "thinking at effort low, with max_tokens raised by "
-          f"{meta.get('args', {}).get('c_thinking_headroom')} because thinking counts toward it."]
+    if "B" in variants or "C" in variants:
+        L += ["- B sends `thinking: {type: disabled}` at the default effort (medium); C sends adaptive "
+              "thinking at effort low, with max_tokens raised by "
+              f"{meta.get('args', {}).get('c_thinking_headroom')} because thinking counts toward it."]
+    if "D" in variants:
+        L += ["- D goes through the production DeepSeek paths. Its CEFR+topic prompt "
+              "(`_assess_cefr_deepseek`) is not the Anthropic one: a different prompt, not only a different model."]
     L += [f"- Articles: {meta.get('n_articles')} (prod-rejected junk: {meta.get('n_junk')}); "
           f"grammar items: {meta.get('n_grammar')}", ""]
-    L += ["CEFR, topic and junk labels have no ground truth here: agreement is measured against "
-          "A (today's behaviour). Prod labels came from DeepSeek or Haiku 4.5 (round-robin at crawl time).", ""]
+    L += ["CEFR, topic and junk labels have no ground truth. Each variant is compared with D (DeepSeek, "
+          "what production runs today) and with A (Haiku 4.5). Prod labels in the sample were mostly written "
+          "by DeepSeek at crawl time, so **D vs prod** is the noise floor: how often the same model "
+          "disagrees with itself on the same article.", ""]
 
-    # Health per task/variant
     L += ["## Parse failures, truncation, refusals, latency, cost", "",
           "| task | variant | rows | parse fail | truncated | refused | errors | median s | p95 s | $ / 1000 items |",
           "|---|---|---|---|---|---|---|---|---|---|"]
@@ -545,61 +673,85 @@ def write_report(rows, out_dir, meta):
                 f"{_pct(sum(r['truncated'] for r in rs), len(rs))} | {sum(r['refused'] for r in rs)} | "
                 f"{errors} | {med:.2f} | {p95:.2f} | ${1000 * per_item:.2f} |"
             )
-    L += ["", "Cost uses the token counts the API reported, at list prices "
-          f"({', '.join(f'{m}: ${p[0]}/${p[1]} per M' for m, p in PRICES.items())}).", ""]
+    L += ["", "Truncated = `max_tokens` (Anthropic) or `length` (DeepSeek). Refused = `refusal` "
+          "(Anthropic) or `content_filter` (DeepSeek).", "", _prices_line(meta), ""]
 
     examples = []
 
     if "assess" in tasks:
         L += ["## Crawl-time assessment (assess_and_summarize)", ""]
-        for v in others:
-            pairs = [(d["A"], d[v]) for (t, _), d in by.items() if t == "assess" and "A" in d and v in d]
+
+        # Every variant against the stored prod labels.
+        L += ["### Each variant vs prod labels", "",
+              "Prod labels: rejection = `article_broken_code_map` LLM_PAYWALL / ADVERTORIAL_LLM; "
+              "disturbing = `article_classification` DISTURBING by LLM; CEFR and type from `article`. "
+              "\"DeepSeek-assessed\" = the article's stored level summaries name deepseek-chat as their generator.", "",
+              "| variant | rejected agrees | prod-rejected caught | CEFR exact | CEFR off by one | CEFR off by more | CEFR exact (DeepSeek-assessed) | disturbing agrees | type agrees |",
+              "|---|---|---|---|---|---|---|---|---|"]
+        for v in variants:
+            rs = [r for r in rows if r["task"] == "assess" and r["variant"] == v and r["prod"]]
+            rej = [(r["prod"].get("rejected"), _rejected(r)) for r in rs if _rejected(r) is not None]
+            caught = [b for a, b in rej if a]
+            diffs = [_cefr_diff(r["prod"].get("cefr"), r["parsed"].get("cefr")) for r in rs]
+            diffs = [d for d in diffs if d is not None]
+            ds_diffs = [_cefr_diff(r["prod"].get("cefr"), r["parsed"].get("cefr")) for r in rs
+                        if (r["prod"].get("assessed_by") or "").startswith("deepseek")]
+            ds_diffs = [d for d in ds_diffs if d is not None]
+            dist = [(r["prod"].get("disturbing_llm"), r["parsed"].get("is_disturbing")) for r in rs
+                    if r["parsed"].get("is_disturbing") is not None and not r["prod"].get("rejected")]
+            types = [(r["prod"].get("article_type"), r["parsed"].get("article_type")) for r in rs
+                     if r["prod"].get("article_type") and r["parsed"].get("article_type")]
+            L.append(
+                f"| {v} | {_pct(sum(a == b for a, b in rej), len(rej))} | {sum(caught)}/{len(caught)} | "
+                f"{_pct(diffs.count(0), len(diffs))} | {_pct(diffs.count(1), len(diffs))} | "
+                f"{_pct(sum(d > 1 for d in diffs), len(diffs))} | {_pct(ds_diffs.count(0), len(ds_diffs))} "
+                f"(n={len(ds_diffs)}) | {_pct(sum(a == b for a, b in dist), len(dist))} | "
+                f"{_pct(sum(a == b for a, b in types), len(types))} |"
+            )
+        L.append("")
+
+        for base, v in comparisons:
+            pairs = pairs_for("assess", base, v)
             pa = lambda p, k: (p[0]["parsed"].get(k), p[1]["parsed"].get(k))
-            rej = lambda r: (r["parsed"].get("outcome", "").startswith("rejected")
-                             if r["parsed"].get("outcome") != "error" else None)
-            L += [f"### A vs {v}", ""]
-            L += _confusion([(rej(a), rej(b)) for a, b in pairs], "Rejected (incomplete or advertorial)", "A", v)
-            L += _confusion([pa(p, "is_incomplete") for p in pairs], "INCOMPLETE_ARTICLE", "A", v)
-            L += _confusion([pa(p, "is_advertorial") for p in pairs], "ADVERTORIAL_CONTENT", "A", v)
+            L += [f"### {base} vs {v}", ""]
+            L += _confusion([(_rejected(a), _rejected(b)) for a, b in pairs],
+                            "Rejected (incomplete or advertorial)", base, v)
+            L += _confusion([pa(p, "is_incomplete") for p in pairs], "INCOMPLETE_ARTICLE", base, v)
+            L += _confusion([pa(p, "is_advertorial") for p in pairs], "ADVERTORIAL_CONTENT", base, v)
             L += _confusion([pa(p, "is_disturbing") for p in pairs],
-                            "DISTURBING_CONTENT (only where neither rejected)", "A", v)
-            L += _confusion([(p[0]["prod"].get("rejected"), rej(p[1])) for p in pairs if p[0]["prod"]],
-                            f"Rejected at crawl time in prod vs rejected by {v}", "prod", v)
-            L += _confusion([(p[0]["prod"].get("rejected"), rej(p[0])) for p in pairs if p[0]["prod"]],
-                            "Rejected at crawl time in prod vs rejected by A today", "prod", "A")
+                            "DISTURBING_CONTENT (only where neither rejected)", base, v)
 
             diffs = [(_cefr_diff(*pa(p, "cefr")), p) for p in pairs]
             diffs = [(d, p) for d, p in diffs if d is not None]
-            n = len(diffs)
-            L += [f"**CEFR vs A** (n={n}): exact {_pct(sum(d == 0 for d, _ in diffs), n)}, "
-                  f"off by one {_pct(sum(d == 1 for d, _ in diffs), n)}, "
-                  f"off by more {_pct(sum(d > 1 for d, _ in diffs), n)}", ""]
-            for name, k in (("A", 0), (v, 1)):
+            L += [_cefr_line([d for d, _ in diffs], f"{base} vs {v}"), ""]
+            for name, k in ((base, 0), (v, 1)):
                 dist = Counter(p[k]["parsed"].get("cefr") for _, p in diffs)
                 L.append(f"- {name} distribution: " + ", ".join(f"{c}: {dist.get(c, 0)}" for c in CEFR))
             L.append("")
             types = [pa(p, "article_type") for p in pairs if all(pa(p, "article_type"))]
-            L += [f"**Article type vs A**: {_pct(sum(a == b for a, b in types), len(types))} (n={len(types)})", ""]
+            L += [f"**Article type**: {_pct(sum(a == b for a, b in types), len(types))} agree (n={len(types)})", ""]
 
             dis = [(d, p) for d, p in diffs if d > 0]
             if dis:
-                L += [f"CEFR disagreements to look at (A → {v}, prod):", "",
-                      "| article | lang | A | " + v + " | prod | title |", "|---|---|---|---|---|---|"]
-                for d, p in sorted(dis, key=lambda x: -x[0]):
-                    a, b = p
+                L += [f"CEFR disagreements to look at ({base} → {v}, prod):", "",
+                      f"| article | lang | {base} | {v} | prod | title |", "|---|---|---|---|---|---|"]
+                for d, (a, b) in sorted(dis, key=lambda x: -x[0]):
                     L.append(f"| {a['article_id']} | {a['lang']} | {a['parsed'].get('cefr')} | "
                              f"{b['parsed'].get('cefr')} | {a['prod'].get('cefr')} | "
                              f"{(a.get('title') or '')[:60]} |")
                 L.append("")
 
+            # Comparisons against D (production) come first in the examples.
+            rank = 0 if base == "D" else 10
             for a, b in pairs:
-                if rej(a) != rej(b) or any(a["parsed"].get(k) != b["parsed"].get(k)
-                                           for k in ("is_incomplete", "is_advertorial", "is_disturbing")):
-                    examples.append((0, "assess", v, a, b))
-                elif (_cefr_diff(a["parsed"].get("cefr"), b["parsed"].get("cefr")) or 0) > 1:
-                    examples.append((1, "assess", v, a, b))
-                elif (_cefr_diff(a["parsed"].get("cefr"), b["parsed"].get("cefr")) or 0) == 1:
-                    examples.append((3, "assess", v, a, b))
+                d = _cefr_diff(a["parsed"].get("cefr"), b["parsed"].get("cefr")) or 0
+                if _rejected(a) != _rejected(b) or any(a["parsed"].get(k) != b["parsed"].get(k)
+                                                      for k in ("is_incomplete", "is_advertorial", "is_disturbing")):
+                    examples.append((rank + 0, "assess", base, v, a, b))
+                elif d > 1:
+                    examples.append((rank + 1, "assess", base, v, a, b))
+                elif d == 1:
+                    examples.append((rank + 3, "assess", base, v, a, b))
 
         L += ["### Summaries", "",
               "Prompt cap for ORIGINAL_SUMMARY is ~70 words (the 25-word cap belongs to level "
@@ -621,38 +773,36 @@ def write_report(rows, out_dir, meta):
         L.append("")
 
     if "cefr_topic" in tasks:
-        L += ["## CEFR + topic (SimplificationService._assess_cefr_anthropic)", ""]
-        for v in others:
-            pairs = [(d["A"], d[v]) for (t, _), d in by.items() if t == "cefr_topic" and "A" in d and v in d]
+        L += ["## CEFR + topic (SimplificationService._assess_cefr_anthropic / _assess_cefr_deepseek)", ""]
+        for base, v in comparisons:
+            pairs = pairs_for("cefr_topic", base, v)
             diffs = [_cefr_diff(a["parsed"].get("cefr"), b["parsed"].get("cefr")) for a, b in pairs]
             diffs = [d for d in diffs if d is not None]
-            n = len(diffs)
             topics = [(a["parsed"].get("topic"), b["parsed"].get("topic")) for a, b in pairs
                       if a["parsed"].get("topic") and b["parsed"].get("topic")]
-            L += [f"### A vs {v}", "",
-                  f"- CEFR (n={n}): exact {_pct(diffs.count(0), n)}, off by one {_pct(diffs.count(1), n)}, "
-                  f"off by more {_pct(sum(d > 1 for d in diffs), n)}",
+            L += [f"### {base} vs {v}", "", "- " + _cefr_line(diffs, ""),
                   f"- Topic agreement: {_pct(sum(a == b for a, b in topics), len(topics))} (n={len(topics)})", ""]
             confused = Counter((a, b) for a, b in topics if a != b)
             if confused:
-                L += ["Most common topic disagreements (A → " + v + "): " +
+                L += [f"Most common topic disagreements ({base} → {v}): " +
                       "; ".join(f"{a} → {b} ×{k}" for (a, b), k in confused.most_common(6)), ""]
             dis = [(a, b) for a, b in pairs
                    if (_cefr_diff(a["parsed"].get("cefr"), b["parsed"].get("cefr")) or 0) > 0]
             if dis:
-                L += ["| article | lang | A | " + v + " | prod | A topic | " + v + " topic |",
+                L += [f"| article | lang | {base} | {v} | prod | {base} topic | {v} topic |",
                       "|---|---|---|---|---|---|---|"]
                 for a, b in dis:
                     L.append(f"| {a['article_id']} | {a['lang']} | {a['parsed'].get('cefr')} | "
                              f"{b['parsed'].get('cefr')} | {a['prod'].get('cefr')} | "
                              f"{a['parsed'].get('topic')} | {b['parsed'].get('topic')} |")
                 L.append("")
+            rank = 0 if base == "D" else 10
             for a, b in pairs:
                 if a["parsed"].get("topic") != b["parsed"].get("topic"):
-                    examples.append((2, "cefr_topic", v, a, b))
+                    examples.append((rank + 2, "cefr_topic", base, v, a, b))
 
     if "grammar" in tasks:
-        L += ["## Grammar correction (Anthropic provider)", "",
+        L += ["## Grammar correction", "",
               "| variant | rows | labels parsed | wrong language | median content change | p95 content change |",
               "|---|---|---|---|---|---|"]
         for v in variants:
@@ -662,23 +812,23 @@ def write_report(rows, out_dir, meta):
                      f"{sum(bool(r['parsed'].get('wrong_language')) for r in rs)} | "
                      f"{statistics.median(ch) if ch else '-'} | {_quantile(ch, 0.95) if ch else '-'} |")
         L.append("")
-        for v in others:
-            pairs = [(d["A"], d[v]) for (t, _), d in by.items() if t == "grammar" and "A" in d and v in d]
+        for base, v in comparisons:
+            pairs = pairs_for("grammar", base, v)
             sims = [SequenceMatcher(None, a["parsed"]["corrected"]["content"], b["parsed"]["corrected"]["content"]).ratio()
                     for a, b in pairs if "corrected" in a["parsed"] and "corrected" in b["parsed"]]
             if sims:
-                L += [f"- A vs {v}: corrected-content similarity median {statistics.median(sims):.3f}, "
-                      f"min {min(sims):.3f} (n={len(sims)})", ""]
+                L += [f"- {base} vs {v}: corrected-content similarity median {statistics.median(sims):.3f}, "
+                      f"min {min(sims):.3f} (n={len(sims)})"]
+        L.append("")
 
-    # Side-by-side examples
     examples.sort(key=lambda e: e[0])
     L += ["## Disagreement examples", ""]
     if not examples:
         L += ["None.", ""]
-    for _, task, v, a, b in examples[:15]:
-        L += [f"### {task} — article {a['article_id']} ({a['lang']}) — A vs {v}", "",
+    for _, task, base, v, a, b in examples[:15]:
+        L += [f"### {task}: article {a['article_id']} ({a['lang']}), {base} vs {v}", "",
               f"Title: {a.get('title', '')}", f"Prod: {json.dumps(a['prod'], ensure_ascii=False)}", ""]
-        for name, r in (("A", a), (v, b)):
+        for name, r in ((base, a), (v, b)):
             p = {k: r["parsed"].get(k) for k in ("outcome", "cefr", "topic", "article_type", "is_incomplete",
                                                   "is_advertorial", "is_disturbing", "summary") if k in r["parsed"]}
             L += [f"**{name}**: `{json.dumps(p, ensure_ascii=False)}`", ""]
@@ -738,10 +888,11 @@ def estimate(work, variants, sample_per_task):
                 tout = EST_OUTPUT_TOKENS[task] * (TOKENIZER_GROWTH_55 if model == HAIKU_55 else 1)
             if v == "C":
                 tout += EST_C_THINKING_TOKENS[task]
-            each = cost(model, tin, tout)
+            each = cost(model, tin, tout)  # DeepSeek: all input priced as cache misses
             per_task_variant[(task, v)] = each
             total += each * len(items)
-            print(f"  {task:10s} {v}: ~{tin:,.0f} in / ~{tout:,.0f} out tokens per item "
+            proxy = " (Haiku 4.5 count as proxy)" if v == "D" else ""
+            print(f"  {task:10s} {v}: ~{tin:,.0f}{proxy} in / ~{tout:,.0f} out tokens per item "
                   f"→ ${each:.4f}/item, ${1000 * each:.2f}/1000, ${each * len(items):.2f} for {len(items)}")
     print(f"  Estimated total for this run: ${total:.2f} (output sizes are rough guesses; input is measured)")
     return total
@@ -754,7 +905,16 @@ def main():
     ap.add_argument("--article-ids", help="comma-separated article ids instead of sampling")
     ap.add_argument("--grammar-ids", help="comma-separated simplified-article ids for grammar")
     ap.add_argument("--tasks", default=",".join(TASKS))
-    ap.add_argument("--with-c", action="store_true", help="add variant C (5.5, adaptive thinking, low effort)")
+    ap.add_argument("--variants", default="A,B",
+                    help="comma-separated, from A (Haiku 4.5), B (5.5 thinking off), "
+                         "C (5.5 adaptive, effort low), D (DeepSeek, production today)")
+    ap.add_argument("--with-c", action="store_true", help="add variant C to --variants")
+    ap.add_argument("--deepseek-prices", metavar="HIT,MISS,OUT",
+                    help="DeepSeek $ per M tokens: cache-hit input, cache-miss input, output "
+                         f"(default {DEEPSEEK_PRICES['hit']},{DEEPSEEK_PRICES['miss']},{DEEPSEEK_PRICES['out']}: "
+                         "deepseek-flash peak prices; see DEEPSEEK_PRICES)")
+    ap.add_argument("--sample-from", metavar="SAMPLE_JSON",
+                    help="reuse the article and grammar ids of an earlier run's sample.json")
     ap.add_argument("--c-thinking-headroom", type=int, default=2048)
     ap.add_argument("--junk-fraction", type=float, default=0.15)
     ap.add_argument("--lang-weights", default="de:3,da:2", help="sampling weight per language (others 1)")
@@ -770,15 +930,36 @@ def main():
     ap.add_argument("--report-only", metavar="DIR", help="rebuild summary.md from DIR/rows.jsonl")
     args = ap.parse_args()
 
+    if args.deepseek_prices:
+        hit, miss, out = (float(x) for x in args.deepseek_prices.split(","))
+        DEEPSEEK_PRICES.update(hit=hit, miss=miss, out=out, source="--deepseek-prices")
+
     if args.report_only:
         with open(os.path.join(args.report_only, "rows.jsonl")) as f:
             rows = [json.loads(line) for line in f]
         meta = json.load(open(os.path.join(args.report_only, "sample.json"))).get("meta", {})
+        if args.deepseek_prices:  # re-price D from the stored token counts
+            meta["deepseek_prices"] = dict(DEEPSEEK_PRICES)
+            for r in rows:
+                if r["variant"] == "D":
+                    r["cost_usd"] = cost(DEEPSEEK, r["input_tokens"], r["output_tokens"],
+                                         r.get("cache_hit_tokens", 0))
         print(write_report(rows, args.report_only, meta))
         return
 
+    variants = [v.strip().upper() for v in args.variants.split(",") if v.strip()]
+    if args.with_c and "C" not in variants:
+        variants.append("C")
+    unknown = [v for v in variants if v not in VARIANTS]
+    if unknown or not variants:
+        sys.exit(f"Unknown variants {unknown}; choose from {', '.join(VARIANTS)}")
+    # Both keys are needed even for D alone: the estimate counts tokens with
+    # Anthropic. Without its own key, production would silently fall back to
+    # the other provider, which would mislabel the rows.
     if not os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY"):
         sys.exit("ANTHROPIC_TEXT_SIMPLIFICATION_KEY is not set")
+    if "D" in variants and not os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS"):
+        sys.exit("DEEPSEEK_API_SIMPLIFICATIONS is not set (needed for variant D)")
 
     from zeeguu.api.app import create_app_for_scripts
 
@@ -791,16 +972,26 @@ def main():
     from zeeguu.core.llm_services import haiku_client
     if not hasattr(haiku_client, "_create"):
         sys.exit("haiku_client has no _create: this needs the SDK client from zeeguu/api#833")
+    from zeeguu.core.llm_services import models
+    if models.DEEPSEEK_GENERAL != DEEPSEEK:
+        sys.exit(f"models.DEEPSEEK_GENERAL is {models.DEEPSEEK_GENERAL!r}; update DEEPSEEK here")
     _install_model_switch(args.c_thinking_headroom)
 
     tasks = [t.strip() for t in args.tasks.split(",") if t.strip()]
-    variants = ["A", "B"] + (["C"] if args.with_c else [])
     lang_weights = {k: float(v) for k, v in (p.split(":") for p in args.lang_weights.split(",") if p)}
 
     # --- sample ---
     n_junk = 0
     gram_ids = []
-    if args.article_ids:
+    if args.sample_from:
+        # Same articles as an earlier run, in the same order; --n is ignored.
+        with open(args.sample_from) as f:
+            earlier = json.load(f)
+        junk = []
+        by_lang = {None: list(earlier["article_ids"])}
+        quotas = {None: len(by_lang[None])}
+        gram_ids = list(earlier.get("grammar_ids", []))
+    elif args.article_ids:
         junk = []
         by_lang = {None: [int(x) for x in args.article_ids.split(",") if x.strip()]}
         quotas = {None: len(by_lang[None])}
@@ -832,13 +1023,16 @@ def main():
         for lang in by_lang:
             if shortfall > 0 and take(lang, 1):
                 shortfall -= 1
+    if not junk:  # explicit ids: count the prod-rejected ones among them
+        n_junk = sum(1 for a in articles if a["prod"].get("rejected"))
 
     grammar_items = []
     if "grammar" in tasks:
         if args.grammar_ids:
             gram_ids = [int(x) for x in args.grammar_ids.split(",") if x.strip()]
+        n_grammar = len(gram_ids) if args.sample_from else args.n_grammar
         for aid in gram_ids:
-            if len(grammar_items) >= args.n_grammar:
+            if len(grammar_items) >= n_grammar:
                 break
             it = load_item(aid, with_prod=False)
             if it and it["is_child"]:
@@ -874,7 +1068,8 @@ def main():
     )
     os.makedirs(out_dir, exist_ok=True)
     meta = {"started": started, "n_articles": len(articles), "n_junk": n_junk,
-            "n_grammar": len(grammar_items), "variants": variants, "tasks": tasks, "args": vars(args)}
+            "n_grammar": len(grammar_items), "variants": variants, "tasks": tasks, "args": vars(args),
+            "deepseek_prices": dict(DEEPSEEK_PRICES)}
     with open(os.path.join(out_dir, "sample.json"), "w") as f:
         json.dump({"article_ids": [a["id"] for a in articles],
                    "grammar_ids": [g["id"] for g in grammar_items], "meta": meta}, f, indent=1)
