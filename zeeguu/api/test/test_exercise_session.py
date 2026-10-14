@@ -55,3 +55,14 @@ def test_add_exercise_to_session(client):
 
     session_info = client.get(f"/exercise_session_info/{session_id}")
     assert session_info["duration"] == 2000
+
+
+def test_practice_count_matches_practice_list(client):
+    """The badge count is the length of the list the exercises get."""
+    add_context_types()
+    add_source_types()
+    add_one_bookmark(client)
+
+    words = client.get("/user_words_recommended_for_practice")
+    count = client.get("/count_of_user_words_recommended_for_practice")
+    assert count == len(words) >= 1
