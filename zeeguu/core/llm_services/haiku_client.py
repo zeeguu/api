@@ -46,7 +46,7 @@ def _create(
         **claude.request_options(HAIKU_MODEL),
         **claude.sampling_options(HAIKU_MODEL, temperature),
         **extra,
-        max_tokens=max_tokens,
+        max_tokens=claude.max_tokens(HAIKU_MODEL, max_tokens),
         messages=[{"role": "user", "content": prompt}],
     )
 
@@ -72,6 +72,9 @@ def haiku_completion(
         if response.stop_reason == "max_tokens":
             log(f"Haiku output truncated at max_tokens={max_tokens}")
             return None
+        if response.stop_reason == "refusal":
+            log("Haiku declined the request")
+            return None
         return claude.response_text(response)
     except Exception as e:
         log(f"Haiku completion failed: {e}")
@@ -95,6 +98,10 @@ def haiku_completion_or_raise(
     reply exactly as the model wrote it, just cut short.
     """
     response = _create(prompt, max_tokens, temperature, timeout, stop_sequences)
+    # Haiku 5.5's safety classifiers can decline (HTTP 200, no text); Haiku has
+    # no server-side fallback model, so this surfaces as a failure.
+    if response.stop_reason == "refusal":
+        raise Exception("Haiku declined the request (stop_reason refusal)")
     # NOTE: deliberately does NOT treat stop_reason "max_tokens" as an error.
     # The fail-soft haiku_completion does (truncation -> None -> fallback), but
     # the batch crawl simplification pipeline calls this variant and has long

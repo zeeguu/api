@@ -20,9 +20,19 @@ def test_sonnet_5_5_runs_without_thinking():
     assert claude.request_options("claude-sonnet-5-5") == {"thinking": {"type": "between_tools"}}
 
 
+def test_haiku_5_5_thinks_a_little():
+    assert claude.request_options("claude-haiku-5-5") == {
+        "thinking": {"type": "adaptive"},
+        "output_config": {"effort": "low"},
+    }
+    # thinking counts toward max_tokens, so a 30-token reply gets room for it
+    assert claude.max_tokens("claude-haiku-5-5", 30) > 30
+
+
 def test_other_models_get_nothing_they_would_reject():
-    assert claude.request_options(models.ANTHROPIC_HAIKU) == {}
+    assert claude.request_options("claude-haiku-4-5-20251001") == {}
     assert claude.request_options("claude-sonnet-4-5-20250929") == {}
+    assert claude.max_tokens("claude-sonnet-5-5", 30) == 30
 
 
 def test_temperature_goes_only_to_models_that_take_it():
