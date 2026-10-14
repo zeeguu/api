@@ -83,6 +83,15 @@ Examples:
 # before the requested one-line format, and ran out of tokens before reaching
 # it (22 of 50 prod cases). `reason` comes first so the short reasoning it
 # wants to do lands in a field instead of in front of the answer.
+# Appended when a reply still lists options; see TranslationValidator.
+SINGLE_TRANSLATION_REMINDER = """
+
+Your previous answer gave the translation "{translation}". A flashcard needs ONE
+translation the learner can type: no alternatives with "/", no explanation in
+parentheses. Reply FIX with the single translation that fits this sentence best.
+"""
+
+
 VALIDATION_SCHEMA = {
     "type": "object",
     "additionalProperties": False,

@@ -34,6 +34,7 @@ from zeeguu.logging import log
 from zeeguu.core.model.language import Language
 from zeeguu.core.llm_services import models
 from zeeguu.core.llm_services import claude
+from zeeguu.core.llm_services.single_translation import lists_options, pick_one
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,11 @@ class TranslationValidator:
         Returns:
             ValidationResult with validation status, corrections, and classification
         """
-        from .prompts.translation_validator import create_combined_validation_prompt, VALIDATION_SCHEMA
+        from .prompts.translation_validator import (
+            create_combined_validation_prompt,
+            SINGLE_TRANSLATION_REMINDER,
+            VALIDATION_SCHEMA,
+        )
 
         # Convert language codes to names
         source_name = Language.LANGUAGE_NAMES.get(source_lang, source_lang)
@@ -105,23 +110,61 @@ class TranslationValidator:
         )
 
         try:
-            response = self.client.messages.create(
-                model=self.MODEL_NAME,
-                **claude.request_options(self.MODEL_NAME),
-                # Replies run ~200 tokens (max 266 on 50 prod cases). A cut-off
-                # reply is unparseable JSON and fails open, so leave room.
-                max_tokens=1000,
-                output_config={"format": {"type": "json_schema", "schema": VALIDATION_SCHEMA}},
-                messages=[{"role": "user", "content": prompt}],
-            )
-            response_text = claude.response_text(response).strip()
-            return self._parse_response(response_text)
+            result = self._ask(prompt, VALIDATION_SCHEMA)
+            if self._lists_options(result, word, translation):
+                # The prompt already forbids "/" alternatives and glosses in
+                # parentheses; say it once more, about this very reply.
+                offending = result.corrected_translation or translation
+                result = self._ask(
+                    prompt + SINGLE_TRANSLATION_REMINDER.format(translation=offending),
+                    VALIDATION_SCHEMA,
+                )
+            if self._lists_options(result, word, translation):
+                result = self._with_one_option(result, word, translation)
+            return result
 
         except Exception as e:
             log(f"Translation validation failed: {e}")
             logger.error(f"Translation validation failed: {e}")
             # On error, assume valid with no classification (fail open)
             return ValidationResult(is_valid=True)
+
+    def _ask(self, prompt, schema) -> "ValidationResult":
+        response = self.client.messages.create(
+            model=self.MODEL_NAME,
+            **claude.request_options(self.MODEL_NAME),
+            # Replies run ~200 tokens (max 266 on 50 prod cases). A cut-off
+            # reply is unparseable JSON and fails open, so leave room.
+            max_tokens=1000,
+            output_config={"format": {"type": "json_schema", "schema": schema}},
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return self._parse_response(claude.response_text(response).strip())
+
+    @staticmethod
+    def _lists_options(result, word, translation):
+        """Would the flashcard end up as "which must/which should" or
+        "by (doing something)"? Checks the corrected translation of a FIX,
+        and the current one of a VALID (old translations predate the rule)."""
+        if result.is_valid:
+            return lists_options(translation, word)
+        return lists_options(result.corrected_translation, result.corrected_word or word)
+
+    @staticmethod
+    def _with_one_option(result, word, translation):
+        """Last resort when the model keeps listing options: keep the first
+        one ourselves. A VALID becomes a FIX so the meaning gets replaced."""
+        from dataclasses import replace
+
+        source = result.corrected_translation if not result.is_valid else translation
+        one = pick_one(source, result.corrected_word or word)
+        log(f"[VALIDATION] '{source}' lists options; keeping '{one}'")
+        return replace(
+            result,
+            is_valid=False,
+            corrected_translation=one,
+            reason=(result.reason or "") + f" [kept one option of '{source}']",
+        )
 
     def _parse_response(self, response_text: str) -> ValidationResult:
         """ValidationResult from the reply, which the API holds to VALIDATION_SCHEMA.
