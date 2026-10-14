@@ -38,7 +38,7 @@ class AnthropicService(LLMService):
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=max_tokens,
-                temperature=temperature,
+                extra_body={"temperature": temperature},
                 system=prompt["system"],
                 messages=[
                     {"role": "user", "content": prompt["user"]}

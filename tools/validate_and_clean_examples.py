@@ -76,7 +76,7 @@ Or if all are correct:
         response = client.messages.create(
             model="claude-sonnet-4-5-20250929",
             max_tokens=500,
-            temperature=0,
+            extra_body={"temperature": 0},
             system="You are a language expert validating example sentences for language learning. Return only JSON arrays with no additional text.",
             messages=[{"role": "user", "content": prompt}],
         )

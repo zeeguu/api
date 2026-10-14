@@ -106,7 +106,7 @@ def translate_word_in_context(
         response = client.messages.create(
             model=models.WORD_TRANSLATION,
             max_tokens=50,
-            temperature=0.1,
+            extra_body={"temperature": 0.1},
             messages=[{"role": "user", "content": prompt}],
         )
 
@@ -164,7 +164,7 @@ def translate_separated_mwe(
         response = client.messages.create(
             model=models.MWE_TRANSLATION,
             max_tokens=50,  # Short response expected
-            temperature=0.1,  # Low temperature for consistent translation
+            extra_body={"temperature": 0.1},  # Low temperature for consistent translation
             messages=[{"role": "user", "content": prompt}]
         )
 
@@ -236,7 +236,7 @@ JSON:"""
         response = client.messages.create(
             model=models.MWE_TRANSLATION,
             max_tokens=200,
-            temperature=0.1,
+            extra_body={"temperature": 0.1},
             messages=[{"role": "user", "content": prompt}]
         )
 

@@ -53,7 +53,7 @@ class MeaningFrequencyClassifier:
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
                 max_tokens=max_tokens,
-                temperature=0,  # Deterministic
+                extra_body={"temperature": 0},  # Deterministic
                 messages=[{"role": "user", "content": prompt}],
             )
 
@@ -119,7 +119,7 @@ class MeaningFrequencyClassifier:
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
                 max_tokens=20,  # Need space for "frequency,phrase_type"
-                temperature=0,  # Deterministic
+                extra_body={"temperature": 0},  # Deterministic
                 messages=[{"role": "user", "content": prompt}],
             )
 
