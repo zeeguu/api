@@ -29,8 +29,8 @@ def class_text(cohort_id, article_id):
     looked up in it, the ones most students needed first.
 
     The text itself comes too (tokenized_title_new, tokenized_fragments), each
-    part with `lookups`: for every token some student translated, the students
-    who did. The teacher's page colours the text by it, as a heatmap.
+    part with the class's bookmarks made in it. The teacher's page places them
+    on the text and colours it by how many students looked each word up.
 
     For the teachers who give a class one text at a time: a word half the
     class translated is one to go over in the lesson.
@@ -80,7 +80,7 @@ def class_text(cohort_id, article_id):
             "student_count": len(students),
             "readers": _readers(students, opened, bookmarks, reading_ms_per_student),
             "words": _words(students, bookmarks),
-            **_text_with_lookups(article, bookmarks),
+            **_text_with_bookmarks(article, bookmarks),
         }
     )
 
@@ -135,45 +135,47 @@ def _words(students, bookmarks):
     return sorted(words.values(), key=lambda w: (-len(w["students"]), w["word"].lower()))
 
 
-def _text_with_lookups(article, bookmarks):
+def _text_with_bookmarks(article, bookmarks):
     """
-    The article's tokenized title and fragments, each with `lookups`:
-    [{sent_i, token_i, students: [{id, translation}]}], one entry per token a
-    student looked up, with the translation each of them got.
+    The article's tokenized title and fragments, each with `class_bookmarks`:
+    the class's lookups made in that part, with the fields the reader needs to
+    place a bookmark on its tokens, plus whose it is and what they got.
+
+    The placing itself happens on the web, in bookmarkRestoration.js, the one
+    place that knows how a bookmark's anchors combine.
     """
-    # part ("title" or a fragment id) -> (sent_i, token_i) -> {student id: translation}
-    found = defaultdict(lambda: defaultdict(dict))
+    in_part = defaultdict(list)
     part_of = _part_of_each(bookmarks)
     for bookmark in bookmarks:
         part = part_of.get(bookmark.id)
-        if part is None:
-            continue
-        for position in _tokens_covered(bookmark):
-            # looked up twice: their first translation stands
-            found[part][position].setdefault(
-                bookmark.user_word.user_id, bookmark.user_word.meaning.translation.content
-            )
-
-    def with_lookups(tokenized, part):
-        return {
-            **tokenized,
-            "lookups": [
-                {
-                    "sent_i": sent_i,
-                    "token_i": token_i,
-                    "students": [{"id": id, "translation": t} for id, t in sorted(who.items())],
-                }
-                for (sent_i, token_i), who in sorted(found[part].items())
-            ],
-        }
+        if part is not None and bookmark.context is not None:
+            in_part[part].append(_placeable(bookmark))
 
     content = article.article_info(with_content=True)
+    title = content.get("tokenized_title_new") or {}
     return {
-        "tokenized_title_new": with_lookups(content.get("tokenized_title_new") or {}, "title"),
+        "tokenized_title_new": {**title, "class_bookmarks": in_part["title"]},
         "tokenized_fragments": [
-            with_lookups(fragment, fragment["context_identifier"]["article_fragment_id"])
+            {**fragment, "class_bookmarks": in_part[fragment["context_identifier"]["article_fragment_id"]]}
             for fragment in content.get("tokenized_fragments") or []
         ],
+    }
+
+
+def _placeable(bookmark):
+    """A bookmark as the reader's restoration reads it, plus its student."""
+    meaning = bookmark.user_word.meaning
+    return {
+        "student_id": bookmark.user_word.user_id,
+        "origin": meaning.origin.content,
+        "translation": meaning.translation.content,
+        "context_sent": bookmark.context.sentence_i,
+        "context_token": bookmark.context.token_i,
+        "t_sentence_i": bookmark.sentence_i,
+        "t_token_i": bookmark.token_i,
+        "t_total_token": bookmark.total_tokens,
+        "is_mwe": bool(bookmark.is_mwe),
+        "mwe_partner_token_i": bookmark.mwe_partner_token_i,
     }
 
 
@@ -190,21 +192,3 @@ def _part_of_each(bookmarks):
     ):
         part_of[bookmark_id] = "title"
     return part_of
-
-
-def _tokens_covered(bookmark):
-    """
-    The (sent_i, token_i) of every token the bookmark covers.
-
-    Its position is its context's offset plus its own, the same sum the reader
-    does (bookmarkRestoration.js). A phrase covers all its tokens; a separated
-    multi-word expression only its two parts.
-    """
-    if bookmark.context is None:
-        return []
-    sent_i = (bookmark.context.sentence_i or 0) + (bookmark.sentence_i or 0)
-    token_i = (bookmark.context.token_i or 0) + (bookmark.token_i or 0)
-    if bookmark.is_mwe and bookmark.mwe_partner_token_i is not None:
-        # the partner's index is already absolute (validateMweBookmark)
-        return [(sent_i, token_i), (sent_i, bookmark.mwe_partner_token_i)]
-    return [(sent_i, token_i + k) for k in range(bookmark.total_tokens or 1)]

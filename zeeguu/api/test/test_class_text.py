@@ -56,13 +56,11 @@ def test_the_words_most_students_needed_come_first(client):
     assert hinter["translations"] == ["behind", "after"]
     assert hinter["context"] == "stellt sich hinter Präsident"
     assert info["student_count"] == 2
-    # the title's tokens come with who looked each up, for the heatmap
+    # the title comes with the class's bookmarks in it, for the heatmap
     title = info["tokenized_title_new"]
     assert title["tokens"]
-    counts = {(l["sent_i"], l["token_i"]): len(l["students"]) for l in title["lookups"]}
-    assert counts == {(0, 2): 2, (0, 3): 1}
-    hinter_token = next(l for l in title["lookups"] if l["token_i"] == 2)
-    assert sorted(s["translation"] for s in hinter_token["students"]) == ["after", "behind"]
+    placed = sorted((b["t_token_i"], b["translation"]) for b in title["class_bookmarks"])
+    assert placed == [(2, "after"), (2, "behind"), (3, "president")]
     assert {r["id"]: r["translations"] for r in info["readers"]} == {
         User.find("max@mir.lu").id: 2,
         User.find("ana@mir.lu").id: 1,
