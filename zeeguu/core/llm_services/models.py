@@ -19,7 +19,7 @@ https://platform.claude.com/docs/en/about-claude/models/overview for current IDs
 
 # --- Canonical model IDs — the ONLY place a raw model string appears ---
 ANTHROPIC_SONNET = "claude-sonnet-5-5"  # current Sonnet tier; thinking off via claude.request_options
-ANTHROPIC_HAIKU = "claude-haiku-4-5-20251001"    # current Haiku (fast / cheap)
+ANTHROPIC_HAIKU = "claude-haiku-5-5"  # current Haiku (fast / cheap); low-effort thinking via claude.request_options
 DEEPSEEK_CHAT = "deepseek-chat"
 
 # --- Roles → model. Change the right-hand side to re-point a feature. ---

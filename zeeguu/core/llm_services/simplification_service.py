@@ -731,7 +731,7 @@ IMPORTANT:
         #
         # max_tokens must leave room for the *translated* output, which for a full
         # chapter runs at least as long as the input (German et al. run 20-30%
-        # longer). Haiku 4.5's ceiling is 64k, so 16k comfortably covers a single
+        # longer). Haiku's ceiling is far higher, so 16k comfortably covers a single
         # chapter (~4k words). If the model still hits the cap, haiku_completion
         # returns None (it treats stop_reason "max_tokens" as a failure) rather
         # than handing back truncated, unparseable JSON.
@@ -827,7 +827,7 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
                 json={
                     "model": models.DEEPSEEK_GENERAL,
                     "messages": [{"role": "user", "content": prompt}],
-                    # deepseek-chat caps max_tokens at 8192 (unlike Haiku's 64k);
+                    # deepseek-chat caps max_tokens at 8192 (Haiku allows far more);
                     # requesting more is rejected with a 400. 8192 is the most
                     # headroom available — anything longer is caught by the
                     # finish_reason check below rather than truncated silently.

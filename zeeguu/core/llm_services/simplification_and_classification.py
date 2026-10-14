@@ -807,7 +807,7 @@ def simplify_article_adaptive_levels(
                 ...
             },
             'provider': str,  # 'deepseek' or 'anthropic'
-            'model_name': str  # e.g., 'deepseek-chat' or 'claude-haiku-4-5-20251001'
+            'model_name': str  # e.g., 'deepseek-chat' or 'claude-haiku-5-5'
         }
 
     The whole set must come back in the article's language. If it doesn't, it is
