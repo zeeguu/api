@@ -4,6 +4,26 @@ Prompt templates for article simplification using LLMs.
 
 from zeeguu.core.model.language import Language
 
+# What counts as disturbing, shared by both prompts below. Rewritten 14 Oct 2026
+# from a hand check of 15 articles the models disagreed on: the old rule (violence,
+# death or disaster as an event) missed sexual violence and harm to children, and
+# flagged political stories in which nobody was hurt. A short YES list with NO as
+# the default: on the borderline cases deepseek-chat's reading was the right one,
+# and narrow exceptions only made the rule fit those few articles.
+# No newlines in it: tools/judge_haiku_eval.py cuts the rule out of the prompt by line.
+DISTURBING_RULE = (
+    "[YES or NO - should a reader who has asked to avoid disturbing material, including a young learner, have this article hidden? "
+    "Answer YES if the article reports at least one of these, even briefly: "
+    "(1) people killed or seriously hurt - by violence, war, terrorism, an animal, an accident or a disaster - or an attempted terror attack; "
+    "(2) sexual violence, sexual abuse or sexual harassment - also as the background of a court case, or in a book or film being reviewed; "
+    "(3) abuse of children, or children in danger - including missing children; "
+    "(4) graphic bodily harm or gore, or dwelling on corpses, coffins, burial or death imagery - also in a lifestyle or novelty piece such as coffin therapy. "
+    "Otherwise NO - for example a fire or accident in which nobody was hurt, an obituary of someone who died of illness or old age, "
+    "illness, depression or grief, or war and military news in which nobody is reported killed or hurt. "
+    "Purely historical or educational treatment of a difficult topic is NO, unless it is about sexual violence or child abuse.]"
+)
+
+
 
 def get_adaptive_simplification_prompt(language: str) -> str:
     """
@@ -90,7 +110,7 @@ MARKDOWN FORMATTING RULES:
 
 You must respond in the exact format shown below. Do NOT include any explanations, comments, or meta-text. All simplifications should be done in {language_name}.
 
-DISTURBING_CONTENT: [YES or NO - would a reader who has asked to avoid disturbing material be upset by this article? Answer YES if EITHER (a) the article's focus is violence, death, or disaster AS AN EVENT - violent crimes, war, terrorism, accidents with casualties, tragic deaths, or graphic violence; OR (b) the article dwells on death/burial imagery and themes even when nobody was harmed - corpses, coffins, being buried (alive or dead), funerary, mortuary, or embalming practices, graphic bodily harm or medical gore. A lifestyle, wellness, or novelty piece whose SUBJECT is death or burial (e.g. "coffin therapy", being buried alive for relaxation) is YES. Note: brief incidental mentions in an otherwise neutral article do NOT count, and purely historical or educational treatment of a difficult topic is acceptable (NO).]
+DISTURBING_CONTENT: {DISTURBING_RULE}
 
 ARTICLE_TYPE: [NEWS or GENERAL - NEWS = current events tied to a specific time (politics, breaking news, weather, sports results, someone visiting somewhere today, elections, daily events). GENERAL = evergreen content you could read months later (science explainers, cultural topics, how-to guides, historical articles, general knowledge, health/lifestyle advice).]
 
@@ -184,7 +204,7 @@ INCOMPLETE_ARTICLE: [YES or NO - is the article text cut off by a paywall, per t
 
 ADVERTORIAL_CONTENT: [YES or NO - is this promotional/advertorial content rather than journalism, per the rules above? If YES, still fill in every other field as best you can.]
 
-DISTURBING_CONTENT: [YES or NO - would a reader who has asked to avoid disturbing material be upset by this article? Answer YES if EITHER (a) the article's focus is violence, death, or disaster AS AN EVENT - violent crimes, war, terrorism, accidents with casualties, tragic deaths, or graphic violence; OR (b) the article dwells on death/burial imagery and themes even when nobody was harmed - corpses, coffins, being buried (alive or dead), funerary, mortuary, or embalming practices, graphic bodily harm or medical gore. A lifestyle, wellness, or novelty piece whose SUBJECT is death or burial (e.g. "coffin therapy", being buried alive for relaxation) is YES. Note: brief incidental mentions in an otherwise neutral article do NOT count, and purely historical or educational treatment of a difficult topic is acceptable (NO).]
+DISTURBING_CONTENT: {DISTURBING_RULE}
 
 ARTICLE_TYPE: [NEWS or GENERAL - NEWS = current events tied to a specific time (politics, breaking news, weather, sports results, someone visiting somewhere today, elections, daily events). GENERAL = evergreen content you could read months later (science explainers, cultural topics, how-to guides, historical articles, general knowledge, health/lifestyle advice).]
 
