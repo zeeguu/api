@@ -66,7 +66,7 @@ def class_text(cohort_id, article_id):
         .filter(UserArticle.opened.isnot(None))
         .all()
     )
-    milliseconds = dict(
+    reading_ms_per_student = dict(
         db.session.query(UserReadingSession.user_id, func.sum(UserReadingSession.duration))
         .filter(UserReadingSession.article_id == article.id)
         .filter(UserReadingSession.user_id.in_(students.keys()))
@@ -78,14 +78,14 @@ def class_text(cohort_id, article_id):
         {
             "article": {"id": article.id, "title": article.title},
             "student_count": len(students),
-            "readers": _readers(students, opened, bookmarks, milliseconds),
+            "readers": _readers(students, opened, bookmarks, reading_ms_per_student),
             "words": _words(students, bookmarks),
             **_text_with_lookups(article, bookmarks),
         }
     )
 
 
-def _readers(students, opened, bookmarks, milliseconds):
+def _readers(students, opened, bookmarks, reading_ms_per_student):
     """Every student who opened the text, or translated in it, furthest read first."""
     completion = {each.user_id: each.reading_completion or 0 for each in opened}
     translations = {}
@@ -98,7 +98,7 @@ def _readers(students, opened, bookmarks, milliseconds):
             "id": user_id,
             "name": students[user_id].name,
             "reading_completion": completion.get(user_id, 0),
-            "reading_seconds": round((milliseconds.get(user_id) or 0) / 1000),
+            "reading_seconds": round((reading_ms_per_student.get(user_id) or 0) / 1000),
             "translations": translations.get(user_id, 0),
         }
         for user_id in set(completion) | set(translations)
