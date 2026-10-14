@@ -597,7 +597,7 @@ class Bookmark(db.Model):
             log(f"[BOOKMARK-TIMING] Creating Meaning for '{_origin}' -> '{_translation}'")
             meaning_start = time.time()
             meaning = Meaning.find_or_create(
-                session, _origin, _origin_lang, _translation, _translation_lang
+                session, _origin, _origin_lang, _translation, _translation_lang, user=user
             )
             log(f"[BOOKMARK-TIMING] Meaning.find_or_create took {time.time() - meaning_start:.3f}s")
 

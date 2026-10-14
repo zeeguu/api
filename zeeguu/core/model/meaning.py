@@ -1,3 +1,4 @@
+import unicodedata
 from enum import Enum
 
 from sqlalchemy.exc import NoResultFound
@@ -175,12 +176,39 @@ class Meaning(db.Model):
         """
         Canonicalize text for semantic meaning comparison.
         - Convert to lowercase for case-insensitive matching
-        - Strip whitespace 
-        - Future: Could add more normalization (punctuation, etc.)
+        - Strip whitespace
+        - NFC, so a decomposed é (e + combining accent) equals é, as it does
+          in the DB collation
+        - Accents are kept: 'accompagne' and 'accompagné' are different words
         """
         if not text:
             return ""
-        return text.lower().strip()
+        return unicodedata.normalize("NFC", text).lower().strip()
+
+    @staticmethod
+    def _pick_case_variant(meanings, _origin, _translation, user=None):
+        """Of several meanings that differ only in case: the one the user
+        already has a word for, then the exact spelling, then the oldest."""
+        if len(meanings) == 1:
+            return meanings[0]
+
+        owned = set()
+        if user is not None:
+            from zeeguu.core.model.user_word import UserWord
+
+            owned = {
+                row.meaning_id
+                for row in UserWord.query.with_entities(UserWord.meaning_id).filter(
+                    UserWord.user_id == user.id,
+                    UserWord.meaning_id.in_([m.id for m in meanings]),
+                )
+            }
+
+        def rank(m):
+            exact = m.origin.content == _origin.strip() and m.translation.content == _translation.strip()
+            return (m.id not in owned, not exact, m.id)
+
+        return min(meanings, key=rank)
 
     def __repr__(self):
         freq_str = f", frequency={self.frequency.value}" if self.frequency else ""
@@ -198,7 +226,13 @@ class Meaning(db.Model):
         _translation_lang: str,
         frequency=None,
         phrase_type=None,
+        user=None,
     ):
+        """
+        user: prefer a meaning this user already has a word for. A learner
+        who has 'mientras' and meets 'Mientras' at the start of a sentence
+        should get their own word back, not a second one (user_word 532196).
+        """
         from zeeguu.core.model import Phrase, Language
 
         origin_lang = Language.find_or_create(_origin_lang)
@@ -210,8 +244,9 @@ class Meaning(db.Model):
 
         # First, try to find existing meaning by semantic equivalence
         # Optimized: Use content_lower column (indexed) for fast case-insensitive lookup
+        potential_meanings = []
         try:
-            from sqlalchemy.orm import aliased
+            from sqlalchemy.orm import aliased, contains_eager
             from zeeguu.core.model.db import db
 
             OriginPhrase = aliased(Phrase)
@@ -236,36 +271,44 @@ class Meaning(db.Model):
                 .join(TranslationPhrase, cls.translation_id == TranslationPhrase.id)
                 .filter(TranslationPhrase.language_id == translation_lang.id)
                 .filter(translation_filter)
+                # Phrases come with the meanings: the check below reads them.
+                .options(
+                    contains_eager(cls.origin.of_type(OriginPhrase)),
+                    contains_eager(cls.translation.of_type(TranslationPhrase)),
+                )
                 .all()
             )
-            
-            # After consolidation migration, there should be exactly one
-            # Before migration or in edge cases, we might have multiple - take first
-            if potential_meanings:
-                if len(potential_meanings) > 1:
-                    # This shouldn't happen after migration, but handle it gracefully
-                    log(f"Found {len(potential_meanings)} semantic duplicates for '{canonical_origin}' -> '{canonical_translation}'")
-                    log(f"This indicates the consolidation migration needs to run")
-
-                meaning = potential_meanings[0]
-                
-                # Update metadata if provided
-                updated = False
-                if frequency and meaning.frequency != frequency:
-                    meaning.frequency = frequency
-                    updated = True
-                if phrase_type and meaning.phrase_type != phrase_type:
-                    meaning.phrase_type = phrase_type
-                    updated = True
-                if updated:
-                    session.add(meaning)
-                    session.commit()
-                
-                return meaning
-                    
         except Exception as e:
             # If semantic lookup fails, continue with creating new meaning
             log(f"Semantic lookup failed: {e}")
+
+        # The DB comparison also ignores accents (utf8mb4_unicode_ci), so
+        # 'accompagne' matched 'accompagné'. Keep only case variants.
+        potential_meanings = [
+            m
+            for m in potential_meanings
+            if cls._canonicalize(m.origin.content) == canonical_origin
+            and cls._canonicalize(m.translation.content) == canonical_translation
+        ]
+
+        if potential_meanings:
+            if len(potential_meanings) > 1:
+                log(f"Found {len(potential_meanings)} case variants for '{canonical_origin}' -> '{canonical_translation}'")
+            meaning = cls._pick_case_variant(potential_meanings, _origin, _translation, user)
+
+            # Update metadata if provided
+            updated = False
+            if frequency and meaning.frequency != frequency:
+                meaning.frequency = frequency
+                updated = True
+            if phrase_type and meaning.phrase_type != phrase_type:
+                meaning.phrase_type = phrase_type
+                updated = True
+            if updated:
+                session.add(meaning)
+                session.commit()
+
+            return meaning
 
         # No existing semantic meaning found - create new one
         

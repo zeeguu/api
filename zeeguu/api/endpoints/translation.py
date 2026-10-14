@@ -448,6 +448,7 @@ def update_bookmark_translation_only(bookmark_id):
         old_meaning.origin.language.code,
         new_translation,
         old_meaning.translation.language.code,
+        user=user,
     )
 
     # Find or create UserWord for the new meaning
@@ -531,7 +532,8 @@ def update_bookmark_full(bookmark_id):
 
     # Step 2: Find or create new meaning (word/translation pair)
     meaning = find_or_create_meaning(
-        db_session, word_str, origin_lang_code, translation_str, translation_lang_code
+        db_session, word_str, origin_lang_code, translation_str, translation_lang_code,
+        user=bookmark.user_word.user,
     )
 
     # Step 3: Check if word or context changed

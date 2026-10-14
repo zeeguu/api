@@ -839,7 +839,7 @@ def add_custom_word():
 
         # Create or find the meaning
         meaning = Meaning.find_or_create(
-            db_session, word, from_lang_code, translation, to_lang_code
+            db_session, word, from_lang_code, translation, to_lang_code, user=user
         )
 
         # Create UserWord with is_user_added flag
