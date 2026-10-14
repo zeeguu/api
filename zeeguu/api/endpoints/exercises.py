@@ -63,14 +63,14 @@ def get_user_words_recommended_for_practice():
 def get_count_of_user_words_recommended_for_practice():
     """
     Returns the count of user words recommended for practice.
-    Uses the same validation logic as user_words_recommended_for_practice
-    to ensure the count matches the actual exercises shown.
+    Counts what user_words_as_dicts returns, so the badge matches the
+    exercises shown. Serializing word by word instead (no batch-loaded
+    schedules, tokenizing on demand) took this endpoint up to 140s in
+    Sep-Oct 2026 while the exercises endpoint itself stayed under 15s.
     """
     user = User.find_by_id(flask.g.user_id)
     to_study = BasicSRSchedule.user_words_to_study(user)
-    # Count only valid user words (same filtering as the actual exercises endpoint)
-    valid_count = _count_valid_user_words(to_study)
-    return json_result(valid_count)
+    return json_result(len(user_words_as_dicts(to_study)))
 
 
 @api.route("/next_word_due_time", methods=["GET"])
@@ -255,28 +255,6 @@ def _bookmarks_as_json_result(bookmarks, with_exercise_info, with_tokens):
     # (#618 discontiguous-idiom family) — the anchor would be unreliable.
     bookmark_dicts = [b for b in bookmark_dicts if not b.get("_unanchorable")]
     return json_result(bookmark_dicts)
-
-
-def _count_valid_user_words(user_words):
-    """
-    Count user words that pass validation.
-    Uses the same validation logic as _user_words_as_json_result to ensure
-    the badge count matches the actual exercises shown.
-    """
-    if not user_words:
-        return 0
-
-    valid_count = 0
-    for user_word in user_words:
-        try:
-            # Validate that the user_word can be serialized (same check as _user_words_as_json_result)
-            user_word.as_dictionary()
-            valid_count += 1
-        except (ValueError, Exception):
-            # Skip invalid user words (same as _user_words_as_json_result)
-            continue
-
-    return valid_count
 
 
 def _user_words_as_json_result(user_words):
