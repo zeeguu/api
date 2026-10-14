@@ -103,5 +103,6 @@ def test_the_class_texts_tab_gets_how_the_class_read_each_text(client):
 
     overview = client.get("/cohort_text_overview/1")
 
+    assert overview["cohort"]["inv_code"] == "de123"
     [text] = overview["texts"]
     assert text["class_reading"] == {"readers": 2, "words": 2, "top_words": ["hinter", "Präsident"]}

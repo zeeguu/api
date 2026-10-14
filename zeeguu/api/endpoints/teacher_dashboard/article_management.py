@@ -216,6 +216,8 @@ def cohort_text_overview(cohort_id):
             "cohort": {
                 "id": cohort.id,
                 "name": cohort.name,
+                # the class header shows it, on both tabs
+                "inv_code": cohort.inv_code,
                 "language": cohort.language.code if cohort.language else None,
                 "only_classroom_texts": bool(cohort.only_classroom_texts),
             },
