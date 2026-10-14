@@ -27,6 +27,7 @@ Usage:
 import json
 import os
 import logging
+import re
 from dataclasses import dataclass
 from typing import Optional
 
@@ -36,6 +37,11 @@ from zeeguu.core.llm_services import models
 from zeeguu.core.llm_services import claude
 
 logger = logging.getLogger(__name__)
+
+# The model sometimes escapes a letter twice inside its JSON ("\\u0153"), so
+# after json.loads the string still holds the six characters \u0153 instead
+# of œ. Seen 14 Oct 2026: main-d'\u0153uvre, est soumis \u00e0, l'\u00e9poque.
+LEFTOVER_UNICODE_ESCAPE = re.compile(r"\\u([0-9a-fA-F]{4})")
 
 
 @dataclass
@@ -133,6 +139,7 @@ class TranslationValidator:
 
         def field(name):
             value = (reply.get(name) or "").strip()
+            value = LEFTOVER_UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), value)
             return value or None
 
         return ValidationResult(

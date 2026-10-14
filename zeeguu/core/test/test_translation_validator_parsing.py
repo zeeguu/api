@@ -46,3 +46,10 @@ def test_valid_ignores_stray_correction_fields():
     # a VALID verdict must not move the bookmark, whatever else was filled in
     r = parse(corrected_word="hund", corrected_translation="dog")
     assert r.is_valid and r.corrected_word is None and r.corrected_translation is None
+
+
+def test_leftover_unicode_escapes_become_letters():
+    # the model's JSON held "\\u0153", which json.loads turns into the text œ, not œ
+    r = parse(verdict="FIX", corrected_word="main-d'\\u0153uvre", corrected_translation="arbeidskrachten")
+    assert r.corrected_word == "main-d'œuvre"
+    assert parse(verdict="FIX", corrected_word="l'\\u00e9poque").corrected_word == "l'époque"
