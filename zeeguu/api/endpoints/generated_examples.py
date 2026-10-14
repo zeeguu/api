@@ -8,7 +8,7 @@ from flask import request, Response
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.exercises.example_contexts import bookmark_for_example
-from zeeguu.core.llm_services import get_llm_service
+from zeeguu.core.llm_services import get_llm_service, tasks
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
 from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport
 from zeeguu.core.model.ai_generator import AIGenerator
@@ -180,7 +180,7 @@ def alternative_sentences(user_word_id):
 
     try:
         # Get the LLM service
-        llm_service = get_llm_service(**INTERACTIVE_LLM)
+        llm_service = get_llm_service(**INTERACTIVE_LLM, task=tasks.EXAMPLES)
 
         # Generate examples
         examples = llm_service.generate_examples(
@@ -465,7 +465,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
         # Get LLM service and generate examples
         # NOTE: We don't cache here - caching happens only when user saves to learning
         # This avoids filling DB with unvalidated AI content for words users just browse
-        llm_service = get_llm_service(**INTERACTIVE_LLM)
+        llm_service = get_llm_service(**INTERACTIVE_LLM, task=tasks.EXAMPLES)
         examples = llm_service.generate_examples(
             word=word,
             translation=translation,

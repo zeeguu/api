@@ -21,7 +21,7 @@ from typing import List, Optional
 import zeeguu.core
 from zeeguu.core.model import User, UserWord, ExampleSentence
 from zeeguu.core.model.ai_generator import AIGenerator
-from zeeguu.core.llm_services import get_llm_service
+from zeeguu.core.llm_services import get_llm_service, tasks
 from zeeguu.logging import log
 from zeeguu.core.model.db import db
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
@@ -148,7 +148,7 @@ def generate_examples_for_user_word(
 
     try:
         log(f"Getting LLM service for word: {origin_word}")
-        llm_service = get_llm_service()
+        llm_service = get_llm_service(task=tasks.EXAMPLES)
         log(f"Using LLM service: {type(llm_service).__name__}")
 
         log(

@@ -1,10 +1,10 @@
-from zeeguu.core.llm_services import get_llm_service
+from zeeguu.core.llm_services import get_llm_service, tasks
 
 
 def _clients(monkeypatch, **options):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
     monkeypatch.setenv("DEEPSEEK_API_KEY", "test")
-    service = get_llm_service("unified", **options)
+    service = get_llm_service("unified", **options, task=tasks.EXAMPLES)
     return service._get_anthropic_service(), service._get_deepseek_service()
 
 
