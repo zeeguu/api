@@ -56,45 +56,62 @@ Phrase type:
 - expression: common phrase/greeting ("how are you")
 - arbitrary_multi_word: random fragment, NOT worth studying ("doctor for", "the cat on", "bruger den")
 
-Reply in this EXACT format (one line):
-VALID|frequency|cefr|phrase_type|explanation|literal_meaning
-or
-FIX|corrected_word|corrected_translation|frequency|cefr|phrase_type|reason|explanation|literal_meaning
-
-Fields:
-- cefr: A1, A2, B1, B2, C1, or C2
-- explanation: OPTIONAL usage notes, register (formal/informal). Leave empty if not needed.
+Fill in these fields (the reply is constrained to this shape):
+- reason: one short sentence, written first: why the pair holds, or what is wrong with it
+- verdict: VALID or FIX
+- corrected_word, corrected_translation: the corrected pair when the verdict is FIX, empty when
+  VALID. corrected_translation is in {target_lang}.
+- frequency, cefr, phrase_type: for the valid or corrected word (STEP 2)
+- explanation: OPTIONAL usage notes, register (formal/informal). Empty if not needed.
 - literal_meaning: ONLY for idioms - SHORT word-by-word translation (e.g., "kick into touch").
-  Leave EMPTY for single words, collocations, and non-idioms. NOT for explanations!
+  Empty for single words, collocations, and non-idioms. NOT for explanations!
 
 Examples:
-- Simple word: VALID|common|A1|single_word||
-- Word with usage note: VALID|common|B1|single_word|formal register|
-- Idiom: VALID|common|B2|idiom||kick into touch
-- Wrong translation: FIX|øjnene|the eyes|common|A2|single_word|literal meaning is 'the eyes'||
-- Idiom fix: FIX|se virkeligheden i øjnene|face reality|common|B2|idiom|idiom meaning 'face reality'||see reality in the eyes
-- Arbitrary fragment: FIX|bruger|use|common|A2|single_word|'bruger den' is arbitrary fragment||
-- Context-only gloss: FIX|noget af|one of|common|B1|collocation|'noget' alone means 'something'; 'one' only holds inside 'noget af'||something of
+- Simple word: VALID, common, A1, single_word
+- Word with usage note: VALID, common, B1, single_word, explanation "formal register"
+- Idiom: VALID, common, B2, idiom, literal_meaning "kick into touch"
+- Wrong translation: FIX øjnene = "the eyes", common, A2, single_word; reason: literal meaning is 'the eyes'
+- Idiom fix: FIX se virkeligheden i øjnene = "face reality", common, B2, idiom, literal_meaning "see reality in the eyes"
+- Arbitrary fragment: FIX bruger = "use", common, A2, single_word; reason: 'bruger den' is an arbitrary fragment
+- Context-only gloss: FIX noget af = "one of", common, B1, collocation, literal_meaning "something of";
+  reason: 'noget' alone means 'something'; 'one' only holds inside 'noget af'
 """
 
 
-# Batch version for prefetch efficiency
-BATCH_VALIDATION_PROMPT = """Validate and classify these language learning translations.
-
-For each entry:
-1. Check if the word is a meaningful learning unit (not an arbitrary fragment)
-2. Check if the translation is correct for the word (not influenced by idiomatic context)
-3. Classify frequency (unique/common/uncommon/rare) and phrase_type (single_word/collocation/idiom/expression/arbitrary_multi_word)
-
-Entries:
-{entries}
-
-Reply with ONE line per entry in this EXACT format:
-VALID|frequency|phrase_type
-or
-FIX|corrected_word|corrected_translation|frequency|phrase_type|reason
-
-No numbering, no explanations, just the results in order."""
+# The reply shape for COMBINED_VALIDATION_PROMPT, enforced by the API through
+# structured outputs: with thinking off, Sonnet 5.5 often wrote its reasoning
+# before the requested one-line format, and ran out of tokens before reaching
+# it (22 of 50 prod cases). `reason` comes first so the short reasoning it
+# wants to do lands in a field instead of in front of the answer.
+VALIDATION_SCHEMA = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "reason",
+        "verdict",
+        "corrected_word",
+        "corrected_translation",
+        "frequency",
+        "cefr",
+        "phrase_type",
+        "explanation",
+        "literal_meaning",
+    ],
+    "properties": {
+        "reason": {"type": "string"},
+        "verdict": {"type": "string", "enum": ["VALID", "FIX"]},
+        "corrected_word": {"type": "string"},
+        "corrected_translation": {"type": "string"},
+        "frequency": {"type": "string", "enum": ["unique", "common", "uncommon", "rare"]},
+        "cefr": {"type": "string", "enum": ["A1", "A2", "B1", "B2", "C1", "C2"]},
+        "phrase_type": {
+            "type": "string",
+            "enum": ["single_word", "collocation", "idiom", "expression", "arbitrary_multi_word"],
+        },
+        "explanation": {"type": "string"},
+        "literal_meaning": {"type": "string"},
+    },
+}
 
 
 def create_combined_validation_prompt(word, translation, context, source_lang, target_lang):
@@ -106,24 +123,6 @@ def create_combined_validation_prompt(word, translation, context, source_lang, t
         source_lang=source_lang,
         target_lang=target_lang
     )
-
-
-def create_batch_validation_prompt(items):
-    """
-    Create batch prompt for validating multiple translations.
-
-    Args:
-        items: List of dicts with keys: word, translation, context, source_lang, target_lang
-
-    Returns:
-        str: Formatted batch prompt
-    """
-    entries = []
-    for i, item in enumerate(items, 1):
-        entry = f'{i}. "{item["word"]}" ({item["source_lang"]}) -> "{item["translation"]}" ({item["target_lang"]})\n   Context: "{item["context"]}"'
-        entries.append(entry)
-
-    return BATCH_VALIDATION_PROMPT.format(entries="\n".join(entries))
 
 
 SEMANTIC_EQUIVALENCE_PROMPT = """Are these two translations of the same word semantically equivalent?
