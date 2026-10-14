@@ -16,10 +16,7 @@ from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
-from zeeguu.core.tokenization.word_position_finder import (
-    find_first_occurrence,
-    validate_single_occurrence,
-)
+from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
 from . import api, db_session
@@ -358,66 +355,17 @@ def set_preferred_example(user_word_id):
             status=404,
         )
 
-    selected_sentence = example_sentence_obj.sentence
-
-    # Find word position using shared utility (fuzzy matching for generated examples)
-    target_word = user_word.meaning.origin.content
-    result = find_first_occurrence(
-        target_word, selected_sentence, user_word.meaning.origin.language
-    )
-
-    if not result["found"]:
-        log(
-            f"ERROR: Could not find word '{target_word}' in example sentence '{selected_sentence}'"
-        )
-        log(f"Error: {result['error_message']}")
+    bookmark = bookmark_for_example(db_session, user, user_word, example_sentence_obj)
+    if not bookmark:
         return json_result(
             {
                 "error": "Unable to save this example",
                 "detail": "The selected example sentence does not contain the word you're learning. Please choose a different example or report this issue.",
-                "technical_detail": result["error_message"],
+                "technical_detail": f"'{user_word.meaning.origin.content}' not found in example {example_sentence_obj.id}",
                 "user_word_id": user_word_id,
             },
             status=400,  # Bad Request as it's a data issue, not server error
         )
-
-    # Extract position data
-    position_data = result["position_data"]
-    sentence_i = position_data["sentence_i"]
-    token_i = position_data["token_i"]
-    c_sentence_i = position_data["c_sentence_i"]
-    c_token_i = position_data["c_token_i"]
-    total_tokens_found = position_data["total_tokens"]
-
-    log(
-        f"Successfully found '{target_word}' at position sent_i={sentence_i}, token_i={token_i}, total_tokens={total_tokens_found}"
-    )
-
-    # Create the context identifier with the example sentence ID
-    context_identifier = ContextIdentifier(
-        context_type=ContextType.EXAMPLE_SENTENCE,
-        example_sentence_id=example_sentence_obj.id,
-    )
-
-    # Create a new bookmark with the generated example
-    bookmark = Bookmark.find_or_create(
-        db_session,
-        user,
-        user_word.meaning.origin.content,
-        user_word.meaning.origin.language.code,
-        user_word.meaning.translation.content,
-        user_word.meaning.translation.language.code,
-        selected_sentence,
-        None,  # article_id
-        None,  # source_id
-        sentence_i=sentence_i,
-        token_i=token_i,
-        total_tokens=total_tokens_found,  # Use calculated token count
-        c_sentence_i=c_sentence_i,
-        c_token_i=c_token_i,
-        context_identifier=context_identifier,
-        translation_source="generated_example",
-    )
 
     # Update the user_word's preferred_bookmark
     user_word.preferred_bookmark = bookmark

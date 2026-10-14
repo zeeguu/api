@@ -56,6 +56,7 @@ def bookmark_for_example(session, user, user_word, example_sentence):
             example_sentence_id=example_sentence.id,
         ),
         translation_source="generated_example",
+        user_word=user_word,
     )
 
 
@@ -122,7 +123,8 @@ def replace_fragments_before_first_exercise(session, user_words):
 
     swapped = 0
     for user_word in fragment_words:
-        if user_word.id in exercised_ids:
+        user_word_id = user_word.id
+        if user_word_id in exercised_ids:
             continue
         try:
             if replace_fragment_with_example(session, user_word):
@@ -131,8 +133,9 @@ def replace_fragments_before_first_exercise(session, user_words):
             # Serving the fragment is the old behaviour; never fail the
             # exercise session over this. Each swap commits on its own
             # (Bookmark.find_or_create commits anyway), so this only drops
-            # this word's half-done work.
-            log(f"[FRAGMENT-CONTEXT] user_word {user_word.id} not swapped: {e}")
+            # this word's half-done work. Roll back before anything touches
+            # the session again: even reading user_word.id would raise.
             session.rollback()
+            log(f"[FRAGMENT-CONTEXT] user_word {user_word_id} not swapped: {e}")
 
     return swapped
