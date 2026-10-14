@@ -6,7 +6,7 @@
 -- the sense ('synes' = to think, have an opinion), so a verdict about it
 -- carries over to other sentences. When the judge says its verdict only holds
 -- in this one sentence, context_hash is the sentence's SHA-256 and only that
--- sentence reuses it; for a general verdict context_hash is ''. ('' rather
+-- sentence reuses it, and for a general verdict context_hash is ''. ('' rather
 -- than NULL so the unique key also holds for general verdicts.)
 --
 -- The alternative is stored as text, not as a phrase row: most typed answers
