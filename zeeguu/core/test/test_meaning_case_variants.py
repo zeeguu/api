@@ -50,3 +50,12 @@ class MeaningCaseVariantsTest(ModelTestMixIn, TestCase):
     def test_without_a_variant_case_is_still_merged(self):
         only = self._meaning("aunque", "although")
         self.assertEqual(self._find("Aunque", "Although").id, only.id)
+
+
+class CanonicalFormTest(TestCase):
+    def test_keeps_accents_merges_case_and_unicode_forms(self):
+        canon = Meaning._canonicalize
+        self.assertEqual(canon(" Mientras "), canon("mientras"))
+        # decomposed é (e + combining acute) is the same word as é
+        self.assertEqual(canon("accompagné"), canon("accompagné"))
+        self.assertNotEqual(canon("accompagne"), canon("accompagné"))

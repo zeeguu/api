@@ -64,7 +64,7 @@ def parse_update_params(request_json, bookmark):
     }
 
 
-def find_or_create_meaning(db_session, word_str, origin_lang_code, translation_str, translation_lang_code):
+def find_or_create_meaning(db_session, word_str, origin_lang_code, translation_str, translation_lang_code, user=None):
     """
     Find or create Meaning for the new word/translation pair.
 
@@ -84,6 +84,7 @@ def find_or_create_meaning(db_session, word_str, origin_lang_code, translation_s
         origin_lang_code,
         translation_str,
         translation_lang_code,
+        user=user,
     )
 
     print(f"[UPDATE_BOOKMARK] Found/created Meaning {meaning.id}: '{word_str}' -> '{translation_str}'")
