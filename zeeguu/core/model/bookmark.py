@@ -64,7 +64,13 @@ class Bookmark(db.Model):
 
     # Track if this bookmark is a multi-word expression (MWE)
     is_mwe = db.Column(db.Boolean, default=False)
-    # For separated MWEs, store the partner's token index for proper restoration
+    # For separated MWEs, store the partner's token index for proper restoration.
+    # Unlike token_i, it is NOT relative to the context: it is the partner
+    # token's own index in its sentence. The two agree only when the context
+    # starts the sentence; the reader shortens long sentences to ~28 words, so
+    # the context can start mid-sentence. The partner's position is
+    # (context.sentence_i + sentence_i, mwe_partner_token_i), as in the web's
+    # bookmarkRestoration.js.
     mwe_partner_token_i = db.Column(db.Integer, default=None)
 
     user_word_id = db.Column(db.Integer, db.ForeignKey("user_word.id"), nullable=False)
