@@ -7,6 +7,7 @@ from flask import request, Response
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core.exercises.example_contexts import bookmark_for_example
 from zeeguu.core.llm_services import get_llm_service
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
 from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport
@@ -45,43 +46,9 @@ def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):
     every swipe.
     """
     target_word = user_word.meaning.origin.content
-    selected_sentence = example_sentence_obj.sentence
-
-    result = find_first_occurrence(
-        target_word, selected_sentence, user_word.meaning.origin.language
-    )
-    if not result["found"]:
-        log(
-            f"Skipping example {example_sentence_obj.id} for prefetch: "
-            f"{result['error_message']}"
-        )
+    bookmark = bookmark_for_example(db_session, user, user_word, example_sentence_obj)
+    if not bookmark:
         return None
-
-    pos = result["position_data"]
-
-    context_identifier = ContextIdentifier(
-        context_type=ContextType.EXAMPLE_SENTENCE,
-        example_sentence_id=example_sentence_obj.id,
-    )
-
-    bookmark = Bookmark.find_or_create(
-        db_session,
-        user,
-        user_word.meaning.origin.content,
-        user_word.meaning.origin.language.code,
-        user_word.meaning.translation.content,
-        user_word.meaning.translation.language.code,
-        selected_sentence,
-        None,  # article_id
-        None,  # source_id
-        sentence_i=pos["sentence_i"],
-        token_i=pos["token_i"],
-        total_tokens=pos["total_tokens"],
-        c_sentence_i=pos["c_sentence_i"],
-        c_token_i=pos["c_token_i"],
-        context_identifier=context_identifier,
-        translation_source="generated_example",
-    )
 
     bookmark_dict = bookmark.as_dictionary(
         with_context=True, with_context_tokenized=True
