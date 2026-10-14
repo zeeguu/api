@@ -16,9 +16,16 @@ CRITICAL: The translation "{translation}" is in {target_lang}, NOT English!
 If {target_lang} is Dutch, German, etc., interpret the translation IN THAT LANGUAGE.
 Example: "offer" in Dutch means "victim/sacrifice" - this is VALID for "víctima" (Spanish).
 
+This pair becomes a FLASHCARD. The learner will memorize "{word}" = "{translation}"
+and be quizzed on it in vocabulary exercises, often in OTHER sentences.
+
 STEP 1 - VALIDATION:
 1. Is "{word}" a meaningful learning unit? (Not an arbitrary fragment like "bruger den" = "are using it")
 2. Is "{translation}" a correct translation for the WORD itself (not the surrounding phrase)?
+   Test: if the learner memorizes this pair and later meets "{word}" in an ordinary sentence,
+   does the translation still hold? If it only works because of the surrounding phrase, it is
+   NOT valid: either translate the word's own meaning, or expand the word to the phrase that
+   carries the meaning.
 3. If the word is part of an idiom, decide: should the learner study the single word or the full idiom?
 
 IMPORTANT: Only mark as FIX if the translation is WRONG. Do NOT "improve" correct translations.
@@ -67,6 +74,7 @@ Examples:
 - Wrong translation: FIX|øjnene|the eyes|common|A2|single_word|literal meaning is 'the eyes'||
 - Idiom fix: FIX|se virkeligheden i øjnene|face reality|common|B2|idiom|idiom meaning 'face reality'||see reality in the eyes
 - Arbitrary fragment: FIX|bruger|use|common|A2|single_word|'bruger den' is arbitrary fragment||
+- Context-only gloss: FIX|noget af|one of|common|B1|collocation|'noget' alone means 'something'; 'one' only holds inside 'noget af'||something of
 """
 
 
