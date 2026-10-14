@@ -1,11 +1,13 @@
 """DeepSeek keeps a queued request alive by sending empty lines, which resets
 requests' read timeout; the service's timeout must bound the whole request."""
 import json
+import re
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
+import requests_mock
 
 from zeeguu.core.llm_services.deepseek_service import DeepSeekService
 
@@ -32,6 +34,13 @@ def _fake_deepseek(keepalive_lines, body):
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
+    # the suite's shared requests_mock intercepts all HTTP; let this through
+    from zeeguu.core.test.conftest import get_mock
+    get_mock().register_uri(
+        requests_mock.ANY,
+        re.compile(rf"^http://127\.0\.0\.1:{server.server_port}/"),
+        real_http=True,
+    )
     return server
 
 
