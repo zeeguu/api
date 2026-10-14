@@ -13,6 +13,7 @@ from zeeguu.api.utils import json_result
 from zeeguu.core.model import Cohort, Language, Article, Url, User
 from zeeguu.core.model.cohort_article_map import CohortArticleMap
 from ._only_teachers_decorator import only_teachers
+from .class_text import class_reading_per_text
 from ._permissions import (
     check_permission_for_cohort,
 )
@@ -202,6 +203,13 @@ def cohort_text_overview(cohort_id):
     check_permission_for_cohort(cohort_id)
 
     cohort = Cohort.find(cohort_id)
+    students = cohort.get_students()
+    texts = CohortArticleMap.get_articles_info_for_cohort(cohort)
+    # How the class read each text: the tab shows this on each one rather than
+    # the text itself, which its teacher already knows.
+    reading = class_reading_per_text([s.id for s in students], [t["id"] for t in texts])
+    for text in texts:
+        text["class_reading"] = reading[text["id"]]
 
     return json_result(
         {
@@ -211,13 +219,13 @@ def cohort_text_overview(cohort_id):
                 "language": cohort.language.code if cohort.language else None,
                 "only_classroom_texts": bool(cohort.only_classroom_texts),
             },
-            "texts": CohortArticleMap.get_articles_info_for_cohort(cohort),
+            "texts": texts,
             # Nothing stops a text in another language being shared with a
             # class, and its students then never see it -- they only ever get
             # the texts in the language they are learning. The teacher is the
             # one who can fix that, so the counts go to them.
             "texts_by_language": cohort.text_counts_by_language(),
-            "student_count": len(cohort.get_students()),
+            "student_count": len(students),
         }
     )
 
