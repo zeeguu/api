@@ -70,21 +70,40 @@ from zeeguu.core.test.rules.url_rule import UrlRule
 session = zeeguu.core.model.db.session
 
 
+NEIGHBOURS = "zeeguu.core.story_clustering._nearest_recent_articles"
+
+
 class StoryClusteringTest(ModelTestMixIn, TestCase):
     def setUp(self):
         super().setUp()
         self.first = ArticleRule().article
-        self.later = ArticleRule().article
-        self.later.published_time = self.first.published_time + timedelta(hours=2)
-        self.later.language = self.first.language
+        self.later = self._article_after(self.first, hours=2)
+
+    def _article_after(self, earlier, hours):
+        article = ArticleRule().article
+        article.published_time = earlier.published_time + timedelta(hours=hours)
+        article.language = earlier.language
+        return article
+
+    def _assign(self, article, neighbours):
+        with patch(NEIGHBOURS, return_value=neighbours), patch(
+            "zeeguu.core.elastic.indexing.remove_from_index"
+        ) as removed:
+            assign_story(article, [0.1, 0.2], session)
+        return removed
 
     def _assign_as_same_story(self):
-        with patch(
-            "zeeguu.core.story_clustering._nearest_recent_article",
-            return_value=(self.first.id, 0.95),
-        ), patch("zeeguu.core.elastic.indexing.remove_from_index") as removed:
-            assign_story(self.later, [0.1, 0.2], session)
-        return removed
+        return self._assign(self.later, [(self.first.id, 0.95)])
+
+    def _same_outlet(self, article, as_article):
+        article.url.domain = as_article.url.domain
+        session.add(article)
+        session.commit()
+
+    def _upload(self, article):
+        article.feed = None
+        session.add(article)
+        session.commit()
 
     def test_other_outlet_joins_the_story_and_both_are_listed(self):
         self._assign_as_same_story()
@@ -96,20 +115,11 @@ class StoryClusteringTest(ModelTestMixIn, TestCase):
             assert [o["id"] for o in outlets] == [self.first.id, self.later.id]
 
     def test_below_threshold_stays_its_own_story(self):
-        with patch(
-            "zeeguu.core.story_clustering._nearest_recent_article",
-            return_value=(self.first.id, 0.80),
-        ):
-            assign_story(self.later, [0.1, 0.2], session)
+        self._assign(self.later, [(self.first.id, 0.80)])
         assert self.later.story_id is None
 
-    def _same_outlet(self):
-        self.later.url.domain = self.first.url.domain
-        session.add(self.later)
-        session.commit()
-
     def test_same_outlet_keeps_the_newer_and_breaks_the_older(self):
-        self._same_outlet()
+        self._same_outlet(self.later, as_article=self.first)
         removed = self._assign_as_same_story()
 
         assert self.first.broken and not self.later.broken
@@ -118,10 +128,42 @@ class StoryClusteringTest(ModelTestMixIn, TestCase):
         assert story_outlets([self.later]) == {}
 
     def test_same_outlet_prefers_the_one_with_an_image(self):
-        self._same_outlet()
+        self._same_outlet(self.later, as_article=self.first)
         self.first.img_url = UrlRule().url
         session.add(self.first)
         session.commit()
         self._assign_as_same_story()
 
         assert self.later.broken and not self.first.broken
+
+    def test_same_outlet_is_found_anywhere_in_the_story(self):
+        # DR's long piece, Politiken's wire copy, then DR's wire copy: the last
+        # is nearest to Politiken's, yet it is DR's second take on the story.
+        politiken = self.later
+        self._assign_as_same_story()
+        dr_again = self._article_after(politiken, hours=1)
+        self._same_outlet(dr_again, as_article=self.first)
+
+        self._assign(dr_again, [(politiken.id, 0.97), (self.first.id, 0.90)])
+
+        assert dr_again.story_id == self.first.id
+        assert self.first.broken and not dr_again.broken
+        outlets = story_outlets([dr_again])[dr_again.id]
+        assert [o["id"] for o in outlets] == [politiken.id, dr_again.id]
+
+    def test_an_uploaded_text_never_joins_or_anchors_a_story(self):
+        upload = self._article_after(self.first, hours=1)
+        self._upload(upload)
+
+        self._assign(upload, [(self.first.id, 0.95)])
+        assert upload.story_id is None
+
+        # Nearest to an upload: skip it and join the crawled one behind it
+        self._assign(self.later, [(upload.id, 0.99), (self.first.id, 0.93)])
+        assert self.later.story_id == self.first.id
+
+    def test_an_uploaded_story_member_is_never_listed_as_an_outlet(self):
+        self._assign_as_same_story()
+        self._upload(self.later)
+
+        assert story_outlets([self.first]) == {}

@@ -29,11 +29,7 @@ app.app_context().push()
 
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.model import Article, Language
-from zeeguu.core.story_clustering import (
-    STORY_SIMILARITY_THRESHOLD,
-    _nearest_recent_article,
-    assign_story,
-)
+from zeeguu.core.story_clustering import _nearest_story_neighbour, assign_story
 
 
 def sem_vecs(article_ids):
@@ -66,6 +62,7 @@ def main():
         Article.published_time >= datetime.now() - timedelta(hours=args.hours),
         Article.parent_article_id.is_(None),
         Article.story_id.is_(None),
+        Article.feed_id.isnot(None),
         (Article.broken == 0) | Article.broken.is_(None),
     )
     if args.language:
@@ -84,9 +81,10 @@ def main():
             if a.story_id:
                 stories[a.story_id].append((a, None))
             continue
-        nearest = _nearest_recent_article(a, vec)
-        if nearest and nearest[1] >= STORY_SIMILARITY_THRESHOLD:
-            stories[nearest[0]].append((a, nearest[1]))
+        nearest = _nearest_story_neighbour(a, vec)
+        if nearest:
+            neighbour, similarity = nearest
+            stories[neighbour.id].append((a, similarity))
 
     for root_id, members in stories.items():
         root = Article.find_by_id(root_id)

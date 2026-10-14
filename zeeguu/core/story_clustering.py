@@ -40,12 +40,18 @@ STORY_SIMILARITY_THRESHOLD = 0.88
 STORY_WINDOW_HOURS = 48
 
 
-def _nearest_recent_article(article, sem_vec):
-    """(article_id, cosine) of the most similar earlier article in the window, or None."""
+# A few neighbours, not one: the nearest may be a text a teacher uploaded
+# (the index holds those too), which never joins a story.
+NEIGHBOURS = 3
+
+
+def _nearest_recent_articles(article, sem_vec):
+    """[(article_id, cosine)] of the most similar earlier articles in the
+    window, nearest first."""
     window = timedelta(hours=STORY_WINDOW_HOURS)
     s = Search().knn(
         field="sem_vec",
-        k=1,
+        k=NEIGHBOURS,
         num_candidates=100,
         query_vector=sem_vec,
         filter=(
@@ -66,31 +72,39 @@ def _nearest_recent_article(article, sem_vec):
     s = s.source(["article_id"])
     es = Elasticsearch(ES_CONN_STRING)
     hits = es.search(index=ES_ZINDEX, body=s.to_dict())["hits"]["hits"]
-    if not hits:
-        return None
     # For a cosine dense_vector ES reports _score = (1 + cosine) / 2
-    return hits[0]["_source"]["article_id"], 2 * hits[0]["_score"] - 1
+    return [(h["_source"]["article_id"], 2 * h["_score"] - 1) for h in hits]
+
+
+def _nearest_story_neighbour(article, sem_vec):
+    """(neighbour, cosine) for the nearest crawled article at or above the
+    threshold, or None."""
+    from zeeguu.core.model import Article
+
+    for neighbour_id, similarity in _nearest_recent_articles(article, sem_vec):
+        if similarity < STORY_SIMILARITY_THRESHOLD:
+            return None  # nearest first: the rest are further still
+        neighbour = Article.find_by_id(neighbour_id)
+        if neighbour and neighbour.feed_id:
+            return neighbour, similarity
+    return None
 
 
 def assign_story(article, sem_vec, session):
     """Join the story of the nearest recent article, if it is close enough.
 
+    Only crawled articles form stories: a text a teacher uploaded has no feed,
+    and must never be listed as an outlet on everyone's card.
+
     Never raises: a failure only means the article stays its own story.
     """
-    from zeeguu.core.model import Article
-
-    if not sem_vec or not article.published_time:
+    if not sem_vec or not article.published_time or not article.feed_id:
         return
     try:
-        nearest = _nearest_recent_article(article, sem_vec)
+        nearest = _nearest_story_neighbour(article, sem_vec)
         if not nearest:
             return
-        neighbour_id, similarity = nearest
-        if similarity < STORY_SIMILARITY_THRESHOLD:
-            return
-        neighbour = Article.find_by_id(neighbour_id)
-        if not neighbour:
-            return
+        neighbour, similarity = nearest
         article.story_id = neighbour.story_id or neighbour.id
         session.add(article)
         session.commit()
@@ -98,25 +112,56 @@ def assign_story(article, sem_vec, session):
             f"   Same story as article {neighbour.id} "
             f"(similarity {similarity:.3f}) -> story {article.story_id}"
         )
-        if _same_outlet(neighbour, article):
-            _keep_one_per_outlet(article, neighbour, session)
+        _keep_one_per_outlet(article, session)
     except Exception as e:
         session.rollback()
         log(f"   Story assignment failed for article {article.id}: {e}")
 
 
-def _same_outlet(a, b):
-    return a.url.domain_name_id == b.url.domain_name_id
+def _live_story_members(story_ids):
+    """The live crawled articles of these stories, with url + domain loaded."""
+    from sqlalchemy.orm import joinedload
+    from zeeguu.core.model import Article, Url
+
+    return (
+        Article.query.filter(
+            (Article.id.in_(story_ids) & Article.story_id.is_(None))
+            | Article.story_id.in_(story_ids),
+            (Article.broken == 0) | Article.broken.is_(None),
+            Article.feed_id.isnot(None),
+        )
+        .options(joinedload(Article.url).joinedload(Url.domain))
+        .all()
+    )
 
 
-def _keep_one_per_outlet(article, neighbour, session):
+def _keep_one_per_outlet(article, session):
+    """Two articles of a story from one outlet are a republish: keep one.
+
+    Checked against the whole story, not just the neighbour the article
+    matched -- DR's second take on a wire story is nearest to Politiken's copy
+    of that wire, not to DR's first article.
+    """
     from zeeguu.core.elastic.indexing import remove_from_index
     from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
-    dropped = min(article, neighbour, key=_preference)
-    dropped.set_as_broken(session, LowQualityTypes.DUPLICATE_IN_OUTLET)
-    remove_from_index(dropped)
-    log(f"   Article {dropped.id} marked broken: duplicate in {article.url.domain_name()}")
+    same_outlet = [
+        m
+        for m in _live_story_members([article.story_id])
+        if m.url.domain_name_id == article.url.domain_name_id
+    ]
+    if article not in same_outlet:
+        same_outlet.append(article)
+    kept = max(same_outlet, key=_preference)
+    for dropped in same_outlet:
+        if dropped is kept:
+            continue
+        dropped.set_as_broken(session, LowQualityTypes.DUPLICATE_IN_OUTLET)
+        remove_from_index(dropped)
+        log(
+            f"   Article {dropped.id} marked broken: same story as {kept.id} "
+            f"in {article.url.domain_name()}"
+        )
 
 
 def _story_key(content):
@@ -160,18 +205,11 @@ def story_outlets(articles):
 
     Keyed by article id; single-outlet stories are left out.
     """
-    from zeeguu.core.model import Article
-
-    keys = {a.story_id or a.id for a in articles}
+    keys = {a.story_id or a.id for a in articles if a.feed_id}
     if not keys:
         return {}
-    members = Article.query.filter(
-        (Article.id.in_(keys) & Article.story_id.is_(None))
-        | Article.story_id.in_(keys),
-        (Article.broken == 0) | Article.broken.is_(None),
-    ).all()
     by_story = {}
-    for m in members:
+    for m in _live_story_members(keys):
         by_story.setdefault(m.story_id or m.id, []).append(m)
 
     outlets = {}
