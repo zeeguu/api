@@ -20,6 +20,7 @@ from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.model.user_browsing_session import UserBrowsingSession
 from zeeguu.core.model.user_cohort_map import UserCohortMap
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
+from zeeguu.core.model.user_listening_session import UserListeningSession
 from zeeguu.core.model.user_reading_session import UserReadingSession
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.user_activitiy_data import UserActivityData
@@ -297,12 +298,12 @@ def collect_user_activity(start, end):
         .all()
     )
 
-    # Find all users with translations/bookmarks in this period
-    bookmark_user_ids = (
-        db_session.query(UserWord.user_id)
-        .join(Bookmark, Bookmark.user_word_id == UserWord.id)
-        .filter(Bookmark.time >= start)
-        .filter(Bookmark.time < end)
+    # Find all users with listening sessions in this period.
+    # Bookmarks don't count: backfills create them with time=now (e.g. api#837)
+    listening_user_ids = (
+        db_session.query(UserListeningSession.user_id)
+        .filter(UserListeningSession.start_time >= start)
+        .filter(UserListeningSession.start_time < end)
         .distinct()
         .all()
     )
@@ -329,7 +330,7 @@ def collect_user_activity(start, end):
     active_user_ids = (
         set(uid for (uid,) in exercise_user_ids)
         | set(uid for (uid,) in reading_user_ids)
-        | set(uid for (uid,) in bookmark_user_ids)
+        | set(uid for (uid,) in listening_user_ids)
         | set(uid for (uid,) in audio_lesson_user_ids)
         | set(uid for (uid,) in browsing_user_ids)
     )
@@ -1707,19 +1708,23 @@ def _compute_active_users_for_month(month_start, month_end):
         .filter(DailyAudioLesson.last_completed_at < month_end)
     )
 
-    bookmark_users = (
-        db_session.query(distinct(UserWord.user_id))
-        .join(Bookmark, Bookmark.user_word_id == UserWord.id)
-        .filter(Bookmark.time >= month_start)
-        .filter(Bookmark.time < month_end)
+    # Bookmarks don't count: backfills create them with time=now (e.g. api#837)
+    listening_users = (
+        db_session.query(distinct(UserListeningSession.user_id))
+        .filter(UserListeningSession.start_time >= month_start)
+        .filter(UserListeningSession.start_time < month_end)
     )
 
     all_users = union_all(
-        exercise_users, reading_users, browsing_users, audio_users, bookmark_users
+        exercise_users, reading_users, browsing_users, audio_users, listening_users
     ).subquery()
 
     from sqlalchemy import func, distinct
     return db_session.query(func.count(distinct(all_users.c[0]))).scalar() or 0
+
+
+# Cached months computed before this are recomputed (bookmarks stopped counting)
+MAU_DEFINITION_CHANGED = datetime(2026, 10, 15)
 
 
 def get_monthly_active_users(months=12):
@@ -1772,8 +1777,10 @@ def get_monthly_active_users(months=12):
                 if cache_age.total_seconds() < 6 * 3600:
                     use_cache = True
             else:
-                # Historical months: always use cache
-                use_cache = True
+                # Historical months: use cache only if computed after the month
+                # ended (and after the definition last changed); a mid-month
+                # value would otherwise stick forever
+                use_cache = cached.computed_at >= max(month_end, MAU_DEFINITION_CHANGED)
 
         if use_cache:
             active_users = cached.active_users
@@ -1978,7 +1985,7 @@ def monthly_active_users_page():
     <div class="container">
         <a href="/stats" class="breadcrumb">&larr; All Stats</a>
         <h1>Monthly Active Users</h1>
-        <p class="subtitle">Users with any learning activity (exercises, reading, browsing, audio lessons, or translations)</p>
+        <p class="subtitle">Users with any learning session (exercises, reading, browsing, or audio lessons)</p>
 
         <div class="chart-section">
             <div class="chart">
