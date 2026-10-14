@@ -10,6 +10,7 @@ from zeeguu.core.model.article_title_context import ArticleTitleContext
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.bookmark_context import BookmarkContext
 from zeeguu.core.model.meaning import Meaning
+from zeeguu.core.model.phrase import Phrase
 from zeeguu.core.model.db import db
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.core.model.user_reading_session import UserReadingSession
@@ -84,6 +85,54 @@ def class_text(cohort_id, article_id):
             "text": {"title": title, "fragments": fragments},
         }
     )
+
+
+def class_reading_per_text(student_ids, article_ids):
+    """
+    {article id: {readers, words, top_words}} for a class's texts, in two
+    queries: what the class Texts tab shows on each text in place of a preview.
+
+    The same counting as class_text below: a reader opened the text or looked
+    something up in it; a word counts once however many students needed it,
+    and top_words are the three most students needed.
+    """
+    summary = {article_id: {"readers": 0, "words": 0, "top_words": []} for article_id in article_ids}
+    if not student_ids or not article_ids:
+        return summary
+
+    readers = defaultdict(set)
+    for article_id, user_id in (
+        db.session.query(UserArticle.article_id, UserArticle.user_id)
+        .filter(UserArticle.article_id.in_(article_ids))
+        .filter(UserArticle.user_id.in_(student_ids))
+        .filter(UserArticle.opened.isnot(None))
+    ):
+        readers[article_id].add(user_id)
+
+    students_per_word = defaultdict(lambda: defaultdict(set))
+    shown_as = {}
+    for article_id, user_id, word in (
+        db.session.query(Article.id, UserWord.user_id, Phrase.content)
+        .join(Bookmark, Bookmark.source_id == Article.source_id)
+        .join(UserWord, Bookmark.user_word_id == UserWord.id)
+        .join(Meaning, UserWord.meaning_id == Meaning.id)
+        .join(Phrase, Meaning.origin_id == Phrase.id)
+        .filter(Article.id.in_(article_ids))
+        .filter(UserWord.user_id.in_(student_ids))
+    ):
+        readers[article_id].add(user_id)
+        students_per_word[article_id][word.lower()].add(user_id)
+        shown_as.setdefault(word.lower(), word)
+
+    for article_id in article_ids:
+        words = students_per_word[article_id]
+        ranked = sorted(words, key=lambda w: (-len(words[w]), w))
+        summary[article_id] = {
+            "readers": len(readers[article_id]),
+            "words": len(words),
+            "top_words": [shown_as[w] for w in ranked[:3]],
+        }
+    return summary
 
 
 def _readers(students, opened, bookmarks, reading_ms_per_student):

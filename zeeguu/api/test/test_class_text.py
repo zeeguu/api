@@ -86,3 +86,23 @@ def test_only_the_classes_teacher(client):
     client.post("/create_own_cohort", data=GERMAN_CLASS)
     student = _join(client, "student@mir.lu")
     assert client.client.get(f"/class_text/1/1?session={student}").status_code == 401
+
+
+def test_the_class_texts_tab_gets_how_the_class_read_each_text(client):
+    add_source_types()
+    add_context_types()
+    client.post("/create_own_cohort", data=GERMAN_CLASS)
+    max_session = _join(client, "max@mir.lu")
+    ana_session = _join(client, "ana@mir.lu")
+    _join(client, "nobody@mir.lu")
+    article = create_and_get_article(client)
+    client.post("/add_article_to_cohort", data={"article_id": article["id"], "cohort_id": 1})
+    _translate(client, max_session, article, "Präsident", "president")
+    _translate(client, max_session, article, "hinter", "behind")
+    _translate(client, ana_session, article, "hinter", "after")
+
+    overview = client.get("/cohort_text_overview/1")
+
+    assert overview["cohort"]["inv_code"] == "de123"
+    [text] = overview["texts"]
+    assert text["class_reading"] == {"readers": 2, "words": 2, "top_words": ["hinter", "Präsident"]}
