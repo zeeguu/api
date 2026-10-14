@@ -2,17 +2,14 @@
 
 The LLM is replaced by a fake that counts its calls: the point of
 meaning_alternative is that each (meaning, typed word) is judged once.
-Blanking needs the Stanza tokenizer, which tests don't have, so it is patched
-except where blank_tokens is tested directly.
 """
 from unittest import TestCase
 from unittest.mock import patch
 
 import zeeguu.core
-from zeeguu.core.exercises import cloze_alternatives
 from zeeguu.core.exercises.cloze_alternatives import (
     UNKNOWN,
-    blank_tokens,
+    context_hash,
     is_plausible_answer,
     judge_alternative,
     normalize,
@@ -27,9 +24,6 @@ from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.word_scheduling.basicSR.basicSR import _counts_as_progress
 
 session = zeeguu.core.model.db.session
-
-BLANKED = "Jeg ___, at kaffe smager godt"
-
 
 class FakeJudge:
     MODEL_NAME = "fake-judge"
@@ -55,9 +49,6 @@ class ClozeAlternativesTest(ModelTestMixIn, TestCase):
         self.user = UserRule().user
         self.bookmark = BookmarkRule(self.user).bookmark
         self.language = self.bookmark.user_word.meaning.origin.language
-        patcher = patch.object(cloze_alternatives, "blank_bookmarked_word", return_value=BLANKED)
-        self.blank = patcher.start()
-        self.addCleanup(patcher.stop)
 
     def _known_phrase(self, content):
         session.add(Phrase(content, self.language))
@@ -127,7 +118,7 @@ class ClozeAlternativesTest(ModelTestMixIn, TestCase):
 
     def test_a_verdict_for_this_sentence_beats_a_general_one(self):
         meaning_id = self.bookmark.user_word.meaning.id
-        sentence = cloze_alternatives.context_hash(self.bookmark.get_context())
+        sentence = context_hash(self.bookmark.get_context())
         session.add_all([
             MeaningAlternative(meaning_id=meaning_id, alternative="tænker", context_hash="",
                                relation="SYNONYM"),
@@ -153,15 +144,6 @@ class ClozeAlternativesTest(ModelTestMixIn, TestCase):
 
         self.assertEqual(result["relation"], UNKNOWN)
 
-    def test_a_word_that_cant_be_blanked_is_not_judged(self):
-        self.blank.return_value = None
-        judge = FakeJudge()
-
-        result = judge_alternative(session, self.bookmark, "tænker", judge=judge)
-
-        self.assertEqual(result["relation"], UNKNOWN)
-        self.assertEqual(judge.calls, [])
-
     def test_the_expected_word_and_implausible_answers_skip_the_judge(self):
         judge = FakeJudge()
         expected = self.bookmark.user_word.meaning.origin.content
@@ -171,7 +153,7 @@ class ClozeAlternativesTest(ModelTestMixIn, TestCase):
             self.assertEqual(judge_alternative(session, self.bookmark, answer, judge=judge)["relation"], "NOT_SYNONYM")
         self.assertEqual(judge.calls, [])
 
-    def test_the_judge_gets_the_word_its_translation_and_the_blanked_sentence(self):
+    def test_the_judge_gets_the_word_its_translation_and_the_sentence(self):
         judge = FakeJudge()
         judge_alternative(session, self.bookmark, "Tænker", judge=judge)
 
@@ -180,11 +162,7 @@ class ClozeAlternativesTest(ModelTestMixIn, TestCase):
         self.assertEqual(call["expected"], meaning.origin.content)
         self.assertEqual(call["translation"], meaning.translation.content)
         self.assertEqual(call["typed"], "tænker")
-        self.assertEqual(call["blanked"], BLANKED)
-
-
-def _tok(text, sent_i, token_i, has_space=True):
-    return {"text": text, "sent_i": sent_i, "token_i": token_i, "has_space": has_space}
+        self.assertEqual(call["sentence"], self.bookmark.get_context())
 
 
 class ClozeAlternativeHelpersTest(TestCase):
@@ -196,22 +174,6 @@ class ClozeAlternativeHelpersTest(TestCase):
             self.assertTrue(is_plausible_answer(ok), ok)
         for bad in ["", "abc1", "a  b".replace("  ", "\n"), "\"synes\"", "a b c d e", "x" * 41, "-tænker", "en,del"]:
             self.assertFalse(is_plausible_answer(bad), bad)
-
-    def test_blank_tokens_blanks_the_bookmarked_occurrence(self):
-        # "Synes du, at jeg synes det?" -- the bookmark is the second "synes".
-        tokens = [[[
-            _tok("Synes", 1, 3), _tok("du", 1, 4, has_space=False), _tok(",", 1, 5), _tok("at", 1, 6),
-            _tok("jeg", 1, 7), _tok("synes", 1, 8), _tok("det", 1, 9, has_space=False), _tok("?", 1, 10),
-        ]]]
-        self.assertEqual(blank_tokens(tokens, 1, 8, 1), "Synes du, at jeg ___ det?")
-
-    def test_blank_tokens_blanks_a_multi_word_bookmark_once(self):
-        tokens = [[[_tok("kun", 0, 0), _tok("en", 0, 1), _tok("del", 0, 2), _tok("af", 0, 3)]]]
-        self.assertEqual(blank_tokens(tokens, 0, 1, 2), "kun ___ af")
-
-    def test_blank_tokens_without_the_position_is_none(self):
-        tokens = [[[_tok("kun", 0, 0)]]]
-        self.assertIsNone(blank_tokens(tokens, 0, 5, 1))
 
     def test_an_alternative_moves_the_word_forward_but_is_not_a_clean_answer(self):
         for outcome in ["A", "HA", "TA", "TTA"]:

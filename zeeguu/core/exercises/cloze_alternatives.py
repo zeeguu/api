@@ -53,65 +53,6 @@ def is_plausible_answer(alternative):
     )
 
 
-def blank_tokens(tokenized, sent_i, token_i, total_tokens):
-    """
-    The sentence rebuilt from its tokens (paragraphs -> sentences -> token
-    dicts, as tokenize_for_reading makes them), with the tokens at
-    (sent_i, token_i .. token_i + total_tokens - 1) replaced by one ___.
-    None if no token is at that position.
-    """
-    pieces = []
-    blanked = False
-    last_target = token_i + total_tokens - 1
-    for paragraph in tokenized:
-        for sentence in paragraph:
-            for token in sentence:
-                in_target = token["sent_i"] == sent_i and token_i <= token["token_i"] <= last_target
-                if in_target:
-                    if not blanked:
-                        pieces.append("___")
-                        blanked = True
-                    if token["token_i"] == last_target and token.get("has_space", True):
-                        pieces.append(" ")
-                    continue
-                pieces.append(token["text"])
-                if token.get("has_space", True):
-                    pieces.append(" ")
-    return "".join(pieces).strip() if blanked else None
-
-
-def blank_bookmarked_word(session, bookmark):
-    """
-    The sentence as the learner saw it: the word they bookmarked (not just the
-    first occurrence of its text) replaced by ___. None if it can't be placed,
-    and then the answer is not judged: a judge that sees the expected word in
-    the sentence judges nonsense.
-    """
-    from zeeguu.core.tokenization.word_position_finder import find_target_in_tokenized_context
-
-    context = bookmark.context
-    if not context:
-        return None
-    tokenized = context.get_tokenized(session=session)
-    if not tokenized:
-        return None
-
-    # The bookmark's position is relative to its context; the tokens carry
-    # positions in the article. Same arithmetic as Bookmark.as_dictionary.
-    anchor = (
-        (bookmark.sentence_i or 0) + (context.sentence_i or 0),
-        (bookmark.token_i or 0) + (context.token_i or 0),
-        bookmark.total_tokens or 1,
-    )
-    meaning = bookmark.user_word.meaning
-    found = find_target_in_tokenized_context(
-        meaning.origin.content, tokenized, meaning.origin.language, current_anchor=anchor
-    )
-    if not found:
-        return None
-    return blank_tokens(tokenized, *found)
-
-
 def context_hash(context):
     return hashlib.sha256(context.strip().encode("utf-8")).hexdigest()
 
@@ -151,18 +92,11 @@ def judge_alternative(session, bookmark, typed, judge=None):
     if _OTHER_WHITESPACE.search(typed.strip()) or not is_plausible_answer(alternative):
         return _verdict(MeaningAlternative.NOT_SYNONYM, "", cached=False)
 
-    sentence_hash = context_hash(bookmark.get_context())
+    sentence = bookmark.get_context()
+    sentence_hash = context_hash(sentence)
     stored = MeaningAlternative.lookup(meaning.id, alternative, sentence_hash, user_word.user_id)
     if stored:
         return _verdict(stored.relation, stored.explanation or "", cached=True)
-
-    try:
-        blanked = blank_bookmarked_word(session, bookmark)
-    except Exception as e:
-        log(f"[CLOZE-ALTERNATIVE] could not blank bookmark {bookmark.id}: {e}")
-        blanked = None
-    if blanked is None:
-        return _verdict(UNKNOWN, "", cached=False)
 
     try:
         if judge is None:
@@ -173,7 +107,7 @@ def judge_alternative(session, bookmark, typed, judge=None):
             expected=expected,
             typed=alternative,
             translation=meaning.translation.content,
-            blanked=blanked,
+            sentence=sentence,
             source_lang=meaning.origin.language.code,
             target_lang=meaning.translation.language.code,
         )

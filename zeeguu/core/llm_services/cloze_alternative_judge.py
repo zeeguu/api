@@ -41,7 +41,7 @@ class ClozeAlternativeVerdict:
 class ClozeAlternativeJudge:
     MODEL_NAME = models.CLOZE_ALTERNATIVE_JUDGE
 
-    def judge(self, expected, typed, translation, blanked, source_lang, target_lang):
+    def judge(self, expected, typed, translation, sentence, source_lang, target_lang):
         """The verdict, or None if the model could not be asked in time (or at
         all: no API key, network down)."""
         from .prompts.cloze_alternative import CLOZE_ALTERNATIVE_SCHEMA, create_cloze_alternative_prompt
@@ -50,7 +50,7 @@ class ClozeAlternativeJudge:
             expected=expected,
             typed=typed,
             translation=translation,
-            blanked=blanked,
+            sentence=sentence,
             source_lang=Language.LANGUAGE_NAMES.get(source_lang, source_lang),
             target_lang=Language.LANGUAGE_NAMES.get(target_lang, target_lang),
         )
