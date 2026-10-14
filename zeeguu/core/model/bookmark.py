@@ -587,11 +587,15 @@ class Bookmark(db.Model):
         log(f"[BOOKMARK-TIMING] find_or_create START for word='{_origin}'")
         start_time = time.time()
 
-        log(f"[BOOKMARK-TIMING] Creating Meaning for '{_origin}' -> '{_translation}'")
-        meaning_start = time.time()
         if user_word is not None:
+            if user_word.user_id != user.id:
+                raise ValueError(
+                    f"user_word {user_word.id} belongs to user {user_word.user_id}, not {user.id}"
+                )
             meaning = user_word.meaning
         else:
+            log(f"[BOOKMARK-TIMING] Creating Meaning for '{_origin}' -> '{_translation}'")
+            meaning_start = time.time()
             meaning = Meaning.find_or_create(
                 session, _origin, _origin_lang, _translation, _translation_lang
             )

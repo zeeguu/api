@@ -74,6 +74,21 @@ class ExampleContextsTest(ModelTestMixIn, TestCase):
         with patch.object(example_contexts, "replace_fragment_with_example", side_effect=swap):
             self.assertEqual(replace_fragments_before_first_exercise(session, [first, second]), 1)
 
+    def test_a_failed_flush_is_rolled_back_before_the_next_word(self):
+        # What happened on prod: the preferred_bookmark integrity check fails
+        # the flush, after which any read of the session raises until rollback.
+        first = self._user_word(left_ellipsis=True)
+        second = self._user_word(left_ellipsis=True)
+
+        def swap(_session, user_word):
+            if user_word is first:
+                user_word.preferred_bookmark = second.preferred_bookmark
+                _session.flush()
+            return True
+
+        with patch.object(example_contexts, "replace_fragment_with_example", side_effect=swap):
+            self.assertEqual(replace_fragments_before_first_exercise(session, [first, second]), 1)
+
 
 class ExampleBookmarkStaysOnTheWordTest(ModelTestMixIn, TestCase):
     """Meaning lookup ignores case. A learner's 'mientras' must not resolve to
@@ -129,3 +144,20 @@ class ExampleBookmarkStaysOnTheWordTest(ModelTestMixIn, TestCase):
 
         self.assertEqual(bookmark.user_word_id, self.user_word.id)
         self.assertEqual(UserWord.query.filter_by(user_id=self.user.id).count(), words_before)
+
+    def test_a_word_of_another_user_is_refused(self):
+        other_user = UserRule().user
+        with self.assertRaises(ValueError):
+            Bookmark.find_or_create(
+                session,
+                other_user,
+                "mientras",
+                self.user.learned_language.code,
+                "while",
+                self.user.native_language.code,
+                "Mientras comíamos, empezó a llover.",
+                None,
+                None,
+                translation_source="generated_example",
+                user_word=self.user_word,
+            )
