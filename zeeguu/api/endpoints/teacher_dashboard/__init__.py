@@ -8,3 +8,4 @@ from .student_overviews import *
 from .student_readings import *
 from .student_session_history import *
 from .student_article import *
+from .class_text import *
