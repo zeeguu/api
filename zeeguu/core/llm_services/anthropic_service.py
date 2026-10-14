@@ -32,13 +32,17 @@ class AnthropicService(LLMService):
         except ImportError:
             raise ImportError("anthropic package not installed. Run: pip install anthropic")
     
-    def _make_api_request(self, prompt: Dict, max_tokens: int = 1000, temperature: float = 0.7) -> str:
-        """Make single API request - fail fast, no retries"""
+    def _make_api_request(self, prompt: Dict, max_tokens: int = 1000) -> str:
+        """Make single API request - fail fast, no retries.
+
+        No temperature: SDK 1.x dropped it, and newer models reject it at the
+        API, so `generate_text` accepts one only for the shared LLMService
+        interface (DeepSeek still uses it).
+        """
         try:
             response = self.client.messages.create(
                 model=self.model,
                 max_tokens=max_tokens,
-                temperature=temperature,
                 system=prompt["system"],
                 messages=[
                     {"role": "user", "content": prompt["user"]}
@@ -121,6 +125,5 @@ class AnthropicService(LLMService):
         content = self._make_api_request(
             {"system": system or "You are a helpful assistant.", "user": prompt},
             max_tokens=max_tokens,
-            temperature=temperature,
         )
         return content

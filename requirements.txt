@@ -58,7 +58,7 @@ regex
 # HTTP & APIs
 requests
 requests_mock
-anthropic>=0.40.0
+anthropic>=1,<2
 deepl>=1.18.0
 
 # Utilities
