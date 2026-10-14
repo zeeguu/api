@@ -126,7 +126,8 @@ def _words(students, bookmarks):
 def _text_with_lookups(article, bookmarks):
     """
     The article's tokenized title and fragments, each with `lookups`:
-    [{sent_i, token_i, students: [ids]}] for every token a student looked up.
+    [{sent_i, token_i, students: [{id, translation}]}] for every token a
+    student looked up, with the translation each of them got.
 
     A bookmark's position is its context's offset plus its own, the same sum
     the reader does (bookmarkRestoration.js). A phrase colours all its tokens,
@@ -149,7 +150,7 @@ def _text_with_lookups(article, bookmarks):
         .all()
     }
 
-    # part ("title" or a fragment id) -> (sent_i, token_i) -> {student ids}
+    # part ("title" or a fragment id) -> (sent_i, token_i) -> {student id: their translation}
     lookups = {}
     for bookmark in bookmarks:
         part = "title" if bookmark.id in in_title else fragment_of.get(bookmark.id)
@@ -163,8 +164,9 @@ def _text_with_lookups(article, bookmarks):
         else:
             positions = [token_i + k for k in range(bookmark.total_tokens or 1)]
         for position in positions:
-            lookups.setdefault(part, {}).setdefault((sent_i, position), set()).add(
-                bookmark.user_word.user_id
+            # a student who looked the word up twice shows their first translation
+            lookups.setdefault(part, {}).setdefault((sent_i, position), {}).setdefault(
+                bookmark.user_word.user_id, bookmark.user_word.meaning.translation.content
             )
 
     def with_lookups(tokenized, part):
@@ -172,7 +174,14 @@ def _text_with_lookups(article, bookmarks):
         return {
             **tokenized,
             "lookups": [
-                {"sent_i": sent_i, "token_i": token_i, "students": sorted(who)}
+                {
+                    "sent_i": sent_i,
+                    "token_i": token_i,
+                    "students": [
+                        {"id": user_id, "translation": translation}
+                        for user_id, translation in sorted(who.items())
+                    ],
+                }
                 for (sent_i, token_i), who in sorted(found.items())
             ],
         }

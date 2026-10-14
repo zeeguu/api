@@ -61,6 +61,8 @@ def test_the_words_most_students_needed_come_first(client):
     assert title["tokens"]
     counts = {(l["sent_i"], l["token_i"]): len(l["students"]) for l in title["lookups"]}
     assert counts == {(0, 2): 2, (0, 3): 1}
+    hinter_token = next(l for l in title["lookups"] if l["token_i"] == 2)
+    assert sorted(s["translation"] for s in hinter_token["students"]) == ["after", "behind"]
     assert {r["id"]: r["translations"] for r in info["readers"]} == {
         User.find("max@mir.lu").id: 2,
         User.find("ana@mir.lu").id: 1,
