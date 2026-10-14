@@ -13,6 +13,7 @@ from zeeguu.core.semantic_vector_api import (
 from zeeguu.core.model.video_topic_map import VideoTopicMap
 from zeeguu.core.model.video import MAX_CHAR_COUNT_IN_SUMMARY
 from elasticsearch_dsl import Search, Q
+from zeeguu.core.story_clustering import assign_story
 
 
 def get_doc_in_es(es_id: str, get_source_dict=True, verbose=False):
@@ -258,7 +259,10 @@ def index_in_elasticsearch(new_article, session):
 
     try:
         doc = document_from_article(new_article, session)
-        es_index(doc)
+        # Before indexing: a duplicate within its outlet is marked broken instead
+        assign_story(new_article, doc["sem_vec"], session)
+        if not new_article.broken:
+            es_index(doc)
 
     except Exception as e:
         from sentry_sdk import capture_exception

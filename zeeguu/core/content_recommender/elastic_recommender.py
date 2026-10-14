@@ -32,6 +32,7 @@ from zeeguu.core.model import (
     UserPreference,
 )
 from zeeguu.core.model.user_activitiy_data import UserActivityData
+from zeeguu.core.story_clustering import collapse_stories, story_outlets
 from zeeguu.core.util.timer_logging_decorator import time_this
 
 
@@ -254,6 +255,9 @@ def article_recommendations_for_user(
     from zeeguu.core.classroom import hide_unshared_uploaded_texts
 
     content = hide_unshared_uploaded_texts(user, content)
+
+    # Several outlets (or one outlet, republishing an update) carry the same story
+    content = collapse_stories(content)
 
     sorted_content = sorted(content, key=lambda x: x.published_time, reverse=True)
 
@@ -545,6 +549,13 @@ def get_user_info_from_content_recommendations(user, content_list):
             matched_searches_by_root[root_id] = article._matched_searches
 
     results = UserArticle.article_infos(user, articles, select_appropriate=True)
+
+    # Every outlet that ran the story, so the card can offer them all
+    outlets_by_root = story_outlets(articles)
+    for result in results:
+        root_id = result.get('parent_article_id') or result.get('id')
+        if root_id in outlets_by_root:
+            result['story_outlets'] = outlets_by_root[root_id]
 
     # Add matched_searches to results based on root article id
     for result in results:
