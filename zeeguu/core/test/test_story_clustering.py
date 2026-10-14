@@ -35,10 +35,12 @@ def test_story_members_collapse_into_the_first_ones_position():
     ]
 
 
-def test_member_with_image_wins_over_a_newer_one_without():
+def test_the_newest_member_gets_the_card_even_without_an_image():
+    # An outlet's follow-up carries the latest news; a photo on the older
+    # article must not hide it
     with_image = article(1, image=True, hour=6)
     newer = article(2, story_id=1, hour=12)
-    assert ids(collapse_stories([newer, with_image])) == [("Article", 1)]
+    assert ids(collapse_stories([with_image, newer])) == [("Article", 2)]
 
 
 def test_videos_never_collapse_with_articles_of_the_same_id():
@@ -118,7 +120,7 @@ class StoryClusteringTest(ModelTestMixIn, TestCase):
         self._assign(self.later, [(self.first.id, 0.80)])
         assert self.later.story_id is None
 
-    def test_same_outlet_keeps_the_newer_and_breaks_the_older(self):
+    def test_a_republish_keeps_the_newer_copy_and_breaks_the_older(self):
         self._same_outlet(self.later, as_article=self.first)
         removed = self._assign_as_same_story()
 
@@ -127,7 +129,7 @@ class StoryClusteringTest(ModelTestMixIn, TestCase):
         removed.assert_called_once_with(self.first)
         assert story_outlets([self.later]) == {}
 
-    def test_same_outlet_prefers_the_one_with_an_image(self):
+    def test_a_republish_keeps_the_copy_with_an_image(self):
         self._same_outlet(self.later, as_article=self.first)
         self.first.img_url = UrlRule().url
         session.add(self.first)
@@ -136,14 +138,14 @@ class StoryClusteringTest(ModelTestMixIn, TestCase):
 
         assert self.later.broken and not self.first.broken
 
-    def test_an_outlets_follow_up_joins_the_story_and_stays_live(self):
+    def test_same_outlet_follow_up_joins_the_story_and_stays_live(self):
         self._same_outlet(self.later, as_article=self.first)
         self._assign(self.later, [(self.first.id, 0.92)])
 
         assert self.later.story_id == self.first.id
         assert not self.first.broken and not self.later.broken
 
-    def test_an_outlets_near_copy_a_day_later_is_not_a_republish(self):
+    def test_same_outlet_near_copy_a_day_later_is_not_a_republish(self):
         self.later.published_time = self.first.published_time + timedelta(hours=30)
         self._same_outlet(self.later, as_article=self.first)
         self._assign(self.later, [(self.first.id, 0.97)])

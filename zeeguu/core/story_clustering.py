@@ -174,7 +174,7 @@ def _keep_one(article, copies, session):
     from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
     texts = [article] + copies
-    kept = max(texts, key=_preference)
+    kept = max(texts, key=_best_copy)
     for dropped in texts:
         if dropped is kept:
             continue
@@ -194,9 +194,17 @@ def _story_key(content):
     return ("story", content.story_id or content.id)
 
 
-def _preference(article):
-    """Which member of a story gets the card: one with an image, then the newest
-    (a republished story is the updated one)."""
+def _newest(article):
+    """Which member of a story gets the card (and stands for its outlet): the
+    newest. The live members of a story are different texts -- other outlets,
+    or an outlet's follow-ups -- and the latest carries the latest news, photo
+    or not."""
+    return article.published_time
+
+
+def _best_copy(article):
+    """Which copy of a republish is kept: the texts are the same, so the one
+    with an image, then the newer (the updated one)."""
     has_image = getattr(article, "img_url_id", None) is not None
     return (has_image, article.published_time)
 
@@ -209,7 +217,7 @@ def collapse_stories(content):
     best = {}
     for c in content:
         key = _story_key(c)
-        if key not in best or _preference(c) > _preference(best[key]):
+        if key not in best or _newest(c) > _newest(best[key]):
             best[key] = c
 
     collapsed, placed = [], set()
@@ -240,13 +248,11 @@ def story_outlets(articles):
         for m in by_story.get(a.story_id or a.id, []):
             domain = m.url.domain_name_id
             # The card's own article stands for its outlet; another outlet
-            # with several live articles (follow-ups) by its preferred one
+            # with several live articles (follow-ups) by its newest
             if domain == a.url.domain_name_id:
                 if m.id == a.id:
                     per_outlet[domain] = m
-            elif domain not in per_outlet or _preference(m) > _preference(
-                per_outlet[domain]
-            ):
+            elif domain not in per_outlet or _newest(m) > _newest(per_outlet[domain]):
                 per_outlet[domain] = m
         if len(per_outlet) > 1:
             outlets[a.id] = [
