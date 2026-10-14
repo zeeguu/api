@@ -556,6 +556,13 @@ def download_from_feed(
                 log(e.message)
             else:
                 log(e)
+            # As above: if the failure happened in a flush, the session refuses
+            # all further work until rolled back, and the next feed item would
+            # take the rest of the feed down with it.
+            try:
+                session.rollback()
+            except Exception:
+                pass
             skipped_other += 1
             continue
 
@@ -873,7 +880,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
                 # Don't save the article - delete it
                 session.delete(new_article)
                 session.commit()
-                return None
+                raise SkippedForLowQuality("LLM-detected paywall, sample quota reached")
         else:
             # Don't fail the entire crawl if simplification fails for other reasons
             log(
