@@ -29,7 +29,11 @@ app.app_context().push()
 
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.model import Article, Language
-from zeeguu.core.story_clustering import _nearest_story_neighbour, assign_story
+from zeeguu.core.story_clustering import (
+    _is_republish,
+    assign_story,
+    same_story_neighbours,
+)
 
 
 def sem_vecs(article_ids):
@@ -79,20 +83,22 @@ def main():
         if args.apply:
             assign_story(a, vec, db.session)
             if a.story_id:
-                stories[a.story_id].append((a, None))
+                stories[a.story_id].append((a, None, a.broken))
             continue
-        nearest = _nearest_story_neighbour(a, vec)
-        if nearest:
-            neighbour, similarity = nearest
-            stories[neighbour.id].append((a, similarity))
+        neighbours = same_story_neighbours(a, vec)
+        if neighbours:
+            neighbour, similarity = neighbours[0]
+            republish = any(_is_republish(a, n, s) for n, s in neighbours)
+            stories[neighbour.id].append((a, similarity, republish))
 
     for root_id, members in stories.items():
         root = Article.find_by_id(root_id)
         print(f"\n[{root_id}] {root.feed.title if root and root.feed else '?'}: "
               f"{root.title if root else '(gone)'}")
-        for a, similarity in members:
+        for a, similarity, republish in members:
             score = f"{similarity:.3f}" if similarity else ""
-            print(f"  {score:>5} [{a.id}] {a.feed.title if a.feed else '?'}: {a.title}")
+            mark = "  REPUBLISH: one of the two marked broken" if republish else ""
+            print(f"  {score:>5} [{a.id}] {a.feed.title if a.feed else '?'}: {a.title}{mark}")
 
     joined = sum(len(m) for m in stories.values())
     verb = "joined" if args.apply else "would join"

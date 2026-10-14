@@ -11,20 +11,31 @@ text.
 At indexing time the article's full-text embedding (the `sem_vec` it is about to
 be indexed with) is matched against articles of the same language published
 in the STORY_WINDOW_HOURS before it. If the nearest one is at least
-STORY_SIMILARITY_THRESHOLD similar, the article joins its story.
+STORY_SIMILARITY_THRESHOLD similar, the article joins its story. The feed shows
+one card per story (collapse_stories), and the card lists every outlet that ran
+it equally (story_outlets), so the reader picks which version to open.
 
-Two articles of one story from the same outlet (same domain: one outlet can
-have several feeds, e.g. Le Figaro and Le Figaro - Actualité) are a republish,
-not a second voice: the one with an image (then the newer) is kept, the other
-is marked broken as DUPLICATE_IN_OUTLET and leaves the index. Across outlets
-all are kept: the feed shows one card per story (collapse_stories) and the card
-lists every outlet equally (story_outlets), so the reader picks which to open.
+An outlet's own near-copy -- a story republished under a new URL, or the same
+wire text in two of its feeds (one outlet can have several, e.g. Le Figaro and
+Le Figaro - Actualité: outlet = domain) -- is at least REPUBLISH_SIMILARITY
+and within REPUBLISH_WINDOW_HOURS (news runs on a daily cycle; a near-copy a
+day later is the next day's take on a running story, not a republish):
+the one with an image (then the newer) is kept, the other is marked broken as
+DUPLICATE_IN_OUTLET and leaves the index. An outlet's follow-up on its own story
+(Politiken's Motorregistret "lukket ned" -> "lukkede i over et døgn", 0.88)
+joins the story but stays live.
 
-The threshold comes from tools/calibrate_story_clustering.py over three days of
-French and German (Oct 2026): at >= 0.88 every pair was the same story; between
-0.80 and 0.88 real duplicates (a short wire item vs a long feature) mix with
-follow-ups and same-topic pieces. Missing a duplicate costs the learner a
-scroll; hiding a different story costs them content, so the threshold errs high.
+Thresholds from tools/calibrate_story_clustering.py (fr + de, 3 days) and the
+dry runs of tools/backfill_story_ids.py (fr + da), Oct 2026:
+- every pair >= 0.90 was the same story; between 0.88 and 0.90 matches were
+  follow-ups, merely related (Politiken's DSB "uge 42" -> "aflyser tog efter
+  sporskiftefejl", 0.885) or real duplicates (Orélien, 0.893). Stories start
+  at a round 0.90 rather than a value fitted to one week of data: missing a
+  duplicate costs the learner a scroll; hiding a different story costs them
+  content. Below 0.88, short wire items vs long features mix with same-topic
+  pieces.
+- identical wire copy scores 1.000; the closest same-outlet pair that was a
+  distinct article scored 0.898, hence 0.95 for a republish.
 Embedding title + summary instead was tried and separated worse.
 """
 
@@ -36,12 +47,16 @@ from elasticsearch_dsl import Search, Q
 from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.logging import log
 
-STORY_SIMILARITY_THRESHOLD = 0.88
+STORY_SIMILARITY_THRESHOLD = 0.90
+REPUBLISH_SIMILARITY = 0.95
+# Hours, not the calendar day: an update at 00:30 republishes the 23:00 version
+REPUBLISH_WINDOW_HOURS = 24
 STORY_WINDOW_HOURS = 48
 
 
 # A few neighbours, not one: the nearest may be a text a teacher uploaded
-# (the index holds those too), which never joins a story.
+# (the index holds those too), which never joins a story; and an outlet's own
+# copy may sit behind another outlet's copy of the same wire text.
 NEIGHBOURS = 3
 
 
@@ -76,22 +91,24 @@ def _nearest_recent_articles(article, sem_vec):
     return [(h["_source"]["article_id"], 2 * h["_score"] - 1) for h in hits]
 
 
-def _nearest_story_neighbour(article, sem_vec):
-    """(neighbour, cosine) for the nearest crawled article at or above the
-    threshold, or None."""
+def same_story_neighbours(article, sem_vec):
+    """[(neighbour, cosine)]: the nearest crawled articles at or above the
+    story threshold, nearest first. Texts teachers uploaded are skipped."""
     from zeeguu.core.model import Article
 
+    neighbours = []
     for neighbour_id, similarity in _nearest_recent_articles(article, sem_vec):
         if similarity < STORY_SIMILARITY_THRESHOLD:
-            return None  # nearest first: the rest are further still
+            break  # nearest first: the rest are further still
         neighbour = Article.find_by_id(neighbour_id)
         if neighbour and neighbour.feed_id:
-            return neighbour, similarity
-    return None
+            neighbours.append((neighbour, similarity))
+    return neighbours
 
 
 def assign_story(article, sem_vec, session):
-    """Join the story of the nearest recent article, if it is close enough.
+    """Join the story of the nearest recent article, if it is close enough;
+    if it is the outlet's own near-copy, keep only one of the two.
 
     Only crawled articles form stories: a text a teacher uploaded has no feed,
     and must never be listed as an outlet on everyone's card.
@@ -101,21 +118,37 @@ def assign_story(article, sem_vec, session):
     if not sem_vec or not article.published_time or not article.feed_id:
         return
     try:
-        nearest = _nearest_story_neighbour(article, sem_vec)
-        if not nearest:
+        neighbours = same_story_neighbours(article, sem_vec)
+        if not neighbours:
             return
-        neighbour, similarity = nearest
-        article.story_id = neighbour.story_id or neighbour.id
+        nearest, similarity = neighbours[0]
+        article.story_id = nearest.story_id or nearest.id
         session.add(article)
         session.commit()
         log(
-            f"   Same story as article {neighbour.id} "
+            f"   Same story as article {nearest.id} "
             f"(similarity {similarity:.3f}) -> story {article.story_id}"
         )
-        _keep_one_per_outlet(article, session)
+        copies = [
+            n
+            for n, s in neighbours
+            if _is_republish(article, n, s) and not n.broken
+        ]
+        if copies:
+            _keep_one(article, copies, session)
     except Exception as e:
         session.rollback()
         log(f"   Story assignment failed for article {article.id}: {e}")
+
+
+def _is_republish(article, earlier, similarity):
+    """`article` is `earlier` again: same outlet, near-identical, same news day."""
+    return (
+        similarity >= REPUBLISH_SIMILARITY
+        and earlier.url.domain_name_id == article.url.domain_name_id
+        and article.published_time - earlier.published_time
+        <= timedelta(hours=REPUBLISH_WINDOW_HOURS)
+    )
 
 
 def _live_story_members(story_ids):
@@ -135,31 +168,20 @@ def _live_story_members(story_ids):
     )
 
 
-def _keep_one_per_outlet(article, session):
-    """Two articles of a story from one outlet are a republish: keep one.
-
-    Checked against the whole story, not just the neighbour the article
-    matched -- DR's second take on a wire story is nearest to Politiken's copy
-    of that wire, not to DR's first article.
-    """
+def _keep_one(article, copies, session):
+    """The article and its outlet's near-copies are one text: keep the best."""
     from zeeguu.core.elastic.indexing import remove_from_index
     from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
-    same_outlet = [
-        m
-        for m in _live_story_members([article.story_id])
-        if m.url.domain_name_id == article.url.domain_name_id
-    ]
-    if article not in same_outlet:
-        same_outlet.append(article)
-    kept = max(same_outlet, key=_preference)
-    for dropped in same_outlet:
+    texts = [article] + copies
+    kept = max(texts, key=_preference)
+    for dropped in texts:
         if dropped is kept:
             continue
         dropped.set_as_broken(session, LowQualityTypes.DUPLICATE_IN_OUTLET)
         remove_from_index(dropped)
         log(
-            f"   Article {dropped.id} marked broken: same story as {kept.id} "
+            f"   Article {dropped.id} marked broken: republish of {kept.id} "
             f"in {article.url.domain_name()}"
         )
 
@@ -217,9 +239,13 @@ def story_outlets(articles):
         per_outlet = {}
         for m in by_story.get(a.story_id or a.id, []):
             domain = m.url.domain_name_id
-            # The card's own article stands for its outlet
-            if m.id == a.id or (
-                domain not in per_outlet and domain != a.url.domain_name_id
+            # The card's own article stands for its outlet; another outlet
+            # with several live articles (follow-ups) by its preferred one
+            if domain == a.url.domain_name_id:
+                if m.id == a.id:
+                    per_outlet[domain] = m
+            elif domain not in per_outlet or _preference(m) > _preference(
+                per_outlet[domain]
             ):
                 per_outlet[domain] = m
         if len(per_outlet) > 1:
