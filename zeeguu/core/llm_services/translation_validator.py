@@ -24,11 +24,11 @@ Usage:
     # result.phrase_type = "single_word"
 """
 
+import json
 import os
-import re
 import logging
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional
 
 from zeeguu.logging import log
 from zeeguu.core.model.language import Language
@@ -90,7 +90,7 @@ class TranslationValidator:
         Returns:
             ValidationResult with validation status, corrections, and classification
         """
-        from .prompts.translation_validator import create_combined_validation_prompt
+        from .prompts.translation_validator import create_combined_validation_prompt, VALIDATION_SCHEMA
 
         # Convert language codes to names
         source_name = Language.LANGUAGE_NAMES.get(source_lang, source_lang)
@@ -108,12 +108,8 @@ class TranslationValidator:
             response = self.client.messages.create(
                 model=self.MODEL_NAME,
                 **claude.request_options(self.MODEL_NAME),
-                # With thinking off, Sonnet 5.5 often reasons in the visible
-                # text before the verdict line (21 of 50 prod cases). At 200
-                # tokens it ran out before reaching the line on 22 of 50, which
-                # parsed as VALID: mostly the pairs that needed a FIX. Measured
-                # output on those 50: avg 156, max 391.
-                max_tokens=1000,
+                max_tokens=500,
+                output_config={"format": {"type": "json_schema", "schema": VALIDATION_SCHEMA}},
                 messages=[{"role": "user", "content": prompt}],
             )
             response_text = claude.response_text(response).strip()
@@ -125,150 +121,30 @@ class TranslationValidator:
             # On error, assume valid with no classification (fail open)
             return ValidationResult(is_valid=True)
 
-    def validate_and_classify_batch(self, items: List[dict]) -> List[ValidationResult]:
-        """
-        Validate and classify multiple translations in one API call.
-
-        Args:
-            items: List of dicts with keys: word, translation, context, source_lang, target_lang
-
-        Returns:
-            List of ValidationResult in same order as input
-        """
-        if not items:
-            return []
-
-        from .prompts.translation_validator import create_batch_validation_prompt
-
-        # Convert language codes to names in items
-        converted_items = []
-        for item in items:
-            converted_items.append(
-                {
-                    "word": item["word"],
-                    "translation": item["translation"],
-                    "context": item["context"],
-                    "source_lang": Language.LANGUAGE_NAMES.get(
-                        item["source_lang"], item["source_lang"]
-                    ),
-                    "target_lang": Language.LANGUAGE_NAMES.get(
-                        item["target_lang"], item["target_lang"]
-                    ),
-                }
-            )
-
-        prompt = create_batch_validation_prompt(converted_items)
-
-        try:
-            # Estimate tokens: ~50 per response line
-            max_tokens = len(items) * 60
-
-            response = self.client.messages.create(
-                model=self.MODEL_NAME,
-                **claude.request_options(self.MODEL_NAME),
-                max_tokens=max_tokens,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            response_text = claude.response_text(response).strip()
-            return self._parse_batch_response(response_text, len(items))
-
-        except Exception as e:
-            log(f"Batch validation failed: {e}")
-            logger.error(f"Batch validation failed: {e}")
-            # On error, return valid for all (fail open)
-            return [ValidationResult(is_valid=True) for _ in items]
-
-    # A verdict line, possibly wrapped in markdown (`VALID|...`, **FIX|...**).
-    _VERDICT_LINE = re.compile(r"^[\W_]*(VALID|FIX)\|", re.IGNORECASE)
-
-    @classmethod
-    def _verdict_line(cls, response_text: str) -> str:
-        """The VALID|... or FIX|... line of a reply that may explain itself first.
-
-        The last such line wins: when the model reasons in the text it can quote
-        a format line before settling on its own. A reply with no verdict line
-        is returned whole, so the parser logs it as an unexpected format.
-        """
-        lines = [line.strip() for line in response_text.strip().splitlines()]
-        verdicts = [line for line in lines if cls._VERDICT_LINE.match(line)]
-        if not verdicts:
-            return response_text.strip()
-        return verdicts[-1].strip("`*_ ")
-
     def _parse_response(self, response_text: str) -> ValidationResult:
+        """ValidationResult from the reply, which the API holds to VALIDATION_SCHEMA.
+
+        Empty strings are the schema's way of saying "not applicable"; they
+        become None here, which is what callers read as absent.
         """
-        Parse LLM response into ValidationResult.
+        reply = json.loads(response_text)
 
-        Expected formats:
-        - "VALID|frequency|phrase_type|explanation"
-        - "FIX|corrected_word|corrected_translation|frequency|phrase_type|reason|explanation"
-        """
-        response_text = self._verdict_line(response_text)
-        parts = response_text.split("|")
+        def field(name):
+            value = (reply.get(name) or "").strip()
+            return value or None
 
-        if parts[0].upper() == "VALID":
-            if len(parts) >= 4:
-                return ValidationResult(
-                    is_valid=True,
-                    frequency=parts[1].strip().lower() if len(parts) > 1 else None,
-                    cefr_level=parts[2].strip().upper() if len(parts) > 2 and parts[2].strip() else None,
-                    phrase_type=parts[3].strip().lower() if len(parts) > 3 else None,
-                    explanation=parts[4].strip() if len(parts) > 4 and parts[4].strip() else None,
-                    literal_meaning=parts[5].strip() if len(parts) > 5 and parts[5].strip() else None,
-                )
-            return ValidationResult(is_valid=True)
+        return ValidationResult(
+            is_valid=reply["verdict"] == "VALID",
+            corrected_word=None if reply["verdict"] == "VALID" else field("corrected_word"),
+            corrected_translation=None if reply["verdict"] == "VALID" else field("corrected_translation"),
+            frequency=field("frequency"),
+            cefr_level=field("cefr"),
+            phrase_type=field("phrase_type"),
+            reason=field("reason"),
+            explanation=field("explanation"),
+            literal_meaning=field("literal_meaning"),
+        )
 
-        if parts[0].upper() == "FIX":
-            if len(parts) >= 6:
-                return ValidationResult(
-                    is_valid=False,
-                    corrected_word=parts[1].strip() if parts[1].strip() else None,
-                    corrected_translation=(
-                        parts[2].strip() if parts[2].strip() else None
-                    ),
-                    frequency=parts[3].strip().lower() if len(parts) > 3 else None,
-                    cefr_level=parts[4].strip().upper() if len(parts) > 4 and parts[4].strip() else None,
-                    phrase_type=parts[5].strip().lower() if len(parts) > 5 else None,
-                    reason=parts[6].strip() if len(parts) > 6 else None,
-                    explanation=parts[7].strip() if len(parts) > 7 and parts[7].strip() else None,
-                    literal_meaning=parts[8].strip() if len(parts) > 8 and parts[8].strip() else None,
-                )
-            elif len(parts) >= 3:
-                # Partial response - at least word and translation
-                return ValidationResult(
-                    is_valid=False,
-                    corrected_word=parts[1].strip() if parts[1].strip() else None,
-                    corrected_translation=(
-                        parts[2].strip() if parts[2].strip() else None
-                    ),
-                )
-
-        # Unexpected format - log and assume valid
-        log(f"Unexpected validation response format: {response_text}")
-        logger.warning(f"Unexpected validation response format: {response_text}")
-        return ValidationResult(is_valid=True)
-
-    def _parse_batch_response(
-        self, response_text: str, expected_count: int
-    ) -> List[ValidationResult]:
-        """Parse batch response into list of ValidationResults."""
-        lines = [line.strip() for line in response_text.split("\n") if line.strip()]
-
-        # If line count doesn't match, log warning but process what we have
-        if len(lines) != expected_count:
-            log(f"Batch validation: Expected {expected_count} lines, got {len(lines)}")
-
-        results = []
-        for i in range(expected_count):
-            if i < len(lines):
-                results.append(self._parse_response(lines[i]))
-            else:
-                # Missing line - assume valid
-                results.append(ValidationResult(is_valid=True))
-
-        return results
-
-    # Backward compatibility - alias for old method name
     def validate_translation(
         self, word, translation, context, source_lang, target_lang
     ):
