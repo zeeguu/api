@@ -7,6 +7,11 @@ from zeeguu.core.model.db import db
 
 class UserAvatar(db.Model):
     __tablename__ = "user_avatar"
+    # One avatar per user. Named for the index production already has
+    # (tools/migrations/26-03-13--add_user_avatar.sql), so nobody generates a
+    # second one -- and so update_or_create's find-then-insert cannot quietly
+    # produce two avatars for a user in the test database.
+    __table_args__ = (db.UniqueConstraint("user_id", name="user_id"),)
 
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
