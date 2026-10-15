@@ -263,9 +263,73 @@ class SchedulerTest(ModelTestMixIn):
 
         self.assert_schedule(schedule, 0, 2, 0, 0)
 
+    def test_due_words_are_ordered_by_rank_then_cooling_interval(self):
+        """
+        Regression test for a dropped `order_by`.
+
+        SQLAlchemy query methods return a NEW query; they do not mutate in
+        place. `scheduled_words_due_today` / `scheduled_words_due_now` used to
+        call `query.order_by(...)` and throw the result away, so due words came
+        back in whatever order the database happened to produce.
+
+        The intended order is: most frequent word first (lowest Phrase.rank,
+        with unranked words last), then by descending cooling_interval so the
+        words closest to being learned come first.
+        """
+        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+        # (rank, cooling_interval), deliberately created in an order that is
+        # NOT the expected output order.
+        specs = [
+            (5000, ONE_DAY_COOLING),
+            (10, ONE_DAY_COOLING),
+            (None, ONE_DAY_COOLING),
+            (10, TWO_DAYS_COOLING),
+        ]
+
+        created = []
+        for rank, cooling_interval in specs:
+            created.append(self._scheduled_due_word(rank, cooling_interval))
+        db_session.commit()
+
+        expected = [
+            created[3].id,  # rank 10, warmest
+            created[1].id,  # rank 10
+            created[0].id,  # rank 5000
+            created[2].id,  # unranked -> last
+        ]
+
+        for due_words in (
+            BasicSRSchedule.scheduled_words_due_today(self.four_levels_user),
+            BasicSRSchedule.scheduled_words_due_now(self.four_levels_user),
+        ):
+            actual = [uw.id for uw in due_words if uw.id in set(expected)]
+            self.assertEqual(expected, actual)
+
     # ================================================================================================================
     # A few helper functions
     # ================================================================================================================
+    def _scheduled_due_word(self, rank, cooling_interval):
+        """Create a bookmark whose word is scheduled and already due, with a
+        given Phrase.rank and cooling_interval. Returns the UserWord."""
+        from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
+            FourLevelsPerWord,
+        )
+
+        bookmark = BookmarkRule(self.four_levels_user).bookmark
+        user_word = bookmark.user_word
+        user_word.fit_for_study = 1
+        user_word.learned_time = None
+        user_word.meaning.origin.rank = rank
+        db_session.add(user_word)
+
+        schedule = FourLevelsPerWord.find_or_create(db_session, user_word)
+        schedule.cooling_interval = cooling_interval
+        schedule.next_practice_time = datetime.now() - timedelta(days=1)
+        db_session.add(schedule)
+
+        return user_word
+
     def assert_schedule(
         self,
         schedule,
