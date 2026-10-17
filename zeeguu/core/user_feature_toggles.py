@@ -42,6 +42,7 @@ def _feature_map():
         "always_open_externally": _always_open_externally,
         "gamification": _gamification,
         "fast_progression": _fast_progression,
+        "reading_gate": _reading_gate,
     }
 
 
@@ -194,6 +195,16 @@ def _fast_progression(user: User):
 
     Dev accounts only while we watch it; next, half of new users, to compare
     against the other half.
+    """
+    return bool(user.is_dev)
+
+
+def _reading_gate(user: User):
+    """
+    Exercises leave out the words the learner demonstrably reads without help
+    (UserWord.known_from_reading). See docs/adr/032.
+
+    Dev accounts only while we read what it refuses.
     """
     return bool(user.is_dev)
 

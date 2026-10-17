@@ -193,6 +193,9 @@ class BasicSRSchedule(db.Model):
                 -Phrase.rank.desc()
             )  # By using the negative for rank, we ensure NULL is last.
         )
+        unscheduled_meanings = _without_words_known_from_reading(
+            unscheduled_meanings, user
+        )
         if limit is None:
             return unscheduled_meanings.all()
         else:
@@ -292,7 +295,7 @@ class BasicSRSchedule(db.Model):
             .filter(Phrase.language_id == _lang_to_look_at)
             .filter(BasicSRSchedule.id != None)
         )
-        return query
+        return _without_words_known_from_reading(query, user)
 
     @classmethod
     def scheduled_words_due_today(cls, user, limit=None):
@@ -378,13 +381,16 @@ class BasicSRSchedule(db.Model):
         """
         from zeeguu.core.model.bookmark import Bookmark
 
-        result = (
+        query = (
             cls.query.join(UserWord)
             .filter(UserWord.user_id == user.id)
             .filter(UserWord.fit_for_study == 1)
             .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == user.learned_language_id)
+        )
+        result = (
+            _without_words_known_from_reading(query, user)
             .order_by(cls.next_practice_time.asc())
             .first()
         )
@@ -392,6 +398,17 @@ class BasicSRSchedule(db.Model):
         if result:
             return result.next_practice_time
         return None
+
+
+def _without_words_known_from_reading(query, user):
+    """Leave out words the learner reads without help (ADR 032).
+
+    A filter, not a deletion: a gated word keeps its schedule and returns as
+    soon as reading evidence reopens the gate (a new look-up does that).
+    """
+    if user.has_feature("reading_gate"):
+        return query.filter(UserWord.known_from_reading.isnot(True))
+    return query
 
 
 def priority_by_rank(user_word, schedule_map=None):
