@@ -27,8 +27,13 @@ STEP 1 - VALIDATION:
    NOT valid: either translate the word's own meaning, or expand the word to the phrase that
    carries the meaning.
 3. If the word is part of an idiom, decide: should the learner study the single word or the full idiom?
+4. Does "{translation}" have the same form as "{word}"? The learner types exactly what the
+   translation says. A verb without its infinitive marker (Danish "at", German "zu", Dutch "te",
+   Swedish "att", ...) is translated without "to", whatever the verb: "verstehen" = "understand",
+   NOT "to understand". With the marker, keep it: "at slå op" = "to look up".
+   A translation that adds "to" to a verb that has no marker is a FIX, even though its meaning is right.
 
-IMPORTANT: Only mark as FIX if the translation is WRONG. Do NOT "improve" correct translations.
+IMPORTANT: Only mark as FIX if the translation is WRONG (in meaning, or in form as in step 4). Do NOT "improve" correct translations.
 - Keep translations SHORT and SIMPLE - learners must type them in exercises
 - NO parenthetical explanations like "by (doing something)" - just "by"
 - NO alternatives with "/" like "as/in the capacity of" - pick ONE: "as"
@@ -68,6 +73,7 @@ Fill in these fields (the reply is constrained to this shape):
 
 Examples:
 - Simple word: VALID, common, A1, single_word
+- Wrong form: FIX glemme = "forget", common, A2, single_word; reason: no "at" before "glemme", so no "to"
 - Word with usage note: VALID, common, B1, single_word, explanation "formal register"
 - Idiom: VALID, common, B2, idiom, literal_meaning "kick into touch"
 - Wrong translation: FIX øjnene = "the eyes", common, A2, single_word; reason: literal meaning is 'the eyes'
