@@ -7,16 +7,23 @@ from zeeguu.core.model.db import db
 
 class MeaningAlternative(db.Model):
     """
-    A word a learner may type for a meaning in a cloze exercise, judged once by
-    an LLM. See the migration 26-10-14-b--add_meaning_alternative.sql for the
-    key (meaning, not phrase), the sentence hash on context-specific verdicts,
-    and user_id on verdicts that are not shared.
+    A word a learner may type for a meaning, judged once by an LLM: another
+    word in a cloze exercise ('tænker' for 'synes'), or another translation of
+    it ('consult' for 'look up'); language_id tells which. See the migrations
+    26-10-14-b--add_meaning_alternative.sql for the key (meaning, not phrase),
+    the sentence hash on context-specific verdicts, and user_id on verdicts
+    that are not shared, and 26-10-14-c--meaning_alternative_language.sql.
     """
 
     __tablename__ = "meaning_alternative"
     __table_args__ = (
         db.UniqueConstraint(
-            "meaning_id", "alternative", "context_hash", "user_id", name="uq_meaning_alternative"
+            "meaning_id",
+            "language_id",
+            "alternative",
+            "context_hash",
+            "user_id",
+            name="uq_meaning_alternative_language",
         ),
     )
 
@@ -29,6 +36,9 @@ class MeaningAlternative(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     meaning_id = db.Column(db.Integer, db.ForeignKey("meaning.id", ondelete="CASCADE"), nullable=False)
+    # The language of the typed answer: the meaning's origin language for a
+    # cloze, its translation language for a typed translation.
+    language_id = db.Column(db.Integer, db.ForeignKey("language.id"), nullable=False)
     # Binary collation: 'esta' is not 'está', 'pa' is not 'på'.
     alternative = db.Column(
         db.String(255).with_variant(mysql.VARCHAR(255, collation="utf8mb4_bin"), "mysql"),
@@ -44,14 +54,16 @@ class MeaningAlternative(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now)
 
     meaning = db.relationship("Meaning")
+    language = db.relationship("Language")
     ai_generator = db.relationship("AIGenerator")
 
     @classmethod
-    def lookup(cls, meaning_id, alternative, context_hash, user_id):
+    def lookup(cls, meaning_id, language_id, alternative, context_hash, user_id):
         """The stored verdict that applies here, the most specific first: one
         made for this very sentence beats a general one."""
         rows = cls.query.filter(
             cls.meaning_id == meaning_id,
+            cls.language_id == language_id,
             cls.alternative == alternative,
             cls.context_hash.in_([cls.GENERAL, context_hash]),
             db.or_(cls.user_id.is_(None), cls.user_id == user_id),
