@@ -173,9 +173,11 @@ def simplify_own_text():
     teacher reviews the returned text and saves it themselves; nothing is
     persisted here.
 
-    Form params: title, content (plain text), language (code), cefr_level (target).
+    Form params: title, content (plain text), language (code), cefr_level (target:
+    a level, or one in between two adjacent levels like "B1/B2" for a lighter rewrite).
     Returns: {"title", "content" (HTML), "summary", "cefr_level"}.
     """
+    from zeeguu.core.llm_services.prompts.level_simplification import IN_BETWEEN_LEVELS
     from zeeguu.core.llm_services.simplification_service import SimplificationService
     from zeeguu.logging import log
 
@@ -186,8 +188,9 @@ def simplify_own_text():
 
     if not content or not language_code:
         return make_error(400, "content and language are required")
-    if target_level not in CEFR_LEVELS:
-        return make_error(400, f"cefr_level must be one of {', '.join(CEFR_LEVELS)}")
+    targets = CEFR_LEVELS + IN_BETWEEN_LEVELS
+    if target_level not in targets:
+        return make_error(400, f"cefr_level must be one of {', '.join(targets)}")
 
     log(
         f"simplify_own_text: target={target_level}, language={language_code}, "

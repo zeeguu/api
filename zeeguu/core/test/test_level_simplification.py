@@ -174,6 +174,29 @@ class LevelPromptTest(TestCase):
         self.assertIn("[1] Researchers have identified", prompt)
         self.assertIn("[3] Depression affects", prompt)
 
+    def test_an_in_between_level_is_a_lighter_rewrite(self):
+        prompt = get_level_simplification_prompt("en", TITLE, CONTENT, "B1/B2")
+
+        self.assertIn("at CEFR level between B1 and B2", prompt)
+        self.assertIn("LIGHTER rewrite than B1", prompt)
+        self.assertIn("Sentences already at that level can stay", prompt)
+        self.assertNotIn("Do not copy sentences from the original", prompt)
+        words = len(CONTENT.split())
+        self.assertIn(f"Never go above {words}.", prompt)
+
+    def test_an_in_between_level_avoids_fewer_words_than_the_lower_level(self):
+        text = CONTENT + " The vessel's ballast water discharge was inspected at the anchorage."
+        lighter, b1 = rare_words(text, "en", "B1/B2"), rare_words(text, "en", "B1")
+
+        self.assertTrue(set(lighter) < set(b1))
+        self.assertIn("microglia", lighter)
+
+    def test_a_plain_level_is_not_in_between(self):
+        prompt = get_level_simplification_prompt("en", TITLE, CONTENT, "B1")
+
+        self.assertIn("at CEFR level B1 ", prompt)
+        self.assertNotIn("IN-BETWEEN", prompt)
+
     def test_rare_words_skip_names_and_common_words(self):
         words = rare_words(CONTENT, "en", "A2")
 

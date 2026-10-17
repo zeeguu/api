@@ -11,6 +11,11 @@ simplification quality went from ~3.3 to ~4.1 (out of 5) at A1, A2 and B1, mainl
 faithfulness, level fit and paragraph structure. With Haiku, `strict` hurt faithfulness, so the Haiku
 fallback gets the plain prompt.
 
+A target can also be in between two adjacent levels ("B1/B2"): a lighter rewrite for a class that is
+past the lower level but not yet at the higher one. Teachers asked for this when B1 read as too simple
+for a B1-B2 course (English for Shipping, 2026-10). It gets its own, looser limits and a shorter list of
+words to avoid, and is told to change only what is above the lower level.
+
 The rule blocks below are those of the old single-call adaptive prompt, verbatim. <<LANGUAGE_NAME>> is
 replaced with the language name.
 """
@@ -63,12 +68,19 @@ LEVEL_LIMITS = {
     "A1": (8, 1000, "present tense wherever it keeps the meaning; no subordinate clauses"),
     "A2": (12, 1500, "one idea per sentence; only simple connectors (and, but, because, when, so)"),
     "B1": (18, 3000, "at most one subordinate clause per sentence"),
+    # In-between targets: between the limits of their two levels
+    "A1/A2": (10, 1200, "mostly present tense; no subordinate clauses"),
+    "A2/B1": (15, 2000, "simple subordinate clauses (because, when, if) are fine; no chains of them"),
+    "B1/B2": (22, 4000, "at most two subordinate clauses per sentence; passive voice where the original has it"),
 }
 
 # A word whose wordfreq zipf frequency is below this is too rare for the level.
 # For A2 that is roughly: outside the ~5k most frequent word forms.
-RARE_WORD_ZIPF = {"A1": 4.5, "A2": 4.0, "B1": 3.5}
+RARE_WORD_ZIPF = {"A1": 4.5, "A2": 4.0, "B1": 3.5, "A1/A2": 4.25, "A2/B1": 3.75, "B1/B2": 3.0}
 MAX_WORDS_TO_AVOID = 40
+
+# Targets in between two adjacent levels, for a lighter rewrite than the lower level
+IN_BETWEEN_LEVELS = ["A1/A2", "A2/B1", "B1/B2", "B2/C1", "C1/C2"]
 
 WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
 
@@ -207,6 +219,30 @@ def rare_words(text: str, language_code: str, level: str, limit: int = MAX_WORDS
     return sorted(found, key=found.get)[:limit]
 
 
+def level_name(level: str) -> str:
+    """How the prompt names the target: "B1" or "between B1 and B2"."""
+    if level in IN_BETWEEN_LEVELS:
+        lower, upper = level.split("/")
+        return f"between {lower} and {upper}"
+    return level
+
+
+def _in_between_rules(level: str) -> str:
+    if level not in IN_BETWEEN_LEVELS:
+        return ""
+    lower, upper = level.split("/")
+    return f"""
+IN-BETWEEN LEVEL ({level}): the readers are past {lower} but not yet at {upper}, e.g. a {lower}-{upper} course.
+- This is a LIGHTER rewrite than {lower}. A {lower} version would be too simple for them.
+- Keep sentences that a strong {lower} learner can already read. Rewrite only what is above that: rare words,
+  idioms, very long or tangled sentences, dense noun phrases.
+- Keep the key terms of the subject (technical or professional vocabulary the readers are learning). Explain
+  one in a few words only if the text cannot be followed without it.
+- The result should read as a natural text for upper-{lower} readers, not as a {lower} text. That is why it
+  keeps more of the original's length than a {lower} version would (see LENGTH AND STRUCTURE).
+"""
+
+
 def _rules(block: str, language_code: str) -> str:
     return block.replace("<<LANGUAGE_NAME>>", language_name(language_code))
 
@@ -215,10 +251,11 @@ def _level_limit_rules(level: str, lang: str) -> str:
     if level not in LEVEL_LIMITS:
         return ""
     max_words, vocab, grammar = LEVEL_LIMITS[level]
+    key_terms = " So are the key terms of the subject." if level in IN_BETWEEN_LEVELS else ""
     return f"""
 HARD {level} LIMITS (check every sentence before you write it):
 - Maximum {max_words} words per sentence. Split longer sentences, keeping all the information.
-- Use only the ~{vocab} most common {lang} words. Replace every rarer word with a common one, or explain it in a few common words the first time it appears. Names, places and numbers are fine.
+- Use only the ~{vocab} most common {lang} words. Replace every rarer word with a common one, or explain it in a few common words the first time it appears. Names, places and numbers are fine.{key_terms}
 - Grammar: {grammar}.
 """
 
@@ -248,23 +285,31 @@ def get_level_simplification_prompt(
     lang = language_name(language_code)
     paras = paragraphs(content)
     words = len(content.split())
+    target = level_name(level)
+    # An in-between rewrite changes less, so it keeps more of the original's length
+    if level in IN_BETWEEN_LEVELS:
+        min_share, max_share = 0.8, 1.0
+        rewrite_rule = f"REWRITE every sentence that is above {level.split('/')[0]}: shorter sentences, more common words, simpler grammar. Sentences already at that level can stay."
+    else:
+        min_share, max_share = 0.7, 0.9
+        rewrite_rule = f"REWRITE every sentence for {level}: shorter sentences, common words, simple grammar. Do not copy sentences from the original."
     numbered = "\n\n".join(f"[{i}] {p}" for i, p in enumerate(paras, 1))
     extra = (
         _level_limit_rules(level, lang) + _words_to_avoid_rules(title, content, language_code, level)
         if strict
         else ""
     )
-    return f"""You are an expert {lang} language teacher. Rewrite the {lang} article below at CEFR level {level} for language learners.
+    return f"""You are an expert {lang} language teacher. Rewrite the {lang} article below at CEFR level {target} for language learners.
 
 {_rules(CEFR_GUIDELINES, language_code)}
 {_rules(SIMPLIFICATION_RULES, language_code)}
-{_rules(PROOFREADING_RULES, language_code)}{extra}
+{_rules(PROOFREADING_RULES, language_code)}{_in_between_rules(level)}{extra}
 LENGTH AND STRUCTURE (strict):
 - The original has {len(paras)} numbered paragraphs and {words} words.
 - Output exactly {len(paras)} paragraphs, numbered [1] to [{len(paras)}]. Paragraph [k] is the {level} version of original paragraph [k].
-- Write between {round(0.7 * words)} and {round(0.9 * words)} words in total. Never go above {round(0.9 * words)}.
+- Write between {round(min_share * words)} and {round(max_share * words)} words in total. Never go above {round(max_share * words)}.
 - Keep every name, source, place, date and number. Do NOT add anything that is not in the original: no extra explanations, opinions, conclusions or filler sentences.
-- REWRITE every sentence for {level}: shorter sentences, common words, simple grammar. Do not copy sentences from the original.
+- {rewrite_rule}
 - LANGUAGE: use only words and forms you are completely sure exist in {lang}. If you are unsure about a word or a construction, use a simpler, more common one.
 - A paragraph that is only a byline, credit or 'read more' boilerplate can stay as it is.
 
