@@ -23,7 +23,7 @@ from zeeguu.core.translation_services.translator import (
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride, TranslationSearch, SelectionExplanation
+from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride, TranslationSearch, SelectionExplanation, TranslationService
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.bookmark_context import BookmarkContext
@@ -188,6 +188,7 @@ def translate_word(from_lang_code, to_lang_code):
                 reading_session_id=reading_session_id,
                 is_mwe=is_mwe_expression,
                 mwe_partner_token_i=mwe_partner_token_i,
+                translation_service=t1.get("source"),
             )
 
         bookmark_elapsed = time.time() - bookmark_start
@@ -464,6 +465,9 @@ def update_bookmark_translation_only(bookmark_id):
     new_translation = request.json.get("translation")
     if not new_translation:
         return json_result({"error": "Translation required"}, status=400)
+    # Optional: the alternative's source as the menu showed it. Clients that
+    # predate it send only the translation.
+    service = request.json.get("translation_service") or TranslationService.CHOSEN_ALTERNATIVE
 
     # Find or create new Meaning with the new translation
     old_meaning = bookmark.user_word.meaning
@@ -502,6 +506,8 @@ def update_bookmark_translation_only(bookmark_id):
 
         cleanup_old_user_word(db_session, old_user_word, bookmark)
 
+    if new_meaning.id != old_meaning.id:
+        bookmark.set_translation_service(db_session, service)
     db_session.commit()
 
     # Return updated bookmark
@@ -599,6 +605,8 @@ def update_bookmark_full(bookmark_id):
         transfer_learning_progress(db_session, old_user_word, new_user_word, bookmark)
 
     # Step 6: Reassign bookmark to new entities
+    if meaning.translation.content != old_user_word.meaning.translation.content:
+        bookmark.set_translation_service(db_session, TranslationService.MANUAL)
     bookmark.user_word_id = new_user_word.id
     bookmark.text = text
     bookmark.context = context
@@ -735,6 +743,7 @@ def contribute_translation(from_lang_code, to_lang_code):
         total_tokens=w_total_tokens,
         context_identifier=context_identifier,
         translation_source="reading",
+        translation_service=service_name,
     )
 
     # Inform apimux about translation selection

@@ -28,6 +28,11 @@ from typing import Optional
 from zeeguu.logging import log
 
 
+def _service_of(bookmark):
+    """Who produced the translation being judged, for the validation log."""
+    return bookmark.translation_service_id if bookmark else None
+
+
 class UserWordValidationService:
     """Validates and fixes user_word translations before exercises."""
 
@@ -210,7 +215,8 @@ class UserWordValidationService:
             db_session,
             meaning=meaning,
             user_word_id=user_word.id,
-            context=context
+            context=context,
+            translation_service_id=_service_of(user_word.preferred_bookmark),
         )
 
         db_session.commit()
@@ -228,6 +234,7 @@ class UserWordValidationService:
         """
         from zeeguu.core.model import Meaning, UserWord
         from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
+        from zeeguu.core.model.translation_service import TranslationService
         from zeeguu.core.model.validation_log import ValidationLog
         from zeeguu.core.bookmark_operations.update_bookmark import (
             transfer_learning_progress,
@@ -253,7 +260,8 @@ class UserWordValidationService:
                 meaning=old_meaning,
                 user_word_id=user_word.id,
                 reason=validation_result.reason,
-                context=context
+                context=context,
+                translation_service_id=_service_of(bookmark),
             )
 
             db_session.commit()
@@ -300,7 +308,8 @@ class UserWordValidationService:
                 new_meaning=new_meaning,
                 user_word_id=user_word.id,
                 reason=validation_result.reason,
-                context=context
+                context=context,
+                translation_service_id=_service_of(bookmark),
             )
 
             # Find or create UserWord for new meaning
@@ -317,6 +326,7 @@ class UserWordValidationService:
             # Update bookmark to point to new user_word
             # Use ID to avoid circular dependency (Bookmark.user_word <-> UserWord.preferred_bookmark)
             bookmark.user_word_id = new_user_word.id
+            bookmark.set_translation_service(db_session, TranslationService.VALIDATOR)
             db_session.add(bookmark)
             db_session.flush()  # Flush bookmark first
 
@@ -339,7 +349,8 @@ class UserWordValidationService:
                 db_session,
                 meaning=new_meaning,
                 user_word_id=user_word.id,
-                context=context
+                context=context,
+                translation_service_id=_service_of(bookmark),
             )
 
             db_session.commit()

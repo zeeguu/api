@@ -11,7 +11,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.exercises.example_contexts import bookmark_for_example
 from zeeguu.core.llm_services import get_llm_service
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
-from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport
+from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport, TranslationService
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.context_identifier import ContextIdentifier
@@ -626,6 +626,7 @@ def add_word_to_learning():
             c_token_i=c_token_i,
             context_identifier=context_identifier,
             translation_source="user_added",
+            translation_service=TranslationService.LEARNING_CARD,
         )
 
         # Set as preferred bookmark and schedule for learning

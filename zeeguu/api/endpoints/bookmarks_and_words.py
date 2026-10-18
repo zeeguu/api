@@ -6,7 +6,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
 from werkzeug.exceptions import NotFound
 
-from zeeguu.core.model import User, Article, Bookmark
+from zeeguu.core.model import User, Article, Bookmark, TranslationService
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
@@ -968,6 +968,7 @@ def add_custom_word():
             c_token_i=c_token_i,
             context_identifier=context_identifier,
             translation_source="user_added",
+            translation_service=TranslationService.MANUAL,
         )
 
         # Set this bookmark as preferred for the user word

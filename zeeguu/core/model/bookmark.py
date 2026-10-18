@@ -73,6 +73,13 @@ class Bookmark(db.Model):
     # bookmarkRestoration.js.
     mwe_partner_token_i = db.Column(db.Integer, default=None)
 
+    # Who produced the current translation (see TranslationService); NULL for
+    # bookmarks from before 2026-10-19
+    translation_service_id = db.Column(
+        db.SmallInteger, db.ForeignKey("translation_service.id"), nullable=True
+    )
+    translation_service = db.relationship("TranslationService")
+
     user_word_id = db.Column(db.Integer, db.ForeignKey("user_word.id"), nullable=False)
     user_word = db.relationship(UserWord, foreign_keys=[user_word_id])
 
@@ -110,6 +117,11 @@ class Bookmark(db.Model):
 
     def __repr__(self):
         return f"Bookmark ({self.id}): {self.user_word.meaning} {self.context.get_content()[0:10]}"
+
+    def set_translation_service(self, session, name):
+        from zeeguu.core.model.translation_service import TranslationService
+
+        self.translation_service = TranslationService.find_or_create(session, name)
 
     def get_context(self):
         if self.context:
@@ -565,10 +577,14 @@ class Bookmark(db.Model):
         is_mwe: bool = False,
         mwe_partner_token_i: int = None,
         user_word=None,
+        translation_service: str = None,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
         if it exists, it ** updates the translation** and returns the bookmark object
+
+        translation_service: the name of whoever produced the translation (see
+        TranslationService), recorded on a new bookmark.
 
         user_word: attach the bookmark to this word instead of looking the word
         up from the origin/translation strings. Meaning lookup ignores case, so
@@ -689,6 +705,8 @@ class Bookmark(db.Model):
                 is_mwe=is_mwe,
                 mwe_partner_token_i=mwe_partner_token_i,
             )
+            if translation_service:
+                bookmark.set_translation_service(session, translation_service)
         except Exception as e:
             raise e
 
