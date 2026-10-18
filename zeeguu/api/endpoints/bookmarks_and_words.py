@@ -4,6 +4,7 @@ import flask
 from flask import request
 from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
+from werkzeug.exceptions import NotFound
 
 from zeeguu.core.model import User, Article, Bookmark
 from zeeguu.core.model.context_identifier import ContextIdentifier
@@ -21,14 +22,15 @@ from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsP
 def get_bookmark_if_owned(bookmark_id):
     """
     Fetch a bookmark and verify the current user owns it.
-    Returns the bookmark if owned, otherwise aborts with 403.
+    Returns the bookmark if owned, otherwise aborts with 404. A bookmark of
+    another user gets the same 404 as a missing one, so the id is not confirmed.
     """
-    bookmark = Bookmark.find(bookmark_id)
+    bookmark = Bookmark.query.get(bookmark_id)
     if bookmark is None:
         flask.abort(404)
     if bookmark.user_word.user_id != flask.g.user_id:
         log(f"IDOR attempt: user {flask.g.user_id} tried to access bookmark {bookmark_id}")
-        flask.abort(403)
+        flask.abort(404)
     return bookmark
 
 
@@ -273,7 +275,7 @@ def delete_bookmark(bookmark_id):
 
         db_session.delete(bookmark)
         db_session.commit()
-    except NoResultFound:
+    except (NoResultFound, NotFound):
         return "Inexistent"
 
     return "OK"

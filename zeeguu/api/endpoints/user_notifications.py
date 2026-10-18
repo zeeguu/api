@@ -88,6 +88,10 @@ def set_notification_click_date():
     data = flask.request.form
     # user = User.find_by_id(flask.g.user_id)
     user_notification_id = data.get("user_notification_id", None)
+    # A notification of another user is answered exactly like a missing one
+    user_notification = UserNotification.find_by_id(user_notification_id)
+    if not user_notification or user_notification.user_id != flask.g.user_id:
+        flask.abort(404)
     UserNotification.update_user_notification_time(user_notification_id, db_session)
     db_session.commit()
 
