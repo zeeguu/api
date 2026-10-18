@@ -1,4 +1,6 @@
 # Rate limiting utilities for security-sensitive endpoints
+import unicodedata
+
 import flask
 from dataclasses import dataclass
 from flask_limiter import Limiter
@@ -22,8 +24,9 @@ class Limit:
     key:   "ip" for endpoints reachable without a session, "session" for the
            ones behind @requires_session, where an IP bucket would put a whole
            class behind one school NAT into a single quota, "user" where the
-           limit caps what one account may spend across all its sessions, and
-           "target_email" for endpoints that act on an address named in the route.
+           limit caps what one account may spend across all its sessions,
+           "target_email" for endpoints that act on an address named in the
+           route, and "form_email" for the same with the address in the form.
 
            An endpoint may carry several limits with different keys: a tight
            one on what is being protected, and a looser per-IP backstop.
@@ -103,6 +106,33 @@ RATE_LIMITS = {
         Limit("100 per minute;600 per hour", count="failures"),
     ),
 
+    # The other two places a mailed code is typed in, limited the same way.
+    # complete_account_upgrade names the address in the form; confirm_email
+    # takes it from the session's own account, so there the account is the
+    # key. Every code also stops working after a few wrong tries on its own
+    # (UniqueCode.MAX_ATTEMPTS); these limits are what keep someone from just
+    # asking for a fresh code and starting over, without limit.
+    "endpoints.complete_account_upgrade": (
+        Limit("10 per hour", key="form_email", count="failures"),
+        Limit("100 per minute;600 per hour", count="failures"),
+    ),
+    "endpoints.confirm_email": (
+        Limit("10 per hour", key="user", count="failures"),
+        Limit("100 per minute;600 per hour", count="failures"),
+    ),
+
+    # Class invite codes. Teachers choose them, so they are often words, and
+    # either endpoint tells a caller whether a guess names a class. Charged
+    # only for codes that don't, so a class typing its code in costs nothing,
+    # and a few typos each from thirty students on one NAT stay well under it.
+    # join_cohort needs a session, but anonymous sessions are free to make, so
+    # the per-account limit comes with the same per-IP one.
+    "endpoints.validate_invite_code": Limit("30 per minute;200 per hour", count="failures"),
+    "endpoints.join_cohort_api": (
+        Limit("10 per hour", key="user", count="failures"),
+        Limit("30 per minute;200 per hour", count="failures"),
+    ),
+
     # Account creation. A whole school onboarding at once has to fit under
     # this, which is why it is generous: invite codes, not this limit, are the
     # primary protection against mass bot registration.
@@ -163,6 +193,40 @@ def _succeeded(response):
     return 200 <= response.status_code < 300
 
 
+def _normalized_email(email):
+    """
+    An address folded about as far as the database folds it.
+
+    user.email and unique_code.email use utf8mb4_unicode_ci, which ignores
+    accents and width and treats ß as ss, as well as ignoring case. lower()
+    only does the last, so keying on it alone would hand every accented
+    spelling of an address its own bucket while the query behind the endpoint
+    still found the same row. This doesn't have to reproduce the collation
+    exactly: it only has to fold at least as much, for the addresses that have
+    no account (those with one are keyed by id, see _account_or_email_key).
+    """
+    decomposed = unicodedata.normalize("NFKD", email.strip())
+    return "".join(c for c in decomposed if not unicodedata.combining(c)).casefold()
+
+
+def _account_or_email_key(email):
+    """
+    The account an address resolves to, or the normalized address when there
+    is none.
+
+    The id is the one key that can't be spelt two ways: whichever variant of
+    the address a request uses, if the database says it is this account, it
+    lands in this account's bucket.
+    """
+    from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
+    from zeeguu.core.model.user import User
+
+    try:
+        return f"account-id:{User.find(email.strip()).id}"
+    except (NoResultFound, MultipleResultsFound):
+        return f"email:{_normalized_email(email)}"
+
+
 def _target_email_key():
     """
     Rate-limit key for endpoints that act on an address named in the route,
@@ -170,7 +234,17 @@ def _target_email_key():
     throttling whoever happens to be asking.
     """
     email = (flask.request.view_args or {}).get("email") or ""
-    return f"email:{email.strip().lower()}"
+    return _account_or_email_key(email)
+
+
+def _form_email_key():
+    """
+    As _target_email_key, for endpoints that take the address as a form
+    field. Falls back to the IP when there is none; the view rejects that
+    request anyway.
+    """
+    email = flask.request.form.get("email") or ""
+    return _account_or_email_key(email) if email.strip() else get_remote_address()
 
 
 def _target_account_key():
@@ -192,7 +266,7 @@ def _target_account_key():
     args = flask.request.view_args or {}
     email = args.get("email")
     if email:
-        return f"account:{email.strip().lower()}"
+        return _account_or_email_key(email)
     uuid = args.get("uuid")
     if uuid:
         # There is no uuid column on user: an anonymous account's uuid is the
@@ -281,6 +355,7 @@ def apply_rate_limits_to_endpoints(app):
         "session": _session_key,
         "user": _user_key,
         "target_email": _target_email_key,
+        "form_email": _form_email_key,
         "target_account": _target_account_key,
     }
 
