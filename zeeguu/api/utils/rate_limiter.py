@@ -339,6 +339,30 @@ def _redacted(uri):
     return urlunsplit(parts._replace(netloc=netloc))
 
 
+def _log_breach(request_limit):
+    """
+    One log line per refused request, so that a real user running into a
+    limit shows up in the daily log digest and the number can be raised.
+    Names the account when the request has a session and the address
+    otherwise; never the limiter key or the path, which can contain an email
+    address or a session id. The limiter runs before @requires_session, so
+    flask.g.user_id isn't set yet: the account comes from _user_key.
+    """
+    from zeeguu.logging import log
+
+    user_key = _user_key()
+    who = (
+        f"user={user_key.removeprefix('user:')}"
+        if user_key.startswith("user:")
+        else f"ip={get_remote_address()}"
+    )
+    log(
+        f"RATE LIMIT HIT: {who} endpoint={flask.request.endpoint} "
+        f"limit={request_limit.limit}"
+    )
+    return None  # keep the standard 429 response
+
+
 def init_limiter(app, enabled=True):
     """
     Initialize the rate limiter with the Flask app.
@@ -366,6 +390,7 @@ def init_limiter(app, enabled=True):
         # login among them. Per-worker counting is what we ran on for years;
         # a Redis restart shouldn't be an outage.
         in_memory_fallback_enabled=not storage_uri.startswith("memory://"),
+        on_breach=_log_breach,
     )
     limiter.enabled = enabled
 

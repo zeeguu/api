@@ -72,6 +72,20 @@ def test_full_article_audio_stops_at_the_daily_limit(client, limiting_enabled, _
     assert codes[30] == 429, "the 31st full-article request of the day went through"
 
 
+def test_a_refused_request_is_logged_with_account_and_endpoint(
+    client, limiting_enabled, _mock_web, caplog
+):
+    """The daily log digest finds limit hits by this line."""
+    reader = LoggedInClient(client, email="loud.listener@zeeguu.test")
+    for _ in range(31):
+        reader.response_from_post("/mp3_of_full_article")
+
+    hits = [r.getMessage() for r in caplog.records if "RATE LIMIT HIT" in r.getMessage()]
+    assert len(hits) == 1
+    assert re.search(r"user=\d+ endpoint=endpoints\.mp3_of_full_article limit=30 per 1 day", hits[0])
+    assert "@" not in hits[0], "the log line must not carry an email address"
+
+
 def test_logging_in_again_does_not_reset_the_allowance(client, limiting_enabled, _mock_web):
     """A second device, or a script that logs in afresh, shares the same bucket."""
     reader = LoggedInClient(client, email="twodevices@zeeguu.test")
