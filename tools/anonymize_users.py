@@ -16,7 +16,7 @@
 
    Run only against the anonymization copy (ZEEGUU_CONFIG=anon_api.cfg).
    Still not covered: bookmark contexts taken from uploaded texts, user ids
-   (the result is pseudonymous), see docs/security/SECURITY_ASSESSMENT_2026-10.md M1.
+   (the result is pseudonymous). See the Oct 2026 security assessment (docs repo).
 
    Article deletion uses the shared zeeguu.core.article_pruning helpers, so it
    deletes cleanly (FK checks ON, DB cascades owned children, shared content
