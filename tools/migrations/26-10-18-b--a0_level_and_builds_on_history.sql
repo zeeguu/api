@@ -18,3 +18,11 @@ ALTER TABLE audio_lesson_meaning
 -- anyone else (such a row is always is_general = 0).
 ALTER TABLE audio_lesson_dialogue
     ADD COLUMN builds_on_history TINYINT(1) NOT NULL DEFAULT 0;
+
+-- dialogue_ai_generator_id: such a lesson is written in two calls, the
+-- dialogue first, then the lesson around it, and the fallback chain may serve
+-- them from different providers. ai_generator_id records the lesson call; this
+-- records the call that wrote the dialogue. NULL for every other lesson.
+ALTER TABLE audio_lesson_dialogue
+    ADD COLUMN dialogue_ai_generator_id INT NULL,
+    ADD FOREIGN KEY (dialogue_ai_generator_id) REFERENCES ai_generator(id) ON DELETE SET NULL;

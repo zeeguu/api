@@ -28,7 +28,13 @@ LANGUAGE_ATTEMPTS = 3
 # What produced a script: the model that actually answered (not the one configured,
 # which a fallback chain can silently override) and the prompt file that was used.
 # Both are known at generation time and unrecoverable afterwards.
-GeneratedScript = namedtuple("GeneratedScript", ["script", "model_name", "prompt_version"])
+GeneratedScript = namedtuple(
+    "GeneratedScript",
+    ["script", "model_name", "prompt_version", "dialogue"],
+    # dialogue: for a lesson written in two calls, the GeneratedScript of the
+    # call that wrote its dialogue; None otherwise.
+    defaults=[None],
+)
 
 
 _PROMPT_VERSION = re.compile(r"-(v\d+)$")
@@ -268,15 +274,17 @@ def generate_dialogue_script(
         prompt_file = "a0_dialogue_lesson--pimsleur_style_situation-v1.txt"
         heard = heard or []
         learner_role = (learner_character or "man").capitalize()
+        dialogue = _dialogue_for_beginner(
+            origin_language, translation_language, suggestion, heard, learner_role
+        )
         prompt = get_prompt_template(prompt_file).format(
             **common,
             history=history_table(heard) or "Nothing yet: this is their first lesson.",
-            dialogue=_dialogue_for_beginner(
-                origin_language, translation_language, suggestion, heard, learner_role
-            ),
+            dialogue=dialogue.script,
             learner_role=learner_role,
         )
     else:
+        dialogue = None
         if lesson_type == "situation":
             prompt_file = "dialogue_lesson--situation-v2.txt"
         else:
@@ -307,7 +315,9 @@ def generate_dialogue_script(
             script = lines[1].strip()
 
         log(f"Successfully generated dialogue script, title: '{title}'")
-        return title, GeneratedScript(script, model_name, prompt_version_of(prompt_file))
+        return title, GeneratedScript(
+            script, model_name, prompt_version_of(prompt_file), dialogue
+        )
 
     except Exception as e:
         log(f"Failed to generate dialogue script: {e}")
@@ -324,6 +334,8 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
     had to drill, and kept tacking those on ("Goddag." / "Jeg forstår lidt." /
     "Værsgo."). Asked for alone, 5 of 5 were exchanges as they really happen.
     The lesson is then written around this dialogue and may not change it.
+    Returned as a GeneratedScript, so the model that wrote it is recorded too
+    (AudioLessonDialogue.dialogue_ai_generator).
     """
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     known = sorted({word for lesson in heard for word in lesson.words})
@@ -342,11 +354,15 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
         known_words=known_words,
         learner=learner_role.lower(),
     )
-    dialogue, _ = generate_script_in_languages(
+    dialogue, model_name = generate_script_in_languages(
         prompt,
         target_language=origin_language,
         source_language=translation_language,
         context=f"A0 dialogue '{suggestion}'",
         max_tokens=500,
     )
-    return "\n".join(line.strip() for line in dialogue.strip().splitlines() if line.strip())
+    return GeneratedScript(
+        "\n".join(line.strip() for line in dialogue.strip().splitlines() if line.strip()),
+        model_name,
+        prompt_version_of("a0_dialogue_lesson--dialogue-v1.txt"),
+    )

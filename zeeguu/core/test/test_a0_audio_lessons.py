@@ -238,3 +238,29 @@ def test_slow_beside_a_standalone_pause_slows_nobody():
         ("silence", "", 3.0, False),
         ("woman", "Kaffe.", 3.0, False),
     ]
+
+
+def test_each_of_the_two_calls_records_its_own_model(monkeypatch):
+    # The fallback chain works per call: the dialogue may come from DeepSeek
+    # while the lesson around it comes from Sonnet.
+    from zeeguu.core.audio_lessons import script_generator
+
+    answers = iter([
+        ("Woman: Hej! Hvad vil du have?\nMan: En kaffe, tak.", "deepseek-chat"),
+        ("Ordering a coffee\n\nTeacher: You are in a café. [1 seconds]\nMan: En kaffe, tak. [1 seconds]", "claude-sonnet-5-5"),
+    ])
+    monkeypatch.setattr(script_generator, "generate_script_in_languages", lambda *a, **k: next(answers))
+
+    title, generated = script_generator.generate_dialogue_script(
+        "da", "en", "at a café", "situation", cefr_level="A0", heard=[], learner_character="man"
+    )
+    assert generated.model_name == "claude-sonnet-5-5"
+    assert generated.prompt_version == "a0_dialogue_lesson-v1"
+    assert generated.dialogue.model_name == "deepseek-chat"
+    assert generated.dialogue.script.startswith("Woman: Hej!")
+
+
+def test_a_lesson_written_in_one_call_has_no_dialogue_record():
+    from zeeguu.core.audio_lessons.script_generator import GeneratedScript
+
+    assert GeneratedScript("s", "m", "v").dialogue is None

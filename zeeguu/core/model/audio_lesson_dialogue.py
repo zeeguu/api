@@ -54,7 +54,14 @@ class AudioLessonDialogue(db.Model):
     # fixed literal and cannot answer that: the fallback chain may serve from a
     # different provider than the configured one, so it has to be recorded here.
     ai_generator_id = Column(Integer, ForeignKey(AIGenerator.id), nullable=True)
-    ai_generator = relationship(AIGenerator)
+    ai_generator = relationship(AIGenerator, foreign_keys=[ai_generator_id])
+
+    # A lesson that builds on history is written in two calls (see
+    # script_generator._dialogue_for_beginner), which the fallback chain may
+    # serve from different providers: ai_generator is the lesson call, this is
+    # the call that wrote the dialogue -- where naturalness problems come from.
+    dialogue_ai_generator_id = Column(Integer, ForeignKey(AIGenerator.id), nullable=True)
+    dialogue_ai_generator = relationship(AIGenerator, foreign_keys=[dialogue_ai_generator_id])
 
     # When set, cache lookups skip this row and force regeneration. Existing
     # daily lesson segments that already reference it keep playing as before.
@@ -74,11 +81,14 @@ class AudioLessonDialogue(db.Model):
         ai_generator=None,
         variety=None,
         builds_on_history=False,
+        dialogue_ai_generator=None,
     ):
         assert not (builds_on_history and is_general), (
             "a lesson built on one learner's history cannot be general"
         )
         self.builds_on_history = builds_on_history
+        if dialogue_ai_generator:
+            self.dialogue_ai_generator_id = dialogue_ai_generator.id
         self.script = script
         self.canonical_suggestion = canonical_suggestion
         self.lesson_type = lesson_type

@@ -394,6 +394,9 @@ class DailyLessonGenerator:
             ai_generator=_ai_generator_for(generated),
             variety=voice_variety,
             builds_on_history=builds_on_history,
+            dialogue_ai_generator=(
+                _ai_generator_for(generated.dialogue) if generated.dialogue else None
+            ),
         )
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
