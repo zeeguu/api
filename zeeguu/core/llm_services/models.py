@@ -39,8 +39,16 @@ def output_tokens(model: str, wanted: int) -> int:
     """max_tokens to send `model` for a reply that may need `wanted` tokens.
 
     Capped at what the model accepts. A reply that needs more than the cap comes
-    back cut off; the services treat that as a failure, not as an answer."""
-    return min(wanted, MAX_OUTPUT_TOKENS.get(model, wanted))
+    back cut off, and most paths still return it as complete (zeeguu/api#863).
+    Every capping is logged, so the callers that ask a model for more than it
+    writes show up in the logs rather than passing silently."""
+    cap = MAX_OUTPUT_TOKENS.get(model)
+    if cap is not None and wanted > cap:
+        from zeeguu.logging import log
+
+        log(f"max_tokens capped for {model}: asked {wanted}, sent {cap}")
+        return cap
+    return wanted
 
 # --- Roles → model. Change the right-hand side to re-point a feature. ---
 
