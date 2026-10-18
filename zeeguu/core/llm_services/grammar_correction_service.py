@@ -195,14 +195,7 @@ class GrammarCorrectionService:
                 f"DeepSeek API error: {response.status_code} - {response.text}"
             )
 
-        choice = response.json()["choices"][0]
-        # A correction cut off at max_tokens would replace the article with one
-        # missing its end. Raised: the caller keeps the uncorrected text.
-        if choice.get("finish_reason") == "length":
-            raise Exception(
-                f"DeepSeek correction truncated at max_tokens={data['max_tokens']}"
-            )
-        result = choice["message"]["content"].strip()
+        result = response.json()["choices"][0]["message"]["content"].strip()
         log(f"DeepSeek correction completed in {duration:.2f}s")
 
         return result

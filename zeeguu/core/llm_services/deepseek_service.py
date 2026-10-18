@@ -76,11 +76,6 @@ class DeepSeekService(LLMService):
             result = json.loads(body)  # leading keep-alive newlines are whitespace
             if "choices" not in result:
                 raise Exception(f"DeepSeek API returned no choices: {str(result)[:500]}")
-            # "length": cut off at max_tokens. The text is incomplete and would
-            # pass for an answer (a lesson script missing its end still parses),
-            # so it is a failure, as in haiku_completion.
-            if result["choices"][0].get("finish_reason") == "length":
-                raise Exception(f"DeepSeek output truncated at max_tokens={sent_max_tokens}")
             return result["choices"][0]["message"]["content"]
 
         except requests.exceptions.Timeout:

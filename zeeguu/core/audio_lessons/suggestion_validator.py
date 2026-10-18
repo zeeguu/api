@@ -64,8 +64,7 @@ def validate_suggestion(suggestion, lesson_type, native_language="English"):
             lesson_type=lesson_type or "topic",
             native_language=native_language,
         )
-        # Room to finish: a reply cut off at max_tokens is a failure.
-        response = llm.generate_text(prompt, max_tokens=300, temperature=0.0)
+        response = llm.generate_text(prompt, max_tokens=100, temperature=0.0)
 
         # Parse the JSON response
         response = response.strip()

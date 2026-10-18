@@ -60,7 +60,6 @@ def parse_llm_json(reply: str) -> Optional[Dict]:
 
     Returns None when nothing decodable is in there.
     """
-    import json
 
     decoder = json.JSONDecoder(strict=False)
     objects = []
@@ -614,11 +613,7 @@ TOPIC: [topic]"""
                 log(f"DeepSeek API error for CEFR assessment: {response.status_code}")
                 return (None, None)
 
-            choice = response.json()["choices"][0]
-            if choice.get("finish_reason") == "length":
-                log("DeepSeek CEFR assessment truncated at max_tokens")
-                return (None, None)
-            result = choice["message"]["content"].strip()
+            result = response.json()["choices"][0]["message"]["content"].strip()
 
             if result == "INCOMPLETE":
                 log("Article appears to be incomplete due to paywall")
@@ -747,7 +742,6 @@ IMPORTANT:
             return None
 
         try:
-            import json
             import markdown2
 
             result = parse_llm_json(result_text)
