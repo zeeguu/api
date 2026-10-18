@@ -83,7 +83,8 @@ def main():
         lesson_type="situation",
         cefr_level="A0",
         heard=heard,
-        # As in the app: the chosen character, else the two take turns.
+        # The chosen character, else the two take turns over the earlier lessons
+        # given, as the app does over all of a user's lessons of this kind.
         learner_character=args.character or ("man" if len(heard) % 2 == 0 else "woman"),
     )
 

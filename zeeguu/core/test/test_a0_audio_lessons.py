@@ -50,6 +50,16 @@ def test_a_slow_line_is_marked_and_the_marker_is_not_text():
     assert target_language_words(script) == Counter({"kaffe": 2})
 
 
+def test_a_slow_marker_on_its_own_line_slows_nobody():
+    from zeeguu.core.audio_lessons.script_parser import parse_script
+
+    script = "Teacher: Listen. [1 seconds]\n[slow]\nWoman: Kaffe. [3 seconds]\n"
+    assert parse_script(script, with_speed=True) == [
+        ("teacher", "Listen.", 1.0, False),
+        ("woman", "Kaffe.", 3.0, False),
+    ]
+
+
 def test_a_short_word_inside_a_longer_one_still_counts():
     # "ja" said once, inside "jakke" said often: it was heard, and stays.
     script = "Woman: Ja. [1 seconds]\nMan: En jakke. [1 seconds]\nMan: En jakke. [1 seconds]\n"
@@ -66,7 +76,8 @@ def test_history_table_puts_the_most_recent_words_first():
     assert lines[0] == "Lesson 1: At the café"
     assert lines[1] == "Lesson 2: In the shop"
     rows = [line.split()[0] for line in lines[4:]]
-    # Heard in lesson 2 first (kroner, the more heard, before undskyld), then lesson 1 only.
+    # Words of the latest lesson first, those most heard overall before the
+    # others (undskyld 17 before kroner 9), then words of lesson 1 only.
     assert rows == ["undskyld", "kroner", "kaffe"]
     assert "2 (3), 1 (14)" in table
 
@@ -116,6 +127,12 @@ class LevelTest(ModelTestMixIn):
         self._level(3)
         self.user.set_learned_language(self.user.learned_language.code, "", db.session)
         assert self.user.audio_lesson_level_for_learned_language() == "B1"
+
+    def test_an_unusable_level_falls_back_to_a1_for_audio(self):
+        self._level(7)
+        assert self.user.audio_lesson_level_for_learned_language() == "A1"
+        with pytest.raises(ValueError):
+            self.user.cefr_level_for_learned_language()
 
     def test_parse_cefr_level(self):
         assert UserLanguage.parse_cefr_level(None) is None

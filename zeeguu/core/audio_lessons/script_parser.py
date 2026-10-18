@@ -18,6 +18,7 @@ _VOICE_LABEL_PATTERN = re.compile(
 _VOICE_LINE_PATTERN = re.compile(
     r"^(" + "|".join(VOICE_LABELS) + r"):\s*(.+)$", re.IGNORECASE
 )
+_SLOW_MARKER = re.compile(r"\s*\[slow\]", re.IGNORECASE)
 
 
 def join_continuation_lines(script: str) -> str:
@@ -40,6 +41,10 @@ def join_continuation_lines(script: str) -> str:
 
         if _VOICE_LABEL_PATTERN.match(stripped):
             joined_lines.append(stripped)
+        elif _SLOW_MARKER.fullmatch(stripped):
+            # A [slow] on a line of its own belongs to no line: appended to the
+            # previous one, it would slow down whoever spoke last.
+            continue
         elif stripped.startswith("[") and re.search(
             r"\[([0-9.]+)\s*seconds?", stripped, re.IGNORECASE
         ):
@@ -51,9 +56,6 @@ def join_continuation_lines(script: str) -> str:
         # else: orphan line before any voice line - skip it
 
     return "\n".join(joined_lines)
-
-
-_SLOW_MARKER = re.compile(r"\s*\[slow\]", re.IGNORECASE)
 
 
 def parse_script(script: str, with_speed: bool = False) -> List[Tuple]:

@@ -202,7 +202,7 @@ class VoiceSynthesizer:
                     on_progress(current_speech_segment, total_speech_segments, voice_type)
 
                 rate = speaking_rate if voice_type in ["man", "woman", "teacherl2"] else 1.0
-                if slow:
+                if slow and voice_type in ["man", "woman", "teacherl2"]:
                     # A word said slowly so a beginner can hear its sounds: slowing
                     # the whole word keeps it natural, which saying it in syllables
                     # with TTS does not ("ka.ka. fee.fee").

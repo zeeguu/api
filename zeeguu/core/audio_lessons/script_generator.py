@@ -253,37 +253,36 @@ def generate_dialogue_script(
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
+    # 8000 also covers the A0 scripts (1.6k-4k tokens measured), and is what the
+    # DeepSeek fallback accepts: deepseek-chat rejects max_tokens above 8192.
     max_tokens = 8000
-    from_history = builds_on_history(cefr_level)
-    if from_history:
-        # One prompt for topics and situations: at A0 a topic is a situation
-        # where people talk about it. Pimsleur-length repetition makes the
-        # script about twice as long as an ordinary dialogue lesson.
-        prompt_file = "a0_dialogue_lesson--pimsleur_style_situation-v1.txt"
-        max_tokens = 16000
-    elif lesson_type == "situation":
-        prompt_file = "dialogue_lesson--situation-v2.txt"
-    else:
-        prompt_file = "dialogue_lesson--topic-v2.txt"
-
-    dialogue = learner_role = None
-    if from_history:
-        heard = heard or []
-        learner_role = (learner_character or "man").capitalize()
-        dialogue = _dialogue_for_beginner(
-            origin_language, translation_language, suggestion, heard, learner_role
-        )
-
-    prompt_template = get_prompt_template(prompt_file)
-    prompt = prompt_template.format(
+    common = dict(
         target_language=origin_lang_name,
         source_language=translation_lang_name,
         cefr_level=cefr_level,
         suggestion=suggestion,
-        history=history_table(heard or []) or "Nothing yet: this is their first lesson.",
-        dialogue=dialogue,
-        learner_role=learner_role,
     )
+
+    if builds_on_history(cefr_level):
+        # One prompt for topics and situations: at A0 a topic is a situation
+        # where people talk about it.
+        prompt_file = "a0_dialogue_lesson--pimsleur_style_situation-v1.txt"
+        heard = heard or []
+        learner_role = (learner_character or "man").capitalize()
+        prompt = get_prompt_template(prompt_file).format(
+            **common,
+            history=history_table(heard) or "Nothing yet: this is their first lesson.",
+            dialogue=_dialogue_for_beginner(
+                origin_language, translation_language, suggestion, heard, learner_role
+            ),
+            learner_role=learner_role,
+        )
+    else:
+        if lesson_type == "situation":
+            prompt_file = "dialogue_lesson--situation-v2.txt"
+        else:
+            prompt_file = "dialogue_lesson--topic-v2.txt"
+        prompt = get_prompt_template(prompt_file).format(**common)
 
     if past_titles:
         titles_list = "\n".join([f"- {t}" for t in past_titles])
@@ -351,7 +350,4 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
         context=f"A0 dialogue '{suggestion}'",
         max_tokens=500,
     )
-    # The learner learns to say one role's lines and to understand the other's;
-    # the dialogue names theirs on its first line. Without it, the one who
-    # answers the first line: the situation is about them more often than not.
     return "\n".join(line.strip() for line in dialogue.strip().splitlines() if line.strip())

@@ -1310,12 +1310,18 @@ class User(db.Model):
     CEFR_LEVELS = ["A0", "A1", "A2", "B1", "B2", "C1", "C2"]
 
     def _stored_cefr_level(self, language):
+        """The stored level as A0..C2; ValueError when there is none to use."""
+        from sqlalchemy.orm.exc import NoResultFound
         from zeeguu.core.model import UserLanguage
 
-        lang_info = UserLanguage.with_language_id(language.id, self)
-        if lang_info.cefr_level is None:
-            raise ValueError(f"no CEFR level set for {language.code}")
-        return self.CEFR_LEVELS[lang_info.cefr_level]
+        try:
+            lang_info = UserLanguage.with_language_id(language.id, self)
+        except NoResultFound:
+            raise ValueError(f"no user_language for {language.code}")
+        level = lang_info.cefr_level
+        if level is None or not 0 <= level < len(self.CEFR_LEVELS):
+            raise ValueError(f"no usable CEFR level for {language.code}: {level}")
+        return self.CEFR_LEVELS[level]
 
     def cefr_level_for_language(self, language):
         """

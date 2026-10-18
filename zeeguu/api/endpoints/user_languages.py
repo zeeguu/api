@@ -42,8 +42,9 @@ def modify_user_language():
     except:
         language_exercises = None
     try:
-        language_level = int(request.form.get("language_level", ""))
-    except:
+        # 0 is A0 (see UserLanguage.parse_cefr_level); out of range is ignored.
+        language_level = UserLanguage.parse_cefr_level(request.form.get("language_level", ""))
+    except ValueError:
         language_level = None
     user = User.find_by_id(flask.g.user_id)
     language_object = Language.find(language_code)

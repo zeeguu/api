@@ -148,6 +148,15 @@ def add_anon_user():
     platform = request.form.get("platform", None)
     invite_code = request.form.get("invite_code", None)
 
+    # Checked before the user is created: a bad level after the commit below
+    # would leave the account half-made, and a retry with the same uuid fails.
+    from zeeguu.core.model import UserLanguage
+
+    try:
+        UserLanguage.parse_cefr_level(cefr_level)
+    except ValueError:
+        return bad_request("Could not create anon user: invalid learned_cefr_level.")
+
     try:
         generated_username, adjective, animal = User.generate_unique_username()
         generated_display_name = f"{adjective.capitalize()} {animal.capitalize()}"
