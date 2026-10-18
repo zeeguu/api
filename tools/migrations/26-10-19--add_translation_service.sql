@@ -13,7 +13,11 @@
 -- so only the log keeps which engine got it wrong.
 --
 -- NULL for everything before this migration; that history is gone.
--- bookmark is ~550k rows / 40 MB, so the ALTER is quick.
+--
+-- foreign_key_checks off for the ALTERs: on MySQL 5.7 adding a foreign key
+-- with checks on forces ALGORITHM=COPY, which blocks writes to bookmark (every
+-- lookup) while it copies; with checks off it runs INPLACE and lookups go on.
+-- Safe here because the new columns are all NULL, so nothing is left unchecked.
 
 CREATE TABLE translation_service (
     id SMALLINT AUTO_INCREMENT PRIMARY KEY,
@@ -21,6 +25,8 @@ CREATE TABLE translation_service (
         COMMENT 'as the translate endpoint names it, e.g. DeepL, LLM, MANUAL',
     UNIQUE KEY uq_translation_service_name (name)
 ) DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET foreign_key_checks = 0;
 
 ALTER TABLE bookmark
     ADD COLUMN translation_service_id SMALLINT NULL,
@@ -31,3 +37,5 @@ ALTER TABLE validation_log
     ADD COLUMN translation_service_id SMALLINT NULL,
     ADD CONSTRAINT validation_log_translation_service_fk
         FOREIGN KEY (translation_service_id) REFERENCES translation_service(id);
+
+SET foreign_key_checks = 1;

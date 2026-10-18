@@ -47,8 +47,19 @@ class TranslationService(db.Model):
                 found = cls(name)
                 session.add(found)
         except IntegrityError:
-            # Another request created it first; anything else is a real error
-            found = cls.query.filter_by(name=name).first()
+            # Another request created it first; anything else is a real error.
+            # A locking read: a plain SELECT would reuse this transaction's
+            # REPEATABLE READ snapshot from the lookup above, which predates
+            # the other request's row.
+            found = cls.query.filter_by(name=name).with_for_update(read=True).first()
             if found is None:
                 raise
         return found
+
+    @classmethod
+    def known(cls, name):
+        """The existing service with this name, or None; never creates one.
+        For names that come from a client rather than from our own code."""
+        if not isinstance(name, str) or not name.strip():
+            return None
+        return cls.query.filter_by(name=name.strip()[:50]).first()

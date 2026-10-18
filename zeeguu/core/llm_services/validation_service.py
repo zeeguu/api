@@ -28,9 +28,22 @@ from typing import Optional
 from zeeguu.logging import log
 
 
-def _service_of(bookmark):
-    """Who produced the translation being judged, for the validation log."""
-    return bookmark.translation_service_id if bookmark else None
+def _engine_of(user_word):
+    """Who produced the pair being judged, for the validation log: the service
+    on the user word's earliest bookmark that records one. Not the preferred
+    bookmark's: before the first exercise that is often a generated example
+    sentence (example_contexts), which is a placement, not a translation."""
+    from zeeguu.core.model.bookmark import Bookmark
+
+    first = (
+        Bookmark.query.filter(
+            Bookmark.user_word_id == user_word.id,
+            Bookmark.translation_service_id.isnot(None),
+        )
+        .order_by(Bookmark.id)
+        .first()
+    )
+    return first.translation_service_id if first else None
 
 
 class UserWordValidationService:
@@ -216,7 +229,7 @@ class UserWordValidationService:
             meaning=meaning,
             user_word_id=user_word.id,
             context=context,
-            translation_service_id=_service_of(user_word.preferred_bookmark),
+            translation_service_id=_engine_of(user_word),
         )
 
         db_session.commit()
@@ -261,7 +274,7 @@ class UserWordValidationService:
                 user_word_id=user_word.id,
                 reason=validation_result.reason,
                 context=context,
-                translation_service_id=_service_of(bookmark),
+                translation_service_id=_engine_of(user_word),
             )
 
             db_session.commit()
@@ -309,7 +322,7 @@ class UserWordValidationService:
                 user_word_id=user_word.id,
                 reason=validation_result.reason,
                 context=context,
-                translation_service_id=_service_of(bookmark),
+                translation_service_id=_engine_of(user_word),
             )
 
             # Find or create UserWord for new meaning
@@ -350,7 +363,7 @@ class UserWordValidationService:
                 meaning=new_meaning,
                 user_word_id=user_word.id,
                 context=context,
-                translation_service_id=_service_of(bookmark),
+                translation_service_id=_engine_of(user_word),
             )
 
             db_session.commit()

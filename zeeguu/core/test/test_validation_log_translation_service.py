@@ -32,8 +32,8 @@ class ValidationLogTranslationServiceTest(ModelTestMixIn, TestCase):
         self.user_word.preferred_bookmark = self.bookmark
         session.add_all([self.bookmark, self.user_word])
         session.commit()
-        self.deepl_id = self.bookmark.translation_service_id
-        self.assertIsNotNone(self.deepl_id)
+        self.engine_id = self.bookmark.translation_service_id
+        self.assertIsNotNone(self.engine_id)
 
     def _validate(self, result):
         with patch(
@@ -48,16 +48,31 @@ class ValidationLogTranslationServiceTest(ModelTestMixIn, TestCase):
         )
         logged = ValidationLog.query.one()
         self.assertEqual(logged.action, ValidationAction.FIXED)
-        self.assertEqual(logged.translation_service_id, self.deepl_id)
+        self.assertEqual(logged.translation_service_id, self.engine_id)
         self.assertEqual(self.bookmark.translation_service.name, TranslationService.VALIDATOR)
         self.assertNotEqual(new_word.id, self.user_word.id)
 
     def test_a_valid_verdict_logs_the_engine(self):
         self._validate(ValidationResult(is_valid=True))
-        self.assertEqual(ValidationLog.query.one().translation_service_id, self.deepl_id)
+        self.assertEqual(ValidationLog.query.one().translation_service_id, self.engine_id)
 
     def test_one_row_per_service(self):
         first = TranslationService.find_or_create(session, "DeepL")
         again = TranslationService.find_or_create(session, "DeepL")
         self.assertEqual(first.id, again.id)
         self.assertIsNotNone(first.id)
+
+    def test_an_example_sentence_bookmark_does_not_hide_the_engine(self):
+        # Before the first exercise the preferred bookmark is often a generated
+        # example (example_contexts), which records no service.
+        example = BookmarkRule(self.user_word.user).bookmark
+        example.user_word_id = self.user_word.id
+        session.add(example)
+        session.flush()
+        self.user_word.preferred_bookmark = example
+        session.add(self.user_word)
+        session.commit()
+        self.assertIsNone(example.translation_service_id)
+
+        self._validate(ValidationResult(is_valid=True))
+        self.assertEqual(ValidationLog.query.one().translation_service_id, self.engine_id)

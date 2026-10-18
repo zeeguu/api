@@ -58,12 +58,63 @@ def test_a_custom_word_is_manual(client):
 
 
 def test_a_chosen_alternative_records_its_service_when_the_client_sends_it(client):
+    from zeeguu.core.model import db
+
     add_context_types()
     add_source_types()
     bookmark_id = add_one_bookmark(client)
+    TranslationService.find_or_create(db.session, "Microsoft")
+    db.session.commit()
     client.post(f"/update_bookmark_translation/{bookmark_id}",
                 json={"translation": "after", "translation_service": "Microsoft"})
     assert _service(bookmark_id) == "Microsoft"
+
+
+def test_a_client_cannot_invent_services(client):
+    add_context_types()
+    add_source_types()
+    bookmark_id = add_one_bookmark(client)
+    services_before = TranslationService.query.count()
+    client.post(f"/update_bookmark_translation/{bookmark_id}",
+                json={"translation": "after", "translation_service": "made up"})
+    assert _service(bookmark_id) == TranslationService.CHOSEN_ALTERNATIVE
+    # CHOSEN_ALTERNATIVE itself is the only new row
+    assert TranslationService.query.count() == services_before + 1
+
+    response = client.client.post(
+        client.append_session(f"/update_bookmark_translation/{bookmark_id}"),
+        json={"translation": "before", "translation_service": 123},
+    )
+    assert response.status_code == 200
+    assert _service(bookmark_id) == TranslationService.CHOSEN_ALTERNATIVE
+
+
+def test_a_contributed_translation_with_a_null_service_is_manual(client):
+    add_context_types()
+    add_source_types()
+    article = create_and_get_article(client)
+    context_i = ContextIdentifier(ContextType.ARTICLE_TITLE, None, article["id"])
+    result = client.post(
+        "/contribute_translation/de/en",
+        json={"word": "hinter", "translation": "behind", "context": "stellt sich hinter Präsident",
+              "source_id": article["source_id"], "context_identifier": context_i.as_dictionary(),
+              "servicename_translation": None},
+    )
+    assert _service(result["bookmark_id"]) == TranslationService.MANUAL
+
+
+def test_editing_only_the_word_makes_the_pair_manual(client):
+    from zeeguu.core.model import db
+
+    add_context_types()
+    add_source_types()
+    bookmark_id = add_one_bookmark(client)
+    Bookmark.find(bookmark_id).set_translation_service(db.session, "DeepL")
+    db.session.commit()
+    client.post(f"/update_bookmark/{bookmark_id}",
+                json={"word": "sich", "translation": "behind", "context": "stellt sich hinter Präsident",
+                      "context_identifier": {"context_type": "ArticleTitle"}})
+    assert _service(bookmark_id) == TranslationService.MANUAL
 
 
 def test_a_chosen_alternative_from_an_older_client_is_still_marked(client):

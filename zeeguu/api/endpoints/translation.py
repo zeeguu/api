@@ -466,8 +466,11 @@ def update_bookmark_translation_only(bookmark_id):
     if not new_translation:
         return json_result({"error": "Translation required"}, status=400)
     # Optional: the alternative's source as the menu showed it. Clients that
-    # predate it send only the translation.
-    service = request.json.get("translation_service") or TranslationService.CHOSEN_ALTERNATIVE
+    # predate it send only the translation. Only a service we already know
+    # counts: the alternatives come from the engines that win lookups, and a
+    # client must not be able to add rows to translation_service.
+    service = TranslationService.known(request.json.get("translation_service"))
+    service_name = service.name if service else TranslationService.CHOSEN_ALTERNATIVE
 
     # Find or create new Meaning with the new translation
     old_meaning = bookmark.user_word.meaning
@@ -507,7 +510,7 @@ def update_bookmark_translation_only(bookmark_id):
         cleanup_old_user_word(db_session, old_user_word, bookmark)
 
     if new_meaning.id != old_meaning.id:
-        bookmark.set_translation_service(db_session, service)
+        bookmark.set_translation_service(db_session, service_name)
     db_session.commit()
 
     # Return updated bookmark
@@ -605,7 +608,8 @@ def update_bookmark_full(bookmark_id):
         transfer_learning_progress(db_session, old_user_word, new_user_word, bookmark)
 
     # Step 6: Reassign bookmark to new entities
-    if meaning.translation.content != old_user_word.meaning.translation.content:
+    if meaning.id != old_user_word.meaning_id:
+        # The learner's own pair now, whichever half they changed
         bookmark.set_translation_service(db_session, TranslationService.MANUAL)
     bookmark.user_word_id = new_user_word.id
     bookmark.text = text
@@ -701,7 +705,7 @@ def contribute_translation(from_lang_code, to_lang_code):
     )
     # when a translation is added by hand, the servicename_translation is None
     # thus we set it to MANUAL
-    service_name = request_params.get("servicename_translation", "MANUAL")
+    service_name = request_params.get("servicename_translation") or TranslationService.MANUAL
     article_id = None
     if "articleID" in url:
         article_id = url.split("articleID=")[-1]
