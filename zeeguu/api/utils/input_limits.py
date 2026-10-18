@@ -20,11 +20,11 @@ MAX_PHRASE_CHARS = 1000
 # scraped pages produce.
 MAX_CONTEXT_CHARS = 10_000
 
-# A whole text that a teacher adapts in the editor. Simplification output is
-# capped at 8000 tokens (simplification_service.LEVEL_MAX_TOKENS), so a text
-# much past ~40k characters already comes back truncated as a 422; 60k leaves
-# room for scripts that pack more characters into a token.
-MAX_OWN_TEXT_CHARS = 60_000
+# A whole text that a teacher simplifies in the editor. 20k characters is about
+# 3,500 words: in Oct 2026, 96% of uploaded texts were shorter (average 5.5k).
+# Longer texts are better simplified in parts, and each call is billed by its
+# length. Uploading and reading a longer text is not limited.
+MAX_OWN_TEXT_CHARS = 20_000
 
 # An article translated and adapted in one LLM call. The reply is capped at
 # 16000 tokens, about 60k characters; anything much longer than that cannot

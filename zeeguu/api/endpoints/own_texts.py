@@ -194,7 +194,12 @@ def simplify_own_text():
     if target_level not in CEFR_LEVELS:
         return make_error(400, f"cefr_level must be one of {', '.join(CEFR_LEVELS)}")
     abort_if_too_long("title", title, MAX_TITLE_CHARS)
-    abort_if_too_long("content", content, MAX_OWN_TEXT_CHARS)
+    if len(content) > MAX_OWN_TEXT_CHARS:
+        return make_error(
+            400,
+            f"This text is too long to simplify in one go (maximum "
+            f"{MAX_OWN_TEXT_CHARS:,} characters). Split it into parts.",
+        )
 
     log(
         f"simplify_own_text: target={target_level}, language={language_code}, "

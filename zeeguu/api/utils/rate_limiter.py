@@ -207,19 +207,19 @@ RATE_LIMITS = {
     # of exercises with an unusually inventive learner.
     "endpoints.judge_cloze_alternative": Limit("500 per day", key="user"),
 
-    # Whole-text LLM calls: the expensive ones. A teacher preparing ten texts,
-    # each at three levels, with a retry or two, is about sixty adaptations;
-    # a learner tapping Simplify or Translate on every article in the feed
-    # manages perhaps twenty.
-    "endpoints.simplify_own_text": Limit("100 per day", key="user"),
-    "endpoints.simplify_article": Limit("100 per day", key="user"),
-    "endpoints.translate_and_adapt_article": Limit("50 per day", key="user"),
-    "endpoints.article_upload_simplify": Limit("50 per day", key="user"),
-    "endpoints.article_upload_translate_and_adapt": Limit("50 per day", key="user"),
+    # Whole-text LLM calls: the expensive ones, so tighter than the rest. Ten
+    # texts at three levels is thirty simplifications; the busiest teacher-day
+    # in the year to Oct 2026 was 25 uploads. Anyone hitting these shows up as
+    # RATE LIMIT HIT in the daily log digest; raise the number then.
+    "endpoints.simplify_own_text": Limit("30 per day", key="user"),
+    "endpoints.simplify_article": Limit("30 per day", key="user"),
+    "endpoints.translate_and_adapt_article": Limit("20 per day", key="user"),
+    "endpoints.article_upload_simplify": Limit("20 per day", key="user"),
+    "endpoints.article_upload_translate_and_adapt": Limit("20 per day", key="user"),
     # Promoting an upload runs an LLM CEFR assessment the first time.
-    "endpoints.article_upload_promote": Limit("100 per day", key="user"),
+    "endpoints.article_upload_promote": Limit("30 per day", key="user"),
     # The teacher's "assess with LLM" button in the text editor.
-    "endpoints.assess_llm": Limit("100 per day", key="user"),
+    "endpoints.assess_llm": Limit("30 per day", key="user"),
     # Each share generates a copy adapted to the recipient, and sends an email.
     # A hundred shares in a day is more friends than anyone has.
     "endpoints.share_article_with_friend": Limit("100 per day", key="user"),
