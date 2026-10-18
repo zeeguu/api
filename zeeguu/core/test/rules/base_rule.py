@@ -26,12 +26,15 @@ class BaseRule:
 
     @classmethod
     def save(cls, obj):
+        # Retry once after a rollback; a second failure is not transient,
+        # so let it surface instead of recursing until RecursionError.
         try:
             cls.db.session.add(obj)
             cls.db.session.commit()
         except InvalidRequestError:
             cls.db.session.rollback()
-            cls.save(obj)
+            cls.db.session.add(obj)
+            cls.db.session.commit()
 
     def _create_model_object(self, *args):
         raise NotImplementedError
