@@ -17,6 +17,8 @@ Model IDs are authoritative as of 2026-10 (Sonnet 4.5 retires 2026-11-30). See
 https://platform.claude.com/docs/en/about-claude/models/overview for current IDs.
 """
 
+from zeeguu.logging import log
+
 # --- Canonical model IDs — the ONLY place a raw model string appears ---
 ANTHROPIC_SONNET = "claude-sonnet-5-5"  # current Sonnet tier; thinking off via claude.request_options
 ANTHROPIC_HAIKU = "claude-haiku-5-5"  # current Haiku (fast / cheap); low-effort thinking via claude.request_options
@@ -28,10 +30,13 @@ DEEPSEEK_CHAT = "deepseek-chat"
 # each asks for what its reply needs through output_tokens(), and a model with a
 # lower cap -- typically the fallback -- gets its cap instead of a 400. On
 # 2026-10-18 the A0 audio lessons asked for 16000, which would have failed every
-# time Anthropic did. A model that is not listed is not capped here.
+# time Anthropic did.
+# Keys are model-id prefixes, matched like claude.py matches its models, so a
+# new snapshot of a listed family is capped too. A model matching none is not
+# capped here.
 # DeepSeek: https://api-docs.deepseek.com/quick_start/pricing
 MAX_OUTPUT_TOKENS = {
-    DEEPSEEK_CHAT: 8192,
+    "deepseek-": 8192,
 }
 
 
@@ -42,10 +47,11 @@ def output_tokens(model: str, wanted: int) -> int:
     back cut off, and most paths still return it as complete (zeeguu/api#863).
     Every capping is logged, so the callers that ask a model for more than it
     writes show up in the logs rather than passing silently."""
-    cap = MAX_OUTPUT_TOKENS.get(model)
+    cap = next(
+        (cap for prefix, cap in MAX_OUTPUT_TOKENS.items() if model.startswith(prefix)),
+        None,
+    )
     if cap is not None and wanted > cap:
-        from zeeguu.logging import log
-
         log(f"max_tokens capped for {model}: asked {wanted}, sent {cap}")
         return cap
     return wanted

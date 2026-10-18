@@ -5,8 +5,6 @@ its cap instead of rejecting the request.
 """
 from types import SimpleNamespace
 
-import pytest
-
 from zeeguu.core.llm_services import models
 from zeeguu.core.llm_services.anthropic_service import AnthropicService
 from zeeguu.core.llm_services.deepseek_service import DeepSeekService
@@ -45,3 +43,7 @@ def test_anthropic_is_sent_what_was_asked_when_its_model_has_no_cap():
     service.client = SimpleNamespace(messages=SimpleNamespace(create=create))
     assert service.generate_text("u", max_tokens=16000) == "ok"
     assert sent["max_tokens"] == 16000
+
+
+def test_a_new_snapshot_of_a_capped_family_is_capped_too():
+    assert models.output_tokens("deepseek-chat-v4", 16000) == 8192

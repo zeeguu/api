@@ -24,6 +24,10 @@ from zeeguu.core.llm_services.prompts.level_simplification import (
 # 8-13s with either provider; the learner waits, and a wrong-language reply is asked
 # again before the next provider is tried, so the timeout bounds that wait 4 times over.
 LEVEL_MAX_TOKENS = 8000
+
+# A whole chapter translated and adapted in one reply runs at least as long as
+# the input. Asked of both providers; output_tokens caps it per model.
+TRANSLATE_AND_ADAPT_MAX_TOKENS = 16000
 LEVEL_TIMEOUT = 60
 
 
@@ -313,6 +317,7 @@ class SimplificationService:
         return None
 
     def _complete_deepseek(self, prompt: str) -> str:
+        sent_max_tokens = models.output_tokens(models.DEEPSEEK_GENERAL, LEVEL_MAX_TOKENS)
         response = requests.post(
             "https://api.deepseek.com/v1/chat/completions",
             headers={
@@ -322,7 +327,7 @@ class SimplificationService:
             json={
                 "model": models.DEEPSEEK_GENERAL,
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": models.output_tokens(models.DEEPSEEK_GENERAL, LEVEL_MAX_TOKENS),
+                "max_tokens": sent_max_tokens,
                 "temperature": 0.1,
             },
             timeout=LEVEL_TIMEOUT,
@@ -331,7 +336,7 @@ class SimplificationService:
             raise Exception(f"DeepSeek API error: {response.status_code} - {response.text[:200]}")
         choice = response.json()["choices"][0]
         if choice.get("finish_reason") == "length":
-            raise Exception(f"DeepSeek output truncated at max_tokens={LEVEL_MAX_TOKENS}")
+            raise Exception(f"DeepSeek output truncated at max_tokens={sent_max_tokens}")
         return (choice["message"]["content"] or "").strip()
 
     def _complete_haiku(self, prompt: str) -> Optional[str]:
@@ -736,7 +741,7 @@ IMPORTANT:
         # returns None (it treats stop_reason "max_tokens" as a failure) rather
         # than handing back truncated, unparseable JSON.
         result_text = haiku_completion(
-            prompt, max_tokens=16000, temperature=0.3, timeout=120
+            prompt, max_tokens=TRANSLATE_AND_ADAPT_MAX_TOKENS, temperature=0.3, timeout=120
         )
         if not result_text:
             return None
@@ -826,11 +831,13 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
                 json={
                     "model": models.DEEPSEEK_GENERAL,
                     "messages": [{"role": "user", "content": prompt}],
-                    # The 16000 the Haiku path asks for (above); output_tokens caps it
+                    # What the Haiku path asks for (above); output_tokens caps it
                     # at what deepseek-chat writes, 8192, so a long chapter that
                     # fits Haiku may not fit here. Anything longer is caught by the
                     # finish_reason check below rather than truncated silently.
-                    "max_tokens": models.output_tokens(models.DEEPSEEK_GENERAL, 16000),
+                    "max_tokens": models.output_tokens(
+                        models.DEEPSEEK_GENERAL, TRANSLATE_AND_ADAPT_MAX_TOKENS
+                    ),
                     "temperature": 0.3,
                 },
                 timeout=120,

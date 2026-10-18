@@ -35,8 +35,6 @@ class DeepSeekService(LLMService):
             "Content-Type": "application/json"
         }
 
-        sent_max_tokens = models.output_tokens(self.model, max_tokens)
-
         # DeepSeek uses OpenAI-compatible format
         payload = {
             "model": self.model,
@@ -44,7 +42,7 @@ class DeepSeekService(LLMService):
                 {"role": "system", "content": prompt["system"]},
                 {"role": "user", "content": prompt["user"]}
             ],
-            "max_tokens": sent_max_tokens,
+            "max_tokens": models.output_tokens(self.model, max_tokens),
             "temperature": temperature
         }
 
