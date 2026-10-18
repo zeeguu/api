@@ -6,8 +6,11 @@ import os
 import time
 from datetime import datetime, timezone, timedelta
 
+from sqlalchemy.orm import sessionmaker
+
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
+from zeeguu.core.audio_lessons.lesson_correctness_check import mark_pair_invalid
 from zeeguu.core.audio_lessons.script_generator import (
     LessonNotCorrect,
     generate_dialogue_script,
@@ -29,6 +32,7 @@ from zeeguu.core.model import (
     AudioLessonGenerationProgress,
 )
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
+from zeeguu.core.model.db import db as flask_db  # the module `db` above has no engine
 from zeeguu.core.model.user_language import UserLanguage
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
@@ -231,18 +235,35 @@ class DailyLessonGenerator:
             progress.update_generating_script()
             db.session.commit()
 
-        generated = generate_lesson_script(
-            origin_word=meaning.origin.content,
-            translation_word=meaning.translation.content,
-            origin_language=origin_language,
-            translation_language=translation_language,
-            cefr_level=cefr_level,
-            context=(
-                user_word.preferred_bookmark.get_context()
-                if user_word.preferred_bookmark
-                else None
-            ),
+        context = (
+            user_word.preferred_bookmark.get_context()
+            if user_word.preferred_bookmark
+            else None
         )
+        try:
+            generated = generate_lesson_script(
+                origin_word=meaning.origin.content,
+                translation_word=meaning.translation.content,
+                origin_language=origin_language,
+                translation_language=translation_language,
+                cefr_level=cefr_level,
+                context=context,
+            )
+        except LessonNotCorrect as e:
+            if e.about_the_data:
+                # In a session of its own: callers roll theirs back on errors,
+                # and without the mark the precompute cron would regenerate and
+                # refuse this word again every night.
+                separate_session = sessionmaker(bind=flask_db.engine)()
+                try:
+                    mark_pair_invalid(
+                        separate_session, meaning.id, e.problems,
+                        user_word_id=user_word.id, context=context,
+                    )
+                    separate_session.commit()
+                finally:
+                    separate_session.close()
+            raise
 
         # Update progress: script done
         if progress:

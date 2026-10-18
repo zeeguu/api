@@ -34,7 +34,8 @@ only the new lessons. Calls are spread over --workers threads, at most one
 starting every --interval seconds.
 
 --deprecate sets deprecated_at on the lessons the report fails for a blocking
-problem (any kind but "unnatural", as at build time), so cache lookups
+problem (any kind but "unnatural", as at build time), and marks INVALID the
+meanings whose word or translation the check found wrong, so cache lookups
 regenerate while daily lessons that already reference the row keep playing.
 """
 
@@ -53,12 +54,14 @@ app = create_app_for_scripts()
 app.app_context().push()
 
 from zeeguu.core.audio_lessons.lesson_correctness_check import (
+    ABOUT_THE_DATA,
     FAIL,
     LessonToCheck,
     blocking,
     check_all,
     checker_id,
     is_done,
+    mark_pair_invalid,
     read_report,
 )
 from zeeguu.core.audio_lessons.script_generator import _is_a_script
@@ -205,8 +208,8 @@ out(f"→ {len(pending) - len(errors)} checked, {len(new_fails)} failed, {len(er
 
 if args.deprecate:
     selected = {l.id: l for l in lessons}
-    condemned = [
-        selected[row["id"]]
+    condemned_rows = [
+        row
         for row in report.values()
         if row["id"] in selected
         and row["verdict"] == FAIL
@@ -215,12 +218,21 @@ if args.deprecate:
         # does not take a lesson away.
         and blocking(row["problems"])
     ]
+    condemned = [selected[row["id"]] for row in condemned_rows]
+    # As at build time (daily_lesson_generator): when the pair itself is wrong,
+    # the meaning is marked INVALID too, or the selector would pick it again and
+    # the next lesson would be built on the same pair.
+    wrong_pairs = [
+        row for row in condemned_rows if any(p["kind"] in ABOUT_THE_DATA for p in row["problems"])
+    ]
 
     # Say exactly what is about to move, so the run is auditable afterwards from
     # the log alone.
     out("About to deprecate:")
-    for lesson in condemned:
-        out(f"    AudioLessonMeaning {lesson.id}")
+    for row in condemned_rows:
+        kinds = ",".join(sorted({p["kind"] for p in blocking(row["problems"])}))
+        out(f"    AudioLessonMeaning {row['id']} ({kinds})")
+    out(f"...and mark INVALID the meanings of the {len(wrong_pairs)} whose word or translation is wrong")
 
     if len(condemned) > MAX_WITHOUT_FORCE and not args.force:
         out(
@@ -234,8 +246,15 @@ if args.deprecate:
     now = datetime.now()
     for lesson in condemned:
         lesson.deprecated_at = now
+    for row in wrong_pairs:
+        mark_pair_invalid(
+            db.session, selected[row["id"]].meaning_id, row["problems"], context=row["context"]
+        )
     db.session.commit()
-    out(f"Deprecated {len(condemned)} meaning lessons. They will be regenerated on next request.")
+    out(
+        f"Deprecated {len(condemned)} meaning lessons; they will be regenerated on next "
+        f"request. Marked {len(wrong_pairs)} meanings INVALID."
+    )
 elif new_fails:
     out("Run again with --deprecate to mark the failed lessons for regeneration.")
 

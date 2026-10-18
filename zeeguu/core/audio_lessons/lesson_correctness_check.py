@@ -197,6 +197,25 @@ def parse_lesson_verdict(reply: str, lines: list) -> tuple:
     return verdict, problems
 
 
+def mark_pair_invalid(db_session, meaning_id, problems, user_word_id=None, context=None):
+    """The check found the word or its translation wrong: mark the meaning
+    INVALID, so the audio word selector stops picking it, and log why in
+    validation_log next to the translation validator's own verdicts. Does not
+    commit."""
+    from zeeguu.core.model.meaning import Meaning
+    from zeeguu.core.model.validation_log import ValidationLog
+
+    reason = "[audio lesson check] " + "; ".join(
+        p["issue"] for p in problems if p["kind"] in ABOUT_THE_DATA
+    )
+    meaning = db_session.get(Meaning, meaning_id)
+    meaning.validated = Meaning.INVALID
+    db_session.add(meaning)
+    ValidationLog.log_invalid(
+        db_session, meaning=meaning, user_word_id=user_word_id, reason=reason, context=context
+    )
+
+
 def blocking(problems) -> list:
     """The problems a lesson must not be stored or served with."""
     return [p for p in problems if p["kind"] not in MINOR]

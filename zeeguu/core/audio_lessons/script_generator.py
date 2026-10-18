@@ -184,10 +184,19 @@ MEANING_LESSON_PROMPT = "meaning_lesson--teacher_challenges_both_dialogue_and_be
 class LessonNotCorrect(Exception):
     """
     The script still teaches the word wrong after a rewrite, or the check says
-    the word/translation pair itself is wrong. Like NotAScript, the model's
-    findings travel with the exception: when it is the pair, our data needs a
-    person, not another attempt.
+    the word/translation pair itself is wrong (`about_the_data`). Like
+    NotAScript, the model's findings travel with the exception.
     """
+
+    def __init__(self, message, problems):
+        super().__init__(message)
+        self.problems = problems
+
+    @property
+    def about_the_data(self):
+        from zeeguu.core.audio_lessons.lesson_correctness_check import ABOUT_THE_DATA
+
+        return any(p["kind"] in ABOUT_THE_DATA for p in self.problems)
 
 
 def _context_paragraph(origin_word, translation_word, context):
@@ -306,7 +315,8 @@ def generate_lesson_script(
 
     raise LessonNotCorrect(
         f"meaning lesson '{origin_word}' → '{translation_word}' did not pass the "
-        f"correctness check: {found[:500]}"
+        f"correctness check: {found[:500]}",
+        problems,
     )
 
 
