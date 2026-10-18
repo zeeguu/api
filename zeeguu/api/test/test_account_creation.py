@@ -71,7 +71,7 @@ def test_create_user_returns_400_if_password_not_given(client):
 def test_reset_password(client):
     _create_test_user(client)
 
-    code = UniqueCode(TEST_EMAIL)
+    code = UniqueCode(TEST_EMAIL, UniqueCode.RESET)
     db.session.add(code)
     db.session.commit()
 
@@ -86,7 +86,7 @@ def test_reset_password(client):
 def test_reset_password_can_use_new_password(client):
     _create_test_user(client)
 
-    code = UniqueCode(TEST_EMAIL)
+    code = UniqueCode(TEST_EMAIL, UniqueCode.RESET)
     db.session.add(code)
     db.session.commit()
 
@@ -107,7 +107,7 @@ def test_reset_password_can_use_new_password(client):
 def test_reset_password_returns_400_invalid_code(client):
     _create_test_user(client)
 
-    code = UniqueCode(TEST_EMAIL)
+    code = UniqueCode(TEST_EMAIL, UniqueCode.RESET)
     db.session.add(code)
     db.session.commit()
 

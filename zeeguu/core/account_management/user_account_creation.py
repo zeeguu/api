@@ -188,7 +188,7 @@ def create_account(
         # your email" to someone already verified only sends them hunting for a
         # step that isn't there.
         if not new_user.email_verified:
-            code = UniqueCode(email)
+            code = UniqueCode(email, UniqueCode.VERIFY)
             db_session.add(code)
             db_session.commit()
             log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
@@ -270,7 +270,7 @@ def create_basic_account(
         # your email" to someone already verified only sends them hunting for a
         # step that isn't there.
         if not new_user.email_verified:
-            code = UniqueCode(email)
+            code = UniqueCode(email, UniqueCode.VERIFY)
             db_session.add(code)
             db_session.commit()
             log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")

@@ -40,7 +40,7 @@ class AccountCreationVerificationTest(ModelTestMixIn, TestCase):
         self.assertTrue(user.email_verified)
         # No code is issued, so nothing invites them to hunt for a step that
         # isn't there.
-        self.assertIsNone(UniqueCode.find_last_code(user.email))
+        self.assertIsNone(UniqueCode.find_last_code(user.email, UniqueCode.VERIFY))
 
     def test_cohort_match_is_case_insensitive(self):
         user = self._signup("shouty@school.example", "A-REAL-CLASS")
@@ -51,7 +51,7 @@ class AccountCreationVerificationTest(ModelTestMixIn, TestCase):
         user = self._signup("individual@example.com", "")
 
         self.assertFalse(user.email_verified)
-        self.assertIsNotNone(UniqueCode.find_last_code(user.email))
+        self.assertIsNotNone(UniqueCode.find_last_code(user.email, UniqueCode.VERIFY))
 
     def test_invite_code_matching_no_cohort_still_verifies_by_email(self):
         # valid_invite_code also accepts the global INVITATION_CODES from
@@ -60,7 +60,7 @@ class AccountCreationVerificationTest(ModelTestMixIn, TestCase):
         user = self._signup("nocohort@example.com", "not-a-class-code")
 
         self.assertFalse(user.email_verified)
-        self.assertIsNotNone(UniqueCode.find_last_code(user.email))
+        self.assertIsNotNone(UniqueCode.find_last_code(user.email, UniqueCode.VERIFY))
 
     def test_the_avatar_is_committed_on_a_cohort_signup(self):
         # The avatar used to ride along on the verification code's commit, and
