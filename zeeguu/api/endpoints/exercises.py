@@ -8,6 +8,7 @@ from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.user import User
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from . import api, db_session
@@ -271,6 +272,9 @@ def judge_cloze_alternative():
     typed = data.get("typed")
     if not bookmark_id or not isinstance(typed, str):
         return json_result({"error": "bookmark_id and typed are required"}, status=400)
+    # One word typed into a blank. Anything long is not an answer, and it
+    # would go into the judge's prompt verbatim.
+    abort_if_too_long("typed", typed, MAX_PHRASE_CHARS)
 
     bookmark = Bookmark.query.get(bookmark_id)
     if not bookmark or bookmark.user_word.user_id != flask.g.user_id:

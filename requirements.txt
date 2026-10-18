@@ -24,6 +24,7 @@ flask_sqlalchemy>=3.0
 flask_cors
 flask_monitoringdashboard>=5.1.0  # 5.0.3: per-row timestamps, Request indexes; 5.0.4: batched prune; 5.1.0: exception alerting
 Flask-Limiter>=3.0.0  # Rate limiting for security
+redis==7.4.1  # Shared rate-limit counters (RATELIMIT_STORAGE_URI=redis://...); limits[redis] needs <8
 
 # Cloud services
 google-cloud-texttospeech==2.3.0

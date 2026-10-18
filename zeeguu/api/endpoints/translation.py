@@ -6,6 +6,11 @@ import flask
 from flask import request
 from python_translators.translation_query import TranslationQuery
 
+from zeeguu.api.utils.input_limits import (
+    abort_if_too_long,
+    MAX_PHRASE_CHARS,
+    MAX_CONTEXT_CHARS,
+)
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
@@ -33,7 +38,16 @@ punctuation_extended = "»«" + punctuation
 EXPLANATION_CEFR_LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2"}
 MAX_EXPLAINED_SELECTION_CHARS = 200
 MAX_EXPLANATION_CONTEXT_CHARS = 2000
+MAX_TRANSLATION_HISTORY = 500
 IS_DEV_SKIP_TRANSLATION = int(os.environ.get("DEV_SKIP_TRANSLATION", 0)) == 1
+
+
+def _abort_if_translation_input_too_long(word, context, full_sentence_context=None):
+    # Every translator is billed by the character, and the word and its
+    # context both go to all of them. See input_limits for the numbers.
+    abort_if_too_long("word", word, MAX_PHRASE_CHARS)
+    abort_if_too_long("context", context, MAX_CONTEXT_CHARS)
+    abort_if_too_long("full_sentence_context", full_sentence_context, MAX_CONTEXT_CHARS)
 
 
 # ADR 022: canonical route is /translate_word — the response now carries the
@@ -63,6 +77,9 @@ def translate_word(from_lang_code, to_lang_code):
     w_token_i = request.json.get("w_token_i", None)
     w_total_tokens = request.json.get("w_total_tokens", None)
     context = request.json.get("context", "").strip()
+    _abort_if_translation_input_too_long(
+        word_str, context, request.json.get("full_sentence_context", None)
+    )
     c_paragraph_i = request.json.get("c_paragraph_i", None)
     c_sent_i = request.json.get("c_sent_i", None)
     c_token_i = request.json.get("c_token_i", None)
@@ -219,6 +236,7 @@ def get_multiple_translations(from_lang_code, to_lang_code):
     context = request.form.get("context", "").strip()
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
     full_sentence_context = request.form.get("full_sentence_context", "")
+    _abort_if_translation_input_too_long(word_str, context, full_sentence_context)
 
     translations = get_all_translations(word_str, context, from_lang_code, to_lang_code, is_separated_mwe, full_sentence_context)
 
@@ -250,6 +268,9 @@ def get_translation_history():
     """
     user = User.find_by_id(flask.g.user_id)
     limit = request.args.get("limit", 50, type=int)
+    # The Translate tab asks for 50. Clamped rather than refused, so a larger
+    # request still gets an answer, just not an unbounded one.
+    limit = max(1, min(limit, MAX_TRANSLATION_HISTORY))
 
     searches = TranslationSearch.get_history(user, user.learned_language, limit=limit)
     return json_result([s.as_dict() for s in searches])
@@ -303,6 +324,7 @@ def get_translations_stream(from_lang_code, to_lang_code):
     context = request.form.get("context", "").strip()
     is_separated_mwe = request.form.get("is_separated_mwe", "").lower() == "true"
     full_sentence_context = request.form.get("full_sentence_context", "")
+    _abort_if_translation_input_too_long(word_str, context, full_sentence_context)
 
     def generate():
         for translation in get_translations_streaming(
@@ -352,6 +374,7 @@ def translation_alternatives(from_lang_code, to_lang_code):
     context = request.json.get("context", "").strip()
     if not word_str:
         return "word required", 400
+    _abort_if_translation_input_too_long(word_str, context)
 
     # Always run the 3-way voter, even for multi-word inputs. translate_in_context
     # short-circuits multi-word translations through translate_mwe_phrase (a
@@ -397,6 +420,7 @@ def ask_llm_translation(from_lang_code, to_lang_code):
     context = request.json.get("context", "").strip()
     if not word_str:
         return "word required", 400
+    _abort_if_translation_input_too_long(word_str, context)
 
     result = translate_with_llm(word_str, context, from_lang_code, to_lang_code)
     if not result:
@@ -727,6 +751,7 @@ def contribute_translation(from_lang_code, to_lang_code):
 @requires_session
 def basic_translate(from_lang_code, to_lang_code):
     phrase = request.form["phrase"].strip(punctuation_extended)
+    abort_if_too_long("phrase", phrase, MAX_PHRASE_CHARS)
 
     query = TranslationQuery.for_word_occurrence(phrase, "", 1, 7)
 

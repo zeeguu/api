@@ -5,6 +5,7 @@ from flask import request
 
 from zeeguu.api.endpoints import api
 from zeeguu.api.utils import cross_domain, requires_session
+from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.core.model import Article
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 
@@ -53,6 +54,9 @@ def tts():
 
     if not text_to_pronounce:
         return ""
+    # Google bills TTS by the character. The phrase is also stored in a
+    # VARCHAR(255), so nothing this long was ever pronounced whole anyway.
+    abort_if_too_long("text", text_to_pronounce, MAX_PHRASE_CHARS)
 
     phrase = Phrase.find_or_create(
         db_session, text_to_pronounce, Language.find_or_create(language_id)

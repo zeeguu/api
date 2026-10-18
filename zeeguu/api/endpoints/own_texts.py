@@ -8,6 +8,11 @@ from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.abort_handling import make_error
+from zeeguu.api.utils.input_limits import (
+    abort_if_too_long,
+    MAX_OWN_TEXT_CHARS,
+    MAX_TITLE_CHARS,
+)
 from . import api, db_session
 
 CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
@@ -188,6 +193,8 @@ def simplify_own_text():
         return make_error(400, "content and language are required")
     if target_level not in CEFR_LEVELS:
         return make_error(400, f"cefr_level must be one of {', '.join(CEFR_LEVELS)}")
+    abort_if_too_long("title", title, MAX_TITLE_CHARS)
+    abort_if_too_long("content", content, MAX_OWN_TEXT_CHARS)
 
     log(
         f"simplify_own_text: target={target_level}, language={language_code}, "

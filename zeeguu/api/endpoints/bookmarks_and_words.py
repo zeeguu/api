@@ -17,6 +17,11 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.word_scheduling import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 
+# Ceiling for the <count> in /learned_bookmarks, /learned_user_words and
+# /starred_bookmarks. The Words pages ask for 30 and 300; each word is
+# serialized with its schedule and context, so the count is the cost.
+MAX_WORDS_PER_LIST = 1000
+
 
 def get_bookmark_if_owned(bookmark_id):
     """
@@ -51,7 +56,7 @@ def learned_bookmarks(count):
     Returns a list of the words that the user has learned.
     """
     user = User.find_by_id(flask.g.user_id)
-    top_bookmarks = user.learned_bookmarks(count)
+    top_bookmarks = user.learned_bookmarks(min(count, MAX_WORDS_PER_LIST))
     json_bookmarks = [b.as_dictionary(with_exercise_info=True) for b in top_bookmarks]
     return json_result(json_bookmarks)
 
@@ -78,7 +83,7 @@ def learned_user_words(count):
     this endpoint returns unique learned user words.
     """
     user = User.find_by_id(flask.g.user_id)
-    return json_result(learned_user_words_as_dicts(user, count))
+    return json_result(learned_user_words_as_dicts(user, min(count, MAX_WORDS_PER_LIST)))
 
 
 def learned_user_words_as_dicts(user, count, language_id=None):
@@ -125,7 +130,7 @@ def starred_bookmarks(count):
     Returns a list of the words that the user is currently studying.
     """
     user = User.find_by_id(flask.g.user_id)
-    top_bookmarks = user.starred_bookmarks(count)
+    top_bookmarks = user.starred_bookmarks(min(count, MAX_WORDS_PER_LIST))
     json_bookmarks = [b.as_dictionary() for b in top_bookmarks]
     return json_result(json_bookmarks)
 
