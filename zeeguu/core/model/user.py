@@ -369,10 +369,11 @@ class User(db.Model):
             if feed_variety is not None
             else None
         )
+        from zeeguu.core.model import UserLanguage
+
+        level = UserLanguage.parse_cefr_level(cefr_level)
 
         self.learned_language = Language.find(language_code)
-
-        from zeeguu.core.model import UserLanguage
 
         # disable the exercises and reading for all the other languages
         all_other_languages = (
@@ -389,7 +390,6 @@ class User(db.Model):
         language = UserLanguage.find_or_create(session, self, self.learned_language)
         language.reading_news = True
         language.doing_exercises = True
-        level = UserLanguage.parse_cefr_level(cefr_level)
         if level is not None:
             language.cefr_level = level
 

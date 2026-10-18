@@ -48,8 +48,9 @@ def join_continuation_lines(script: str) -> str:
         elif stripped.startswith("[") and re.search(
             r"\[([0-9.]+)\s*seconds?", stripped, re.IGNORECASE
         ):
-            # Standalone timing/silence marker
-            joined_lines.append(stripped)
+            # Standalone timing/silence marker. A [slow] beside it belongs to no
+            # line either, as above.
+            joined_lines.append(_SLOW_MARKER.sub("", stripped).strip())
         elif joined_lines:
             # Continuation line - append to previous line
             joined_lines[-1] = joined_lines[-1] + " " + stripped

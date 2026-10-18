@@ -123,6 +123,12 @@ class LevelTest(ModelTestMixIn):
         self.user.set_learned_language(self.user.learned_language.code, "0", db.session)
         assert self.user.audio_lesson_level_for_learned_language() == "A0"
 
+    def test_a_bad_level_changes_nothing(self):
+        self._level(3)
+        with pytest.raises(ValueError):
+            self.user.set_learned_language(self.user.learned_language.code, "7", db.session)
+        assert self.user.audio_lesson_level_for_learned_language() == "B1"
+
     def test_no_level_given_leaves_the_level_alone(self):
         self._level(3)
         self.user.set_learned_language(self.user.learned_language.code, "", db.session)
@@ -213,3 +219,22 @@ class HistoryTest(ModelTestMixIn):
         assert [set(h.words) for h in heard] == [{"en", "kaffe", "tak"}]
         # Roles alternate over every lesson of this kind, heard or not.
         assert history_lesson_count(self.user, self.language) == 2
+
+
+def test_a_level_must_be_a_whole_number():
+    with pytest.raises(ValueError):
+        UserLanguage.parse_cefr_level(2.9)
+    with pytest.raises(ValueError):
+        UserLanguage.parse_cefr_level(False)
+    assert UserLanguage.parse_cefr_level(2.0) == 2
+
+
+def test_slow_beside_a_standalone_pause_slows_nobody():
+    from zeeguu.core.audio_lessons.script_parser import parse_script
+
+    script = "Teacher: Listen. [1 seconds]\n[slow] [3 seconds]\nWoman: Kaffe. [3 seconds]\n"
+    assert parse_script(script, with_speed=True) == [
+        ("teacher", "Listen.", 1.0, False),
+        ("silence", "", 3.0, False),
+        ("woman", "Kaffe.", 3.0, False),
+    ]

@@ -57,6 +57,16 @@ def add_user(email):
     invite_code = request.form.get("invite_code")
     platform = request.form.get("platform")
 
+    # Checked before the account is created: create_account commits the user
+    # before it stores the level, so a bad level there would leave the account
+    # half-made, and a retry would find the email already taken.
+    from zeeguu.core.model import UserLanguage
+
+    try:
+        UserLanguage.parse_cefr_level(learned_cefr_level)
+    except ValueError as e:
+        return make_error(400, str(e))
+
     from zeeguu.core.account_management.user_account_creation import create_account
 
     try:

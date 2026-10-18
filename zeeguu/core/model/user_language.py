@@ -109,6 +109,10 @@ class UserLanguage(db.Model):
         """
         if value is None or value == "":
             return None
+        # Whole numbers only. int() would take 2.9 as 2 and False as 0, which
+        # silently makes someone A2 -- or A0.
+        if isinstance(value, bool) or (isinstance(value, float) and not value.is_integer()):
+            raise ValueError(f"CEFR level is not a whole number: {value!r}")
         level = int(value)
         if not 0 <= level <= 6:
             raise ValueError(f"CEFR level out of range: {value}")
