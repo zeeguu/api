@@ -43,6 +43,11 @@ TRANSLATION_VALIDATION = ANTHROPIC_SONNET
 # (register, idiomaticity) is worth the slower tier.
 CLOZE_ALTERNATIVE_JUDGE = ANTHROPIC_SONNET
 
+# Judging whether another translation a learner typed is also right
+# ("consult" where the exercise expected "look up" for "slå op"). Same
+# reasoning as the cloze judge: shared verdicts, worth the slower tier.
+TRANSLATION_ALTERNATIVE_JUDGE = ANTHROPIC_SONNET
+
 # Meaning-frequency classification (COMMON / RARE / …). NOTE: also used as the
 # DB lookup key in AiGenerator.get_current_classification_model — keep the model
 # a classification run records and the model looked up in sync via this one constant.

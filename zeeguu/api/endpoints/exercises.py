@@ -286,6 +286,32 @@ def judge_cloze_alternative():
     return json_result(judge_alternative(db_session, bookmark, typed))
 
 
+@api.route("/judge_translation_alternative", methods=["POST"])
+@cross_domain
+@requires_session
+def judge_translation_alternative():
+    """
+    Whether a translation the learner typed for the bookmark's word, other
+    than the stored one, is also right ("consult" where the exercise expected
+    "look up" for "slå op").
+
+    JSON body and reply as for /judge_cloze_alternative.
+    """
+    from zeeguu.core.exercises.cloze_alternatives import judge_translation_alternative
+
+    data = request.get_json(silent=True) or {}
+    bookmark_id = data.get("bookmark_id")
+    typed = data.get("typed")
+    if not bookmark_id or not isinstance(typed, str):
+        return json_result({"error": "bookmark_id and typed are required"}, status=400)
+
+    bookmark = Bookmark.query.get(bookmark_id)
+    if not bookmark or bookmark.user_word.user_id != flask.g.user_id:
+        return json_result({"error": "Bookmark not found"}, status=404)
+
+    return json_result(judge_translation_alternative(db_session, bookmark, typed))
+
+
 def _bookmarks_as_json_result(bookmarks, with_exercise_info, with_tokens):
     bookmark_dicts = [
         b.as_dictionary(
