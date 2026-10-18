@@ -167,17 +167,86 @@ def generate_script_in_languages(
     )
 
 
+# Script-correctness attempts: the first script, and one rewrite told what the
+# check found. On 2026-10-18 a DeepSeek check of 200 stored lessons failed 70% of
+# those built on pairs our validator passed (lesson 41749 taught Danish "Sådan
+# gør du det?" for "How do you do it?"); the rewrite is cheaper than a learner
+# repeating a wrong sentence for weeks.
+CORRECTNESS_ATTEMPTS = 2
+
+MEANING_LESSON_PROMPT = "meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v5.txt"
+
+
+class LessonNotCorrect(Exception):
+    """
+    The script still teaches the word wrong after a rewrite, or the check says
+    the word/translation pair itself is wrong. Like NotAScript, the model's
+    findings travel with the exception: when it is the pair, our data needs a
+    person, not another attempt.
+    """
+
+
+def _context_paragraph(origin_word, translation_word, context):
+    if context:
+        return (
+            f'The learner met "{origin_word}" in this sentence, where it was translated '
+            f'as "{translation_word}":\n"{context.strip()}"'
+        )
+    return (
+        f'The sentence where the learner met "{origin_word}" is not available: use it '
+        f'only in the sense that "{translation_word}" translates.'
+    )
+
+
+def _correctness_note(problems) -> str:
+    listed = "\n".join(
+        f"- {p['text'] or 'the script as a whole'}: {p['issue']}" for p in problems
+    )
+    return (
+        "\n\nA reviewer found these problems in your previous script:\n"
+        f"{listed}\nWrite the whole script again without them."
+    )
+
+
+def _blocking_problems(lesson):
+    """The problems that keep this script from being stored, or [] when the
+    check could not be done. The check failing open is deliberate: a learner
+    waits on this, and tools/audit_meaning_lesson_correctness.py --quiet runs
+    nightly over whatever got through."""
+    from zeeguu.core.audio_lessons.lesson_correctness_check import blocking, judge_lesson
+    from zeeguu.core.llm_services.deepseek_service import DeepSeekService
+
+    try:
+        _, problems = judge_lesson(DeepSeekService(), lesson)
+    except Exception as e:
+        log(f"[lesson check] could not check '{lesson.word}', storing unchecked: {e}")
+        import sentry_sdk
+
+        sentry_sdk.capture_exception(e)
+        return []
+    return blocking(problems)
+
+
 def generate_lesson_script(
     origin_word: str,
     translation_word: str,
     origin_language: str,
     translation_language: str,
     cefr_level: str = "A1",
-    generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v4.txt",
+    context: str = None,
+    generator_prompt_file=MEANING_LESSON_PROMPT,
 ) -> GeneratedScript:
     """
     Generate a meaning lesson script for a single word (auto mode only).
+
+    `context` is the sentence the learner looked the word up in. The translation
+    was chosen for that sentence, and without it the model guesses the sense
+    from the translation alone ("Sådan" = "How" became the question word).
     """
+    from zeeguu.core.audio_lessons.lesson_correctness_check import (
+        ABOUT_THE_DATA,
+        LessonToCheck,
+    )
 
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
@@ -189,24 +258,52 @@ def generate_lesson_script(
         target_language=origin_lang_name,
         source_language=translation_lang_name,
         cefr_level=cefr_level,
+        context_paragraph=_context_paragraph(origin_word, translation_word, context),
     )
 
     log(f"Generating script for {origin_word} -> {translation_word}")
 
-    try:
-        # Use unified LLM service with automatic Anthropic -> DeepSeek fallback
-        script, model_name = generate_script_in_languages(
-            prompt,
-            target_language=origin_language,
-            source_language=translation_language,
-            context=f"meaning lesson '{origin_word}'",
-        )
-        log(f"Successfully generated script for {origin_word}")
-        return GeneratedScript(script, model_name, prompt_version_of(generator_prompt_file))
+    attempt_prompt = prompt
+    for attempt in range(1, CORRECTNESS_ATTEMPTS + 1):
+        try:
+            # Use unified LLM service with automatic Anthropic -> DeepSeek fallback
+            script, model_name = generate_script_in_languages(
+                attempt_prompt,
+                target_language=origin_language,
+                source_language=translation_language,
+                context=f"meaning lesson '{origin_word}'",
+            )
+        except Exception as e:
+            log(f"Failed to generate script for {origin_word}: {e}")
+            raise Exception(f"Failed to generate script: {str(e)}")
 
-    except Exception as e:
-        log(f"Failed to generate script for {origin_word}: {e}")
-        raise Exception(f"Failed to generate script: {str(e)}")
+        problems = _blocking_problems(
+            LessonToCheck(
+                id=None,
+                learned_language=origin_language,
+                teacher_language=translation_language,
+                translation_language=translation_language,
+                word=origin_word,
+                translation=translation_word,
+                validated=None,
+                context=context,
+                script=script,
+            )
+        )
+        if not problems:
+            log(f"Successfully generated script for {origin_word}")
+            return GeneratedScript(script, model_name, prompt_version_of(generator_prompt_file))
+
+        found = "; ".join(f"[{p['kind']}] {p['text'] or ''} {p['issue']}" for p in problems)
+        log(f"[lesson check] '{origin_word}' attempt {attempt}/{CORRECTNESS_ATTEMPTS}: {found}")
+        if any(p["kind"] in ABOUT_THE_DATA for p in problems):
+            break
+        attempt_prompt = prompt + _correctness_note(problems)
+
+    raise LessonNotCorrect(
+        f"meaning lesson '{origin_word}' → '{translation_word}' did not pass the "
+        f"correctness check: {found[:500]}"
+    )
 
 
 def generate_dialogue_script(

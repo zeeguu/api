@@ -8,7 +8,11 @@ from datetime import datetime, timezone, timedelta
 
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
-from zeeguu.core.audio_lessons.script_generator import generate_lesson_script, generate_dialogue_script
+from zeeguu.core.audio_lessons.script_generator import (
+    LessonNotCorrect,
+    generate_dialogue_script,
+    generate_lesson_script,
+)
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.audio_lessons.voice_config import (
     distinguishing_variety,
@@ -233,6 +237,11 @@ class DailyLessonGenerator:
             origin_language=origin_language,
             translation_language=translation_language,
             cefr_level=cefr_level,
+            context=(
+                user_word.preferred_bookmark.get_context()
+                if user_word.preferred_bookmark
+                else None
+            ),
         )
 
         # Update progress: script done
@@ -462,6 +471,9 @@ class DailyLessonGenerator:
                         f"[generate_daily_lesson] Scheduled unscheduled word: {user_word.meaning.origin.content}"
                     )
 
+            # Words the correctness check would not let us teach (auto mode only)
+            refused = []
+
             # Branch: topic/situation → single dialogue; auto → per-word meaning lessons
             if canonical_suggestion and lesson_type in ("topic", "situation"):
                 # Generate one flowing dialogue incorporating all words
@@ -505,6 +517,14 @@ class DailyLessonGenerator:
                             progress=progress,
                             voice_variety=voice_variety,
                         )
+                    except LessonNotCorrect as e:
+                        # A word we cannot teach correctly is left out, not the
+                        # learner's whole lesson: on 2026-10-18 the check refused
+                        # half of a 30-lesson sample, mostly for pairs that are
+                        # wrong in our data (connu → experienced, dem → De wandeling).
+                        log(f"[generate_daily_lesson] Leaving out '{meaning.origin.content}': {e}")
+                        refused.append(user_word)
+                        continue
                     except Exception as e:
                         log(
                             f"[generate_daily_lesson] Failed to generate audio lesson meaning for {meaning.origin.content}: {str(e)}"
@@ -520,8 +540,19 @@ class DailyLessonGenerator:
 
                     # Add segment to daily lesson
                     daily_lesson.add_meaning_segment(
-                        audio_lesson_meaning=audio_lesson_meaning, sequence_order=idx + 1
+                        audio_lesson_meaning=audio_lesson_meaning,
+                        sequence_order=idx + 1 - len(refused),
                     )
+
+                if len(refused) == len(selected_words):
+                    words = ", ".join(w.meaning.origin.content for w in refused)
+                    message = f"No word could be taught correctly: {words}"
+                    log(f"[generate_daily_lesson] {message}")
+                    if progress:
+                        progress.mark_error(message)
+                        db.session.commit()
+                    db.session.rollback()
+                    return {"error": message}
 
             # Build the final concatenated MP3 for the daily lesson
             try:
@@ -558,7 +589,7 @@ class DailyLessonGenerator:
                 "audio_url": f"/audio/daily_lessons/{daily_lesson.id}.mp3",
                 "duration_seconds": daily_lesson.duration_seconds,
                 "generation_time_seconds": round(generation_time, 2),
-                "words": [w.as_dictionary() for w in selected_words],
+                "words": [w.as_dictionary() for w in selected_words if w not in refused],
             }
 
         except Exception as e:

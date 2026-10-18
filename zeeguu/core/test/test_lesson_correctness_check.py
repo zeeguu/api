@@ -6,6 +6,7 @@ import pytest
 from zeeguu.core.audio_lessons.lesson_correctness_check import (
     FAIL,
     PASS,
+    blocking,
     LessonToCheck,
     checker_id,
     is_done,
@@ -39,12 +40,12 @@ def test_lines_are_numbered_without_pauses_or_blanks():
 
 def test_fail_resolves_each_line_to_its_text():
     verdict, problems = parse_lesson_verdict(
-        '{"verdict": "fail", "problems": [{"line": 6, "issue": "sådan is not a question word"}]}',
+        '{"verdict": "fail", "problems": [{"line": 6, "kind": "sense", "issue": "sådan is not a question word"}]}',
         LINES,
     )
     assert verdict == FAIL
     assert problems == [
-        {"line": 6, "text": "Woman: Sådan gør du det?", "issue": "sådan is not a question word"}
+        {"line": 6, "text": "Woman: Sådan gør du det?", "kind": "sense", "issue": "sådan is not a question word"}
     ]
 
 
@@ -91,7 +92,17 @@ def test_a_fail_without_problems_stays_a_fail():
 
 def test_problems_as_plain_strings():
     _, problems = parse_lesson_verdict('{"verdict": "fail", "problems": ["wrong sense"]}', LINES)
-    assert problems == [{"line": None, "text": None, "issue": "wrong sense"}]
+    assert problems == [{"line": None, "text": None, "kind": "other", "issue": "wrong sense"}]
+
+
+def test_unnatural_is_the_only_kind_that_does_not_block():
+    _, problems = parse_lesson_verdict(
+        '{"verdict": "fail", "problems": [{"line": 6, "kind": "Unnatural", "issue": "a"},'
+        ' {"line": 6, "kind": "grammar", "issue": "b"}, {"line": 6, "kind": "made-up", "issue": "c"}]}',
+        LINES,
+    )
+    assert [p["kind"] for p in problems] == ["unnatural", "grammar", "other"]
+    assert [p["issue"] for p in blocking(problems)] == ["b", "c"]
 
 
 @pytest.mark.parametrize(

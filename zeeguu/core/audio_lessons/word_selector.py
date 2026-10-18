@@ -19,6 +19,14 @@ from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.basicSR import _get_end_of_today
 from zeeguu.logging import log
 
+# A meaning lesson is generated once per meaning and then served to everyone,
+# so it inherits whatever is wrong with the pair. On 2026-10-18 352 live lessons
+# sat on meanings the translation validator had marked INVALID: the mark is per
+# meaning, while fit_for_study is per user_word, so other learners' words on the
+# same meaning stayed selectable, and recently learned words are not filtered by
+# fit_for_study at all.
+NOT_INVALID = Meaning.validated != Meaning.INVALID
+
 
 def get_meanings_already_in_audio_lessons(user: User, days: int = 14) -> set:
     """
@@ -103,7 +111,7 @@ def select_words_for_audio_lesson(
     # Step 1: Get scheduled words due today (highest priority - need practice!)
     scheduled_due_query = BasicSRSchedule._scheduled_user_words_query(user, language)
     scheduled_due_query = scheduled_due_query.filter(
-        BasicSRSchedule.next_practice_time < _get_end_of_today()
+        BasicSRSchedule.next_practice_time < _get_end_of_today(), NOT_INVALID
     )
     # Exclude words already in recent audio lessons
     if meanings_in_recent_lessons:
@@ -120,7 +128,9 @@ def select_words_for_audio_lesson(
 
     # Step 2: If not enough, get other scheduled words (accelerate learning)
     if len(learning_words) < num_words:
-        more_scheduled_query = BasicSRSchedule._scheduled_user_words_query(user, language)
+        more_scheduled_query = BasicSRSchedule._scheduled_user_words_query(
+            user, language
+        ).filter(NOT_INVALID)
         # Exclude words we already have
         existing_user_word_ids = [w.id for w in learning_words]
         if existing_user_word_ids:
@@ -159,6 +169,7 @@ def select_words_for_audio_lesson(
                 .join(Meaning, UserWord.meaning_id == Meaning.id)
                 .join(Phrase, Meaning.origin_id == Phrase.id)
                 .filter(Phrase.language_id == language.id)
+                .filter(NOT_INVALID)
             )
             # Exclude words we already have
             existing_user_word_ids = [w.id for w in learning_words]
@@ -204,6 +215,7 @@ def select_words_for_audio_lesson(
             .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == language.id)
+            .filter(NOT_INVALID)
         )
         # Exclude words we already have in this lesson
         existing_user_word_ids = [w.id for w in learning_words]

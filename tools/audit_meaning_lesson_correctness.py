@@ -33,7 +33,8 @@ problems. A run skips lessons that already have a verdict from the same checker
 only the new lessons. Calls are spread over --workers threads, at most one
 starting every --interval seconds.
 
---deprecate sets deprecated_at on the lessons the report fails, so cache lookups
+--deprecate sets deprecated_at on the lessons the report fails for a blocking
+problem (any kind but "unnatural", as at build time), so cache lookups
 regenerate while daily lessons that already reference the row keep playing.
 """
 
@@ -54,6 +55,7 @@ app.app_context().push()
 from zeeguu.core.audio_lessons.lesson_correctness_check import (
     FAIL,
     LessonToCheck,
+    blocking,
     check_all,
     checker_id,
     is_done,
@@ -149,7 +151,7 @@ def describe(row):
         lines.append(f"      pair: FIX {row.get('pair_correction', '')} — {row.get('pair_reason')}")
     for problem in row["problems"]:
         where = f"line {problem['line']}: {problem['text']!r} — " if problem.get("text") else ""
-        lines.append(f"      {where}{problem['issue']}")
+        lines.append(f"      [{problem.get('kind', 'other')}] {where}{problem['issue']}")
     return "\n".join(lines)
 
 
@@ -206,7 +208,12 @@ if args.deprecate:
     condemned = [
         selected[row["id"]]
         for row in report.values()
-        if row["id"] in selected and row["verdict"] == FAIL and row.get("checker") == CHECKER
+        if row["id"] in selected
+        and row["verdict"] == FAIL
+        and row.get("checker") == CHECKER
+        # The same rule as at build time (script_generator): "unnatural" alone
+        # does not take a lesson away.
+        and blocking(row["problems"])
     ]
 
     # Say exactly what is about to move, so the run is auditable afterwards from

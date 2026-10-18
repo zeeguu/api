@@ -32,6 +32,15 @@ PASS = "pass"
 FAIL = "fail"
 ERROR = "error"
 
+# What a problem is about, as the prompt names it. "word" and "translation" are
+# about our data, not the script: writing the script again cannot fix them.
+# "unnatural" is real but minor, and the 2026-10-18 sample showed it is also
+# where the checker is least reliable ("des inquiétudes graves" flagged), so it
+# never blocks a lesson. A kind we do not know counts as blocking.
+KINDS = ("word", "translation", "sense", "mismatch", "grammar", "unnatural", "note")
+ABOUT_THE_DATA = ("word", "translation")
+MINOR = ("unnatural",)
+
 _PAUSE = re.compile(r"\s*\[[0-9.]+\s*seconds?\]", re.IGNORECASE)
 
 
@@ -64,17 +73,18 @@ Voices: "Teacher" speaks {teacher_name}. The Teacher introduces the word, adds n
 The lesson, one numbered line per voice line:
 {numbered_script}
 
-Check:
-1. Translation in context: is "{translation}" a correct translation of "{word}" in the original sentence?
-2. Sense: on every line where "{word}" appears (in any form), is it used in a sense that "{translation}" covers? Flag every line that uses it in a sense the translation does not cover, and every line that uses it where {learned_name} would need a different word.
-3. Prompt and answer: does each Teacher prompt ask for exactly what the {learned_name} answer after it says? Flag a different meaning, tense, person, negation, a question answered with a statement, or content missing or added.
-4. Correctness: is every {learned_name} line grammatical and something a native speaker would naturally say?
-5. Teacher notes: is what the Teacher says about the word (other meanings, a more common synonym, how it is used) true?
+Check, and give each problem the kind named here:
+1. "word": is "{word}" a real {learned_name} word or phrase, spelled correctly?
+2. "translation": is "{translation}" a correct translation of "{word}" in the original sentence?
+3. "sense": on every line where "{word}" appears (in any form), is it used in a sense that "{translation}" covers? Flag every line that uses it in a sense the translation does not cover, and every line that uses it where {learned_name} would need a different word.
+4. "mismatch": does each Teacher prompt ask for exactly what the {learned_name} answer after it says? Flag a different meaning, tense, person, negation, a question answered with a statement, or content missing or added.
+5. "grammar": is every {learned_name} line grammatical? "unnatural": is it something a native speaker would say?
+6. "note": is what the Teacher says about the word (other meanings, a more common synonym, how it is used) true?
 
-Do not flag pauses, repetition, difficulty level, the choice of examples, or style preferences. Flag only what would teach the learner something wrong or make them say something wrong.
+Do not flag pauses, repetition, difficulty level, the choice of examples, or style preferences. Flag only what would teach the learner something wrong or make them say something wrong. If, thinking about a line, you conclude it is fine after all, leave it out.
 
 Reply with only this JSON object:
-{{"verdict": "pass" or "fail", "problems": [{{"line": <line number, or 0 for the lesson as a whole>, "issue": "<one sentence in English>"}}]}}
+{{"verdict": "pass" or "fail", "problems": [{{"line": <line number, or 0 for the lesson as a whole>, "kind": "<word|translation|sense|mismatch|grammar|unnatural|note>", "issue": "<one sentence in English>"}}]}}
 The verdict is "fail" when there is at least one problem."""
 
 WITH_CONTEXT = (
@@ -168,10 +178,12 @@ def parse_lesson_verdict(reply: str, lines: list) -> tuple:
         if not isinstance(problem, dict):
             problem = {"issue": str(problem)}
         line = _line_number(problem.get("line"))
+        kind = str(problem.get("kind", "")).strip().lower()
         problems.append(
             {
                 "line": line,
                 "text": lines[line - 1] if line and 0 < line <= len(lines) else None,
+                "kind": kind if kind in KINDS else "other",
                 "issue": str(problem.get("issue", "")).strip(),
             }
         )
@@ -179,8 +191,13 @@ def parse_lesson_verdict(reply: str, lines: list) -> tuple:
     if problems:
         verdict = FAIL
     elif verdict == FAIL:
-        problems = [{"line": None, "text": None, "issue": "(the model gave no reason)"}]
+        problems = [{"line": None, "text": None, "kind": "other", "issue": "(the model gave no reason)"}]
     return verdict, problems
+
+
+def blocking(problems) -> list:
+    """The problems a lesson must not be stored or served with."""
+    return [p for p in problems if p["kind"] not in MINOR]
 
 
 def _line_number(value) -> Optional[int]:
@@ -218,6 +235,15 @@ def judge_pair(service, lesson: LessonToCheck):
     return TranslationValidator._parse_response(json.dumps(reply))
 
 
+def judge_lesson(service, lesson: LessonToCheck) -> tuple:
+    """(verdict, problems) for the lesson's script. Raises when the model
+    cannot be asked or its reply has no verdict."""
+    reply = service.generate_text(
+        lesson_prompt(lesson), max_tokens=2000, temperature=0, system=LESSON_SYSTEM
+    )
+    return parse_lesson_verdict(reply, numbered_lines(lesson.script))
+
+
 def check(service, lesson: LessonToCheck) -> dict:
     """One report row. A failed call becomes an "error" row, which the next
     run retries."""
@@ -247,14 +273,12 @@ def check(service, lesson: LessonToCheck) -> dict:
             row["pair_verdict"] = ERROR
             row["pair_reason"] = str(e)[:300]
 
-    lines = numbered_lines(lesson.script)
     try:
-        reply = service.generate_text(
-            lesson_prompt(lesson), max_tokens=2000, temperature=0, system=LESSON_SYSTEM
-        )
-        row["verdict"], row["problems"] = parse_lesson_verdict(reply, lines)
+        row["verdict"], row["problems"] = judge_lesson(service, lesson)
     except Exception as e:
-        row["verdict"], row["problems"] = ERROR, [{"line": None, "text": None, "issue": str(e)[:300]}]
+        row["verdict"], row["problems"] = ERROR, [
+            {"line": None, "text": None, "kind": "other", "issue": str(e)[:300]}
+        ]
     return row
 
 
