@@ -35,7 +35,8 @@ starting every --interval seconds.
 
 --deprecate sets deprecated_at on the lessons the report fails for a blocking
 problem (any kind but "unnatural", as at build time), and marks INVALID the
-meanings whose word or translation the check found wrong, so cache lookups
+meanings whose word or translation the check found wrong (taking their unlearned
+words out of study for every learner), so cache lookups
 regenerate while daily lessons that already reference the row keep playing.
 """
 
@@ -232,7 +233,10 @@ if args.deprecate:
     for row in condemned_rows:
         kinds = ",".join(sorted({p["kind"] for p in blocking(row["problems"])}))
         out(f"    AudioLessonMeaning {row['id']} ({kinds})")
-    out(f"...and mark INVALID the meanings of the {len(wrong_pairs)} whose word or translation is wrong")
+    out(
+        f"...and mark INVALID the meanings of the {len(wrong_pairs)} whose word or "
+        "translation is wrong, taking their unlearned words out of study"
+    )
 
     if len(condemned) > MAX_WITHOUT_FORCE and not args.force:
         out(

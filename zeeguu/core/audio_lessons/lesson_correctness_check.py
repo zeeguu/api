@@ -199,11 +199,18 @@ def parse_lesson_verdict(reply: str, lines: list) -> tuple:
 
 def mark_pair_invalid(db_session, meaning_id, problems, user_word_id=None, context=None):
     """The check found the word or its translation wrong: mark the meaning
-    INVALID, so the audio word selector stops picking it, and log why in
-    validation_log next to the translation validator's own verdicts. Does not
-    commit."""
+    INVALID, so the audio word selector stops picking it, and take its words
+    out of study for every learner who has not learned them yet. On 2026-10-18,
+    6 of the 7 wrong pairs in a 200-lesson sample were on scheduled words, most
+    of them passed by the translation validator. Logs why in validation_log
+    next to that validator's own verdicts. Does not commit.
+
+    Not UserWord.set_unfit_for_study: it looks the schedule up through the
+    default session and commits, and this may run in a session of its own."""
     from zeeguu.core.model.meaning import Meaning
+    from zeeguu.core.model.user_word import UserWord
     from zeeguu.core.model.validation_log import ValidationLog
+    from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
     reason = "[audio lesson check] " + "; ".join(
         p["issue"] for p in problems if p["kind"] in ABOUT_THE_DATA
@@ -211,6 +218,20 @@ def mark_pair_invalid(db_session, meaning_id, problems, user_word_id=None, conte
     meaning = db_session.get(Meaning, meaning_id)
     meaning.validated = Meaning.INVALID
     db_session.add(meaning)
+
+    unlearned = (
+        db_session.query(UserWord)
+        .filter(UserWord.meaning_id == meaning_id, UserWord.learned_time.is_(None))
+        .all()
+    )
+    for user_word in unlearned:
+        user_word.fit_for_study = False
+        db_session.add(user_word)
+    if unlearned:
+        db_session.query(BasicSRSchedule).filter(
+            BasicSRSchedule.user_word_id.in_([w.id for w in unlearned])
+        ).delete(synchronize_session=False)
+
     ValidationLog.log_invalid(
         db_session, meaning=meaning, user_word_id=user_word_id, reason=reason, context=context
     )

@@ -1,5 +1,6 @@
 """When the lesson check finds the word/translation pair itself wrong, the
 meaning is marked INVALID, and the mark outlives the caller's rollback."""
+from datetime import datetime
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -12,6 +13,9 @@ from zeeguu.core.model.validation_log import ValidationAction, ValidationLog
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.user_rule import UserRule
+from zeeguu.core.model.user_word import UserWord
+from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 
 session = zeeguu.core.model.db.session
 
@@ -25,8 +29,21 @@ class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
         self.user_word = BookmarkRule(UserRule().user).bookmark.user_word
         self.meaning = self.user_word.meaning
         self.meaning.validated = Meaning.VALID
-        session.add(self.meaning)
+        self.user_word.fit_for_study = True
+        session.add_all([self.meaning, self.user_word])
         session.commit()
+        FourLevelsPerWord.find_or_create(session, self.user_word)
+
+        # Two other learners with the same pair: one still learning it, one done.
+        self.other = BookmarkRule(UserRule().user).bookmark.user_word
+        self.done = BookmarkRule(UserRule().user).bookmark.user_word
+        for other in (self.other, self.done):
+            other.meaning = self.meaning
+            other.fit_for_study = True
+        self.done.learned_time = datetime.now()
+        session.add_all([self.other, self.done])
+        session.commit()
+        FourLevelsPerWord.find_or_create(session, self.other)
 
     def _generate_refused_with(self, problems):
         def refuse(**kwargs):
@@ -50,7 +67,15 @@ class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
         self.assertEqual(logged.reason, "[audio lesson check] connu is 'known'")
         self.assertEqual(logged.user_word_id, self.user_word.id)
 
+    def test_a_wrong_pair_takes_unlearned_words_out_of_study_for_everyone(self):
+        self.assertEqual(BasicSRSchedule.query.count(), 2)
+        self._generate_refused_with(WRONG_PAIR)
+        fit = {w.id: w.fit_for_study for w in UserWord.query.filter_by(meaning_id=self.meaning.id)}
+        self.assertEqual(fit, {self.user_word.id: False, self.other.id: False, self.done.id: True})
+        self.assertEqual(BasicSRSchedule.query.count(), 0)
+
     def test_a_wrong_script_leaves_the_meaning_alone(self):
         meaning = self._generate_refused_with(WRONG_LINE)
         self.assertEqual(meaning.validated, Meaning.VALID)
         self.assertEqual(ValidationLog.query.filter_by(meaning_id=meaning.id).count(), 0)
+        self.assertEqual(BasicSRSchedule.query.count(), 2)
