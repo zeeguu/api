@@ -50,7 +50,15 @@ def own_texts():
     return json_result(article_infos)
 
 
-@api.route("/delete_own_text/<id>", methods=["GET"])
+def _not_your_text():
+    # Only the uploader edits or deletes a text. Sharing a text with a
+    # colleague gives them their own copy (Article.create_clone), and the
+    # editor is only reachable from the uploader's own list (/teacher_texts).
+    return make_error(403, "You can only change texts you uploaded")
+
+
+# GET is kept for older clients; newer ones should use POST or DELETE.
+@api.route("/delete_own_text/<id>", methods=["GET", "POST", "DELETE"])
 @cross_domain
 @requires_session
 def delete_own_text(id):
@@ -58,6 +66,9 @@ def delete_own_text(id):
     try:
         a = Article.query.filter(Article.id == id).one()
         user = User.find_by_id(flask.g.user_id)
+
+        if not a.is_owned_by(user):
+            return _not_your_text()
 
         was_permanently_deleted = a.safe_delete(db_session, user)
 
@@ -84,12 +95,17 @@ def delete_own_text(id):
 @requires_session
 def update_own_text(article_id):
 
+    a = Article.find_by_id(article_id)
+    if not a:
+        return make_error(404, "Article not found")
+    if not a.is_owned_by(User.find_by_id(flask.g.user_id)):
+        return _not_your_text()
+
     language = Language.find_or_create(request.form.get("language", ""))
     content = request.form.get("content", "")
     title = request.form.get("title", "")
     htmlContent = request.form.get("htmlContent", "")
 
-    a = Article.query.filter(Article.id == article_id).one()
     a.update(db_session, language, content, htmlContent, title)
 
     db_session.add(a)
@@ -139,19 +155,20 @@ def estimate_article_cefr():
                 f"cefr_classifier_{language_code}.pkl",
             )
 
-        model_exists = model_path and os.path.exists(model_path)
-        error_msg = f"ML model unavailable for language '{language_code}' (model exists: {model_exists}, path: {model_path})"
-        log(f"estimate_article_cefr: {error_msg}")
+        model_exists = bool(model_path and os.path.exists(model_path))
+        # The server-side path goes to our log only, never to the client.
+        log(
+            f"estimate_article_cefr: ML model unavailable for '{language_code}' "
+            f"(model exists: {model_exists}, path: {model_path})"
+        )
 
         return json_result({
             "cefr_level": None,
             "assessment_method": None,
-            "error": error_msg,
+            "error": f"ML model unavailable for language '{language_code}'",
             "debug": {
                 "language_code": language_code,
                 "model_exists": model_exists,
-                "model_path": model_path,
-                "data_folder": data_folder
             }
         })
 
