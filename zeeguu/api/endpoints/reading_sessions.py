@@ -4,7 +4,10 @@ from flask import request
 from . import api, db_session
 from zeeguu.api.utils import requires_session, json_result
 from zeeguu.api.utils.route_wrappers import cross_domain
-from .helpers.activity_sessions import update_activity_session
+from .helpers.activity_sessions import (
+    update_activity_session,
+    find_own_activity_session,
+)
 from ...core.model import UserReadingSession
 from datetime import datetime
 
@@ -60,6 +63,6 @@ def reading_session_end():
 @cross_domain
 @requires_session
 def reading_session_info(id):
-    reading_session = UserReadingSession.find_by_id(id)
+    reading_session = find_own_activity_session(UserReadingSession, id)
 
     return json_result(dict(id=reading_session.id, duration=reading_session.duration))

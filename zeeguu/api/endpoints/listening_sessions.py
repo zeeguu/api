@@ -4,7 +4,10 @@ from flask import request
 from . import api, db_session
 from zeeguu.api.utils import requires_session, json_result
 from zeeguu.api.utils.route_wrappers import cross_domain
-from .helpers.activity_sessions import update_activity_session
+from .helpers.activity_sessions import (
+    update_activity_session,
+    find_own_activity_session,
+)
 from ...core.model import UserListeningSession
 
 
@@ -57,5 +60,5 @@ def listening_session_end():
 @cross_domain
 @requires_session
 def listening_session_info(id):
-    listening_session = UserListeningSession.find_by_id(id)
+    listening_session = find_own_activity_session(UserListeningSession, id)
     return json_result(listening_session.to_json())

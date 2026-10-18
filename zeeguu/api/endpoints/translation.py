@@ -431,10 +431,11 @@ def update_bookmark_translation_only(bookmark_id):
     except NoResultFound:
         return json_result({"error": "Bookmark not found"}, status=404)
 
-    # Authorization check - ensure user owns this bookmark
+    # Authorization check - ensure user owns this bookmark.
+    # Same response as a missing bookmark, so ids of others are not confirmed.
     user = User.find_by_id(flask.g.user_id)
     if bookmark.user_word.user_id != user.id:
-        return json_result({"error": "Bookmark not found or access denied"}, status=404)
+        return json_result({"error": "Bookmark not found"}, status=404)
 
     new_translation = request.json.get("translation")
     if not new_translation:
@@ -519,7 +520,10 @@ def update_bookmark_full(bookmark_id):
     print(f"[UPDATE_BOOKMARK] ========== START: bookmark_id={bookmark_id} ==========")
 
     # Step 1: Parse and validate input
-    bookmark = Bookmark.find(bookmark_id)
+    # A bookmark of another user is answered exactly like a missing one
+    bookmark = Bookmark.query.get(bookmark_id)
+    if not bookmark or bookmark.user_word.user_id != flask.g.user_id:
+        return json_result({"error": "Bookmark not found"}, status=404)
     params = parse_update_params(request.json, bookmark)
 
     # Unpack variables for readability

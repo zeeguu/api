@@ -5,10 +5,25 @@
 
 import flask
 from datetime import datetime
+from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import User
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 from zeeguu.core.model.user_language import UserLanguage
+
+
+def find_own_activity_session(session_class, session_id):
+    """
+    The session with this id if it belongs to the current user; 404 otherwise.
+    A session of another user is answered exactly like a missing one.
+    """
+    try:
+        session = session_class.find_by_id(session_id)
+    except NoResultFound:
+        flask.abort(404)
+    if session.user_id != flask.g.user_id:
+        flask.abort(404)
+    return session
 
 
 def update_activity_session(session_class, request, db_session):
@@ -16,7 +31,7 @@ def update_activity_session(session_class, request, db_session):
     session_id = int(form.get("id", ""))
     duration = int(form.get("duration", 0))
 
-    session = session_class.find_by_id(session_id)
+    session = find_own_activity_session(session_class, session_id)
     if isinstance(session, UserExerciseSession):
         duration = session.capped_duration(
             duration, session.start_time, session.last_answer_time()

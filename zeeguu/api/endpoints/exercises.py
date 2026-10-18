@@ -214,7 +214,8 @@ def report_exercise_outcome():
     try:
         from zeeguu.core.model.user_word import UserWord
         user_word = UserWord.query.get(user_word_id)
-        if not user_word:
+        # A word of another user is answered exactly like a missing one
+        if not user_word or user_word.user_id != flask.g.user_id:
             return "FAIL - UserWord not found"
 
         user_word.report_exercise_outcome(
@@ -237,7 +238,9 @@ def report_exercise_outcome():
 @cross_domain
 @requires_session
 def similar_words_api(bookmark_id):
-    bookmark = Bookmark.find(bookmark_id)
+    bookmark = Bookmark.query.get(bookmark_id)
+    if not bookmark or bookmark.user_word.user_id != flask.g.user_id:
+        return json_result({"error": "Bookmark not found"}, status=404)
     user = User.find_by_id(flask.g.user_id)
     return json_result(
         similar_words(
@@ -430,9 +433,9 @@ def report_exercise_issue():
     if reason not in valid_reasons:
         return json_result({"error": f"reason must be one of: {valid_reasons}"}), 400
 
-    # Find the bookmark
-    bookmark = Bookmark.find(bookmark_id)
-    if not bookmark:
+    # Find the bookmark; one of another user counts as not found
+    bookmark = Bookmark.query.get(bookmark_id)
+    if not bookmark or bookmark.user_word.user_id != user.id:
         return json_result({"error": "Bookmark not found"}), 404
 
     # Find or create the exercise source
