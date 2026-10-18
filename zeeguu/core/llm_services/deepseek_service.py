@@ -35,6 +35,8 @@ class DeepSeekService(LLMService):
             "Content-Type": "application/json"
         }
 
+        sent_max_tokens = models.output_tokens(self.model, max_tokens)
+
         # DeepSeek uses OpenAI-compatible format
         payload = {
             "model": self.model,
@@ -42,7 +44,7 @@ class DeepSeekService(LLMService):
                 {"role": "system", "content": prompt["system"]},
                 {"role": "user", "content": prompt["user"]}
             ],
-            "max_tokens": models.output_tokens(self.model, max_tokens),
+            "max_tokens": sent_max_tokens,
             "temperature": temperature
         }
 
@@ -78,7 +80,7 @@ class DeepSeekService(LLMService):
             # pass for an answer (a lesson script missing its end still parses),
             # so it is a failure, as in haiku_completion.
             if result["choices"][0].get("finish_reason") == "length":
-                raise Exception(f"DeepSeek output truncated at max_tokens={max_tokens}")
+                raise Exception(f"DeepSeek output truncated at max_tokens={sent_max_tokens}")
             return result["choices"][0]["message"]["content"]
 
         except requests.exceptions.Timeout:

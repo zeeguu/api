@@ -180,7 +180,9 @@ def explain_selection(
     def ask(service, model):
         service.model = model
         return service.generate_text(
-            prompt, max_tokens=300, temperature=0.0, system=system
+            # Room to finish: a reply cut off at max_tokens is a failure, not a
+            # shorter answer. The prompt keeps it short.
+            prompt, max_tokens=800, temperature=0.0, system=system
         )
 
     unified = UnifiedLLMService()
@@ -230,7 +232,8 @@ def prepare_learning_card(
     )
 
     llm_service = get_llm_service("unified")
-    response = llm_service.generate_text(prompt, max_tokens=500, temperature=0.3)
+    # Room to finish: a reply cut off at max_tokens is a failure.
+    response = llm_service.generate_text(prompt, max_tokens=1000, temperature=0.3)
 
     result = parse_learning_card_response(response)
     if not result:

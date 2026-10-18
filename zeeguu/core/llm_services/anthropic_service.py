@@ -44,19 +44,27 @@ class AnthropicService(LLMService):
         interface (DeepSeek still uses it).
         """
         try:
+            # Thinking counts toward the cap, so its headroom is added first;
+            # the model's own cap applies to the total.
+            sent_max_tokens = models.output_tokens(
+                self.model, claude.max_tokens(self.model, max_tokens)
+            )
             response = self.client.messages.create(
                 model=self.model,
                 **claude.request_options(self.model),
-                max_tokens=models.output_tokens(self.model, max_tokens),
+                max_tokens=sent_max_tokens,
                 system=prompt["system"],
                 messages=[
                     {"role": "user", "content": prompt["user"]}
                 ]
             )
-            # Cut off at max_tokens: incomplete, and it would pass for an answer.
-            # Raised, so the fallback is tried, as in haiku_completion.
+            # Cut off at max_tokens, or declined (HTTP 200, no text): neither is an
+            # answer, and both would pass for one. Raised, so the fallback is
+            # tried, as in haiku_completion.
             if response.stop_reason == "max_tokens":
-                raise Exception(f"Anthropic output truncated at max_tokens={max_tokens}")
+                raise Exception(f"Anthropic output truncated at max_tokens={sent_max_tokens}")
+            if response.stop_reason == "refusal":
+                raise Exception("Anthropic declined the request (stop_reason refusal)")
             return claude.response_text(response)
         except Exception as e:
             log(f"Anthropic API failed: {e}")

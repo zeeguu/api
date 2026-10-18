@@ -2,6 +2,7 @@
 Text simplification service using LLM providers (Anthropic and DeepSeek, each the other's fallback)
 """
 
+import json
 import os
 import re
 import requests
@@ -613,8 +614,12 @@ TOPIC: [topic]"""
                 log(f"DeepSeek API error for CEFR assessment: {response.status_code}")
                 return (None, None)
 
-            result = response.json()["choices"][0]["message"]["content"].strip()
-            
+            choice = response.json()["choices"][0]
+            if choice.get("finish_reason") == "length":
+                log("DeepSeek CEFR assessment truncated at max_tokens")
+                return (None, None)
+            result = choice["message"]["content"].strip()
+
             if result == "INCOMPLETE":
                 log("Article appears to be incomplete due to paywall")
                 return (None, None)
@@ -827,9 +832,10 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
                 json={
                     "model": models.DEEPSEEK_GENERAL,
                     "messages": [{"role": "user", "content": prompt}],
-                    # As much as Haiku is given (16000 above); output_tokens caps it
-                    # at what deepseek-chat accepts. Anything longer is caught by
-                    # the finish_reason check below rather than truncated silently.
+                    # The 16000 the Haiku path asks for (above); output_tokens caps it
+                    # at what deepseek-chat writes, 8192, so a long chapter that
+                    # fits Haiku may not fit here. Anything longer is caught by the
+                    # finish_reason check below rather than truncated silently.
                     "max_tokens": models.output_tokens(models.DEEPSEEK_GENERAL, 16000),
                     "temperature": 0.3,
                 },
@@ -853,7 +859,6 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
                         )
                         return None
 
-                    import json
                     import markdown2
 
                     result = parse_llm_json(result_text)
