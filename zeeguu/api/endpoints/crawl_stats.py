@@ -6,9 +6,11 @@ Shows articles crawled per language, feed, and topic.
 from datetime import datetime, timedelta
 
 from flask import request
+from markupsafe import escape
 from sqlalchemy import func, and_
 
 from . import api, db_session
+from zeeguu.api.utils.admin_html import admin_html_response
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, only_admins
 from zeeguu.core.model import Article, Feed, Language, Topic
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
@@ -171,7 +173,6 @@ def crawl_stats_week():
 @only_admins
 def crawl_stats_dashboard():
     """HTML dashboard showing crawl statistics."""
-    from flask import Response
 
     days = int(request.args.get("days", 1))
     cutoff = datetime.now() - timedelta(days=days)
@@ -389,7 +390,7 @@ def crawl_stats_dashboard():
         bar_width = int((lang["articles"] / max_articles) * 200) if max_articles > 0 else 0
         html += f"""
                 <tr>
-                    <td><span class="lang-code">{lang["code"].upper()}</span> {lang["name"]}</td>
+                    <td><span class="lang-code">{escape(lang["code"].upper())}</span> {escape(lang["name"])}</td>
                     <td>{lang["articles"]}</td>
                     <td>{lang["simplified"]}</td>
                     <td><div class="bar-container"><div class="bar" style="width:{bar_width}px"></div></div></td>
@@ -415,7 +416,7 @@ def crawl_stats_dashboard():
             lang_name = topics[0][0]  # Get language name from first entry
             max_for_lang = get_max_simplified_for_language(lang_code)
             html += f"""
-            <h3><span class="lang-code">{lang_code.upper()}</span> {lang_name}</h3>
+            <h3><span class="lang-code">{escape(lang_code.upper())}</span> {escape(lang_name)}</h3>
             <table>
                 <tr>
                     <th>Topic</th>
@@ -430,7 +431,7 @@ def crawl_stats_dashboard():
                 status_text = "CAP REACHED" if cap_reached else f"{max_for_lang - count} remaining"
                 html += f"""
                 <tr>
-                    <td>{topic_title}</td>
+                    <td>{escape(topic_title)}</td>
                     <td>{count} / {max_for_lang}</td>
                     <td class="{status_class}">{status_text}</td>
                     <td><div class="bar-container"><div class="bar" style="width:{bar_width}px; background: {'#e74c3c' if cap_reached else '#27ae60'}"></div></div></td>
@@ -450,7 +451,7 @@ def crawl_stats_dashboard():
         if code in feed_stats and feed_stats[code]:
             topics_by_feed = feed_stats.get(f"{code}_topics", {})
             html += f"""
-            <h3><span class="lang-code">{code.upper()}</span> {lang["name"]}</h3>
+            <h3><span class="lang-code">{escape(code.upper())}</span> {escape(lang["name"])}</h3>
             <table>
                 <tr><th style="width:420px">Feed</th><th>Articles</th><th>Topics</th></tr>"""
             for feed_id, feed_title, count in feed_stats[code][:10]:
@@ -458,12 +459,12 @@ def crawl_stats_dashboard():
                 feed_topics = topics_by_feed.get(feed_id, [])
                 if feed_topics:
                     # Sort by count descending and format as "Topic (count)" on separate lines
-                    topics_str = "<br>".join([f"{t} ({c})" for t, c in sorted(feed_topics, key=lambda x: -x[1])])
+                    topics_str = "<br>".join([f"{escape(t)} ({c})" for t, c in sorted(feed_topics, key=lambda x: -x[1])])
                 else:
                     topics_str = "<span style='color:#999'>—</span>"
                 html += f"""
                 <tr>
-                    <td style="vertical-align:top; width:420px; max-width:420px; overflow:hidden; text-overflow:ellipsis">{feed_title}</td>
+                    <td style="vertical-align:top; width:420px; max-width:420px; overflow:hidden; text-overflow:ellipsis">{escape(feed_title)}</td>
                     <td style="vertical-align:top">{count}</td>
                     <td style="vertical-align:top">{topics_str}</td>
                 </tr>"""
@@ -480,4 +481,4 @@ def crawl_stats_dashboard():
 </body>
 </html>"""
 
-    return Response(html, mimetype='text/html')
+    return admin_html_response(html)

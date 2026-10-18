@@ -79,6 +79,8 @@ def _fetch_preview_image(url):
 def _og_preview_html(og_title, description, page_url, image_url):
     title = escape(og_title)
     desc = escape(description)
+    url = escape(page_url)
+    image = escape(image_url)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -90,8 +92,8 @@ def _og_preview_html(og_title, description, page_url, image_url):
 <meta property="og:site_name" content="Zeeguu">
 <meta property="og:title" content="{title}">
 <meta property="og:description" content="{desc}">
-<meta property="og:url" content="{page_url}">
-<meta property="og:image" content="{image_url}">
+<meta property="og:url" content="{url}">
+<meta property="og:image" content="{image}">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
@@ -99,12 +101,12 @@ def _og_preview_html(og_title, description, page_url, image_url):
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{title}">
 <meta name="twitter:description" content="{desc}">
-<meta name="twitter:image" content="{image_url}">
-<link rel="canonical" href="{page_url}">
-<meta http-equiv="refresh" content="0; url={page_url}">
+<meta name="twitter:image" content="{image}">
+<link rel="canonical" href="{url}">
+<meta http-equiv="refresh" content="0; url={url}">
 </head>
 <body>
-<p>Opening this article on Zeeguu… <a href="{page_url}">Continue</a>.</p>
+<p>Opening this article on Zeeguu… <a href="{url}">Continue</a>.</p>
 </body>
 </html>
 """

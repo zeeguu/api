@@ -23,6 +23,7 @@ import requests
 from markupsafe import escape
 
 from . import api
+from zeeguu.api.utils.admin_html import admin_html_response
 from zeeguu.api.utils.route_wrappers import requires_session, only_admins
 
 PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "http://prometheus:9090")
@@ -458,4 +459,4 @@ def status():
     daily = _read_daily()
     if flask.request.args.get("format") == "json":
         return flask.jsonify(_summary(v, overall, headline, roster, daily))
-    return flask.Response(_render(v, overall, headline, roster, daily), mimetype="text/html")
+    return admin_html_response(_render(v, overall, headline, roster, daily))

@@ -1,4 +1,7 @@
 import datetime
+
+from markupsafe import escape
+
 from zeeguu.api import app
 from zeeguu.core.content_recommender.elastic_recommender import (
     article_and_video_search_for_user,
@@ -23,17 +26,17 @@ def remove_protocolfrom_link(link):
 
 def format_article_info(article):
     art_info = article.article_info()
-    return f""" <li><b>{art_info["title"]}</b> ({estimate_read_time(art_info["metrics"]["word_count"])}min, {art_info["metrics"]["cefr_level"]}, <a href="{art_info["url"]}">read</a> on <a href="{article.feed.url.domain.domain_name}" style="text-decoration: none; color:black;">{remove_protocolfrom_link(article.feed.url.domain.domain_name)}</a>)</li>"""
+    return f""" <li><b>{escape(art_info["title"])}</b> ({estimate_read_time(art_info["metrics"]["word_count"])}min, {art_info["metrics"]["cefr_level"]}, <a href="{escape(art_info["url"])}">read</a> on <a href="{article.feed.url.domain.domain_name}" style="text-decoration: none; color:black;">{remove_protocolfrom_link(article.feed.url.domain.domain_name)}</a>)</li>"""
 
 
 def send_mail_new_articles_search(to_email, name, new_content_dict):
     body = f"""
-            Hi {name},
+            Hi {escape(name)},
             There are new articles containg the {"keywords" if len(new_content_dict) > 1 else "keyword"} you are subscribed to:
            """
 
     for keyword, articles in new_content_dict.items():
-        body += f"""<h3 style="color: #2F77AD;">{keyword}</h3><hr style="background-color: rgb(255, 187, 84); height: 1px; border: 0; height: 2px; margin-top: -6px;">"""
+        body += f"""<h3 style="color: #2F77AD;">{escape(keyword)}</h3><hr style="background-color: rgb(255, 187, 84); height: 1px; border: 0; height: 2px; margin-top: -6px;">"""
         body += f"""<ul>{"".join([format_article_info(a) for a in articles])}</ul>"""
 
     body += f"""

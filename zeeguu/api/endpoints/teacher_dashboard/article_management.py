@@ -40,13 +40,14 @@ def send_article_to_colleague():
     article = Article.find_by_id(request.form.get("article_id"))
     new_id = Article.create_clone(db.session, article, receiving_user)
     print(f"send email confirmation to {receiving_user} ")
+    from markupsafe import escape
     from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
     user = User.find_by_id(flask.g.user_id)
     mail = ZeeguuMailer(
         f"Shared: {article.title}",
-        f"Dear {receiving_user.name},\n\n"
-        + f'{user.name} shared "{article.title}" with you.\n\n'
+        f"Dear {escape(receiving_user.name)},\n\n"
+        + f'{escape(user.name)} shared "{escape(article.title)}" with you.\n\n'
         + f"You can find it on the My Texts page, or at the link below:\n\n"
         + f"\t https://zeeguu.org/teacher/texts/editText/{new_id}\n\n"
         + "Cheers,\n"

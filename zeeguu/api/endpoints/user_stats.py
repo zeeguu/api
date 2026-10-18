@@ -9,7 +9,9 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from flask import request, Response
+from markupsafe import escape
 
+from zeeguu.api.utils.admin_html import admin_html_response
 from zeeguu.api.utils.background import run_in_background
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, only_admins
 from zeeguu.core.model import User, Language, Session
@@ -26,6 +28,16 @@ from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.constants import PLATFORM_NAMES
 from . import api, db_session
+
+
+PERIODS = ("today", "yesterday", "2days", "week", "month")
+
+
+def period_from_request(default="yesterday"):
+    """The `period` query param, or `default` when it isn't one of PERIODS.
+    The dashboards echo it into their links, so it must never be free text."""
+    period = request.args.get("period", default)
+    return period if period in PERIODS else default
 
 
 def get_period_range(period: str):
@@ -401,7 +413,7 @@ def user_stats():
 
     Returns JSON with users grouped by activity language.
     """
-    period = request.args.get("period", "yesterday")
+    period = period_from_request()
     start, end, period_label = get_period_range(period)
 
     users_by_language = collect_user_activity(start, end)
@@ -465,7 +477,7 @@ def user_stats_individual(user_id):
     Query params:
         period: "yesterday" (default) or "week"
     """
-    period = request.args.get("period", "yesterday")
+    period = period_from_request()
     start, end, period_label = get_period_range(period)
 
     user = User.find_by_id(user_id)
@@ -604,7 +616,7 @@ def user_stats_individual(user_id):
 @only_admins
 def user_stats_dashboard():
     """HTML dashboard showing user activity statistics."""
-    period = request.args.get("period", "yesterday")
+    period = period_from_request()
     start, end, period_label = get_period_range(period)
 
     users_by_language = collect_user_activity(start, end)
@@ -775,7 +787,7 @@ def user_stats_dashboard():
         user_link = f'<a href="/user_stats/platform/{platform_id}/dashboard?period={period}">{stats["users"]}</a>'
         html += f"""
                 <tr>
-                    <td>{platform_name}</td>
+                    <td>{escape(platform_name)}</td>
                     <td>{user_link}</td>
                     <td>{stats['events']}</td>
                 </tr>
@@ -810,7 +822,7 @@ def user_stats_dashboard():
 
         html += f"""
         <div class="section">
-            <h2><span class="lang-code">{lang_code.upper()}</span> {lang_name}</h2>
+            <h2><span class="lang-code">{escape(lang_code.upper())}</span> {escape(lang_name)}</h2>
             <p style="color:#7f8c8d; margin-bottom:15px;">
                 {len(users)} active users |
                 {round(lang_exercise_min, 0):.0f} min exercises |
@@ -839,7 +851,7 @@ def user_stats_dashboard():
 """
 
         for user in sorted_users:
-            cohort_display = user["cohort_name"] or "—"
+            cohort_display = escape(user["cohort_name"] or "—")
             exercise_words = user["exercise_words"].get(lang_code, 0)
             articles = user["articles_read"].get(lang_code, 0)
             browsing_words = user["browsing_words"].get(lang_code, 0)
@@ -860,7 +872,7 @@ def user_stats_dashboard():
 
             html += f"""
                 <tr>
-                    <td><a href="/user_stats/user/{user['id']}/dashboard?period={period}" class="user-link">{user['name']}</a></td>
+                    <td><a href="/user_stats/user/{user['id']}/dashboard?period={period}" class="user-link">{escape(user['name'])}</a></td>
                     <td>{cohort_html}</td>
                     <td class="{exercise_class} duration">{user['exercise_duration_min']:.1f} min</td>
                     <td class="{exercise_class}">{exercise_words}</td>
@@ -896,7 +908,7 @@ def user_stats_dashboard():
 </body>
 </html>"""
 
-    return Response(html, mimetype="text/html")
+    return admin_html_response(html)
 
 
 @api.route("/user_stats/user/<int:user_id>/dashboard", methods=["GET"])
@@ -905,12 +917,12 @@ def user_stats_dashboard():
 @only_admins
 def user_stats_individual_dashboard(user_id):
     """HTML dashboard for individual user activity."""
-    period = request.args.get("period", "yesterday")
+    period = period_from_request()
     start, end, period_label = get_period_range(period)
 
     user = User.find_by_id(user_id)
     if not user:
-        return Response("<h1>User not found</h1>", status=404, mimetype="text/html")
+        return admin_html_response("<h1>User not found</h1>", status=404)
 
     cohort_name, cohort_id = get_user_cohort_info(user)
 
@@ -959,7 +971,7 @@ def user_stats_individual_dashboard(user_id):
     html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>{user.name} - User Stats</title>
+    <title>{escape(user.name)} - User Stats</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -1028,10 +1040,10 @@ def user_stats_individual_dashboard(user_id):
 <body>
     <div class="container">
         <a href="/user_stats/dashboard?period={period}" class="back-link">&larr; Back to overview</a>
-        <h1>{user.name}</h1>
+        <h1>{escape(user.name)}</h1>
         <p class="subtitle">
-            {user.email} |
-            <span class="cohort-badge">{cohort_name or "No cohort"}</span> |
+            {escape(user.email)} |
+            <span class="cohort-badge">{escape(cohort_name or "No cohort")}</span> |
             {period_label}
         </p>
 
@@ -1103,13 +1115,13 @@ def user_stats_individual_dashboard(user_id):
                     trans = translation.content if translation else "?"
                     speed_sec = (ex.solving_speed or 0) / 1000
 
-                    words_html += f'<li class="{outcome_class}">{word} → {trans} <span style="color:#999">({speed_sec:.1f}s, {outcome})</span></li>'
+                    words_html += f'<li class="{outcome_class}">{escape(word)} → {escape(trans)} <span style="color:#999">({speed_sec:.1f}s, {escape(outcome)})</span></li>'
 
             html += f"""
             <div class="session-card">
                 <div class="session-header">
                     <span class="session-time">{session.start_time.strftime('%H:%M')}</span>
-                    <span class="session-lang">{session_lang or "?"}</span>
+                    <span class="session-lang">{escape(session_lang or "?")}</span>
                     <span class="session-duration">{duration_min:.1f} min | {len(exercises)} words</span>
                 </div>
                 <ul class="word-list">
@@ -1164,7 +1176,7 @@ def user_stats_individual_dashboard(user_id):
             if article_translations:
                 words_html = '<ul class="word-list" style="margin-top:10px;">'
                 for t in article_translations:
-                    words_html += f'<li>{t["word"]} → {t["translation"]}</li>'
+                    words_html += f'<li>{escape(t["word"])} → {escape(t["translation"])}</li>'
                 words_html += "</ul>"
 
             translation_count = (
@@ -1175,10 +1187,10 @@ def user_stats_individual_dashboard(user_id):
             <div class="session-card">
                 <div class="session-header">
                     <span class="session-time">{session.start_time.strftime('%H:%M')}</span>
-                    <span class="session-lang">{article_lang}</span>
+                    <span class="session-lang">{escape(article_lang)}</span>
                     <span class="session-duration">{duration_min:.1f} min{translation_count}</span>
                 </div>
-                <p style="margin:0;"><strong>{article_title}</strong></p>
+                <p style="margin:0;"><strong>{escape(article_title)}</strong></p>
                 {words_html}
             </div>
 """
@@ -1204,7 +1216,7 @@ def user_stats_individual_dashboard(user_id):
             <div class="session-card">
                 <div class="session-header">
                     <span class="session-time">{completed_time}</span>
-                    <span class="session-lang">{lesson_lang}</span>
+                    <span class="session-lang">{escape(lesson_lang)}</span>
                     <span class="session-duration">{duration_min:.1f} min</span>
                 </div>
                 <p style="margin:0;"><strong>Daily Lesson ({lesson.meaning_count} words)</strong></p>
@@ -1247,14 +1259,14 @@ def user_stats_individual_dashboard(user_id):
             html += f"""
             <div class="session-card">
                 <div class="session-header">
-                    <span class="session-lang">{lang_code}</span>
+                    <span class="session-lang">{escape(lang_code)}</span>
                     <span class="session-duration">{len(translations)} words</span>
                 </div>
                 <ul class="word-list">
 """
             for t in translations:
                 time_str = t["time"].strftime("%H:%M") if t["time"] else ""
-                html += f'<li>{t["word"]} → {t["translation"]} <span style="color:#999">({time_str})</span></li>'
+                html += f'<li>{escape(t["word"])} → {escape(t["translation"])} <span style="color:#999">({time_str})</span></li>'
             html += """
                 </ul>
             </div>
@@ -1273,7 +1285,7 @@ def user_stats_individual_dashboard(user_id):
 </body>
 </html>"""
 
-    return Response(html, mimetype="text/html")
+    return admin_html_response(html)
 
 
 @api.route("/user_stats/cohort/<int:cohort_id>/dashboard", methods=["GET"])
@@ -1282,12 +1294,12 @@ def user_stats_individual_dashboard(user_id):
 @only_admins
 def user_stats_cohort_dashboard(cohort_id):
     """HTML dashboard for cohort activity with teacher info."""
-    period = request.args.get("period", "yesterday")
+    period = period_from_request()
     start, end, period_label = get_period_range(period)
 
     cohort = Cohort.query.get(cohort_id)
     if not cohort:
-        return Response("<h1>Cohort not found</h1>", status=404, mimetype="text/html")
+        return admin_html_response("<h1>Cohort not found</h1>", status=404)
 
     # Get teachers for this cohort
     teachers = cohort.get_teachers()
@@ -1388,7 +1400,7 @@ def user_stats_cohort_dashboard(cohort_id):
     html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>{cohort.name} - Cohort Stats</title>
+    <title>{escape(cohort.name)} - Cohort Stats</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
@@ -1464,16 +1476,16 @@ def user_stats_cohort_dashboard(cohort_id):
 <body>
     <div class="container">
         <a href="/user_stats/dashboard?period={period}" class="back-link">&larr; Back to overview</a>
-        <h1>{cohort.name}</h1>
+        <h1>{escape(cohort.name)}</h1>
         <p class="subtitle">
-            Invite code: <strong>{cohort.inv_code}</strong> |
+            Invite code: <strong>{escape(cohort.inv_code)}</strong> |
             {period_label} ({start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')})
         </p>
 
         <div class="teacher-info">
             <h3>Teacher</h3>
-            <p><strong>{teacher_names}</strong></p>
-            {f'<p style="font-size:0.9em; color:#666;">{teacher_emails}</p>' if teacher_emails else ''}
+            <p><strong>{escape(teacher_names)}</strong></p>
+            {f'<p style="font-size:0.9em; color:#666;">{escape(teacher_emails)}</p>' if teacher_emails else ''}
         </div>
 
         <div class="nav">
@@ -1529,7 +1541,7 @@ def user_stats_cohort_dashboard(cohort_id):
 
         html += f"""
         <div class="section">
-            <h2><span class="lang-code">{lang_code.upper()}</span> {lang_name}</h2>
+            <h2><span class="lang-code">{escape(lang_code.upper())}</span> {escape(lang_name)}</h2>
             <table>
                 <tr>
                     <th rowspan="2">Student</th>
@@ -1565,7 +1577,7 @@ def user_stats_cohort_dashboard(cohort_id):
 
             html += f"""
                 <tr class="{row_class}">
-                    <td><a href="/user_stats/user/{user['id']}/dashboard?period={period}" class="user-link">{user['name']}</a></td>
+                    <td><a href="/user_stats/user/{user['id']}/dashboard?period={period}" class="user-link">{escape(user['name'])}</a></td>
                     <td class="{exercise_class} duration">{user['exercise_duration_min']:.1f} min</td>
                     <td class="{exercise_class}">{exercise_words}</td>
                     <td class="{reading_class} duration">{user['reading_duration_min']:.1f} min</td>
@@ -1599,7 +1611,7 @@ def user_stats_cohort_dashboard(cohort_id):
 </body>
 </html>"""
 
-    return Response(html, mimetype="text/html")
+    return admin_html_response(html)
 
 
 @api.route("/user_stats/platform/<int:platform_id>/dashboard", methods=["GET"])
@@ -1608,10 +1620,10 @@ def user_stats_cohort_dashboard(cohort_id):
 @only_admins
 def user_stats_platform_dashboard(platform_id):
     """HTML dashboard showing users who used a specific platform."""
-    period = request.args.get("period", "week")
+    period = period_from_request("week")
     start, end, label = get_period_range(period)
 
-    platform_name = PLATFORM_NAMES.get(platform_id, f"Platform {platform_id}")
+    platform_name = escape(PLATFORM_NAMES.get(platform_id, f"Platform {platform_id}"))
 
     # Get users for this platform
     from sqlalchemy import func
@@ -1661,12 +1673,12 @@ def user_stats_platform_dashboard(platform_id):
 
     for user in sorted(users, key=lambda u: u.name.lower() if u.name else ""):
         cohort_name, cohort_id = get_user_cohort_info(user)
-        cohort_link = f'<a href="/user_stats/cohort/{cohort_id}/dashboard?period={period}">{cohort_name}</a>' if cohort_id else cohort_name
+        cohort_link = f'<a href="/user_stats/cohort/{cohort_id}/dashboard?period={period}">{escape(cohort_name)}</a>' if cohort_id else escape(cohort_name or "")
 
         html += f"""
             <tr>
-                <td><a href="/user_stats/user/{user.id}/dashboard?period={period}">{user.name or 'N/A'}</a></td>
-                <td>{user.email}</td>
+                <td><a href="/user_stats/user/{user.id}/dashboard?period={period}">{escape(user.name or 'N/A')}</a></td>
+                <td>{escape(user.email)}</td>
                 <td>{cohort_link}</td>
             </tr>
 """
@@ -1677,7 +1689,7 @@ def user_stats_platform_dashboard(platform_id):
 </body>
 </html>"""
 
-    return Response(html, content_type="text/html")
+    return admin_html_response(html)
 
 
 def _compute_active_users_for_month(month_start, month_end):
