@@ -8,7 +8,12 @@ from datetime import datetime, timezone, timedelta
 
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
-from zeeguu.core.audio_lessons.script_generator import generate_lesson_script, generate_dialogue_script
+from zeeguu.core.audio_lessons.script_generator import (
+    builds_on_history as level_builds_on_history,
+    generate_dialogue_script,
+    generate_lesson_script,
+    word_lesson_level,
+)
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.audio_lessons.voice_config import (
     distinguishing_variety,
@@ -16,7 +21,7 @@ from zeeguu.core.audio_lessons.voice_config import (
 )
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
-from zeeguu.core.audio_lessons.words_heard import heard_lessons
+from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
 from zeeguu.core.model import (
     db,
     User,
@@ -201,6 +206,7 @@ class DailyLessonGenerator:
         Generate an AudioLessonMeaning for a specific user word.
         Only used in auto mode (no topic/situation).
         """
+        cefr_level = word_lesson_level(cefr_level)
         meaning = user_word.meaning
         teacher_lang = Language.find_or_create(translation_language)
 
@@ -310,12 +316,18 @@ class DailyLessonGenerator:
         # An A0 learner knows only what their earlier lessons taught them, so
         # their lesson is written from that (words_heard) and is theirs alone:
         # nothing is reused from or for anyone else.
-        builds_on_history = cefr_level == "A0"
+        builds_on_history = level_builds_on_history(cefr_level)
         heard = None
+        learner_character = None
         past_titles = None
 
         if builds_on_history:
             heard = heard_lessons(user, learned_lang)
+            # The character the learner chose; when they did not, the man and
+            # the woman take turns, counted over all their lessons of this kind.
+            learner_character = UserPreference.get_audio_lesson_character(user) or (
+                "man" if history_lesson_count(user, learned_lang) % 2 == 0 else "woman"
+            )
             is_general = False
         else:
             # Try to find an existing dialogue the user hasn't heard yet.
@@ -361,7 +373,7 @@ class DailyLessonGenerator:
             cefr_level=cefr_level,
             past_titles=past_titles,
             heard=heard,
-            learner_character=UserPreference.get_audio_lesson_character(user),
+            learner_character=learner_character,
         )
 
         if progress:

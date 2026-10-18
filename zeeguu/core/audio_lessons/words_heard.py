@@ -9,11 +9,13 @@ shows up here, and the next lesson builds on what was really said.
 Used by lessons that build on the learner's history (A0): the table goes into the
 prompt, and the model plans the next lesson from it the way Pimsleur does --
 words from the last few lessons come back often, older ones now and then, few
-new ones are added. See docs/future-work/a0-audio-lessons.md.
+new ones are added. Design: future-work/a0-audio-lessons.md in the docs repo.
 """
 
 import re
 from collections import Counter, namedtuple
+
+from sqlalchemy.orm import selectinload
 
 from zeeguu.core.audio_lessons.script_parser import parse_script
 from zeeguu.core.audio_lessons.script_language_validator import TARGET_LANGUAGE_VOICES
@@ -31,38 +33,64 @@ def target_language_words(script: str) -> Counter:
         if voice not in TARGET_LANGUAGE_VOICES:
             continue
         words.update(w.lower() for w in _WORD.findall(_TIMING.sub(" ", text)))
-    return _without_fragments(words)
+    return words
 
 
-def _without_fragments(words: Counter) -> Counter:
+def _history_lessons(user, language):
     """
-    Drop the pieces a new word is built up from ("undskyld" is said as "skyld",
-    "und", "undskyld"): each is said once or twice, inside a longer word of the
-    same script. Left in, the history would list "und" as a word the learner
-    knows. A real short word ("en" in "kaffen") is said far more often.
+    The user's daily lessons in `language` made of a dialogue that builds on
+    their history, newest first.
+
+    Only those: a word lesson is cached and shared across users by word and
+    written at whatever level it was first written at, so its vocabulary says
+    nothing about what this beginner was taught.
     """
-    return Counter(
-        {
-            word: count
-            for word, count in words.items()
-            if count > 2 or not any(word != other and word in other for other in words)
-        }
+    from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
+    from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+    from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
+
+    return (
+        DailyAudioLesson.query.join(
+            DailyAudioLessonSegment,
+            DailyAudioLessonSegment.daily_audio_lesson_id == DailyAudioLesson.id,
+        )
+        .join(
+            AudioLessonDialogue,
+            DailyAudioLessonSegment.audio_lesson_dialogue_id == AudioLessonDialogue.id,
+        )
+        .filter(
+            DailyAudioLesson.user_id == user.id,
+            DailyAudioLesson.language_id == language.id,
+            AudioLessonDialogue.builds_on_history.is_(True),
+        )
+        .distinct()
+        .order_by(DailyAudioLesson.created_at.desc())
     )
+
+
+def history_lesson_count(user, language) -> int:
+    """How many lessons built on their history the user has been given in `language`."""
+    return _history_lessons(user, language).count()
 
 
 def heard_lessons(user, language, limit=30) -> list:
     """
-    The user's audio lessons in `language` that they engaged with, oldest first,
-    with the words each one said. The most recent `limit` of them.
+    The user's lessons built on their history in `language` that they engaged
+    with, oldest first, with the words each one said. The most recent `limit`.
 
     Engaged = DailyAudioLesson.is_engaged: finished, or listened at least
     halfway. A lesson generated but never played was not heard.
     """
     from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+    from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
 
     lessons = (
-        DailyAudioLesson.query.filter_by(user_id=user.id, language_id=language.id)
-        .order_by(DailyAudioLesson.created_at.desc())
+        _history_lessons(user, language)
+        .options(
+            selectinload(DailyAudioLesson.segments).selectinload(
+                DailyAudioLessonSegment.audio_lesson_dialogue
+            )
+        )
         .limit(limit)
         .all()
     )
@@ -73,9 +101,8 @@ def heard_lessons(user, language, limit=30) -> list:
             continue
         words = Counter()
         for segment in lesson.segments:
-            content = segment.audio_lesson_dialogue or segment.audio_lesson_meaning
-            if content is not None:
-                words.update(target_language_words(content.script))
+            if segment.audio_lesson_dialogue is not None:
+                words.update(target_language_words(segment.audio_lesson_dialogue.script))
         if words:
             heard.append(HeardLesson(lesson.display_title(), words))
     return heard

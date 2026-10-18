@@ -52,7 +52,8 @@ def add_user(email):
     native_language_code = request.form.get(
         "native_language", "en"
     )  # default language; it's changed by the ui later
-    learned_cefr_level = request.form.get("learned_cefr_level", 0)
+    # None, not 0, when the client sends none: 0 is A0.
+    learned_cefr_level = request.form.get("learned_cefr_level", None)
     invite_code = request.form.get("invite_code")
     platform = request.form.get("platform")
 
@@ -169,8 +170,8 @@ def add_anon_user():
         db_session.commit()
 
         # Create UserLanguage record with CEFR level if provided
-        if language_code and cefr_level:
-            new_user.set_learned_language(language_code, int(cefr_level), db_session)
+        if language_code and cefr_level not in (None, ""):
+            new_user.set_learned_language(language_code, cefr_level, db_session)
             db_session.commit()
     except ValueError as e:
         return bad_request("Could not create anon user.")

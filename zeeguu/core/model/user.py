@@ -389,8 +389,9 @@ class User(db.Model):
         language = UserLanguage.find_or_create(session, self, self.learned_language)
         language.reading_news = True
         language.doing_exercises = True
-        if cefr_level:
-            language.cefr_level = cefr_level
+        level = UserLanguage.parse_cefr_level(cefr_level)
+        if level is not None:
+            language.cefr_level = level
 
         # Unlike the level, a variety is cleared by sending it empty: "no
         # preference" is a choice a learner can go back to.
@@ -485,7 +486,7 @@ class User(db.Model):
         from zeeguu.core.model import UserLanguage
 
         language = UserLanguage.find_or_create(session, self, learned_language)
-        language.cefr_level = int(cefr_level)
+        language.cefr_level = UserLanguage.parse_cefr_level(cefr_level)
         if session:
             session.add(language)
 

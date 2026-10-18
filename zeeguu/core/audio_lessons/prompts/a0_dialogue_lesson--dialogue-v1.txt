@@ -10,4 +10,4 @@ Both speakers are adults. If they have names, the man's is a man's name and the 
 
 The learner plays the {learner}: the person the situation is about (the customer, the guest, the one who does not understand). Keep their lines short, because they will learn to say them; the other person may speak as they naturally would, because the learner only needs to understand them.
 
-On the first line, output "LEARNER: {learner_label}". Then the dialogue, one line per speaker, as "Man: ..." and "Woman: ...". Nothing else.
+Output only the dialogue, one line per speaker, as "Man: ..." and "Woman: ...".

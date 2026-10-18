@@ -100,6 +100,20 @@ class UserLanguage(db.Model):
 
         return self.daily_streak or 0
 
+    @staticmethod
+    def parse_cefr_level(value):
+        """
+        A level as sent by a client (form string, JSON number) as stored: 0..6
+        for A0..C2, or None when it was not given. 0 is A0, not "not set", so
+        `if level:` must never stand in for "was a level given".
+        """
+        if value is None or value == "":
+            return None
+        level = int(value)
+        if not 0 <= level <= 6:
+            raise ValueError(f"CEFR level out of range: {value}")
+        return level
+
     def __init__(
         self,
         user,

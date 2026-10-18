@@ -1,7 +1,7 @@
 """
 Level A0 and lessons that build on the learner's history.
 
-See docs/future-work/a0-audio-lessons.md. A0 is stored as cefr_level 0, which
+Design: future-work/a0-audio-lessons.md in the docs repo. A0 is stored as cefr_level 0, which
 used to be the "not set" default and read as C2; not set is now NULL.
 """
 
@@ -50,14 +50,10 @@ def test_a_slow_line_is_marked_and_the_marker_is_not_text():
     assert target_language_words(script) == Counter({"kaffe": 2})
 
 
-def test_the_pieces_of_a_word_being_built_up_are_not_words():
-    script = """Man: Undskyld. [3 seconds]
-Man: Skyld. [3 seconds]
-Man: Und. [3 seconds]
-Man: Undskyld. [3 seconds]
-Woman: En kaffe. [3 seconds]
-"""
-    assert target_language_words(script) == Counter({"undskyld": 2, "en": 1, "kaffe": 1})
+def test_a_short_word_inside_a_longer_one_still_counts():
+    # "ja" said once, inside "jakke" said often: it was heard, and stays.
+    script = "Woman: Ja. [1 seconds]\nMan: En jakke. [1 seconds]\nMan: En jakke. [1 seconds]\n"
+    assert target_language_words(script)["ja"] == 1
 
 
 def test_history_table_puts_the_most_recent_words_first():
@@ -110,6 +106,25 @@ class LevelTest(ModelTestMixIn):
         other = UserLanguage(self.user, self.user.native_language)
         assert other.cefr_level is None
 
+    def test_a0_is_saved_when_switching_language(self):
+        # The reason for parse_cefr_level: 0 is falsy, and `if cefr_level:` dropped it.
+        self._level(3)
+        self.user.set_learned_language(self.user.learned_language.code, "0", db.session)
+        assert self.user.audio_lesson_level_for_learned_language() == "A0"
+
+    def test_no_level_given_leaves_the_level_alone(self):
+        self._level(3)
+        self.user.set_learned_language(self.user.learned_language.code, "", db.session)
+        assert self.user.audio_lesson_level_for_learned_language() == "B1"
+
+    def test_parse_cefr_level(self):
+        assert UserLanguage.parse_cefr_level(None) is None
+        assert UserLanguage.parse_cefr_level("") is None
+        assert UserLanguage.parse_cefr_level("0") == 0
+        assert UserLanguage.parse_cefr_level(6) == 6
+        with pytest.raises(ValueError):
+            UserLanguage.parse_cefr_level("7")
+
 
 def test_a_lesson_built_on_history_cannot_be_general():
     class _Lang:
@@ -136,3 +151,48 @@ class AudioLessonCharacterTest(ModelTestMixIn):
 
         UserPreference.set(db.session, self.user, UserPreference.AUDIO_LESSON_CHARACTER, "woman")
         assert UserPreference.get_audio_lesson_character(self.user) == "woman"
+
+
+def test_a0_builds_on_history_and_has_no_word_lessons():
+    from zeeguu.core.audio_lessons.script_generator import builds_on_history, word_lesson_level
+
+    assert builds_on_history("A0") and not builds_on_history("A1")
+    # Word lessons are cached and shared by word: there is no A0 version.
+    assert word_lesson_level("A0") == "A1"
+    assert word_lesson_level("B2") == "B2"
+
+
+class HistoryTest(ModelTestMixIn):
+    def setUp(self):
+        super().setUp()
+        self.user = UserRule().user
+        self.language = self.user.learned_language
+
+    def _lesson(self, script, builds_on_history, completed):
+        from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+
+        dialogue = AudioLessonDialogue(
+            script, "café", "situation", self.language, builds_on_history=builds_on_history
+        )
+        db.session.add(dialogue)
+        lesson = DailyAudioLesson(
+            user=self.user, created_by="test", duration_seconds=600,
+            language=self.language, lesson_type="situation",
+        )
+        lesson.add_dialogue_segment(audio_lesson_dialogue=dialogue, sequence_order=1)
+        if completed:
+            lesson.mark_completed()
+        db.session.add(lesson)
+        db.session.commit()
+
+    def test_only_heard_lessons_built_on_history_count(self):
+        from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
+
+        self._lesson("Man: En kaffe, tak. [1 seconds]", builds_on_history=True, completed=True)
+        self._lesson("Man: Jeg forstår ikke. [1 seconds]", builds_on_history=True, completed=False)
+        self._lesson("Man: Hvor er stationen? [1 seconds]", builds_on_history=False, completed=True)
+
+        heard = heard_lessons(self.user, self.language)
+        assert [set(h.words) for h in heard] == [{"en", "kaffe", "tak"}]
+        # Roles alternate over every lesson of this kind, heard or not.
+        assert history_lesson_count(self.user, self.language) == 2

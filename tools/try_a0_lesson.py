@@ -83,7 +83,8 @@ def main():
         lesson_type="situation",
         cefr_level="A0",
         heard=heard,
-        learner_character=args.character,
+        # As in the app: the chosen character, else the two take turns.
+        learner_character=args.character or ("man" if len(heard) % 2 == 0 else "woman"),
     )
 
     with open(args.out, "w", encoding="utf-8") as f:

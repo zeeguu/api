@@ -210,6 +210,24 @@ def generate_lesson_script(
         raise Exception(f"Failed to generate script: {str(e)}")
 
 
+def builds_on_history(cefr_level: str) -> bool:
+    """
+    Whether a situation lesson at this level is written from the learner's own
+    history (words_heard), Pimsleur-style, and belongs to them alone. The one
+    place this is decided: the generator and the script writer both ask here.
+    """
+    return cefr_level == "A0"
+
+
+def word_lesson_level(cefr_level: str) -> str:
+    """
+    The level a word (meaning) lesson is written at. There is no A0 word lesson:
+    A0 is a way of building situation lessons, and meaning lessons are cached and
+    shared across users by word, so an "A0" one would be served to everyone.
+    """
+    return "A1" if cefr_level == "A0" else cefr_level
+
+
 def generate_dialogue_script(
     origin_language: str,
     translation_language: str,
@@ -223,13 +241,11 @@ def generate_dialogue_script(
     """
     Generate a single flowing dialogue script about a topic or situation.
 
-    heard: the lessons the learner heard before (words_heard.heard_lessons),
-    given for a lesson that builds on the learner's history; [] when they have
-    heard nothing yet. Such a lesson is written in two calls, see
-    _dialogue_for_beginner.
-
-    learner_character: "man" or "woman", the character the learner chose to play
-    (UserPreference.AUDIO_LESSON_CHARACTER); None to alternate.
+    At a level that builds_on_history:
+    heard: the lessons the learner heard before (words_heard.heard_lessons);
+    [] or None when they have heard nothing yet.
+    learner_character: "man" or "woman", the character the learner plays.
+    Such a lesson is written in two calls, see _dialogue_for_beginner.
 
     Returns:
         Tuple of (title, script) — title is a short description of the dialogue
@@ -238,8 +254,8 @@ def generate_dialogue_script(
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
     max_tokens = 8000
-    builds_on_history = heard is not None
-    if builds_on_history:
+    from_history = builds_on_history(cefr_level)
+    if from_history:
         # One prompt for topics and situations: at A0 a topic is a situation
         # where people talk about it. Pimsleur-length repetition makes the
         # script about twice as long as an ordinary dialogue lesson.
@@ -251,9 +267,11 @@ def generate_dialogue_script(
         prompt_file = "dialogue_lesson--topic-v2.txt"
 
     dialogue = learner_role = None
-    if builds_on_history:
-        dialogue, learner_role = _dialogue_for_beginner(
-            origin_language, translation_language, suggestion, heard, learner_character
+    if from_history:
+        heard = heard or []
+        learner_role = (learner_character or "man").capitalize()
+        dialogue = _dialogue_for_beginner(
+            origin_language, translation_language, suggestion, heard, learner_role
         )
 
     prompt_template = get_prompt_template(prompt_file)
@@ -298,7 +316,7 @@ def generate_dialogue_script(
         raise Exception(f"Failed to generate dialogue script: {str(e)}")
 
 
-def _dialogue_for_beginner(origin_language, translation_language, suggestion, heard, learner_character=None):
+def _dialogue_for_beginner(origin_language, translation_language, suggestion, heard, learner_role):
     """
     The dialogue a beginner's lesson is built around, written on its own.
 
@@ -320,16 +338,11 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
     else:
         known_words = f"This is the learner's first lesson: they know no {origin_lang_name} yet."
 
-    # The character the learner chose; when they did not, the man and the woman
-    # take turns, lesson by lesson.
-    learner = learner_character or ("man" if len(heard) % 2 == 0 else "woman")
-
     prompt = get_prompt_template("a0_dialogue_lesson--dialogue-v1.txt").format(
         target_language=origin_lang_name,
         suggestion=suggestion,
         known_words=known_words,
-        learner=learner,
-        learner_label=learner.capitalize(),
+        learner=learner_role.lower(),
     )
     dialogue, _ = generate_script_in_languages(
         prompt,
@@ -341,7 +354,4 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
     # The learner learns to say one role's lines and to understand the other's;
     # the dialogue names theirs on its first line. Without it, the one who
     # answers the first line: the situation is about them more often than not.
-    lines = [line.strip() for line in dialogue.strip().splitlines() if line.strip()]
-    if lines and lines[0].upper().startswith("LEARNER:"):
-        lines.pop(0)
-    return "\n".join(lines), learner.capitalize()
+    return "\n".join(line.strip() for line in dialogue.strip().splitlines() if line.strip())
