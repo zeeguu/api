@@ -202,7 +202,7 @@ def mark_pair_invalid(db_session, meaning_id, problems, user_word_id=None, conte
     INVALID, so the audio word selector stops picking it, and take its words
     out of study for every learner who has not learned them yet. On 2026-10-18,
     6 of the 7 wrong pairs in a 200-lesson sample were on scheduled words, most
-    of them passed by the translation validator. Logs why in validation_log
+    of them passed by the translation validator. Logs why in validation_log,
     next to that validator's own verdicts. Does not commit.
 
     Not UserWord.set_unfit_for_study: it looks the schedule up through the
@@ -232,9 +232,13 @@ def mark_pair_invalid(db_session, meaning_id, problems, user_word_id=None, conte
             BasicSRSchedule.user_word_id.in_([w.id for w in unlearned])
         ).delete(synchronize_session=False)
 
-    ValidationLog.log_invalid(
-        db_session, meaning=meaning, user_word_id=user_word_id, reason=reason, context=context
-    )
+    # One row per word taken out of study, so each learner's word answers "why
+    # is this no longer studied?"; the context is the sentence the verdict was
+    # reached in, which may be another learner's.
+    for logged_id in [w.id for w in unlearned] or [user_word_id]:
+        ValidationLog.log_invalid(
+            db_session, meaning=meaning, user_word_id=logged_id, reason=reason, context=context
+        )
 
 
 def blocking(problems) -> list:

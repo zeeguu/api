@@ -62,10 +62,12 @@ class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
     def test_a_wrong_pair_marks_the_meaning_invalid_and_logs_why(self):
         meaning = self._generate_refused_with(WRONG_PAIR)
         self.assertEqual(meaning.validated, Meaning.INVALID)
-        logged = ValidationLog.query.filter_by(meaning_id=meaning.id).one()
-        self.assertEqual(logged.action, ValidationAction.INVALID)
-        self.assertEqual(logged.reason, "[audio lesson check] connu is 'known'")
-        self.assertEqual(logged.user_word_id, self.user_word.id)
+        logged = ValidationLog.query.filter_by(meaning_id=meaning.id).all()
+        # One per word taken out of study, so each answers why; not the learned one.
+        self.assertEqual({l.user_word_id for l in logged}, {self.user_word.id, self.other.id})
+        for entry in logged:
+            self.assertEqual(entry.action, ValidationAction.INVALID)
+            self.assertEqual(entry.reason, "[audio lesson check] connu is 'known'")
 
     def test_a_wrong_pair_takes_unlearned_words_out_of_study_for_everyone(self):
         self.assertEqual(BasicSRSchedule.query.count(), 2)
