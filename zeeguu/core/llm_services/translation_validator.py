@@ -60,6 +60,10 @@ class ValidationResult:
     reason: Optional[str] = None  # Why it was fixed
     explanation: Optional[str] = None  # Extra context for learner (usage notes, nuances)
     literal_meaning: Optional[str] = None  # Word-by-word translation for idioms
+    # The valid/corrected pair as a dictionary spells it: "Dette" at the
+    # start of a sentence comes back as "dette"
+    dictionary_word: Optional[str] = None
+    dictionary_translation: Optional[str] = None
 
 
 class TranslationValidator:
@@ -216,6 +220,8 @@ class TranslationValidator:
             reason=field("reason"),
             explanation=field("explanation"),
             literal_meaning=field("literal_meaning"),
+            dictionary_word=field("dictionary_word"),
+            dictionary_translation=field("dictionary_translation"),
         )
 
     def validate_translation(
