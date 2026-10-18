@@ -1,6 +1,8 @@
 import flask
 from flask import request
+from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.utils import json_result
+from zeeguu.api.utils.abort_handling import make_error
 
 from zeeguu.core.model import Cohort, User
 
@@ -21,6 +23,22 @@ def join_cohort_api():
 
     try:
         cohort = Cohort.find_by_code(invite_code)
+    except NoResultFound:
+        # A 400, not the 500 this used to fall through to: the rate limiter
+        # charges rejected codes only, and a code naming no class is the
+        # caller's mistake, not a server error. Clients treat both as failure.
+        return make_error(400, "Invalid invite code")
+
+    # Same rule as signup (create_account): a full class, or one closed by
+    # setting max_students to -10 as event codes are, takes nobody new. A
+    # class with no max_students at all could always be joined here, and
+    # still can; cohort_still_has_capacity can't do arithmetic on NULL.
+    if cohort.max_students is not None and not cohort.cohort_still_has_capacity():
+        return make_error(
+            400, "No more places in this class. Please contact us (zeeguu.team@gmail.com)."
+        )
+
+    try:
         user = User.find_by_id(flask.g.user_id)
         user.add_user_to_cohort(cohort, db_session)
 
