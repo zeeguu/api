@@ -183,20 +183,41 @@ MEANING_LESSON_PROMPT = "meaning_lesson--teacher_challenges_both_dialogue_and_be
 
 class LessonNotCorrect(Exception):
     """
-    The script still teaches the word wrong after a rewrite, or the check says
-    the word/translation pair itself is wrong (`about_the_data`). Like
-    NotAScript, the model's findings travel with the exception.
+    The script still teaches the word wrong after a rewrite, or the
+    word/translation pair itself is wrong (`about_the_data`, which only a
+    confirmed pair verdict sets; see _pair_is_wrong). Like NotAScript, the
+    model's findings travel with the exception.
     """
 
-    def __init__(self, message, problems):
+    def __init__(self, message, problems, about_the_data=False):
         super().__init__(message)
         self.problems = problems
+        self.about_the_data = about_the_data
 
-    @property
-    def about_the_data(self):
-        from zeeguu.core.audio_lessons.lesson_correctness_check import ABOUT_THE_DATA
 
-        return any(p["kind"] in ABOUT_THE_DATA for p in self.problems)
+def _pair_is_wrong(lesson) -> bool:
+    """
+    A second, pair-only opinion before we act on the script check's word or
+    translation complaint: acting marks the meaning INVALID and takes it out of
+    study for every learner, and the script check is a lesson reviewer, noisy
+    on pairs (2 of the 6 pairs it refused in the 2026-10-18 sample were
+    doubtful). This asks the translation validator's own question, in the
+    learner's sentence; without a sentence there is nothing to confirm against.
+    Any failure to get an answer counts as not confirmed.
+    """
+    from zeeguu.core.audio_lessons.lesson_correctness_check import judge_pair
+    from zeeguu.core.llm_services.deepseek_service import DeepSeekService
+
+    if not lesson.context:
+        return False
+    try:
+        verdict = judge_pair(DeepSeekService(), lesson)
+    except Exception as e:
+        log(f"[lesson check] could not confirm the pair '{lesson.word}': {e}")
+        return False
+    log(f"[lesson check] pair '{lesson.word}' → '{lesson.translation}': "
+        f"{'VALID' if verdict.is_valid else 'FIX'} ({verdict.reason})")
+    return not verdict.is_valid
 
 
 def _context_paragraph(origin_word, translation_word, context):
@@ -277,6 +298,7 @@ def generate_lesson_script(
     log(f"Generating script for {origin_word} -> {translation_word}")
 
     attempt_prompt = prompt
+    pair_is_wrong = None  # asked at most once
     for attempt in range(1, CORRECTNESS_ATTEMPTS + 1):
         try:
             # Use unified LLM service with automatic Anthropic -> DeepSeek fallback
@@ -290,19 +312,18 @@ def generate_lesson_script(
             log(f"Failed to generate script for {origin_word}: {e}")
             raise Exception(f"Failed to generate script: {str(e)}")
 
-        problems = _blocking_problems(
-            LessonToCheck(
-                id=None,
-                learned_language=origin_language,
-                teacher_language=translation_language,
-                translation_language=translation_language,
-                word=origin_word,
-                translation=translation_word,
-                validated=None,
-                context=context,
-                script=script,
-            )
+        lesson = LessonToCheck(
+            id=None,
+            learned_language=origin_language,
+            teacher_language=translation_language,
+            translation_language=translation_language,
+            word=origin_word,
+            translation=translation_word,
+            validated=None,
+            context=context,
+            script=script,
         )
+        problems = _blocking_problems(lesson)
         if not problems:
             log(f"Successfully generated script for {origin_word}")
             return GeneratedScript(script, model_name, prompt_version_of(generator_prompt_file))
@@ -310,13 +331,18 @@ def generate_lesson_script(
         found = "; ".join(f"[{p['kind']}] {p['text'] or ''} {p['issue']}" for p in problems)
         log(f"[lesson check] '{origin_word}' attempt {attempt}/{CORRECTNESS_ATTEMPTS}: {found}")
         if any(p["kind"] in ABOUT_THE_DATA for p in problems):
-            break
+            if pair_is_wrong is None:
+                pair_is_wrong = _pair_is_wrong(lesson)
+            if pair_is_wrong:
+                break
+        # Unconfirmed pair complaints go into the rewrite like any other problem
         attempt_prompt = prompt + _correctness_note(problems)
 
     raise LessonNotCorrect(
         f"meaning lesson '{origin_word}' → '{translation_word}' did not pass the "
         f"correctness check: {found[:500]}",
         problems,
+        about_the_data=bool(pair_is_wrong),
     )
 
 

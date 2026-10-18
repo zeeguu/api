@@ -50,6 +50,17 @@ def _ai_generator_for(generated):
     )
 
 
+def _lookup_sentence(user_word):
+    """The sentence the learner looked the word up in, or None. Never the
+    "[Context deleted]" placeholder: the lesson check would judge the pair
+    against it as if it were the sentence."""
+    bookmark = user_word.preferred_bookmark
+    if not bookmark or not (bookmark.context or bookmark.text):
+        return None
+    sentence = bookmark.get_context()
+    return None if sentence == "[Context deleted]" else sentence
+
+
 class DailyLessonGenerator:
     """Generates daily audio lessons for users."""
 
@@ -235,11 +246,7 @@ class DailyLessonGenerator:
             progress.update_generating_script()
             db.session.commit()
 
-        context = (
-            user_word.preferred_bookmark.get_context()
-            if user_word.preferred_bookmark
-            else None
-        )
+        context = _lookup_sentence(user_word)
         try:
             generated = generate_lesson_script(
                 origin_word=meaning.origin.content,
@@ -253,7 +260,9 @@ class DailyLessonGenerator:
             if e.about_the_data:
                 # In a session of its own: callers roll theirs back on errors,
                 # and without the mark the precompute cron would regenerate and
-                # refuse this word again every night.
+                # refuse this word again every night. A failure here must not
+                # replace the refusal, or the learner loses the whole lesson
+                # instead of this one word.
                 separate_session = sessionmaker(bind=flask_db.engine)()
                 try:
                     mark_pair_invalid(
@@ -261,6 +270,12 @@ class DailyLessonGenerator:
                         user_word_id=user_word.id, context=context,
                     )
                     separate_session.commit()
+                except Exception as marking_error:
+                    separate_session.rollback()
+                    log(f"[lesson check] could not mark '{meaning.origin.content}' invalid: {marking_error}")
+                    from sentry_sdk import capture_exception
+
+                    capture_exception(marking_error)
                 finally:
                     separate_session.close()
             raise
@@ -565,7 +580,7 @@ class DailyLessonGenerator:
                         sequence_order=idx + 1 - len(refused),
                     )
 
-                if len(refused) == len(selected_words):
+                if refused and len(refused) == len(selected_words):
                     words = ", ".join(w.meaning.origin.content for w in refused)
                     message = f"No word could be taught correctly: {words}"
                     log(f"[generate_daily_lesson] {message}")

@@ -35,7 +35,7 @@ starting every --interval seconds.
 
 --deprecate sets deprecated_at on the lessons the report fails for a blocking
 problem (any kind but "unnatural", as at build time), and marks INVALID the
-meanings whose word or translation the check found wrong (taking their unlearned
+meanings whose pair the pair-only verdict confirmed wrong (taking their unlearned
 words out of study for every learner), so cache lookups
 regenerate while daily lessons that already reference the row keep playing.
 """
@@ -55,7 +55,6 @@ app = create_app_for_scripts()
 app.app_context().push()
 
 from zeeguu.core.audio_lessons.lesson_correctness_check import (
-    ABOUT_THE_DATA,
     FAIL,
     LessonToCheck,
     blocking,
@@ -68,6 +67,9 @@ from zeeguu.core.audio_lessons.lesson_correctness_check import (
 from zeeguu.core.audio_lessons.script_generator import _is_a_script
 from zeeguu.core.llm_services.deepseek_service import DeepSeekService
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.meaning import Meaning
+from zeeguu.core.model.phrase import Phrase
 from zeeguu.core.model.user_word import UserWord
 
 # Deprecating is reversible only while you still know which rows moved. On
@@ -166,7 +168,13 @@ report = read_report(REPORT)
 query = AudioLessonMeaning.query.filter(AudioLessonMeaning.deprecated_at.is_(None))
 if args.ids:
     query = query.filter(AudioLessonMeaning.id.in_([int(i) for i in args.ids.split(",")]))
-lessons = [l for l in query.all() if not args.language or learned_code(l) == args.language]
+if args.language:
+    query = (
+        query.join(Meaning, AudioLessonMeaning.meaning_id == Meaning.id)
+        .join(Phrase, Meaning.origin_id == Phrase.id)
+        .filter(Phrase.language_id == Language.find(args.language).id)
+    )
+lessons = query.all()
 if args.sample:
     lessons = random.Random(args.seed).sample(lessons, min(args.sample, len(lessons)))
 
@@ -223,9 +231,15 @@ if args.deprecate:
     # As at build time (daily_lesson_generator): when the pair itself is wrong,
     # the meaning is marked INVALID too, or the selector would pick it again and
     # the next lesson would be built on the same pair.
-    wrong_pairs = [
-        row for row in condemned_rows if any(p["kind"] in ABOUT_THE_DATA for p in row["problems"])
-    ]
+    # Only pairs the pair-only verdict confirmed wrong, once per meaning: two
+    # lessons (another teacher language or variety) can share one.
+    wrong_pairs = list(
+        {
+            selected[row["id"]].meaning_id: row
+            for row in condemned_rows
+            if row.get("pair_verdict") == "FIX"
+        }.items()
+    )
 
     # Say exactly what is about to move, so the run is auditable afterwards from
     # the log alone.
@@ -234,7 +248,7 @@ if args.deprecate:
         kinds = ",".join(sorted({p["kind"] for p in blocking(row["problems"])}))
         out(f"    AudioLessonMeaning {row['id']} ({kinds})")
     out(
-        f"...and mark INVALID the meanings of the {len(wrong_pairs)} whose word or "
+        f"...and mark INVALID the {len(wrong_pairs)} meanings whose word or "
         "translation is wrong, taking their unlearned words out of study"
     )
 
@@ -250,10 +264,9 @@ if args.deprecate:
     now = datetime.now()
     for lesson in condemned:
         lesson.deprecated_at = now
-    for row in wrong_pairs:
-        mark_pair_invalid(
-            db.session, selected[row["id"]].meaning_id, row["problems"], context=row["context"]
-        )
+    for meaning_id, row in wrong_pairs:
+        why = [{"kind": "translation", "issue": row.get("pair_reason") or "pair judged wrong"}]
+        mark_pair_invalid(db.session, meaning_id, why, context=row["context"])
     db.session.commit()
     out(
         f"Deprecated {len(condemned)} meaning lessons; they will be regenerated on next "
@@ -262,5 +275,7 @@ if args.deprecate:
 elif new_fails:
     out("Run again with --deprecate to mark the failed lessons for regeneration.")
 
-if args.quiet and new_fails:
+# A deprecating run always prints: it may act on rows from an earlier run
+# even when this one found nothing new.
+if args.quiet and (new_fails or args.deprecate):
     flush()

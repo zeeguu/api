@@ -303,9 +303,18 @@ def check(service, lesson: LessonToCheck) -> dict:
         "checker": checker_id(service.model),
     }
 
-    # Only pairs our own validator never passed: a valid pair is still read
-    # against the lesson by check 1 of the lesson prompt.
-    if lesson.validated != 1 and lesson.context:
+    try:
+        row["verdict"], row["problems"] = judge_lesson(service, lesson)
+    except Exception as e:
+        row["verdict"], row["problems"] = ERROR, [
+            {"line": None, "text": None, "kind": "other", "issue": str(e)[:300]}
+        ]
+
+    # The pair-only verdict: for pairs our validator never passed, and to
+    # confirm the lesson check's own word/translation complaints, which alone
+    # are too noisy to mark a meaning INVALID on (see script_generator).
+    complains_about_pair = any(p["kind"] in ABOUT_THE_DATA for p in row["problems"])
+    if (lesson.validated != 1 or complains_about_pair) and lesson.context:
         try:
             pair = judge_pair(service, lesson)
             row["pair_verdict"] = "VALID" if pair.is_valid else "FIX"
@@ -318,13 +327,6 @@ def check(service, lesson: LessonToCheck) -> dict:
         except Exception as e:
             row["pair_verdict"] = ERROR
             row["pair_reason"] = str(e)[:300]
-
-    try:
-        row["verdict"], row["problems"] = judge_lesson(service, lesson)
-    except Exception as e:
-        row["verdict"], row["problems"] = ERROR, [
-            {"line": None, "text": None, "kind": "other", "issue": str(e)[:300]}
-        ]
     return row
 
 

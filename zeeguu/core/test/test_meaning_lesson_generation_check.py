@@ -12,7 +12,7 @@ UNNATURAL = {"line": 7, "text": "Man: Sådan.", "kind": "unnatural", "issue": "s
 TRANSLATION = {"line": 0, "text": None, "kind": "translation", "issue": "not 'how'"}
 
 
-def run(verdicts, context="Sådan bruger en ekspert mindre tid på sin telefon"):
+def run(verdicts, context="Sådan bruger en ekspert mindre tid på sin telefon", pair_is_wrong=True):
     """Generate with the LLM and the checker replaced; returns the result (or
     the exception) and the prompts the generator was given."""
     prompts = []
@@ -29,13 +29,27 @@ def run(verdicts, context="Sådan bruger en ekspert mindre tid på sin telefon")
             raise verdict
         return ("fail" if verdict else "pass"), verdict
 
-    with patch.object(script_generator, "generate_script_in_languages", generate), patch(
+    pair_asked = []
+
+    def judge_pair(service, lesson):
+        pair_asked.append(lesson.word)
+
+        class Verdict:
+            is_valid = not pair_is_wrong
+            reason = "test"
+
+        return Verdict()
+
+    with patch(
+        "zeeguu.core.audio_lessons.lesson_correctness_check.judge_pair", judge_pair
+    ), patch.object(script_generator, "generate_script_in_languages", generate), patch(
         "zeeguu.core.audio_lessons.lesson_correctness_check.judge_lesson", judge
     ), patch("zeeguu.core.llm_services.deepseek_service.DeepSeekService", lambda: None):
         try:
             result = generate_lesson_script("Sådan", "How", "da", "en", context=context)
         except LessonNotCorrect as e:
             result = e
+    run.pair_asked = pair_asked
     return result, prompts
 
 
@@ -64,10 +78,32 @@ def test_a_script_still_wrong_after_the_rewrite_is_refused():
     assert len(prompts) == 2
 
 
-def test_a_wrong_pair_is_refused_without_a_rewrite():
+def test_a_confirmed_wrong_pair_is_refused_without_a_rewrite():
     result, prompts = run([[TRANSLATION]])
     assert isinstance(result, LessonNotCorrect)
+    assert result.about_the_data
     assert len(prompts) == 1
+
+
+def test_an_unconfirmed_pair_complaint_is_rewritten_like_any_problem():
+    result, prompts = run([[TRANSLATION], []], pair_is_wrong=False)
+    assert result.script == "script 2"
+    assert run.pair_asked == ["Sådan"]
+
+
+def test_an_unconfirmed_pair_complaint_never_marks_the_data():
+    result, _ = run([[TRANSLATION], [TRANSLATION]], pair_is_wrong=False)
+    assert isinstance(result, LessonNotCorrect)
+    assert not result.about_the_data
+    assert run.pair_asked == ["Sådan"]  # asked once, not per attempt
+
+
+def test_without_a_sentence_a_pair_complaint_cannot_be_confirmed():
+    result, prompts = run([[TRANSLATION], [TRANSLATION]], context=None)
+    assert isinstance(result, LessonNotCorrect)
+    assert not result.about_the_data
+    assert run.pair_asked == []
+    assert len(prompts) == 2
 
 
 def test_an_unavailable_checker_lets_the_script_through():

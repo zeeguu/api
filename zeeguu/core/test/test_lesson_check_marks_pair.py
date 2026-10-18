@@ -47,7 +47,7 @@ class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
 
     def _generate_refused_with(self, problems):
         def refuse(**kwargs):
-            raise LessonNotCorrect("refused", problems)
+            raise LessonNotCorrect("refused", problems, about_the_data=problems is WRONG_PAIR)
 
         generator = DailyLessonGenerator.__new__(DailyLessonGenerator)
         with patch.object(daily_lesson_generator, "generate_lesson_script", refuse):
@@ -81,3 +81,20 @@ class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
         self.assertEqual(meaning.validated, Meaning.VALID)
         self.assertEqual(ValidationLog.query.filter_by(meaning_id=meaning.id).count(), 0)
         self.assertEqual(BasicSRSchedule.query.count(), 2)
+
+    def test_a_failed_mark_still_ends_in_the_refusal_not_another_error(self):
+        # The daily lesson leaves a refused word out; any other error fails it
+        with patch.object(
+            daily_lesson_generator, "mark_pair_invalid", side_effect=RuntimeError("lock wait timeout")
+        ):
+            meaning = self._generate_refused_with(WRONG_PAIR)
+        self.assertEqual(meaning.validated, Meaning.VALID)
+
+    def test_a_deleted_context_is_not_sent_as_the_sentence(self):
+        from zeeguu.core.audio_lessons.daily_lesson_generator import _lookup_sentence
+        from zeeguu.core.model import Bookmark
+
+        self.user_word.preferred_bookmark = Bookmark.query.filter_by(user_word_id=self.user_word.id).first()
+        self.assertIsNotNone(_lookup_sentence(self.user_word))
+        with patch.object(type(self.user_word.preferred_bookmark), "get_context", lambda b: "[Context deleted]"):
+            self.assertIsNone(_lookup_sentence(self.user_word))
