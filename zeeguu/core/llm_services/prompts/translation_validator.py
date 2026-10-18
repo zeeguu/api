@@ -61,6 +61,12 @@ Phrase type:
 - expression: common phrase/greeting ("how are you")
 - arbitrary_multi_word: random fragment, NOT worth studying ("doctor for", "the cat on", "bruger den")
 
+STEP 3 - DICTIONARY CASE (for the valid/corrected pair):
+Write the word and its translation as a dictionary would: lowercase, unless the language
+capitalizes them anyway (German nouns, proper nouns, English days, months, languages and
+nationalities, the pronoun "I"). Standing at the start of the sentence is NOT a reason to
+capitalize. Case alone never makes a pair FIX.
+
 Fill in these fields (the reply is constrained to this shape):
 - reason: one short sentence, written first: why the pair holds, or what is wrong with it
 - verdict: VALID or FIX
@@ -70,9 +76,12 @@ Fill in these fields (the reply is constrained to this shape):
 - explanation: OPTIONAL usage notes, register (formal/informal). Empty if not needed.
 - literal_meaning: ONLY for idioms - SHORT word-by-word translation (e.g., "kick into touch").
   Empty for single words, collocations, and non-idioms. NOT for explanations!
+- dictionary_word, dictionary_translation: the valid or corrected pair in dictionary case (STEP 3)
 
 Examples:
 - Simple word: VALID, common, A1, single_word
+- Sentence-initial word: "Dette" = "This" is VALID, common, A1, single_word, dictionary pair dette = "this";
+  "Mandag" = "Monday" gives mandag = "Monday"; German "Haus" = "house" gives Haus = "house"
 - Wrong form: glemme = "to forget" becomes FIX glemme = "forget", common, A2, single_word;
   reason: the highlighted word has no "at", so the translation must not have "to"
 - Word with usage note: VALID, common, B1, single_word, explanation "formal register"
@@ -112,6 +121,8 @@ VALIDATION_SCHEMA = {
         "phrase_type",
         "explanation",
         "literal_meaning",
+        "dictionary_word",
+        "dictionary_translation",
     ],
     "properties": {
         "reason": {"type": "string"},
@@ -126,6 +137,8 @@ VALIDATION_SCHEMA = {
         },
         "explanation": {"type": "string"},
         "literal_meaning": {"type": "string"},
+        "dictionary_word": {"type": "string"},
+        "dictionary_translation": {"type": "string"},
     },
 }
 

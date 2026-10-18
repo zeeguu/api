@@ -237,6 +237,26 @@ class Phrase(db.Model):
                     break
 
     @classmethod
+    def find_or_create_spelled(cls, session, _word: str, language: Language):
+        """Like find_or_create, but never hands back another case: find()
+        returns the only case variant there is, so asking it for "dette"
+        gives "Dette" when that is all that exists."""
+        spelled = [
+            each
+            for each in cls.query.filter(cls.content_lower == _word.lower())
+            .filter(cls.language == language)
+            .all()
+            if each.content == _word
+        ]
+        if spelled:
+            return spelled[0]
+        new = cls(_word, language)
+        session.add(new)
+        session.commit()
+        cls._calculate_rank_async(new.id)
+        return new
+
+    @classmethod
     def find_all(cls):
         return cls.query.all()
 

@@ -210,6 +210,27 @@ class Meaning(db.Model):
 
         return min(meanings, key=rank)
 
+    def take_case_from(self, session, origin, translation):
+        """Spell this meaning as `origin` -> `translation` where they differ
+        from it only in case. A meaning keeps the case of the occurrence it
+        was first translated in, so a sentence-initial "Dette" -> "This"
+        becomes "dette" -> "this". Phrases are shared between meanings, so
+        the meaning is pointed at the other spelling instead of editing it."""
+        changed = False
+        for attr, wanted in (("origin", origin), ("translation", translation)):
+            phrase = getattr(self, attr)
+            wanted = (wanted or "").strip()
+            if not wanted or wanted == phrase.content:
+                continue
+            if self._canonicalize(wanted) != self._canonicalize(phrase.content):
+                continue
+            log(f"[CASE] meaning {self.id}: {attr} '{phrase.content}' -> '{wanted}'")
+            setattr(self, attr, Phrase.find_or_create_spelled(session, wanted, phrase.language))
+            changed = True
+        if changed:
+            session.add(self)
+        return changed
+
     def __repr__(self):
         freq_str = f", frequency={self.frequency.value}" if self.frequency else ""
         return (

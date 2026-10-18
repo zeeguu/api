@@ -14,6 +14,8 @@ def parse(**fields):
         "phrase_type": "single_word",
         "explanation": "",
         "literal_meaning": "",
+        "dictionary_word": "",
+        "dictionary_translation": "",
         **fields,
     }
     # _parse_response uses no instance state; skip __init__ (needs an API key)
@@ -53,3 +55,8 @@ def test_leftover_unicode_escapes_become_letters():
     r = parse(verdict="FIX", corrected_word="main-d'\\u0153uvre", corrected_translation="arbeidskrachten")
     assert r.corrected_word == "main-d'œuvre"
     assert parse(verdict="FIX", corrected_word="l'\\u00e9poque").corrected_word == "l'époque"
+
+
+def test_dictionary_case_is_carried():
+    r = parse(dictionary_word="dette", dictionary_translation="this")
+    assert (r.dictionary_word, r.dictionary_translation) == ("dette", "this")
