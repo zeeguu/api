@@ -9,6 +9,7 @@ from zeeguu.core.model import UserAvatar
 from zeeguu.core.model.unique_code import UniqueCode
 from zeeguu.api.endpoints.sessions import get_anon_session
 from zeeguu.api.utils.abort_handling import make_error
+from zeeguu.api.utils.session_helpers import end_other_sessions
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from . import api, db_session
@@ -277,6 +278,7 @@ def complete_account_upgrade():
     try:
         user = User.find_by_id(flask.g.user_id)
         user.upgrade_to_full_account(email, password=password)
+        end_other_sessions(user, keep_session_uuid=flask.g.session_uuid)
         user.email_verified = True  # Already verified via code
 
         # Clean up codes
@@ -422,6 +424,7 @@ def reset_password(email):
 
     log(f"PASSWORD RESET: email='{email}', user_id={user.id} - Updating password")
     user.update_password(submitted_pass)
+    end_other_sessions(user)
     delete_all_codes_for_email(email)
 
     db_session.commit()

@@ -359,7 +359,10 @@ def user_settings():
 
         submitted_password = data.get("password", None)
         if submitted_password:
+            from zeeguu.api.utils.session_helpers import end_other_sessions
+
             user.update_password(submitted_password)
+            end_other_sessions(user, keep_session_uuid=flask.g.session_uuid)
 
         submitted_avatar_image_name = data.get("avatar_image_name", None)
         submitted_avatar_character_color = data.get("avatar_character_color", None)

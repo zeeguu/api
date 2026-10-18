@@ -14,3 +14,16 @@ def force_user_to_relog(session_object, reason: str = ""):
     )
     db.session.delete(session_object)
     db.session.commit()
+
+
+def end_other_sessions(user, keep_session_uuid: str = None):
+    """
+    Log the user out everywhere except keep_session_uuid. Call it whenever the
+    password changes. The caller commits.
+    """
+    from zeeguu.core.model import Session
+    from zeeguu.api.utils.route_wrappers import evict_from_session_cache
+
+    ended = Session.delete_all_for_user(user.id, except_uuid=keep_session_uuid)
+    evict_from_session_cache(ended)
+    return ended

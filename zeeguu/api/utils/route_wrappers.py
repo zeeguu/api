@@ -8,8 +8,17 @@ from zeeguu.core.model.session import Session
 from datetime import datetime, timedelta
 import zeeguu
 
+# Saves a database lookup per request. The cache is per worker: evicting a
+# session (logout, password change) only clears it in the worker that handled
+# that request. The other workers keep accepting their cached copy until it
+# times out, so keep the timeout short.
 SESSION_CACHE = {}
-SESSION_CACHE_TIMEOUT = 60  # Seconds
+SESSION_CACHE_TIMEOUT = 10  # Seconds
+
+
+def evict_from_session_cache(session_uuids):
+    for each in session_uuids:
+        SESSION_CACHE.pop(each, None)
 
 # Only require email verification for users created after this date
 # Existing users before this date are grandfathered in
