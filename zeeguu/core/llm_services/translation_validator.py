@@ -193,7 +193,8 @@ class TranslationValidator:
             reason=(result.reason or "") + f" [kept one option of '{source}']",
         )
 
-    def _parse_response(self, response_text: str) -> ValidationResult:
+    @staticmethod
+    def _parse_response(response_text: str) -> ValidationResult:
         """ValidationResult from the reply, which the API holds to VALIDATION_SCHEMA.
 
         Empty strings are the schema's way of saying "not applicable"; they
