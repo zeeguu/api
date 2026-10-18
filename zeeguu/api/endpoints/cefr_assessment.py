@@ -8,10 +8,17 @@ and provides display logic for disagreements.
 import flask
 from flask import request
 
+from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import Article, User, ArticleCefrAssessment
 from . import api, db_session
+
+
+def _not_your_text():
+    # A level is shared by every reader of the article, so only its uploader
+    # sets it. The web client calls these only from the own-text editor.
+    return make_error(403, "You can only set the level of texts you uploaded")
 
 
 @api.route("/article/<article_id>/cefr_assessments", methods=["GET"])
@@ -123,6 +130,10 @@ def resolve_cefr(article_id):
     if not article:
         flask.abort(404, "Article not found")
 
+    user = User.find_by_id(flask.g.user_id)
+    if not article.is_owned_by(user):
+        return _not_your_text()
+
     cefr_level = request.form.get("cefr_level")
     if not cefr_level:
         flask.abort(400, "Missing required parameter: cefr_level")
@@ -131,8 +142,6 @@ def resolve_cefr(article_id):
     valid_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
     if cefr_level not in valid_levels:
         flask.abort(400, f"Invalid CEFR level. Must be one of: {', '.join(valid_levels)}")
-
-    user = User.find_by_id(flask.g.user_id)
 
     # Get or create assessment record (1:1)
     assessment = ArticleCefrAssessment.find_or_create(db_session, article_id, commit=False)
@@ -184,6 +193,9 @@ def store_cefr_assessment(article_id):
     if not article:
         flask.abort(404, "Article not found")
 
+    if not article.is_owned_by(User.find_by_id(flask.g.user_id)):
+        return _not_your_text()
+
     cefr_level = request.form.get("cefr_level")
     assessment_method = request.form.get("assessment_method")
 
@@ -214,8 +226,8 @@ def store_cefr_assessment(article_id):
 
     # Store assessment based on category
     if assessment_method in ["teacher_resolution", "teacher_manual"]:
-        user_id = request.form.get("assessed_by_user_id", flask.g.user_id)
-        assessment.set_teacher_assessment(cefr_level, assessment_method, user_id)
+        # assessed_by_user_id is still accepted from old clients but ignored
+        assessment.set_teacher_assessment(cefr_level, assessment_method, flask.g.user_id)
     elif assessment_method in ["llm_assessed_deepseek", "llm_assessed_anthropic"]:
         assessment.set_llm_assessment(cefr_level, assessment_method)
     elif assessment_method in ["ml", "ml_word_freq", "naive_fk"]:
