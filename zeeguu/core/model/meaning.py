@@ -222,7 +222,11 @@ class Meaning(db.Model):
             wanted = (wanted or "").strip()
             if not wanted or wanted == phrase.content:
                 continue
-            if self._canonicalize(wanted) != self._canonicalize(phrase.content):
+            # Only the first letter may change: a stray "DETTE" or "dEtte"
+            # from the model passes a case-insensitive check but is no
+            # dictionary spelling.
+            current = phrase.content.strip()
+            if wanted[1:] != current[1:] or wanted[0].lower() != current[0].lower():
                 continue
             log(f"[CASE] meaning {self.id}: {attr} '{phrase.content}' -> '{wanted}'")
             setattr(self, attr, Phrase.find_or_create_spelled(session, wanted, phrase.language))

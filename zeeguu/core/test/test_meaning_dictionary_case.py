@@ -53,6 +53,11 @@ class MeaningDictionaryCaseTest(ModelTestMixIn, TestCase):
         self.assertFalse(meaning.take_case_from(session, "denne", "that"))
         self.assertEqual(self._spelled(meaning), ("Dette", "This"))
 
+    def test_only_the_first_letter_may_change(self):
+        meaning = self._meaning("Dette", "This")
+        self.assertFalse(meaning.take_case_from(session, "DETTE", "tHIS"))
+        self.assertEqual(self._spelled(meaning), ("Dette", "This"))
+
     def test_a_capital_the_language_keeps_is_kept(self):
         meaning = self._meaning("Mandag", "Monday")
         meaning.take_case_from(session, "mandag", "Monday")
