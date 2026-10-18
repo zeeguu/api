@@ -11,6 +11,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
     find_language_mismatches,
 )
 from zeeguu.core.audio_lessons.script_parser import parse_script
+from zeeguu.core.audio_lessons.words_heard import history_table
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
 from zeeguu.core.model.language import Language
@@ -216,9 +217,19 @@ def generate_dialogue_script(
     lesson_type: str,
     cefr_level: str = "A1",
     past_titles: list = None,
+    heard: list = None,
+    learner_character: str = None,
 ) -> tuple:
     """
     Generate a single flowing dialogue script about a topic or situation.
+
+    heard: the lessons the learner heard before (words_heard.heard_lessons),
+    given for a lesson that builds on the learner's history; [] when they have
+    heard nothing yet. Such a lesson is written in two calls, see
+    _dialogue_for_beginner.
+
+    learner_character: "man" or "woman", the character the learner chose to play
+    (UserPreference.AUDIO_LESSON_CHARACTER); None to alternate.
 
     Returns:
         Tuple of (title, script) — title is a short description of the dialogue
@@ -226,10 +237,24 @@ def generate_dialogue_script(
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
-    if lesson_type == "situation":
+    max_tokens = 8000
+    builds_on_history = heard is not None
+    if builds_on_history:
+        # One prompt for topics and situations: at A0 a topic is a situation
+        # where people talk about it. Pimsleur-length repetition makes the
+        # script about twice as long as an ordinary dialogue lesson.
+        prompt_file = "a0_dialogue_lesson--pimsleur_style_situation-v1.txt"
+        max_tokens = 16000
+    elif lesson_type == "situation":
         prompt_file = "dialogue_lesson--situation-v2.txt"
     else:
         prompt_file = "dialogue_lesson--topic-v2.txt"
+
+    dialogue = learner_role = None
+    if builds_on_history:
+        dialogue, learner_role = _dialogue_for_beginner(
+            origin_language, translation_language, suggestion, heard, learner_character
+        )
 
     prompt_template = get_prompt_template(prompt_file)
     prompt = prompt_template.format(
@@ -237,6 +262,9 @@ def generate_dialogue_script(
         source_language=translation_lang_name,
         cefr_level=cefr_level,
         suggestion=suggestion,
+        history=history_table(heard or []) or "Nothing yet: this is their first lesson.",
+        dialogue=dialogue,
+        learner_role=learner_role,
     )
 
     if past_titles:
@@ -251,7 +279,7 @@ def generate_dialogue_script(
             target_language=origin_language,
             source_language=translation_language,
             context=f"dialogue lesson '{suggestion}'",
-            max_tokens=8000,
+            max_tokens=max_tokens,
         )
 
         # Parse title from first line
@@ -268,3 +296,52 @@ def generate_dialogue_script(
     except Exception as e:
         log(f"Failed to generate dialogue script: {e}")
         raise Exception(f"Failed to generate dialogue script: {str(e)}")
+
+
+def _dialogue_for_beginner(origin_language, translation_language, suggestion, heard, learner_character=None):
+    """
+    The dialogue a beginner's lesson is built around, written on its own.
+
+    Asked for together with the 150 lines of drill around it, the dialogue was
+    unnatural in about a third of the lessons (2026-10-18, "at a party: you only
+    understand a little"): the model wrote it already thinking in the words it
+    had to drill, and kept tacking those on ("Goddag." / "Jeg forstår lidt." /
+    "Værsgo."). Asked for alone, 5 of 5 were exchanges as they really happen.
+    The lesson is then written around this dialogue and may not change it.
+    """
+    origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
+    known = sorted({word for lesson in heard for word in lesson.words})
+    if known:
+        known_words = (
+            "The learner already knows these words from earlier lessons: "
+            + ", ".join(known)
+            + ". Use them only where they belong in this situation."
+        )
+    else:
+        known_words = f"This is the learner's first lesson: they know no {origin_lang_name} yet."
+
+    # The character the learner chose; when they did not, the man and the woman
+    # take turns, lesson by lesson.
+    learner = learner_character or ("man" if len(heard) % 2 == 0 else "woman")
+
+    prompt = get_prompt_template("a0_dialogue_lesson--dialogue-v1.txt").format(
+        target_language=origin_lang_name,
+        suggestion=suggestion,
+        known_words=known_words,
+        learner=learner,
+        learner_label=learner.capitalize(),
+    )
+    dialogue, _ = generate_script_in_languages(
+        prompt,
+        target_language=origin_language,
+        source_language=translation_language,
+        context=f"A0 dialogue '{suggestion}'",
+        max_tokens=500,
+    )
+    # The learner learns to say one role's lines and to understand the other's;
+    # the dialogue names theirs on its first line. Without it, the one who
+    # answers the first line: the situation is about them more often than not.
+    lines = [line.strip() for line in dialogue.strip().splitlines() if line.strip()]
+    if lines and lines[0].upper().startswith("LEARNER:"):
+        lines.pop(0)
+    return "\n".join(lines), learner.capitalize()

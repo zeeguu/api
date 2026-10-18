@@ -53,12 +53,20 @@ def join_continuation_lines(script: str) -> str:
     return "\n".join(joined_lines)
 
 
-def parse_script(script: str) -> List[Tuple[str, str, float]]:
+_SLOW_MARKER = re.compile(r"\s*\[slow\]", re.IGNORECASE)
+
+
+def parse_script(script: str, with_speed: bool = False) -> List[Tuple]:
     """
     Parse the script into individual voice segments.
 
+    A line may carry a [slow] marker: say it slower than the rest of the lesson
+    (A0 lessons say each new word slowly once, so a beginner can hear its sounds).
+    The marker is always stripped from the text.
+
     Returns:
-        List of tuples: (voice_type, text, silence_after)
+        List of tuples: (voice_type, text, silence_after), or, with_speed,
+        (voice_type, text, silence_after, slow)
     """
     # First, join any continuation lines back to their parent
     script = join_continuation_lines(script)
@@ -77,7 +85,7 @@ def parse_script(script: str) -> List[Tuple[str, str, float]]:
             )
             if duration_match:
                 duration = float(duration_match.group(1))
-                segments.append(("silence", "", duration))
+                segments.append(("silence", "", duration, False) if with_speed else ("silence", "", duration))
             continue
 
         # Parse voice lines like "Teacher: Some text [2 seconds]"
@@ -95,7 +103,12 @@ def parse_script(script: str) -> List[Tuple[str, str, float]]:
             silence_duration = float(silence_match.group(1))
         # Strip ALL timing annotations from the text
         text = re.sub(r"\s*\[([0-9.]+)\s*seconds?\s*(?:silence)?\]", "", text)
+        slow = bool(_SLOW_MARKER.search(text))
+        text = _SLOW_MARKER.sub("", text).strip()
 
-        segments.append((voice_type, text.strip(), silence_duration))
+        if with_speed:
+            segments.append((voice_type, text, silence_duration, slow))
+        else:
+            segments.append((voice_type, text, silence_duration))
 
     return segments

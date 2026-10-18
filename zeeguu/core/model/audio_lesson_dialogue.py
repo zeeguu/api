@@ -32,7 +32,7 @@ class AudioLessonDialogue(db.Model):
     teacher_language = relationship(Language, foreign_keys=[teacher_language_id])
 
     difficulty_level = Column(
-        Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
+        Enum("A0", "A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
     )
 
     # The regional variety this dialogue was voiced in. Same reasoning as on
@@ -44,6 +44,11 @@ class AudioLessonDialogue(db.Model):
 
     duration_seconds = Column(Integer)
     is_general = Column(db.Boolean, default=False)
+
+    # The script was written from the words this learner heard in their earlier
+    # audio lessons (see audio_lessons.words_heard), so it continues *their*
+    # lessons and is never reused for anyone else. Such a row is never general.
+    builds_on_history = Column(db.Boolean, nullable=False, default=False)
 
     # Which model and prompt version actually produced this script. created_by is a
     # fixed literal and cannot answer that: the fallback chain may serve from a
@@ -68,7 +73,12 @@ class AudioLessonDialogue(db.Model):
         title=None,
         ai_generator=None,
         variety=None,
+        builds_on_history=False,
     ):
+        assert not (builds_on_history and is_general), (
+            "a lesson built on one learner's history cannot be general"
+        )
+        self.builds_on_history = builds_on_history
         self.script = script
         self.canonical_suggestion = canonical_suggestion
         self.lesson_type = lesson_type

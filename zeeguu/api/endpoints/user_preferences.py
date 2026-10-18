@@ -114,6 +114,16 @@ def save_user_preferences():
         email_on_article_shared.value = email_on_article_shared_value
         db_session.add(email_on_article_shared)
 
+    audio_lesson_character_value = data.get(UserPreference.AUDIO_LESSON_CHARACTER, None)
+    if audio_lesson_character_value in UserPreference.AUDIO_LESSON_CHARACTERS:
+        audio_lesson_character = UserPreference.find_or_create(
+            db_session,
+            user,
+            UserPreference.AUDIO_LESSON_CHARACTER,
+        )
+        audio_lesson_character.value = audio_lesson_character_value
+        db_session.add(audio_lesson_character)
+
     # ---- LEGACY DAILY-AUDIO COMPAT (remove ~2026-06-05) ---------------------
     # Daily-audio config now lives in DailyAudioSubscription, written by the
     # dedicated /configure_daily_subscription endpoint. The block below + the

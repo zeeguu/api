@@ -110,7 +110,9 @@ class UserLanguage(db.Model):
         inferred_level_max=10,
         reading_news=False,
         doing_exercises=False,
-        cefr_level=0,
+        # None, not 0: 0 is A0 (see User.CEFR_LEVELS). It used to be the default,
+        # which made every unset level read as C2.
+        cefr_level=None,
     ):
         self.user = user
         self.language = language

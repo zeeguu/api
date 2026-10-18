@@ -1,0 +1,83 @@
+Create an audio lesson in {target_language} for an absolute beginner, set in this situation: "{suggestion}", around the dialogue given below.
+
+THE ONE RULE ABOVE ALL OTHERS
+Everything said in {target_language} is what native speakers would actually say in this situation: every sentence, and every exchange, where each line is a natural answer to the line before it. And it means exactly what the Teacher says it means. The learner will copy all of it and cannot tell what is wrong from what is right, so a lesson with one unnatural sentence or exchange is worse than a shorter lesson without it. Everything below is in service of this rule; where anything below would push you to break it, do less instead.
+
+WHO THE LEARNER IS
+The learner is at level A0: they had never learned {target_language} before starting these lessons. They know only what they heard in their earlier lessons, listed below. They listen without seeing any text, so everything must be learnable by ear.
+
+WHAT THEY HAVE HEARD SO FAR
+{history}
+
+HOW THE LESSON WORKS
+This lesson follows the method of Pimsleur's first lessons: very few new words, each heard and recalled many times, spread across the whole lesson.
+
+1. THE DIALOGUE is given, below. Use it exactly as it is: do not change, shorten or extend it. The whole lesson is built around it. Play it at the start, after the Teacher sets the scene, and tell the learner they will understand it by the end of the lesson. Play it again at the very end.
+
+{dialogue}
+
+   The learner plays the {learner_role}. They learn to SAY the {learner_role}'s lines, and to UNDERSTAND the other person's lines, as in real life: you must understand what the shopkeeper asks, but you do not need to say it yourself.
+
+2. THE NEW WORDS are what the dialogue contains that is not in the table above, function words included; some are best taught as short fixed chunks (e.g. "jeg forstår ikke"). They are of two kinds:
+   - words TO SAY: those in the {learner_role}'s lines;
+   - words TO UNDERSTAND: those only in the other person's lines.
+   All other sentences in the lesson use only the new words and the words in the table.
+
+3. TEACHING THEM, in the order the dialogue needs them:
+   - Each word TO SAY: the Teacher says in {source_language} what it means and when you say it. Then it is said once slowly, marked [slow], then twice at normal speed, with [3 seconds] after each for the learner to repeat aloud. Always the whole word: the voices are synthesized, and a piece of a word comes out as a wrong sound. Then the Teacher asks the learner to say it ("How do you say ...?", asked in {source_language}) [5 seconds]; the answer [3 seconds], repeated [3 seconds].
+   - Each line TO UNDERSTAND: the Teacher says in {source_language} what the other person will say and what it means. The other person says the line once slowly, marked [slow], then at normal speed. The learner does not repeat it.
+
+4. RECALL: after each new item, the Teacher asks for one or two things learned earlier, in this lesson or in the earlier ones. Two kinds of recall:
+   - for words TO SAY, about 5 times over the lesson, at growing distances: the Teacher's prompt in {source_language} [5 seconds], the answer [3 seconds], the answer repeated [3 seconds];
+   - for lines TO UNDERSTAND, about 3 times: the other person says the line, and the Teacher asks the learner to answer it as the {learner_role} would [5 seconds]; then the answer [3 seconds], repeated [3 seconds]. This is how the lesson ends up practising the whole exchange.
+
+5. NEW SENTENCES: where the words allow it, ask the learner for short sentences that are not in the dialogue but that someone in the situation would say ("Ask her whether she understands English"). With only a few words there are only a few such sentences; then recall more and combine less.
+
+6. THE EARLIER LESSONS: words from the most recent lessons in the table come back several times in the recalls of step 4, words from older lessons now and then, so they are not forgotten. When they belong to another situation, the Teacher sets that situation in one sentence ("You are at the café again. Order a coffee."). If the table is empty, this is the first lesson.
+
+7. THE END: the Teacher tells the learner, in {source_language}, to listen to the conversation again and notice that they understand it now. Then the dialogue from step 1 once more.
+
+THE TEACHER
+- Speaks {source_language}, and says more than in lessons for advanced learners: about half of the lesson. Short sentences, warm and calm.
+- No grammar explanations. At most one short sentence about a word when it really helps ("this is also what you say to get someone's attention").
+- When the Teacher needs to say a {target_language} word inside a {source_language} sentence, use a separate TeacherL2 line for it.
+- Every challenge makes clear WHO speaks and to WHOM: "Ask the waiter...", "Say that you...", "Tell her that you...". The learner must never have to guess whether "you" means themselves or someone else.
+
+LENGTH
+At most 200 lines, counting every voice line, which is about 12 minutes. The length follows from the content: fewer new words make a shorter lesson, and that is fine.
+
+IMPORTANT: On the very first line, output a short descriptive title for this lesson IN {source_language} (5-10 words, describing what happens in the conversation). Then a blank line, then the script. Do not include any other explanations or preamble.
+
+Use this exact format:
+
+    <title in {source_language}>
+
+    Teacher: <setting the scene, in {source_language}> [0.5 seconds]
+
+    [1 seconds]
+
+    Man: <dialogue line in {target_language}> [1 seconds]
+    Woman: <dialogue line in {target_language}> [1 seconds]
+    ...
+
+    Teacher: <explanation of a new word, in {source_language}> [1 seconds]
+    Woman: <the word> [slow] [3 seconds]
+    Woman: <the word> [3 seconds]
+    Woman: <the word> [3 seconds]
+    Teacher: <"How do you say ...?", in {source_language}> [5 seconds]
+    Woman: <the word> [3 seconds]
+    Woman: <the word> [3 seconds]
+    ...
+
+RULES:
+- Use only "Teacher:", "TeacherL2:", "Man:", "Woman:" labels
+- TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
+- Include [X seconds] timing for pauses
+- [slow] is the only other marker: it goes before the timing, on the one line where a new word is first said slowly
+- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
+- Man and Woman must be adults. Never create child characters — dialogues are voiced by TTS and we only have adult voices available.
+- Every dialogue is between exactly one man ("Man:") and one woman ("Woman:"). Names and gender-marked titles MUST match: the "Man:" character takes a male name/title, the "Woman:" character a female one. Keep each name attached to the same speaker label throughout.
+- Do NOT include greetings like "welcome to today's lesson" — this script is one segment of a larger lesson.
+- After a Teacher challenge, use [5 seconds] so the learner can answer aloud
+- Between repetitions, use [3 seconds]
+- No explanatory text, notes or translations outside the voice lines

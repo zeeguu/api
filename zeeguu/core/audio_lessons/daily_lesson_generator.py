@@ -16,6 +16,7 @@ from zeeguu.core.audio_lessons.voice_config import (
 )
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
+from zeeguu.core.audio_lessons.words_heard import heard_lessons
 from zeeguu.core.model import (
     db,
     User,
@@ -26,6 +27,7 @@ from zeeguu.core.model import (
 )
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.model.user_language import UserLanguage
+from zeeguu.core.model.user_preference import UserPreference
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
 
@@ -111,7 +113,7 @@ class DailyLessonGenerator:
         # Get user's languages and CEFR level
         origin_language = user.learned_language.code
         translation_language = user.native_language.code
-        cefr_level = user.cefr_level_for_learned_language()
+        cefr_level = user.audio_lesson_level_for_learned_language()
 
         # The learner's dialect, narrowed to a variety that actually changes the
         # voice so that choosing the one already in effect does not fork the shared
@@ -305,37 +307,48 @@ class DailyLessonGenerator:
         learned_lang = Language.find_or_create(origin_language)
         teacher_lang = Language.find_or_create(translation_language)
 
-        # Try to find an existing dialogue the user hasn't heard yet.
-        # Only general dialogues are reused across users; niche dialogues are
-        # too specific to be safely served to anyone but the original requester.
-        existing = AudioLessonDialogue.find_unheard(
-            canonical_suggestion=canonical_suggestion,
-            lesson_type=lesson_type,
-            language=learned_lang,
-            teacher_language=teacher_lang,
-            difficulty_level=cefr_level,
-            user=user,
-            only_general=True,
-            variety=voice_variety,
-        )
-        if existing:
-            return existing
+        # An A0 learner knows only what their earlier lessons taught them, so
+        # their lesson is written from that (words_heard) and is theirs alone:
+        # nothing is reused from or for anyone else.
+        builds_on_history = cefr_level == "A0"
+        heard = None
+        past_titles = None
+
+        if builds_on_history:
+            heard = heard_lessons(user, learned_lang)
+            is_general = False
+        else:
+            # Try to find an existing dialogue the user hasn't heard yet.
+            # Only general dialogues are reused across users; niche dialogues are
+            # too specific to be safely served to anyone but the original requester.
+            existing = AudioLessonDialogue.find_unheard(
+                canonical_suggestion=canonical_suggestion,
+                lesson_type=lesson_type,
+                language=learned_lang,
+                teacher_language=teacher_lang,
+                difficulty_level=cefr_level,
+                user=user,
+                only_general=True,
+                variety=voice_variety,
+            )
+            if existing:
+                return existing
+
+            # Collect past titles for this topic to avoid repetition
+            past_titles = AudioLessonDialogue.past_titles_for(
+                canonical_suggestion=canonical_suggestion,
+                lesson_type=lesson_type,
+                language=learned_lang,
+                teacher_language=teacher_lang,
+                difficulty_level=cefr_level,
+                variety=voice_variety,
+            )
 
         # Update progress
         if progress:
             progress.start_segment(1, segment_name=canonical_suggestion)
             progress.update_generating_script()
             db.session.commit()
-
-        # Collect past titles for this topic to avoid repetition
-        past_titles = AudioLessonDialogue.past_titles_for(
-            canonical_suggestion=canonical_suggestion,
-            lesson_type=lesson_type,
-            language=learned_lang,
-            teacher_language=teacher_lang,
-            difficulty_level=cefr_level,
-            variety=voice_variety,
-        )
 
         # Drive content from the raw user input so specific details are preserved.
         # Fall back to canonical only if no raw input was provided.
@@ -347,6 +360,8 @@ class DailyLessonGenerator:
             lesson_type=lesson_type,
             cefr_level=cefr_level,
             past_titles=past_titles,
+            heard=heard,
+            learner_character=UserPreference.get_audio_lesson_character(user),
         )
 
         if progress:
@@ -366,6 +381,7 @@ class DailyLessonGenerator:
             title=title,
             ai_generator=_ai_generator_for(generated),
             variety=voice_variety,
+            builds_on_history=builds_on_history,
         )
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
