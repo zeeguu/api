@@ -322,7 +322,7 @@ class SimplificationService:
             json={
                 "model": models.DEEPSEEK_GENERAL,
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": LEVEL_MAX_TOKENS,
+                "max_tokens": models.output_tokens(models.DEEPSEEK_GENERAL, LEVEL_MAX_TOKENS),
                 "temperature": 0.1,
             },
             timeout=LEVEL_TIMEOUT,
@@ -603,7 +603,7 @@ TOPIC: [topic]"""
                 json={
                     "model": models.DEEPSEEK_GENERAL,
                     "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 30,
+                    "max_tokens": models.output_tokens(models.DEEPSEEK_GENERAL, 30),
                     "temperature": 0.1,
                 },
                 timeout=30,
@@ -827,11 +827,10 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
                 json={
                     "model": models.DEEPSEEK_GENERAL,
                     "messages": [{"role": "user", "content": prompt}],
-                    # deepseek-chat caps max_tokens at 8192 (Haiku allows far more);
-                    # requesting more is rejected with a 400. 8192 is the most
-                    # headroom available — anything longer is caught by the
-                    # finish_reason check below rather than truncated silently.
-                    "max_tokens": 8192,
+                    # As much as Haiku is given (16000 above); output_tokens caps it
+                    # at what deepseek-chat accepts. Anything longer is caught by
+                    # the finish_reason check below rather than truncated silently.
+                    "max_tokens": models.output_tokens(models.DEEPSEEK_GENERAL, 16000),
                     "temperature": 0.3,
                 },
                 timeout=120,

@@ -22,6 +22,26 @@ ANTHROPIC_SONNET = "claude-sonnet-5-5"  # current Sonnet tier; thinking off via 
 ANTHROPIC_HAIKU = "claude-haiku-5-5"  # current Haiku (fast / cheap); low-effort thinking via claude.request_options
 DEEPSEEK_CHAT = "deepseek-chat"
 
+# --- The most a model writes in one reply. ---
+# A request above it is rejected outright: deepseek-chat answers max_tokens >
+# 8192 with HTTP 400 "Invalid max_tokens". So no call site knows these numbers;
+# each asks for what its reply needs through output_tokens(), and a model with a
+# lower cap -- typically the fallback -- gets its cap instead of a 400. On
+# 2026-10-18 the A0 audio lessons asked for 16000, which would have failed every
+# time Anthropic did. A model that is not listed is not capped here.
+# DeepSeek: https://api-docs.deepseek.com/quick_start/pricing
+MAX_OUTPUT_TOKENS = {
+    DEEPSEEK_CHAT: 8192,
+}
+
+
+def output_tokens(model: str, wanted: int) -> int:
+    """max_tokens to send `model` for a reply that may need `wanted` tokens.
+
+    Capped at what the model accepts. A reply that needs more than the cap comes
+    back cut off; the services treat that as a failure, not as an answer."""
+    return min(wanted, MAX_OUTPUT_TOKENS.get(model, wanted))
+
 # --- Roles → model. Change the right-hand side to re-point a feature. ---
 
 # Reader "Ask LLM" on-demand single word/phrase translation (ADR 022) and

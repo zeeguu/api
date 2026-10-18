@@ -47,12 +47,16 @@ class AnthropicService(LLMService):
             response = self.client.messages.create(
                 model=self.model,
                 **claude.request_options(self.model),
-                max_tokens=max_tokens,
+                max_tokens=models.output_tokens(self.model, max_tokens),
                 system=prompt["system"],
                 messages=[
                     {"role": "user", "content": prompt["user"]}
                 ]
             )
+            # Cut off at max_tokens: incomplete, and it would pass for an answer.
+            # Raised, so the fallback is tried, as in haiku_completion.
+            if response.stop_reason == "max_tokens":
+                raise Exception(f"Anthropic output truncated at max_tokens={max_tokens}")
             return claude.response_text(response)
         except Exception as e:
             log(f"Anthropic API failed: {e}")
