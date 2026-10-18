@@ -3,11 +3,20 @@ from flask import request
 from zeeguu.core.model import Article, Language, User, Topic, UserArticle, UserArticleBrokenReport
 from zeeguu.core.model.article_topic_user_feedback import ArticleTopicUserFeedback
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.api.utils.abort_handling import make_error
+from zeeguu.api.utils.input_limits import (
+    abort_if_too_long,
+    MAX_ARTICLE_CHARS_FOR_LLM,
+    MAX_URL_CHARS,
+)
 from zeeguu.core.model.personal_copy import PersonalCopy
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api, db_session
 from zeeguu.core.model.article import HTML_TAG_CLEANR
+
+# Characters of page text handed to langdetect in /is_article_language_supported.
+LANGDETECT_MAX_CHARS = 10_000
 
 import re
 from langdetect import detect
@@ -426,7 +435,9 @@ def is_article_language_supported():
 
     text = re.sub(HTML_TAG_CLEANR, "", htmlContent)
     try:
-        lang = detect(text)
+        # The client posts the whole page. A sample is plenty to tell the
+        # language, and langdetect's time grows with the input.
+        lang = detect(text[:LANGDETECT_MAX_CHARS])
 
         if return_detailed:
             # Return detailed info for new translation feature
@@ -492,6 +503,7 @@ def translate_and_adapt_article():
     article_id = request.form.get("article_id")
     if not url and not article_id:
         flask.abort(400, "url or article_id required")
+    abort_if_too_long("url", url, MAX_URL_CHARS)
 
     user = User.find_by_id(flask.g.user_id)
     target_language = request.form.get("target_language", user.learned_language.code)
@@ -572,6 +584,15 @@ def translate_and_adapt_article():
     except:
         # No existing translation found, continue with creating a new one
         pass
+
+    if article_content and len(article_content) > MAX_ARTICLE_CHARS_FOR_LLM:
+        # The translation has to come back in one reply, and a text this long
+        # cannot; refuse before paying for the input tokens. 422 and JSON, as
+        # article_upload does for the same case.
+        return make_error(
+            422,
+            "This article is too long to translate in one piece.",
+        )
 
     # Translate and adapt the resolved content (title/content/source_language
     # were set when resolving the source article above).

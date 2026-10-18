@@ -5,6 +5,7 @@ import flask
 import sentry_sdk
 from flask import request, Response
 
+from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.exercises.example_contexts import bookmark_for_example
@@ -419,6 +420,8 @@ def generate_examples_for_word(word, from_lang, to_lang):
 
     cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
     translation = request.args.get("translation", "")
+    abort_if_too_long("word", word, MAX_PHRASE_CHARS)
+    abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
 
     try:
         # If we have a translation, try to find/create meaning and check for existing examples
@@ -540,6 +543,8 @@ def add_word_to_learning():
 
     if not word or not translation or not from_lang or not to_lang:
         return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
+    abort_if_too_long("word", word, MAX_PHRASE_CHARS)
+    abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
 
     # Get user's CEFR level
     cefr_level = data.get("cefr_level", DEFAULT_CEFR_LEVEL)
@@ -693,6 +698,8 @@ def preview_learning_card():
 
     if not word or not translation or not from_lang or not to_lang:
         return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
+    abort_if_too_long("word", word, MAX_PHRASE_CHARS)
+    abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
 
     cefr_level = data.get("cefr_level", DEFAULT_CEFR_LEVEL)
 
@@ -794,6 +801,8 @@ def report_meaning():
 
     if not word or not translation or not from_lang or not to_lang:
         return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
+    abort_if_too_long("word", word, MAX_PHRASE_CHARS)
+    abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
 
     valid_reasons = ["bad_examples", "wrong_meaning", "wrong_level", "other"]
     if reason not in valid_reasons:

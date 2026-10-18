@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 
 from zeeguu.core.model.db import db
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
+from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.user import User
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
@@ -246,6 +247,9 @@ class FastProgressionTest(ModelTestMixIn):
         # the level bar and the "learned" check read this, not the user's features
         bookmark = BookmarkRule(self.fast_user).bookmark
         bookmark.user_word.preferred_bookmark = bookmark   # as for any word in production
+        # with a preferred bookmark, scheduling would send the random word to the
+        # LLM validator, which may reject it and leave the word unscheduled
+        bookmark.user_word.meaning.validated = Meaning.VALID
         day = datetime.now()
 
         schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)
