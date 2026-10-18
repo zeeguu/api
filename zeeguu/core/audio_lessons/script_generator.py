@@ -253,8 +253,7 @@ def generate_dialogue_script(
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
-    # 8000 also covers the A0 scripts (1.6k-4k tokens measured), and is what the
-    # DeepSeek fallback accepts: deepseek-chat rejects max_tokens above 8192.
+    # Also enough for the A0 scripts, which measured 1.6k-4k tokens.
     max_tokens = 8000
     common = dict(
         target_language=origin_lang_name,
