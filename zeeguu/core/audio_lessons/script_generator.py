@@ -174,7 +174,11 @@ def generate_script_in_languages(
 # repeating a wrong sentence for weeks.
 CORRECTNESS_ATTEMPTS = 2
 
-MEANING_LESSON_PROMPT = "meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v5.txt"
+# v6 has the Teacher say exactly what the word means in this lesson and name its
+# other meanings. "How" for Sådan was right in its headline ("this is how"), and
+# both the generator and the check read the bare gloss as the question word;
+# saying the meaning out loud fixed both (2026-10-18).
+MEANING_LESSON_PROMPT = "meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v6.txt"
 
 
 class LessonNotCorrect(Exception):

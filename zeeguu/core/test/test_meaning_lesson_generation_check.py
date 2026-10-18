@@ -42,7 +42,7 @@ def run(verdicts, context="Sådan bruger en ekspert mindre tid på sin telefon")
 def test_a_passing_script_is_kept_and_the_prompt_carries_the_sentence():
     result, prompts = run([[]])
     assert result.script == "script 1"
-    assert result.prompt_version == "meaning_lesson-v5"
+    assert result.prompt_version == "meaning_lesson-v6"
     assert '"Sådan bruger en ekspert mindre tid på sin telefon"' in prompts[0]
 
 

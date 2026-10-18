@@ -68,6 +68,8 @@ LESSON_PROMPT = """An audio lesson teaches the {learned_name} word "{word}" with
 
 The lesson is reused for every learner of this word, so they hear it away from that sentence. A translation that is right in one sentence may not generalize: "{word}" may mean "{translation}" only in that sentence, or only in some constructions. Judge each line by what "{word}" really means in {learned_name}, not by the translation the lesson was built on. For example, if German "Bank" were taught as "bench", a line where "Bank" is a place that keeps money would be wrong, even though "bench" is a correct translation of "Bank".
 
+If Teacher lines state precisely what "{word}" means in this lesson, "{translation}" is only a short gloss of that meaning: judge every line against the stated meaning, and call the translation wrong only if the stated meaning is wrong for the original sentence.
+
 Voices: "Teacher" speaks {teacher_name}. The Teacher introduces the word, adds notes about it, and prompts the learner ("Say, ...", "Ask, ..."). "Man", "Woman" and "TeacherL2" speak {learned_name}. After each Teacher prompt, the {learned_name} line that follows is the answer the learner is expected to say.
 
 The lesson, one numbered line per voice line:
