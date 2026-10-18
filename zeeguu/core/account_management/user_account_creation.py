@@ -191,7 +191,6 @@ def create_account(
             code = UniqueCode(email, UniqueCode.VERIFY)
             db_session.add(code)
             db_session.commit()
-            log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
             send_email_confirmation(email, code)
 
         return new_user
@@ -273,7 +272,6 @@ def create_basic_account(
             code = UniqueCode(email, UniqueCode.VERIFY)
             db_session.add(code)
             db_session.commit()
-            log(f"EMAIL VERIFICATION CODE for {email}: {code.code}")
             send_email_confirmation(email, code)
 
         return new_user
