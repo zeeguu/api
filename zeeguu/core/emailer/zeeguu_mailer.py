@@ -2,6 +2,7 @@ from smtplib import SMTP
 
 import yagmail
 import zeeguu
+from markupsafe import escape
 from zeeguu.logging import logger, log
 
 
@@ -52,26 +53,26 @@ class ZeeguuMailer(object):
         print("sending feedback...")
         mailer = ZeeguuMailer(
             subject,
-            f"Dear Zeeguu Team,\n\nWrt. **{context}** I'd like to report that: \n\n"
-            + message
-            + f"\n@url ({url})"
+            f"Dear Zeeguu Team,\n\nWrt. **{escape(context)}** I'd like to report that: \n\n"
+            + f"{escape(message)}"
+            + f"\n@url ({escape(url)})"
             + "\n\n"
             + "Cheers,\n"
-            + f"{user.name} ({user.id}, {user.email})",
+            + f"{escape(user.name)} ({user.id}, {escape(user.email)})",
             zeeguu.core.app.config.get("SMTP_EMAIL"),
         )
         mailer.send()
 
     @classmethod
     def notify_audio_experiment(cls, data, user):
-        content = f"{user.name} ({user.email}, {user.invitation_code})\n"
-        content += data.get("event", "")
+        content = f"{escape(user.name)} ({escape(user.email)}, {escape(user.invitation_code)})\n"
+        content += f"{escape(data.get('event', ''))}"
         content += "\n"
-        content += data.get("value", "")
+        content += f"{escape(data.get('value', ''))}"
         content += "\n"
-        content += data.get("extra_data", "")
+        content += f"{escape(data.get('extra_data', ''))}"
         content += "\n"
-        content += data.get("time", "")
+        content += f"{escape(data.get('time', ''))}"
         content += "\n\n"
         content += "Cheers,\n Your Friendly Zeeguu Server"
 

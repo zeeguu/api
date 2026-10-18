@@ -1,3 +1,5 @@
+from markupsafe import escape
+
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model.user import User
 from zeeguu.core.model.user_preference import UserPreference
@@ -54,22 +56,24 @@ def send_shared_article_notification(to_user_id, from_user_id, shared_article_id
         article_title = display_article.title if display_article else "an article"
         open_id = shared.delivery_article_id or shared.article_id
         lang_clause = (
-            f" in {shared.delivery_language.name}" if shared.delivery_language else ""
+            f" in {escape(shared.delivery_language.name)}" if shared.delivery_language else ""
         )
 
         subject = f"{sharer.name} shared an article with you on Zeeguu"
 
+        # yagmail sends the body as the HTML part too, so names, title and note
+        # (all chosen by users) are escaped. The subject is a plain header.
         lines = [
-            f"Hi {recipient.name},",
+            f"Hi {escape(recipient.name)},",
             "",
-            f"{sharer.name} shared the following article with you:",
+            f"{escape(sharer.name)} shared the following article with you:",
             "",
-            f"“{article_title}”",
+            f"“{escape(article_title)}”",
             f"We've prepared it for you{lang_clause}, at your level — open it here:",
             f"{WEB_URL}/read/article?id={open_id}&shared={shared.id}",
         ]
         if shared.note:
-            lines += ["", f"Their note: “{shared.note}”"]
+            lines += ["", f"Their note: “{escape(shared.note)}”"]
         # Only point at the inbox when there's more than this one waiting.
         if SharedArticle.inbox_count_for(to_user_id) > 1:
             lines += [

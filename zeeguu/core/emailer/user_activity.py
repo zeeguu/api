@@ -1,3 +1,5 @@
+from markupsafe import escape
+
 from zeeguu.core.model import User
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model.user_activitiy_data import UserActivityData
@@ -10,7 +12,7 @@ cheers_your_server = "\n\rCheers,\n\rYour Zeeguu Server ;)"
 def send_new_user_account_email(username, invite_code="", cohort=""):
     ZeeguuMailer.send_mail(
         f"New Account: {username}",
-        [f"Code: {invite_code} Class: {cohort}", cheers_your_server],
+        [f"Code: {escape(invite_code)} Class: {escape(cohort)}", cheers_your_server],
     )
 
 
@@ -38,8 +40,8 @@ def send_user_finished_exercise_session(exercise_session):
         minimum_unit="microseconds",
     )
 
-    main_body = f"User: {user.name} ({user.id}, {user.invitation_code}) Duration: {hr_duration}  \n\n"
-    main_body += f"<html><body><pre>{details}</pre></body></html>"
+    main_body = f"User: {escape(user.name)} ({user.id}, {escape(user.invitation_code)}) Duration: {hr_duration}  \n\n"
+    main_body += f"<html><body><pre>{escape(details)}</pre></body></html>"
 
     # Format: "Julia: 2min, 14words"
     ZeeguuMailer.send_mail(
@@ -63,7 +65,7 @@ def send_notification_article_feedback(
 
         for each in bookmarks:
             stream.append(
-                f"- {each.user_word.meaning.origin.content} => {each.user_word.meaning.translation.content}"
+                f"- {escape(each.user_word.meaning.origin.content)} => {escape(each.user_word.meaning.translation.content)}"
             )
 
         # user activity data
@@ -79,7 +81,7 @@ def send_notification_article_feedback(
             event_name = event_name.replace("send suggestion", "suggest: ")
             if short_time != prev_short_time:
                 stream.append(f"  {short_time}")
-            stream.append(f"       {event_name} {event.value}")
+            stream.append(f"       {escape(event_name)} {escape(event.value)}")
 
             if event_name == "ARTICLE LOST FOCUS":
                 stream.append("")
@@ -88,7 +90,7 @@ def send_notification_article_feedback(
 
         stream.append("\n\n")
 
-    content_lines = [feedback]
+    content_lines = [escape(feedback)]
     detailed_article_info(content_lines, user, article_id)
 
     content_lines.append(

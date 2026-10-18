@@ -50,3 +50,31 @@ class SharedArticleEmailDebounceTest(ModelTestMixIn, TestCase):
         self._share_at(datetime.now())  # to self.recipient
         to_other = self._share_at(datetime.now(), to_user=other)
         assert not SharedArticle.has_earlier_recent_share_to(other.id, to_other.id, 10)
+
+
+class SharedArticleEmailEscapingTest(ModelTestMixIn, TestCase):
+    def test_sharer_name_and_note_are_escaped(self):
+        # yagmail sends the body as HTML too, and both values are free text.
+        from zeeguu.core.emailer import shared_article as emailer
+
+        sender = UserRule().user
+        sender.name = "<b>Eve</b>"
+        recipient = UserRule().user
+        session.commit()
+        shared = SharedArticle.create(
+            session, sender.id, recipient.id, ArticleRule().article.id,
+            note='<a href="https://evil">click</a>',
+        )
+
+        sent = []
+        original_send = emailer.ZeeguuMailer.send
+        emailer.ZeeguuMailer.send = lambda mailer: sent.append(mailer.message_body)
+        try:
+            emailer.send_shared_article_notification(recipient.id, sender.id, shared.id)
+        finally:
+            emailer.ZeeguuMailer.send = original_send
+
+        assert len(sent) == 1
+        assert "<b>" not in sent[0] and "<a " not in sent[0]
+        assert "&lt;b&gt;Eve&lt;/b&gt;" in sent[0]
+        assert "&lt;a href=&#34;https://evil&#34;&gt;click&lt;/a&gt;" in sent[0]
