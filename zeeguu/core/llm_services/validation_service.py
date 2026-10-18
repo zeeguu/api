@@ -220,6 +220,29 @@ class UserWordValidationService:
         return user_word
 
     @classmethod
+    def _take_out_for_other_learners(cls, db_session, old_meaning, user_word, validation_result, context):
+        """
+        The meaning is now INVALID; other learners' unlearned words on it leave
+        study too. Until 2026-10-19 only the learner being validated was moved
+        or taken out, and 2,374 unlearned words of 948 other learners stayed in
+        study on 915 broken pairs, 213 of them scheduled for exercises. One
+        validation_log row per word taken out, so each says why.
+        """
+        from zeeguu.core.model import UserWord
+        from zeeguu.core.model.validation_log import ValidationLog
+
+        for other in UserWord.take_meaning_out_of_study(
+            db_session, old_meaning.id, except_user_word_id=user_word.id
+        ):
+            ValidationLog.log_invalid(
+                db_session,
+                meaning=old_meaning,
+                user_word_id=other.id,
+                reason=f"[another learner's validation] {validation_result.reason or ''}".strip(),
+                context=context,
+            )
+
+    @classmethod
     def _fix_bookmark(cls, db_session, user_word, bookmark, validation_result, context=None):
         """
         Fix bookmark with corrected word/translation.
@@ -255,6 +278,7 @@ class UserWordValidationService:
                 reason=validation_result.reason,
                 context=context
             )
+            cls._take_out_for_other_learners(db_session, old_meaning, user_word, validation_result, context)
 
             db_session.commit()
             return None
@@ -302,6 +326,7 @@ class UserWordValidationService:
                 reason=validation_result.reason,
                 context=context
             )
+            cls._take_out_for_other_learners(db_session, old_meaning, user_word, validation_result, context)
 
             # Find or create UserWord for new meaning
             new_user_word = UserWord.find_or_create(

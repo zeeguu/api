@@ -198,19 +198,15 @@ def parse_lesson_verdict(reply: str, lines: list) -> tuple:
 
 
 def mark_pair_invalid(db_session, meaning_id, problems, user_word_id=None, context=None):
-    """The check found the word or its translation wrong: mark the meaning
-    INVALID, so the audio word selector stops picking it, and take its words
-    out of study for every learner who has not learned them yet. On 2026-10-18,
-    6 of the 7 wrong pairs in a 200-lesson sample were on scheduled words, most
+    """The pair was confirmed wrong: mark the meaning INVALID, so the audio word
+    selector stops picking it, and take it out of study for every learner who
+    has not learned it (UserWord.take_meaning_out_of_study). On 2026-10-18, 6
+    of the 7 wrong pairs in a 200-lesson sample were on scheduled words, most
     of them passed by the translation validator. Logs why in validation_log,
-    next to that validator's own verdicts. Does not commit.
-
-    Not UserWord.set_unfit_for_study: it looks the schedule up through the
-    default session and commits, and this may run in a session of its own."""
+    next to that validator's own verdicts. Does not commit."""
     from zeeguu.core.model.meaning import Meaning
     from zeeguu.core.model.user_word import UserWord
     from zeeguu.core.model.validation_log import ValidationLog
-    from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
     reason = "[audio lesson check] " + "; ".join(
         p["issue"] for p in problems if p["kind"] in ABOUT_THE_DATA
@@ -219,23 +215,12 @@ def mark_pair_invalid(db_session, meaning_id, problems, user_word_id=None, conte
     meaning.validated = Meaning.INVALID
     db_session.add(meaning)
 
-    unlearned = (
-        db_session.query(UserWord)
-        .filter(UserWord.meaning_id == meaning_id, UserWord.learned_time.is_(None))
-        .all()
-    )
-    for user_word in unlearned:
-        user_word.fit_for_study = False
-        db_session.add(user_word)
-    if unlearned:
-        db_session.query(BasicSRSchedule).filter(
-            BasicSRSchedule.user_word_id.in_([w.id for w in unlearned])
-        ).delete(synchronize_session=False)
+    taken_out = UserWord.take_meaning_out_of_study(db_session, meaning_id)
 
     # One row per word taken out of study, so each learner's word answers "why
     # is this no longer studied?"; the context is the sentence the verdict was
     # reached in, which may be another learner's.
-    for logged_id in [w.id for w in unlearned] or [user_word_id]:
+    for logged_id in [w.id for w in taken_out] or [user_word_id]:
         ValidationLog.log_invalid(
             db_session, meaning=meaning, user_word_id=logged_id, reason=reason, context=context
         )
