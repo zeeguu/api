@@ -73,7 +73,8 @@ Fill in these fields (the reply is constrained to this shape):
 
 Examples:
 - Simple word: VALID, common, A1, single_word
-- Wrong form: FIX glemme = "forget", common, A2, single_word; reason: no "at" before "glemme", so no "to"
+- Wrong form: glemme = "to forget" becomes FIX glemme = "forget", common, A2, single_word;
+  reason: the highlighted word has no "at", so the translation must not have "to"
 - Word with usage note: VALID, common, B1, single_word, explanation "formal register"
 - Idiom: VALID, common, B2, idiom, literal_meaning "kick into touch"
 - Wrong translation: FIX øjnene = "the eyes", common, A2, single_word; reason: literal meaning is 'the eyes'
