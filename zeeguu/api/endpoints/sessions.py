@@ -4,7 +4,12 @@ from zeeguu.core.model import Session, User
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.session_helpers import is_session_too_old, force_user_to_relog
 
-from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
+from zeeguu.api.utils.route_wrappers import (
+    cross_domain,
+    requires_session,
+    allows_unverified,
+    evict_from_session_cache,
+)
 from . import api, db_session
 
 
@@ -35,18 +40,6 @@ def get_session(email):
     log(f"LOGIN: email='{email}' - Email exists, attempting authorization")
     user = User.authorize(email, password)
     
-    # Allow debug login if configured
-    debug_user_id = current_app.config.get("DEBUG_USER_ID")
-    debug_password = current_app.config.get("DEBUG_USER_PASSWORD")
-    
-    if debug_user_id and debug_password and password == debug_password:
-        log(f"LOGIN: email='{email}' - Debug login attempt")
-        # Check if this is the debug user's email
-        debug_user = User.find_by_id(debug_user_id)
-        if debug_user and debug_user.email == email:
-            log(f"LOGIN SUCCESS: email='{email}' - Debug user login successful")
-            user = debug_user  # Allow login as debug user
-    
     if user is None:
         log(f"LOGIN FAILED: email='{email}' - User.authorize() returned None (invalid credentials)")
         return make_error(401, "Invalid credentials")
@@ -62,7 +55,10 @@ def get_session(email):
         str(session.uuid),
         httponly=True,  # Prevent JavaScript access (XSS protection)
         samesite="Lax",  # CSRF protection
-        secure=current_app.config.get("SESSION_COOKIE_SECURE", False),  # HTTPS only in production
+        # HTTPS only, except in local development (DEBUG). Flask always defines
+        # SESSION_COOKIE_SECURE, as False, so it can only switch this on.
+        secure=current_app.config["SESSION_COOKIE_SECURE"]
+        or not current_app.config.get("DEBUG", False),
         max_age=30 * 24 * 60 * 60,  # 30 days
     )
     return resp
@@ -141,12 +137,16 @@ def logout():
 
     """
 
-    try:
-        session_uuid = request.args["session"]
-        session = Session.find(session_uuid)
-        db_session.delete(session)
-        db_session.commit()
-    except:
+    # requires_session already took the uuid from the query param or the cookie
+    session_uuid = flask.g.session_uuid
+    evict_from_session_cache([session_uuid])
+    session = Session.find(session_uuid)
+    if session is None:
         flask.abort(401)
+    db_session.delete(session)
+    db_session.commit()
 
-    return "OK"
+    resp = make_response("OK")
+    if request.cookies.get("chocolatechip") == session_uuid:
+        resp.delete_cookie("chocolatechip")
+    return resp

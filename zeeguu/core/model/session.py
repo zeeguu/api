@@ -56,6 +56,22 @@ class Session(db.Model):
         return cls(user, _uuid)
 
     @classmethod
+    def delete_all_for_user(cls, user_id, except_uuid: str = None):
+        """
+        Delete the user's login sessions, all but except_uuid if given. Adds the
+        deletes to the db session; the caller commits.
+
+        :return: the uuids deleted, so the caller can evict them from caches
+        """
+        query = cls.query.filter(cls.user_id == user_id)
+        if except_uuid:
+            query = query.filter(cls.uuid != except_uuid)
+        sessions = query.all()
+        for each in sessions:
+            db.session.delete(each)
+        return [each.uuid for each in sessions]
+
+    @classmethod
     def find(cls, _uuid: str = None):
         # gets the session object for a given uuid
 
