@@ -97,6 +97,16 @@ def create_app(testing=False):
         ],
     )
 
+    # Refuse request bodies past this size with a 413 before reading them.
+    # Without it a JSON body has no ceiling at all (Werkzeug's 500 KB
+    # MAX_FORM_MEMORY_SIZE covers form fields only). The largest legitimate
+    # body is a verbal-flashcard recording, capped at 10 MB in
+    # verbal_flashcards.py; 16 MB leaves room for the multipart envelope, and
+    # lets that endpoint answer an oversized clip with its own message.
+    # (Not setdefault: Flask's defaults already hold the key, as None.)
+    if app.config.get("MAX_CONTENT_LENGTH") is None:
+        app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
+
     # Initialize the rate limiter for security-sensitive endpoints. This has to
     # happen after the configuration is loaded, or RATELIMIT_STORAGE_URI is
     # never seen and every worker silently keeps its own in-memory counters.

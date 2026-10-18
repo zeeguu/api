@@ -26,6 +26,12 @@ from flask import request
 
 MAX_ARTICLES_PER_TOPIC = 20
 
+# The count in /user_articles/recommended/<count> becomes the Elasticsearch
+# `size`, and every hit is then tokenized for the card previews. The web feed
+# asks for 20 a page; clamping (not refusing) keeps any client that asks for
+# more working, just with shorter pages.
+MAX_RECOMMENDED_COUNT = 100
+
 
 # ---------------------------------------------------------------------------
 @api.route("/user_articles/recommended", methods=("GET",))
@@ -52,6 +58,8 @@ def user_articles_recommended(count: int = 15, page: int = 0):
 
     Note: Hidden articles are always excluded from recommendations.
     """
+
+    count = min(count, MAX_RECOMMENDED_COUNT)
 
     user = User.find_by_id(flask.g.user_id)
 
