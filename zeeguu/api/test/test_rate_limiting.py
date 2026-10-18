@@ -286,3 +286,138 @@ def test_guessing_one_account_is_capped_however_many_addresses_are_used(
     ]
 
     assert 429 in codes, "20 guesses at one account from 20 addresses went uncapped"
+
+
+# --- every endpoint that takes a mailed code is limited per address -------
+
+
+def _anon_session(client, uuid):
+    rv = client.post("/add_anon_user", data={"uuid": uuid, "password": "anonpass"})
+    assert rv.status_code == 200
+    return rv.data.decode("utf-8")
+
+
+def test_upgrade_code_guesses_at_one_address_are_capped_across_ips(client, limiting_enabled):
+    session = _anon_session(client, "upgrader")
+    codes = [
+        client.post(
+            f"/complete_account_upgrade?session={session}",
+            data={"email": "target@zeeguu.test", "code": f"{i:04}", "password": "pw12"},
+            headers={"X-Forwarded-For": f"203.0.113.{i}"},
+        ).status_code
+        for i in range(20)
+    ]
+
+    assert 429 in codes, "20 upgrade-code guesses at one address went uncapped"
+
+
+def test_email_confirmation_guesses_are_capped_per_account(client, limiting_enabled, _mock_web):
+    learner = LoggedInClient(client, email="unverified@zeeguu.test")
+    codes = [
+        client.post(
+            f"/confirm_email?session={learner.session}",
+            data={"code": f"{i:04}"},
+            headers={"X-Forwarded-For": f"203.0.113.{i}"},
+        ).status_code
+        for i in range(20)
+    ]
+
+    assert 429 in codes, "20 confirmation-code guesses at one account went uncapped"
+
+
+# --- one account, one bucket, however its address is spelt ---------------
+
+
+def test_email_normalization_folds_what_the_collation_folds():
+    from zeeguu.api.utils.rate_limiter import _normalized_email
+
+    assert _normalized_email(" Víctím@Zeeguu.test ") == "victim@zeeguu.test"
+    assert _normalized_email("strasse@zeeguu.test") == _normalized_email("straße@zeeguu.test")
+    assert _normalized_email("ｖｉｃｔｉｍ@zeeguu.test") == "victim@zeeguu.test"
+
+
+def test_accented_spellings_share_the_reset_bucket(client, limiting_enabled):
+    for _ in range(10):
+        client.post("/reset_password/victim@zeeguu.test", data={"code": "0000", "password": "pw12"})
+
+    accented = client.post(
+        "/reset_password/victím@zeeguu.test", data={"code": "0000", "password": "pw12"}
+    )
+    assert accented.status_code == 429, "an accented spelling got a fresh bucket"
+
+
+def test_an_existing_account_is_keyed_by_id_not_spelling(
+    client, limiting_enabled, _mock_web, monkeypatch
+):
+    """
+    The database can match spellings that no normalization here anticipates.
+    Keying on the account the address resolves to covers those too. User.find
+    is stood in for the collation, which the test database doesn't have.
+    """
+    from zeeguu.core.model import User
+
+    LoggedInClient(client, email="owner@zeeguu.test")
+    owner = User.find("owner@zeeguu.test")
+    real_find = User.find.__func__
+    monkeypatch.setattr(
+        User,
+        "find",
+        classmethod(lambda cls, email: owner if email == "alias@zeeguu.test" else real_find(cls, email)),
+    )
+
+    for _ in range(10):
+        client.post("/session/owner@zeeguu.test", data={"password": "wrong"})
+
+    alias = client.post("/session/alias@zeeguu.test", data={"password": "wrong"})
+    assert alias.status_code == 429, "a second spelling of an account got a fresh bucket"
+
+
+# --- class codes ------------------------------------------------------------
+
+
+def test_invite_code_guessing_is_capped(client, limiting_enabled, monkeypatch):
+    # The test config accepts every invite code; make them all wrong instead.
+    monkeypatch.setattr(
+        "zeeguu.core.account_management.user_account_creation.valid_invite_code",
+        lambda code: False,
+    )
+    codes = [client.get(f"/validate_invite_code/guess{i}").status_code for i in range(40)]
+
+    assert 400 in codes
+    assert 429 in codes, "40 wrong invite codes from one host went uncapped"
+
+
+def test_a_class_checking_its_invite_code_is_not_throttled(client, limiting_enabled):
+    codes = [
+        client.get("/validate_invite_code/our-class", headers=SCHOOL_NAT).status_code
+        for _ in range(CLASS_SIZE * 3)
+    ]
+
+    assert 429 not in codes, "a class of 30 checking a valid invite code hit the limit"
+
+
+def test_join_cohort_guessing_is_capped_per_account(client, limiting_enabled, _mock_web):
+    learner = LoggedInClient(client, email="guesser@zeeguu.test")
+    codes = [
+        client.post(
+            f"/join_cohort?session={learner.session}",
+            data={"invite_code": f"guess{i}"},
+            headers={"X-Forwarded-For": f"203.0.113.{i}"},
+        ).status_code
+        for i in range(20)
+    ]
+
+    assert 400 in codes
+    assert 429 in codes, "20 wrong class codes from one account went uncapped"
+
+
+def test_join_cohort_guessing_is_capped_per_ip(client, limiting_enabled):
+    """Anonymous sessions are free, so many accounts from one host still stop."""
+    sessions = [_anon_session(client, f"sprayer{i}") for i in range(40)]
+    codes = [
+        client.post(f"/join_cohort?session={s}", data={"invite_code": f"guess{i}{j}"}).status_code
+        for i, s in enumerate(sessions)
+        for j in range(5)
+    ]
+
+    assert 429 in codes, "200 wrong class codes from one host went uncapped"

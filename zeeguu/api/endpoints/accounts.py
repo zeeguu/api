@@ -203,7 +203,7 @@ def upgrade_anon_user():
         db_session.commit()
       
         # Send confirmation email
-        code = UniqueCode(email)
+        code = UniqueCode(email, UniqueCode.VERIFY)
         db_session.add(code)
         db_session.commit()
         send_email_confirmation(email, code)
@@ -242,7 +242,7 @@ def request_email_verification():
     if User.email_exists(email):
         return bad_request("Email already in use")
 
-    code = UniqueCode(email)
+    code = UniqueCode(email, UniqueCode.VERIFY)
     db_session.add(code)
     db_session.commit()
     send_email_confirmation(email, code)
@@ -265,17 +265,23 @@ def complete_account_upgrade():
     if not email or not code or not password:
         return bad_request("Email, code, and password are required")
 
-    # Verify the code
-    code_obj = UniqueCode.find_last_code(email)
-    if code_obj is None:
-        return bad_request("No verification code found. Please request a new one.")
-    if code_obj.is_expired():
-        return bad_request("Code has expired. Please request a new one.")
-    if submitted_code_is_wrong(code_obj.code, code):
-        return bad_request("Invalid code")
+    email = email.lower().strip()
+    user = User.find_by_id(flask.g.user_id)
+    if not user.is_anonymous():
+        return bad_request("Only anonymous accounts can be upgraded")
+
+    # Everything that can make the upgrade fail is checked before the code is
+    # looked at, and every way of failing the check gets the same answer. If
+    # an address that already has an account got to the code check, a correct
+    # code would fail later, differently, and the difference would tell the
+    # caller the code was right. The web client sends the person back to
+    # request a new code on any message mentioning "expired".
+    if User.email_exists(email):
+        return bad_request(INVALID_CODE)
+    if redeem_code(email, UniqueCode.VERIFY, code) is None:
+        return bad_request(INVALID_CODE)
 
     try:
-        user = User.find_by_id(flask.g.user_id)
         user.upgrade_to_full_account(email, password=password)
         user.email_verified = True  # Already verified via code
 
@@ -308,14 +314,8 @@ def confirm_email():
 
     try:
         user = User.find_by_id(flask.g.user_id)
-        code_obj = UniqueCode.find_last_code(user.email)
-
-        if code_obj is None:
-            return bad_request("No verification code found. Please request a new one.")
-        if code_obj.is_expired():
-            return bad_request("Code has expired. Please request a new one.")
-        if submitted_code_is_wrong(code_obj.code, code):
-            return bad_request("Invalid code")
+        if redeem_code(user.email, UniqueCode.VERIFY, code) is None:
+            return bad_request(INVALID_CODE)
 
         user.email_verified = True
         # Clean up codes
@@ -347,7 +347,7 @@ def resend_verification_code():
             return bad_request("Email is already verified")
 
         # Create new code and send
-        code = UniqueCode(user.email)
+        code = UniqueCode(user.email, UniqueCode.VERIFY)
         db_session.add(code)
         db_session.commit()
         send_email_confirmation(user.email, code)
@@ -372,12 +372,15 @@ def send_code(email):
     from zeeguu.core.emailer.password_reset import send_password_reset_email
 
     try:
-        User.find(email)
-        # Only send email and create code if user exists
-        code = UniqueCode(email)
+        user = User.find(email)
+        # Only send email and create code if user exists. Code and mail go to
+        # the address on the account, not to the one in the route: the email
+        # column's collation matches addresses that differ in more than case
+        # (accents, for one), and the reset mail belongs in the owner's inbox.
+        code = UniqueCode(user.email, UniqueCode.RESET)
         db_session.add(code)
         db_session.commit()
-        send_password_reset_email(email, code)
+        send_password_reset_email(user.email, code)
     except sqlalchemy.orm.exc.NoResultFound:
         # Silently ignore non-existent emails to prevent user enumeration
         # Don't reveal whether the email exists in our system
@@ -399,30 +402,23 @@ def reset_password(email):
     submitted_pass = request.form.get("password", None)
 
     # Security: Use generic error messages to prevent information disclosure
-    code_obj = UniqueCode.find_last_code(email)
-
-    if code_obj is None:
-        log(f"PASSWORD RESET FAILED: email='{email}' - No reset code found")
-        return bad_request("Invalid or expired code")
-    if code_obj.is_expired():
-        log(f"PASSWORD RESET FAILED: email='{email}' - Code expired")
-        return bad_request("Invalid or expired code")
-    if submitted_code_is_wrong(code_obj.code, code):
-        log(f"PASSWORD RESET FAILED: email='{email}' - Invalid code")
-        return bad_request("Invalid or expired code")
-    if password_is_too_short(submitted_pass):
-        log(f"PASSWORD RESET FAILED: email='{email}' - Password too short")
-        return bad_request("Password is too short")
-
     try:
         user = User.find(email)
     except sqlalchemy.orm.exc.NoResultFound:
         log(f"PASSWORD RESET FAILED: email='{email}' - Email unknown")
-        return bad_request("Invalid or expired code")
+        return bad_request(INVALID_CODE)
+
+    # Looked up under the account's own address, where send_code stored it.
+    if redeem_code(user.email, UniqueCode.RESET, code) is None:
+        log(f"PASSWORD RESET FAILED: email='{email}' - Invalid, expired or used-up code")
+        return bad_request(INVALID_CODE)
+    if password_is_too_short(submitted_pass):
+        log(f"PASSWORD RESET FAILED: email='{email}' - Password too short")
+        return bad_request("Password is too short")
 
     log(f"PASSWORD RESET: email='{email}', user_id={user.id} - Updating password")
     user.update_password(submitted_pass)
-    delete_all_codes_for_email(email)
+    delete_all_codes_for_email(user.email)
 
     db_session.commit()
 
@@ -432,6 +428,31 @@ def reset_password(email):
 
 def bad_request(msg):
     return make_error(400, msg)
+
+
+# The one answer for a code that is missing, expired, wrong or used up, so
+# that the reply never says which. Contains "expired" on purpose: the web
+# upgrade flow sends the person back to request a new code when it sees that.
+INVALID_CODE = "Invalid or expired code"
+
+
+def redeem_code(email, purpose, submitted_code):
+    """
+    The latest code issued to `email` for `purpose`, if `submitted_code`
+    matches it, otherwise None.
+
+    Every submission counts against the code (UniqueCode.claim_attempt), so
+    after MAX_ATTEMPTS it stops matching anything and a new one has to be
+    requested. The caller deletes the code once it has done what it was for.
+    """
+    code_obj = UniqueCode.find_last_code(email, purpose)
+    if code_obj is None or code_obj.is_expired():
+        return None
+    if not code_obj.claim_attempt(db_session):
+        return None
+    if submitted_code_is_wrong(code_obj.code, submitted_code):
+        return None
+    return code_obj
 
 
 def submitted_code_is_wrong(submitted_code, db_code):
