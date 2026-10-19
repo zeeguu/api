@@ -183,3 +183,35 @@ class LessonWordsTest(ModelTestMixIn):
         generator.update_lesson_state_for_user(self.user, lesson.id, {"action": "complete"})
 
         assert runs == [lesson.id]
+
+    def test_a_learned_word_or_a_choice_of_the_learner_is_left_alone(self):
+        from datetime import datetime
+        from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+        from zeeguu.core.model.meaning import Meaning
+
+        learned = UserWord.find_or_create(
+            db.session, self.user, Meaning.find_or_create(db.session, "kaffe", "da", "coffee", "en", user=self.user)
+        )
+        learned.learned_time = datetime.now()
+        excluded = UserWord.find_or_create(
+            db.session, self.user, Meaning.find_or_create(db.session, "tak", "da", "thank you", "en", user=self.user)
+        )
+        excluded.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+        db.session.commit()
+
+        self._taught([("kaffe", "coffee", "En kaffe, tak."), ("tak", "thank you", "En kaffe, tak.")])
+        assert lesson_words.schedule_words_from_lesson(db.session, self.user, self.dialogue) == 0
+        words = self._user_words()
+        assert words["kaffe"].is_learned()
+        assert words["tak"].user_preference == UserWordExPreference.DONT_USE_IN_EXERCISES
+
+    def test_at_the_learners_limit_a_word_is_added_but_not_scheduled(self):
+        from zeeguu.core.model.user_preference import UserPreference
+        from zeeguu.core.word_scheduling import BasicSRSchedule
+
+        UserPreference.set(db.session, self.user, UserPreference.MAX_WORDS_TO_SCHEDULE, "1")
+        self._taught([("kaffe", "coffee", "En kaffe, tak."), ("tak", "thank you", "En kaffe, tak.")])
+        assert lesson_words.schedule_words_from_lesson(db.session, self.user, self.dialogue) == 1
+        words = self._user_words()
+        assert set(words) == {"kaffe", "tak"}
+        assert sum(1 for w in words.values() if BasicSRSchedule.find(w)) == 1

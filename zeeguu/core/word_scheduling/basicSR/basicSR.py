@@ -343,8 +343,9 @@ class BasicSRSchedule(db.Model):
         return meanings
 
     @classmethod
-    def scheduled_user_words_count(cls, user) -> int:
-        query = cls._scheduled_user_words_query(user)
+    def scheduled_user_words_count(cls, user, language=None) -> int:
+        """In `language`, or the learned language when not given."""
+        query = cls._scheduled_user_words_query(user, language)
         return query.distinct(UserWord.id).count()
 
     @classmethod

@@ -122,7 +122,7 @@ def schedule_words_from_lesson(db_session, user, dialogue):
                 context,
                 from_audio_lesson=True,
             )
-            if result and result[2] is not None:
+            if result[2] is not None:
                 added += 1
         except Exception as e:
             db_session.rollback()

@@ -56,12 +56,15 @@ def add_word_to_study(
 
     from_audio_lesson: the word comes from an A0 lesson, not from the learner
     typing it in. It is recorded as such (not is_user_added, an "audio_lesson"
-    interaction), and a word the learner is already studying is left exactly as
-    it is -- lessons repeat earlier words on purpose, and must not set them back
-    to level 1. Returns None then. A word they have but do not study (looked up
-    once, never scheduled) is scheduled.
+    interaction), and it only adds a word the learner has never studied,
+    learned or decided about -- lessons repeat earlier words on purpose, and
+    must neither set them back to level 1 nor undo a "don't use in exercises"
+    or "I know this". Returns (None, user_word, None) for a word left alone. A
+    word looked up once and never touched since is taken. At the learner's own
+    "max words to practise" it is added but not scheduled yet; the usual
+    scheduling takes it when there is room.
     """
-    from zeeguu.core.model import Bookmark, Language, Meaning
+    from zeeguu.core.model import Bookmark, Language, Meaning, UserPreference
     from zeeguu.core.model.user_word import UserWord
     from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
 
@@ -73,10 +76,15 @@ def add_word_to_study(
     meaning = Meaning.find_or_create(
         db_session, word, from_lang_code, translation, to_lang_code, user=user
     )
-    if from_audio_lesson and UserWord.exists(user, meaning):
-        existing = UserWord.find_or_create(db_session, user, meaning)
-        if BasicSRSchedule.find(existing):
-            return None
+    if from_audio_lesson:
+        existing = UserWord.query.filter_by(user=user, meaning=meaning).first()
+        if existing is not None and (
+            BasicSRSchedule.find(existing)
+            or existing.is_learned()
+            or (existing.user_preference or UserWordExPreference.NO_PREFERENCE)
+            != UserWordExPreference.NO_PREFERENCE
+        ):
+            return None, existing, None
 
     user_word = UserWord.find_or_create(
         db_session, user, meaning, is_user_added=not from_audio_lesson
@@ -88,10 +96,6 @@ def add_word_to_study(
         if from_audio_lesson
         else UserWordInteractionHistory.MANUAL_ADDITION,
     )
-    # Chosen on purpose -- typed in, or taught by a lesson -- so the quality
-    # checks that hide looked-up words ("too short", ...) do not apply.
-    user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
-    user_word.update_fit_for_study(db_session)
 
     # Bookmark.find_or_create looks this row up and fails without it.
     ContextType.find_or_create(db_session, ContextType.USER_EDITED_TEXT, commit=False)
@@ -119,6 +123,20 @@ def add_word_to_study(
     )
 
     user_word.preferred_bookmark = bookmark
+    # Chosen on purpose -- typed in, or taught by a lesson -- so the quality
+    # checks that hide looked-up words ("too short", ...) do not apply. Set
+    # only now, with the bookmark in place: a word left half-made by a failure
+    # above keeps no preference, and the next lesson tries it again.
+    user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
+    user_word.update_fit_for_study(db_session)
+
+    if from_audio_lesson and (
+        BasicSRSchedule.scheduled_user_words_count(user, from_lang)
+        >= UserPreference.get_max_words_to_schedule(user)
+    ):
+        db_session.add(user_word)
+        return bookmark, user_word, None
+
     schedule = FourLevelsPerWord.find_or_create(db_session, user_word)
     if schedule is None:
         return bookmark, user_word, None
