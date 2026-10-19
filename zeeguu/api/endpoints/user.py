@@ -443,7 +443,7 @@ def send_feedback():
     # Mail first: if the DB write fails (e.g. a charset error) the
     # feedback still reaches us instead of being lost with the rollback.
     ZeeguuMailer.send_feedback(
-        f"Feedback from {user.id}",
+        f"💬 Feedback from {user.name} ({user.id}) · {component_name}",
         component_name,
         message,
         user,
