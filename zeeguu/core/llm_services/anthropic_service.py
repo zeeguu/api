@@ -70,13 +70,19 @@ class AnthropicService(LLMService):
 
         With `schema`, the reply is constrained to JSON matching it.
         """
-        structured = {"output_config": {"format": {"type": "json_schema", "schema": schema}}} if schema else {}
+        options = claude.request_options(self.model)
+        if schema:
+            # Merged, not passed separately: request_options may carry its own
+            # output_config (Haiku 5.5's effort), and a second one is a TypeError
+            options["output_config"] = {
+                **options.get("output_config", {}),
+                "format": {"type": "json_schema", "schema": schema},
+            }
         try:
             response = self.client.messages.create(
                 model=self.model,
-                **claude.request_options(self.model),
+                **options,
                 max_tokens=max_tokens,
-                **structured,
                 system=prompt["system"],
                 messages=[
                     {"role": "user", "content": prompt["user"]}
