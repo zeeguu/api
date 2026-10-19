@@ -7,7 +7,7 @@ import json
 from typing import List, Dict, Optional
 
 from .llm_service import LLMService
-from .prompts import example_sentence_fields, format_prompt, PROMPT_VERSION_V3
+from .prompts import example_sentence_fields, format_prompt, without_blanks, CURRENT_PROMPT_VERSION
 from zeeguu.core.language.generate_in_language import generate_in_language
 from zeeguu.core.llm_services import models
 from zeeguu.logging import log
@@ -59,7 +59,7 @@ class AnthropicService(LLMService):
             raise e
 
     def generate_examples(self, word: str, translation: str, source_lang: str,
-                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V3, count: int = 3) -> List[Dict]:
+                         target_lang: str, cefr_level: str, prompt_version: str = CURRENT_PROMPT_VERSION, count: int = 3) -> List[Dict]:
         """
         Generate example sentences using Claude - fail fast to DeepSeek fallback.
 
@@ -110,7 +110,7 @@ class AnthropicService(LLMService):
                 example["llm_model"] = self.model
                 example["prompt_version"] = prompt_version
             
-            return result["examples"]
+            return without_blanks(result["examples"])
             
         except json.JSONDecodeError as e:
             log(f"Failed to parse Anthropic response as JSON: {e}")
