@@ -245,13 +245,27 @@ def _validated_settings(user, data):
     """
     validated = {}
 
+    # A session is not proof of the password, and a new password here would let
+    # whoever holds one (a stolen cookie) lock the owner out -- and then pass the
+    # password re-check that guards the email change. No client has ever sent
+    # this field: the web app's "Change password" has always gone through
+    # /send_code + /reset_password, which prove control of the mailbox instead.
+    if data.get("password", None):
+        raise ValueError(
+            "Password cannot be changed here; use the reset-password flow"
+        )
+
     submitted_username = data.get("username", None)
     if submitted_username:
         validated["username"] = _validated_username(user, submitted_username)
 
+    # Still accepted, because every client posts the whole user-details object
+    # back, email included, and native builds keep doing so forever. Unchanged
+    # it is a no-op; a *different* address has to go through the verified
+    # /request_email_change + /confirm_email_change flow instead.
     submitted_email = data.get("email", None)
     if submitted_email:
-        validated["email"] = _validated_email(user, submitted_email)
+        _reject_email_change(user, submitted_email)
 
     for submitted_language_code in (
         data.get("native_language", None),
@@ -269,6 +283,12 @@ def _validated_settings(user, data):
             data.get("learned_language", None) or user.learned_language.code
         )
         User.validated_feed_variety(feed_variety_language_code, submitted_feed_variety)
+
+    # The level is stored by set_learned_language, after other writes; refused
+    # here instead. Checked as given, never with `if level:`: 0 is A0.
+    from zeeguu.core.model import UserLanguage
+
+    UserLanguage.parse_cefr_level(data.get("cefr_level", None))
 
     # Same shape as the feed variety above, and a separate setting: which dialect
     # you are learning is not the same question as which country's news to read.
@@ -295,11 +315,12 @@ def _validated_username(user, submitted_username):
     return normalized_username
 
 
-def _validated_email(user, submitted_email):
-    normalized_email = submitted_email.strip().lower()
-    if normalized_email != user.email.lower() and User.email_exists(normalized_email):
-        raise ValueError("Email already in use")
-    return normalized_email
+def _reject_email_change(user, submitted_email):
+    if submitted_email.strip().lower() != user.email.lower():
+        raise ValueError(
+            "To change your email, use Change email under Settings > Profile details "
+            "(if you don't see it, update the app first)"
+        )
 
 
 def _validated_language(language_code):
@@ -327,8 +348,7 @@ def user_settings():
             - native_language
             - learned_language (with optional CEFR level and feed variety)
             - dialect (which variety of the learned language is being studied)
-            - email (must be unique)
-            - password
+            - email (only the current one; changing it is /request_email_change)
             - avatar (image name, character color, background color)
 
         Returns:
@@ -353,16 +373,6 @@ def user_settings():
         submitted_native_language_code = data.get("native_language", None)
         if submitted_native_language_code:
             user.set_native_language(submitted_native_language_code)
-
-        if "email" in validated:
-            user.email = validated["email"]
-
-        submitted_password = data.get("password", None)
-        if submitted_password:
-            from zeeguu.api.utils.session_helpers import end_other_sessions
-
-            user.update_password(submitted_password)
-            end_other_sessions(user, keep_session_uuid=flask.g.session_uuid)
 
         submitted_avatar_image_name = data.get("avatar_image_name", None)
         submitted_avatar_character_color = data.get("avatar_character_color", None)

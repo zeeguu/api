@@ -21,6 +21,7 @@ class TranslationService(db.Model):
     MANUAL = "MANUAL"  # typed by the learner
     CHOSEN_ALTERNATIVE = "Chosen alternative"  # picked in the reader; client did not say whose
     LEARNING_CARD = "Learning card (LLM)"  # word added via the learning card generator
+    AUDIO_LESSON = "Audio lesson (LLM)"  # word an A0 audio lesson taught (add_word_to_study)
     VALIDATOR = "Translation validator"  # replaced by UserWordValidationService
 
     # SMALLINT in MySQL, as the migration creates it. SQLite (the tests) only
@@ -35,7 +36,7 @@ class TranslationService(db.Model):
         return f"<TranslationService {self.name}>"
 
     # Never accepted from a client: they would claim our own provenance
-    INTERNAL = (MANUAL, CHOSEN_ALTERNATIVE, LEARNING_CARD, VALIDATOR)
+    INTERNAL = (MANUAL, CHOSEN_ALTERNATIVE, LEARNING_CARD, AUDIO_LESSON, VALIDATOR)
 
     @classmethod
     def find_or_create(cls, session, name):

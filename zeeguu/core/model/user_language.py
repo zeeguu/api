@@ -100,6 +100,24 @@ class UserLanguage(db.Model):
 
         return self.daily_streak or 0
 
+    @staticmethod
+    def parse_cefr_level(value):
+        """
+        A level as sent by a client (form string, JSON number) as stored: 0..6
+        for A0..C2, or None when it was not given. 0 is A0, not "not set", so
+        `if level:` must never stand in for "was a level given".
+        """
+        if value is None or value == "":
+            return None
+        # Whole numbers only. int() would take 2.9 as 2 and False as 0, which
+        # silently makes someone A2 -- or A0.
+        if isinstance(value, bool) or (isinstance(value, float) and not value.is_integer()):
+            raise ValueError(f"CEFR level is not a whole number: {value!r}")
+        level = int(value)
+        if not 0 <= level <= 6:
+            raise ValueError(f"CEFR level out of range: {value}")
+        return level
+
     def __init__(
         self,
         user,
@@ -110,7 +128,9 @@ class UserLanguage(db.Model):
         inferred_level_max=10,
         reading_news=False,
         doing_exercises=False,
-        cefr_level=0,
+        # None, not 0: 0 is A0 (see User.CEFR_LEVELS). It used to be the default,
+        # which made every unset level read as C2.
+        cefr_level=None,
     ):
         self.user = user
         self.language = language

@@ -225,6 +225,7 @@ class UserWordValidationService:
         if result.literal_meaning:
             meaning.literal_meaning = result.literal_meaning
 
+        meaning.take_case_from(db_session, result.dictionary_word, result.dictionary_translation)
         db_session.add(meaning)
 
         # Log the validation result
@@ -310,6 +311,9 @@ class UserWordValidationService:
         if validation_result.literal_meaning:
             new_meaning.literal_meaning = validation_result.literal_meaning
 
+        new_meaning.take_case_from(
+            db_session, validation_result.dictionary_word, validation_result.dictionary_translation
+        )
         db_session.add(new_meaning)
 
         # If meaning actually changed, update user's data

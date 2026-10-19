@@ -9,7 +9,7 @@ import requests
 from typing import List, Dict, Optional
 
 from .llm_service import LLMService
-from .prompts import example_sentence_fields, format_prompt, PROMPT_VERSION_V3
+from .prompts import example_sentence_fields, format_prompt, without_blanks, CURRENT_PROMPT_VERSION
 from zeeguu.core.language.generate_in_language import generate_in_language
 from zeeguu.core.llm_services import models
 from zeeguu.logging import log
@@ -28,8 +28,12 @@ class DeepSeekService(LLMService):
         # Set timeout (default 120 seconds = 2 minutes)
         self.timeout = timeout
 
-    def _make_deepseek_request(self, prompt: Dict, max_tokens: int = 1000, temperature: float = 0.7) -> str:
-        """Make DeepSeek API request with timeout"""
+    def _make_deepseek_request(self, prompt: Dict, max_tokens: int = 1000, temperature: float = 0.7,
+                               json_output: bool = False) -> str:
+        """Make DeepSeek API request with timeout.
+
+        With `json_output`, DeepSeek's JSON mode: the reply is one valid JSON
+        object (not checked against a schema; the prompt must say "json")."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -42,9 +46,11 @@ class DeepSeekService(LLMService):
                 {"role": "system", "content": prompt["system"]},
                 {"role": "user", "content": prompt["user"]}
             ],
-            "max_tokens": max_tokens,
+            "max_tokens": models.output_tokens(self.model, max_tokens),
             "temperature": temperature
         }
+        if json_output:
+            payload["response_format"] = {"type": "json_object"}
 
         # self.timeout is a deadline for the whole request. requests' own timeout
         # only bounds each read, and while DeepSeek queues a request it keeps the
@@ -82,7 +88,7 @@ class DeepSeekService(LLMService):
             raise Exception(f"DeepSeek API request failed: {e}")
     
     def generate_examples(self, word: str, translation: str, source_lang: str,
-                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V3, count: int = 3) -> List[Dict]:
+                         target_lang: str, cefr_level: str, prompt_version: str = CURRENT_PROMPT_VERSION, count: int = 3) -> List[Dict]:
         """
         Generate example sentences using DeepSeek API.
 
@@ -95,7 +101,9 @@ class DeepSeekService(LLMService):
             prompt = format_prompt(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
             if correction:
                 prompt = {**prompt, "user": prompt["user"] + correction}
-            return self._parse_examples(self._make_deepseek_request(prompt), cefr_level, prompt_version)
+            return self._parse_examples(
+                self._make_deepseek_request(prompt, json_output=True), cefr_level, prompt_version
+            )
 
         return generate_in_language(
             generate, source_lang, example_sentence_fields, f"examples for '{word}'"
@@ -133,7 +141,7 @@ class DeepSeekService(LLMService):
                 example["prompt_version"] = prompt_version
             
             log(f"Successfully generated {len(result['examples'])} examples using DeepSeek API")
-            return result["examples"]
+            return without_blanks(result["examples"])
             
         except json.JSONDecodeError as e:
             log(f"Failed to parse DeepSeek response as JSON: {e}")

@@ -8,7 +8,12 @@ from datetime import datetime, timezone, timedelta
 
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
-from zeeguu.core.audio_lessons.script_generator import generate_lesson_script, generate_dialogue_script
+from zeeguu.core.audio_lessons.script_generator import (
+    builds_on_history as level_builds_on_history,
+    generate_dialogue_script,
+    generate_lesson_script,
+    word_lesson_level,
+)
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.audio_lessons.voice_config import (
     distinguishing_variety,
@@ -16,6 +21,7 @@ from zeeguu.core.audio_lessons.voice_config import (
 )
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
+from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
 from zeeguu.core.model import (
     db,
     User,
@@ -26,6 +32,7 @@ from zeeguu.core.model import (
 )
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.model.user_language import UserLanguage
+from zeeguu.core.model.user_preference import UserPreference
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
 
@@ -111,7 +118,7 @@ class DailyLessonGenerator:
         # Get user's languages and CEFR level
         origin_language = user.learned_language.code
         translation_language = user.native_language.code
-        cefr_level = user.cefr_level_for_learned_language()
+        cefr_level = user.audio_lesson_level_for_learned_language()
 
         # The learner's dialect, narrowed to a variety that actually changes the
         # voice so that choosing the one already in effect does not fork the shared
@@ -199,6 +206,7 @@ class DailyLessonGenerator:
         Generate an AudioLessonMeaning for a specific user word.
         Only used in auto mode (no topic/situation).
         """
+        cefr_level = word_lesson_level(cefr_level)
         meaning = user_word.meaning
         teacher_lang = Language.find_or_create(translation_language)
 
@@ -305,37 +313,54 @@ class DailyLessonGenerator:
         learned_lang = Language.find_or_create(origin_language)
         teacher_lang = Language.find_or_create(translation_language)
 
-        # Try to find an existing dialogue the user hasn't heard yet.
-        # Only general dialogues are reused across users; niche dialogues are
-        # too specific to be safely served to anyone but the original requester.
-        existing = AudioLessonDialogue.find_unheard(
-            canonical_suggestion=canonical_suggestion,
-            lesson_type=lesson_type,
-            language=learned_lang,
-            teacher_language=teacher_lang,
-            difficulty_level=cefr_level,
-            user=user,
-            only_general=True,
-            variety=voice_variety,
-        )
-        if existing:
-            return existing
+        # An A0 learner knows only what their earlier lessons taught them, so
+        # their lesson is written from that (words_heard) and is theirs alone:
+        # nothing is reused from or for anyone else.
+        builds_on_history = level_builds_on_history(cefr_level)
+        heard = None
+        learner_character = None
+        past_titles = None
+
+        if builds_on_history:
+            heard = heard_lessons(user, learned_lang)
+            # The character the learner chose; when they did not, the man and
+            # the woman take turns, counted over all their lessons of this kind.
+            learner_character = UserPreference.get_audio_lesson_character(user) or (
+                "man" if history_lesson_count(user, learned_lang) % 2 == 0 else "woman"
+            )
+            is_general = False
+        else:
+            # Try to find an existing dialogue the user hasn't heard yet.
+            # Only general dialogues are reused across users; niche dialogues are
+            # too specific to be safely served to anyone but the original requester.
+            existing = AudioLessonDialogue.find_unheard(
+                canonical_suggestion=canonical_suggestion,
+                lesson_type=lesson_type,
+                language=learned_lang,
+                teacher_language=teacher_lang,
+                difficulty_level=cefr_level,
+                user=user,
+                only_general=True,
+                variety=voice_variety,
+            )
+            if existing:
+                return existing
+
+            # Collect past titles for this topic to avoid repetition
+            past_titles = AudioLessonDialogue.past_titles_for(
+                canonical_suggestion=canonical_suggestion,
+                lesson_type=lesson_type,
+                language=learned_lang,
+                teacher_language=teacher_lang,
+                difficulty_level=cefr_level,
+                variety=voice_variety,
+            )
 
         # Update progress
         if progress:
             progress.start_segment(1, segment_name=canonical_suggestion)
             progress.update_generating_script()
             db.session.commit()
-
-        # Collect past titles for this topic to avoid repetition
-        past_titles = AudioLessonDialogue.past_titles_for(
-            canonical_suggestion=canonical_suggestion,
-            lesson_type=lesson_type,
-            language=learned_lang,
-            teacher_language=teacher_lang,
-            difficulty_level=cefr_level,
-            variety=voice_variety,
-        )
 
         # Drive content from the raw user input so specific details are preserved.
         # Fall back to canonical only if no raw input was provided.
@@ -347,6 +372,8 @@ class DailyLessonGenerator:
             lesson_type=lesson_type,
             cefr_level=cefr_level,
             past_titles=past_titles,
+            heard=heard,
+            learner_character=learner_character,
         )
 
         if progress:
@@ -366,6 +393,10 @@ class DailyLessonGenerator:
             title=title,
             ai_generator=_ai_generator_for(generated),
             variety=voice_variety,
+            builds_on_history=builds_on_history,
+            dialogue_ai_generator=(
+                _ai_generator_for(generated.dialogue) if generated.dialogue else None
+            ),
         )
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
@@ -1034,6 +1065,26 @@ class DailyLessonGenerator:
                 "status_code": 500,
             }
 
+    def _schedule_words_taught_to_say(self, lesson, user):
+        """
+        After a lesson built on the learner's history (A0) is heard to the end,
+        the words it taught them to say go on their study list -- in the
+        background (a model call takes seconds), and never in the way of the
+        lesson being marked complete.
+        """
+        from zeeguu.api.utils.background import run_in_background
+        from zeeguu.core.audio_lessons.lesson_words import schedule_words_after_lesson
+
+        if any(
+            segment.audio_lesson_dialogue is not None
+            and segment.audio_lesson_dialogue.builds_on_history
+            for segment in lesson.segments
+        ):
+            try:
+                run_in_background(schedule_words_after_lesson, user.id, lesson.id)
+            except Exception as e:
+                log(f"[schedule_words_taught_to_say] lesson {lesson.id}: {e}")
+
     def update_lesson_state_for_user(self, user, lesson_id, state_data):
         """
         Update the state of a daily audio lesson for a user.
@@ -1081,6 +1132,9 @@ class DailyLessonGenerator:
                     lesson.listened_count += 1
 
             elif action == "complete":
+                # Completed for the first time now, not again: what follows the
+                # commit below runs once per lesson, not on every repeat.
+                first_completion = not lesson.is_completed
                 # Mark lesson as completed
                 lesson.mark_completed()
 
@@ -1101,6 +1155,11 @@ class DailyLessonGenerator:
                 }
 
             db.session.commit()
+
+            # After the commit: the words of a lesson that was not recorded as
+            # completed must not go on the study list.
+            if action == "complete" and first_completion:
+                self._schedule_words_taught_to_say(lesson, user)
 
             return {
                 "message": f"Lesson state updated successfully",

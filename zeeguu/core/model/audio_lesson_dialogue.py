@@ -32,7 +32,7 @@ class AudioLessonDialogue(db.Model):
     teacher_language = relationship(Language, foreign_keys=[teacher_language_id])
 
     difficulty_level = Column(
-        Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
+        Enum("A0", "A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
     )
 
     # The regional variety this dialogue was voiced in. Same reasoning as on
@@ -45,11 +45,23 @@ class AudioLessonDialogue(db.Model):
     duration_seconds = Column(Integer)
     is_general = Column(db.Boolean, default=False)
 
+    # The script was written from the words this learner heard in their earlier
+    # audio lessons (see audio_lessons.words_heard), so it continues *their*
+    # lessons and is never reused for anyone else. Such a row is never general.
+    builds_on_history = Column(db.Boolean, nullable=False, default=False)
+
     # Which model and prompt version actually produced this script. created_by is a
     # fixed literal and cannot answer that: the fallback chain may serve from a
     # different provider than the configured one, so it has to be recorded here.
     ai_generator_id = Column(Integer, ForeignKey(AIGenerator.id), nullable=True)
-    ai_generator = relationship(AIGenerator)
+    ai_generator = relationship(AIGenerator, foreign_keys=[ai_generator_id])
+
+    # A lesson that builds on history is written in two calls (see
+    # script_generator._dialogue_for_beginner), which the fallback chain may
+    # serve from different providers: ai_generator is the lesson call, this is
+    # the call that wrote the dialogue -- where naturalness problems come from.
+    dialogue_ai_generator_id = Column(Integer, ForeignKey(AIGenerator.id), nullable=True)
+    dialogue_ai_generator = relationship(AIGenerator, foreign_keys=[dialogue_ai_generator_id])
 
     # When set, cache lookups skip this row and force regeneration. Existing
     # daily lesson segments that already reference it keep playing as before.
@@ -68,7 +80,16 @@ class AudioLessonDialogue(db.Model):
         title=None,
         ai_generator=None,
         variety=None,
+        builds_on_history=False,
+        dialogue_ai_generator=None,
     ):
+        # Raised, not asserted: python -O drops asserts, and a general row is
+        # served to other learners by find_unheard.
+        if builds_on_history and is_general:
+            raise ValueError("a lesson built on one learner's history cannot be general")
+        self.builds_on_history = builds_on_history
+        if dialogue_ai_generator:
+            self.dialogue_ai_generator_id = dialogue_ai_generator.id
         self.script = script
         self.canonical_suggestion = canonical_suggestion
         self.lesson_type = lesson_type

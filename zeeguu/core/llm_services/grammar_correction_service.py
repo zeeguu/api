@@ -177,7 +177,7 @@ class GrammarCorrectionService:
         data = {
             "model": DEEPSEEK_CORRECTION_MODEL,
             "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 8000,
+            "max_tokens": models.output_tokens(DEEPSEEK_CORRECTION_MODEL, 8000),
             "temperature": 0,  # Deterministic for corrections
         }
 

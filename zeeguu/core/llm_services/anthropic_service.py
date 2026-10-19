@@ -7,11 +7,36 @@ import json
 from typing import List, Dict, Optional
 
 from .llm_service import LLMService
-from .prompts import example_sentence_fields, format_prompt, PROMPT_VERSION_V3
+from .prompts import example_sentence_fields, format_prompt, without_blanks, CURRENT_PROMPT_VERSION
 from zeeguu.core.language.generate_in_language import generate_in_language
 from zeeguu.core.llm_services import models
 from zeeguu.logging import log
 from zeeguu.core.llm_services import claude
+
+
+# Constrained decoding for example generation: without it Sonnet 5.5 sometimes
+# writes a JSON block, notices a mistake, and appends a corrected second block,
+# which fails to parse and sends the request to the DeepSeek fallback (4 of 48
+# calls in an Oct 2026 A/B).
+EXAMPLES_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "examples": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "sentence": {"type": "string"},
+                    "translation": {"type": "string"},
+                },
+                "required": ["sentence", "translation"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["examples"],
+    "additionalProperties": False,
+}
 
 
 class AnthropicService(LLMService):
@@ -36,18 +61,28 @@ class AnthropicService(LLMService):
         except ImportError:
             raise ImportError("anthropic package not installed. Run: pip install anthropic")
     
-    def _make_api_request(self, prompt: Dict, max_tokens: int = 1000) -> str:
+    def _make_api_request(self, prompt: Dict, max_tokens: int = 1000, schema: Optional[Dict] = None) -> str:
         """Make single API request - fail fast, no retries.
 
         No temperature: SDK 1.x dropped it, and newer models reject it at the
         API, so `generate_text` accepts one only for the shared LLMService
         interface (DeepSeek still uses it).
+
+        With `schema`, the reply is constrained to JSON matching it.
         """
+        options = claude.request_options(self.model)
+        if schema:
+            # Merged, not passed separately: request_options may carry its own
+            # output_config (Haiku 5.5's effort), and a second one is a TypeError
+            options["output_config"] = {
+                **options.get("output_config", {}),
+                "format": {"type": "json_schema", "schema": schema},
+            }
         try:
             response = self.client.messages.create(
                 model=self.model,
-                **claude.request_options(self.model),
-                max_tokens=max_tokens,
+                **options,
+                max_tokens=models.output_tokens(self.model, max_tokens),
                 system=prompt["system"],
                 messages=[
                     {"role": "user", "content": prompt["user"]}
@@ -59,7 +94,7 @@ class AnthropicService(LLMService):
             raise e
 
     def generate_examples(self, word: str, translation: str, source_lang: str,
-                         target_lang: str, cefr_level: str, prompt_version: str = PROMPT_VERSION_V3, count: int = 3) -> List[Dict]:
+                         target_lang: str, cefr_level: str, prompt_version: str = CURRENT_PROMPT_VERSION, count: int = 3) -> List[Dict]:
         """
         Generate example sentences using Claude - fail fast to DeepSeek fallback.
 
@@ -73,7 +108,9 @@ class AnthropicService(LLMService):
             prompt = format_prompt(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
             if correction:
                 prompt = {**prompt, "user": prompt["user"] + correction}
-            return self._parse_examples(self._make_api_request(prompt), cefr_level, prompt_version)
+            return self._parse_examples(
+                self._make_api_request(prompt, schema=EXAMPLES_SCHEMA), cefr_level, prompt_version
+            )
 
         return generate_in_language(
             generate, source_lang, example_sentence_fields, f"examples for '{word}'"
@@ -110,7 +147,7 @@ class AnthropicService(LLMService):
                 example["llm_model"] = self.model
                 example["prompt_version"] = prompt_version
             
-            return result["examples"]
+            return without_blanks(result["examples"])
             
         except json.JSONDecodeError as e:
             log(f"Failed to parse Anthropic response as JSON: {e}")

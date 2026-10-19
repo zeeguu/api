@@ -125,7 +125,7 @@ def _call_simplification_llm(
             json={
                 "model": model_name,
                 "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": max_tokens,
+                "max_tokens": models.output_tokens(model_name, max_tokens),
                 "temperature": 0.1,
                 **({"stop": stop} if stop else {}),
             },

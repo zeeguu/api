@@ -165,7 +165,7 @@ def create_account(
                 user.add_user_to_cohort(cohort, db_session)
             user.create_default_user_preference()
             user_language = UserLanguage.find_or_create(db_session, user, learned_language)
-            user_language.cefr_level = int(learned_cefr_level)
+            user_language.cefr_level = UserLanguage.parse_cefr_level(learned_cefr_level)
             user_language.declared_level_min = 0
             user_language.declared_level_max = 11
             db_session.add(user_language)
