@@ -18,7 +18,9 @@ _VOICE_LABEL_PATTERN = re.compile(
 _VOICE_LINE_PATTERN = re.compile(
     r"^(" + "|".join(VOICE_LABELS) + r"):\s*(.+)$", re.IGNORECASE
 )
-_SLOW_MARKER = re.compile(r"\s*\[slow\]", re.IGNORECASE)
+# [slow], and the variants a model writes for it ([slowly], [slow speed]): any
+# of them left in the text would be read aloud.
+_SLOW_MARKER = re.compile(r"\s*\[slow[a-z ]*\]", re.IGNORECASE)
 
 
 def join_continuation_lines(script: str) -> str:

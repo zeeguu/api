@@ -83,9 +83,10 @@ class AudioLessonDialogue(db.Model):
         builds_on_history=False,
         dialogue_ai_generator=None,
     ):
-        assert not (builds_on_history and is_general), (
-            "a lesson built on one learner's history cannot be general"
-        )
+        # Raised, not asserted: python -O drops asserts, and a general row is
+        # served to other learners by find_unheard.
+        if builds_on_history and is_general:
+            raise ValueError("a lesson built on one learner's history cannot be general")
         self.builds_on_history = builds_on_history
         if dialogue_ai_generator:
             self.dialogue_ai_generator_id = dialogue_ai_generator.id

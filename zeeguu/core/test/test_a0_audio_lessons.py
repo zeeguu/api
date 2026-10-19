@@ -153,7 +153,7 @@ def test_a_lesson_built_on_history_cannot_be_general():
     class _Lang:
         id = 1
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValueError):
         AudioLessonDialogue("s", "café", "situation", _Lang(), is_general=True, builds_on_history=True)
 
 
@@ -264,3 +264,40 @@ def test_a_lesson_written_in_one_call_has_no_dialogue_record():
     from zeeguu.core.audio_lessons.script_generator import GeneratedScript
 
     assert GeneratedScript("s", "m", "v").dialogue is None
+
+
+def _dialogue_answering(monkeypatch, text):
+    from zeeguu.core.audio_lessons import script_generator
+
+    monkeypatch.setattr(
+        script_generator, "generate_script_in_languages", lambda *a, **k: (text, "claude-sonnet-5-5")
+    )
+    return script_generator._dialogue_for_beginner("da", "en", "at a café", [], "Man")
+
+
+def test_a_preamble_before_the_dialogue_is_dropped(monkeypatch):
+    generated = _dialogue_answering(
+        monkeypatch, "Here is the dialogue:\nWoman: Hej! Hvad vil du have?\nMan: En kaffe, tak."
+    )
+    assert generated.script == "Woman: Hej! Hvad vil du have?\nMan: En kaffe, tak."
+
+
+def test_a_dialogue_of_one_line_is_not_built_on(monkeypatch):
+    with pytest.raises(Exception, match="1 lines"):
+        _dialogue_answering(monkeypatch, "Woman: Hej! Hvad vil du")
+
+
+def test_slow_variants_are_not_read_aloud():
+    from zeeguu.core.audio_lessons.script_parser import parse_script
+
+    assert parse_script("Woman: Kaffe. [slowly] [3 seconds]", with_speed=True) == [
+        ("woman", "Kaffe.", 3.0, True)
+    ]
+
+
+def test_the_example_drills_the_learners_own_voice():
+    from zeeguu.core.audio_lessons.script_generator import get_prompt_template
+
+    prompt = get_prompt_template("a0_dialogue_lesson--pimsleur_style_situation-v1.txt")
+    assert "{learner_role}: <the word> [slow]" in prompt
+    assert "Woman: <the word>" not in prompt

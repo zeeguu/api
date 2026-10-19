@@ -170,7 +170,7 @@ class UserPreference(db.Model):
     def get_audio_lesson_character(cls, user: User):
         """'man' or 'woman' when the learner chose one; None for either or unset."""
         value = cls.get(user, cls.AUDIO_LESSON_CHARACTER)
-        return value if value in ("man", "woman") else None
+        return value if value in cls.AUDIO_LESSON_CHARACTERS and value != "either" else None
 
     @classmethod
     def daily_audio_lesson_type_key(cls, language_code: str):

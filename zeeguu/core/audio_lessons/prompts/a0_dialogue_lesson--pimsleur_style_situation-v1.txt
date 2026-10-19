@@ -60,13 +60,13 @@ Use this exact format:
     Woman: <dialogue line in {target_language}> [1 seconds]
     ...
 
-    Teacher: <explanation of a new word, in {source_language}> [1 seconds]
-    Woman: <the word> [slow] [3 seconds]
-    Woman: <the word> [3 seconds]
-    Woman: <the word> [3 seconds]
+    Teacher: <explanation of a word TO SAY, in {source_language}> [1 seconds]
+    {learner_role}: <the word> [slow] [3 seconds]
+    {learner_role}: <the word> [3 seconds]
+    {learner_role}: <the word> [3 seconds]
     Teacher: <"How do you say ...?", in {source_language}> [5 seconds]
-    Woman: <the word> [3 seconds]
-    Woman: <the word> [3 seconds]
+    {learner_role}: <the word> [3 seconds]
+    {learner_role}: <the word> [3 seconds]
     ...
 
 RULES:

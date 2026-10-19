@@ -361,8 +361,22 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
         context=f"A0 dialogue '{suggestion}'",
         max_tokens=500,
     )
+    # The lesson around it may not change it, so it is checked here: only the
+    # speakers' lines (a preamble like "Here is the dialogue:" is dropped), and
+    # 2 to 6 of them. Fewer, or more, means the model did not write what was
+    # asked -- possibly cut off -- and the lesson is not built on it.
+    lines = [
+        line.strip()
+        for line in dialogue.splitlines()
+        if re.match(r"^(Man|Woman):\s*\S", line.strip())
+    ]
+    if not 2 <= len(lines) <= 6:
+        raise Exception(
+            f"A0 dialogue for '{suggestion}' has {len(lines)} lines, not 2-6: "
+            f"{dialogue.strip()[:300]!r}"
+        )
     return GeneratedScript(
-        "\n".join(line.strip() for line in dialogue.strip().splitlines() if line.strip()),
+        "\n".join(lines),
         model_name,
         prompt_version_of("a0_dialogue_lesson--dialogue-v1.txt"),
     )
