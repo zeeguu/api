@@ -47,3 +47,8 @@ def test_anthropic_is_sent_what_was_asked_when_its_model_has_no_cap():
 
 def test_a_new_snapshot_of_a_capped_family_is_capped_too():
     assert models.output_tokens("deepseek-chat-v4", 16000) == 8192
+
+
+def test_the_cap_is_for_the_family_not_the_vendor():
+    # deepseek-reasoner writes far more than deepseek-chat.
+    assert models.output_tokens("deepseek-reasoner", 16000) == 16000

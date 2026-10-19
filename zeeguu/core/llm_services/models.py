@@ -17,8 +17,6 @@ Model IDs are authoritative as of 2026-10 (Sonnet 4.5 retires 2026-11-30). See
 https://platform.claude.com/docs/en/about-claude/models/overview for current IDs.
 """
 
-from zeeguu.logging import log
-
 # --- Canonical model IDs — the ONLY place a raw model string appears ---
 ANTHROPIC_SONNET = "claude-sonnet-5-5"  # current Sonnet tier; thinking off via claude.request_options
 ANTHROPIC_HAIKU = "claude-haiku-5-5"  # current Haiku (fast / cheap); low-effort thinking via claude.request_options
@@ -32,12 +30,18 @@ DEEPSEEK_CHAT = "deepseek-chat"
 # 2026-10-18 the A0 audio lessons asked for 16000, which would have failed every
 # time Anthropic did.
 # Keys are model-id prefixes, matched like claude.py matches its models, so a
-# new snapshot of a listed family is capped too. A model matching none is not
-# capped here.
+# new snapshot of a listed family is capped too -- the family, not the vendor:
+# deepseek-reasoner writes far more than deepseek-chat. A model matching none is
+# not capped here.
 # DeepSeek: https://api-docs.deepseek.com/quick_start/pricing
 MAX_OUTPUT_TOKENS = {
-    "deepseek-": 8192,
+    "deepseek-chat": 8192,
 }
+
+# (model, wanted) pairs already logged as capped: some callers ask for more on
+# purpose (translate-and-adapt asks every provider for the same 16000), and one
+# line per pair is enough to find them.
+_logged_caps = set()
 
 
 def output_tokens(model: str, wanted: int) -> int:
@@ -52,7 +56,14 @@ def output_tokens(model: str, wanted: int) -> int:
         None,
     )
     if cap is not None and wanted > cap:
-        log(f"max_tokens capped for {model}: asked {wanted}, sent {cap}")
+        if (model, wanted) not in _logged_caps:
+            _logged_caps.add((model, wanted))
+            # Imported here, not at the top: this module is plain constants that
+            # anything may import for a model id, and zeeguu.logging configures
+            # logging and loads Sentry on import.
+            from zeeguu.logging import log
+
+            log(f"max_tokens capped for {model}: asked {wanted}, sent {cap}")
         return cap
     return wanted
 

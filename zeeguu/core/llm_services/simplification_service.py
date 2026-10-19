@@ -844,6 +844,9 @@ IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} voc
             )
 
             if response.status_code == 200:
+                # Set before anything that can fail: the except below logs it,
+                # and a body that is not JSON fails at response.json().
+                result_text = None
                 try:
                     response_data = response.json()
                     choice = response_data["choices"][0]
