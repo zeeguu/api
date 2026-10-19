@@ -1,11 +1,17 @@
 import random
+from unittest import mock
+
+from sqlalchemy.exc import NoResultFound
+from sqlalchemy.orm import Query
 
 from wordstats.loading_from_hermit import load_language_from_hermit
 
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.phrase_rule import PhraseRule
-from zeeguu.core.model import Phrase
+from zeeguu.core.test.rules.meaning_rule import MeaningRule
+from zeeguu.core.test.rules.user_rule import UserRule
+from zeeguu.core.model import Phrase, UserWord
 from zeeguu.core.model.db import db
 
 
@@ -38,6 +44,28 @@ class UserWordTest(ModelTestMixIn):
     def test_exists(self):
         phrase_in_db = PhraseRule().phrase
         assert Phrase.exists(phrase_in_db.content, phrase_in_db.language)
+
+    def test_find_or_create_loses_the_insert_race(self):
+        # A double tap: the other request inserts the row after this one's
+        # lookup has already missed it.
+        user = UserRule().user
+        meaning = MeaningRule().meaning
+        winner = UserWord.find_or_create(db.session, user, meaning)
+
+        real_one = Query.one
+        lookups = []
+
+        def first_lookup_misses(query):
+            lookups.append(query)
+            if len(lookups) == 1:
+                raise NoResultFound()
+            return real_one(query)
+
+        with mock.patch.object(Query, "one", first_lookup_misses):
+            loser = UserWord.find_or_create(db.session, user, meaning)
+
+        assert loser.id == winner.id
+        assert UserWord.query.filter_by(user=user, meaning=meaning).count() == 1
 
     def __get_random_word_stats(self):
         random_language = LanguageRule().random
