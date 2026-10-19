@@ -45,7 +45,7 @@ def upload_user_activity_data():
 
     # Update reading completion on scroll events (always run for efficiency)
     if request.form.get("event") == "SCROLL" and request.form.get("article_id", None):
-        _check_and_notify_article_completion_on_scroll(user, request.form)
+        _update_reading_completion_on_scroll(user, request.form)
 
     return "OK"
 
@@ -70,7 +70,7 @@ def days_since_last_use():
     return ""
 
 
-def _check_and_notify_article_completion_on_scroll(user, form_data):
+def _update_reading_completion_on_scroll(user, form_data):
     """
     Update reading completion percentage and check for completion on every scroll event.
     This is much more efficient as it stores the completion percentage instead of recalculating.
@@ -138,15 +138,6 @@ def _check_and_notify_article_completion_on_scroll(user, form_data):
             from zeeguu.core import events
             events.article_read.send(None, user_id=user.id, db_session=db_session)
 
-            # Send notification if enabled
-            from flask import current_app
-
-            if current_app.config.get("SEND_ARTICLE_COMPLETION_EMAILS", False):
-                from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-
-                ZeeguuMailer.notify_article_completion(
-                    user, article, completion_percentage
-                )
         # Add to session to ensure updates are tracked
         db_session.add(user_article)
 
