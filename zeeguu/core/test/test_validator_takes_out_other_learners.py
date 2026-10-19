@@ -68,6 +68,7 @@ class ValidatorTakesOutOtherLearnersTest(ModelTestMixIn, TestCase):
     def test_a_fix_takes_the_broken_pair_out_for_other_learners(self):
         self._validate(ValidationResult(is_valid=False, corrected_translation="entirely different", reason="wrong"))
         self._assert_other_taken_out()
+        self.assertEqual(session.get(Meaning, self.meaning.id).validated, Meaning.INVALID)
 
     def test_an_unfixable_pair_is_taken_out_for_other_learners_and_this_one(self):
         self.meaning.validated = Meaning.VALID  # so scheduling skips the validator
@@ -97,3 +98,5 @@ class ValidatorTakesOutOtherLearnersTest(ModelTestMixIn, TestCase):
         ))
         self.assertTrue(session.get(UserWord, self.other.id).fit_for_study)
         self.assertIsNotNone(BasicSRSchedule.query.filter_by(user_word_id=self.other.id).first())
+        # and the old pair is not stamped broken, so it keeps its audio lessons
+        self.assertNotEqual(session.get(Meaning, self.meaning.id).validated, Meaning.INVALID)

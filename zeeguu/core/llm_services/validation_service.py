@@ -357,9 +357,14 @@ class UserWordValidationService:
 
         # If meaning actually changed, update user's data
         if new_meaning.id != old_meaning.id:
-            # Mark old meaning as invalid (only if it's a different meaning!)
-            old_meaning.validated = Meaning.INVALID
-            db_session.add(old_meaning)
+            # Mark old meaning as invalid (only if it's a different meaning!),
+            # and only when its translation was wrong. A fix that changes the
+            # word ('ud' in 'ud af' → 'ud af' = 'out of') says this learner
+            # selected too little, not that 'ud' = 'out' is wrong; marked
+            # INVALID, it lost its audio lessons for everyone (2026-10-19).
+            if not word_changed(old_meaning, new_meaning):
+                old_meaning.validated = Meaning.INVALID
+                db_session.add(old_meaning)
 
             # Log the fix
             ValidationLog.log_fixed(
@@ -370,10 +375,8 @@ class UserWordValidationService:
                 reason=validation_result.reason,
                 context=context
             )
-            # Only when the translation was wrong for the word itself. When
-            # the fix changed the word ('ud' in 'ud af' → 'ud af' = 'out of'),
-            # it was this learner's selection that was wrong: 'ud' = 'out'
-            # still holds for a learner who met it in 'Han gik ud'.
+            # Likewise: 'ud' = 'out' still holds for a learner who met it in
+            # 'Han gik ud'
             if not word_changed(old_meaning, new_meaning):
                 cls._take_out_for_other_learners(db_session, old_meaning, user_word, validation_result, context)
 
