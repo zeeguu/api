@@ -57,6 +57,37 @@ def test_a_custom_word_is_manual(client):
     assert _service(result["bookmark_id"]) == TranslationService.MANUAL
 
 
+def _add_learning_card(client, example):
+    card = {"word": "hinter", "translation": "behind", "example": example, "example_translation": "-"}
+    with patch("zeeguu.api.endpoints.generated_examples.prepare_learning_card", return_value=card):
+        return client.post(
+            "/add_word_to_learning",
+            json={"word": "hinter", "translation": "behind", "from_lang": "de", "to_lang": "en"},
+        )
+
+
+def test_a_learning_card_is_scheduled_with_its_example(client):
+    from zeeguu.core.word_scheduling import BasicSRSchedule
+    from zeeguu.core.model import UserWord
+
+    add_context_types()
+    add_source_types()
+    result = _add_learning_card(client, "stellt sich hinter Präsident")
+    bookmark = Bookmark.find(result["bookmark_id"])
+    assert _service(bookmark.id) == TranslationService.LEARNING_CARD
+    assert bookmark.context.get_content() == "stellt sich hinter Präsident"
+    user_word = UserWord.query.get(result["user_word_id"])
+    assert user_word.is_user_added and user_word.level == 1
+    assert BasicSRSchedule.find(user_word)
+
+
+def test_a_learning_card_whose_example_lacks_the_word_keeps_the_word_alone(client):
+    add_context_types()
+    add_source_types()
+    result = _add_learning_card(client, "stellt sich vor Präsident")
+    assert Bookmark.find(result["bookmark_id"]).context.get_content() == "hinter"
+
+
 def test_a_chosen_alternative_records_its_service_when_the_client_sends_it(client):
     from zeeguu.core.model import db
 

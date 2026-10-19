@@ -64,9 +64,11 @@ def test_a_missing_translation_is_not_the_word_none(monkeypatch):
     assert lesson_words.words_taught_to_say(_FAKE) == []
 
 
-def test_an_unreadable_answer_schedules_nothing(monkeypatch):
+def test_an_unreadable_answer_is_a_failure_not_an_empty_list(monkeypatch):
+    # An empty list would count as done, and the lesson would never be tried again.
     _answering(monkeypatch, "[not json")
-    assert lesson_words.words_taught_to_say(_FAKE) == []
+    with pytest.raises(lesson_words.UnreadableAnswer):
+        lesson_words.words_taught_to_say(_FAKE)
 
 
 class LessonWordsTest(ModelTestMixIn):
@@ -164,25 +166,71 @@ class LessonWordsTest(ModelTestMixIn):
         assert lesson_words.schedule_words_from_lesson(db.session, self.user, self.dialogue) == 1
         assert BasicSRSchedule.find(self._user_words()["tak"])
 
-    def test_completing_again_does_not_schedule_again(self):
-        from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
-
+    def _lesson(self, dialogue=None):
         lesson = DailyAudioLesson(
             user=self.user, created_by="test", duration_seconds=600, language=self.da, lesson_type="situation"
         )
-        lesson.add_dialogue_segment(audio_lesson_dialogue=self.dialogue, sequence_order=1)
+        lesson.add_dialogue_segment(audio_lesson_dialogue=dialogue or self.dialogue, sequence_order=1)
         db.session.add(lesson)
         db.session.commit()
+        return lesson
 
-        runs = []
-        self.monkeypatch.setattr(
-            lesson_words, "schedule_words_after_lesson", lambda user_id, lesson_id: runs.append(lesson_id)
+    def _complete(self, lesson):
+        from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
+
+        return DailyLessonGenerator().update_lesson_state_for_user(self.user, lesson.id, {"action": "complete"})
+
+    def _counting_model_calls(self, words):
+        calls = []
+
+        def taught(dialogue):
+            calls.append(dialogue.id)
+            return words
+
+        self.monkeypatch.setattr(lesson_words, "words_taught_to_say", taught)
+        return calls
+
+    def test_completing_again_does_not_schedule_again(self):
+        calls = self._counting_model_calls([("kaffe", "coffee", "En kaffe, tak.")])
+        lesson = self._lesson()
+        self._complete(lesson)
+        self._complete(lesson)
+
+        assert calls == [self.dialogue.id]
+        assert db.session.get(DailyAudioLesson, lesson.id).words_scheduled_at is not None
+
+    def test_a_lesson_another_run_has_claimed_is_not_scheduled_twice(self):
+        # Two "complete" requests at once: both start the job, one claims it.
+        calls = self._counting_model_calls([("kaffe", "coffee", "En kaffe, tak.")])
+        lesson = self._lesson()
+        assert lesson_words._claim(lesson)
+        assert not lesson_words._claim(lesson)
+
+        lesson_words._schedule_words_of(self.user, lesson)
+        assert calls == []
+
+    def test_a_failed_run_is_tried_again_with_the_next_lesson(self):
+        def failing(dialogue):
+            raise lesson_words.UnreadableAnswer("no list")
+
+        self.monkeypatch.setattr(lesson_words, "words_taught_to_say", failing)
+        first = self._lesson()
+        self._complete(first)
+        assert db.session.get(DailyAudioLesson, first.id).words_scheduled_at is None
+        assert self._user_words() == {}
+
+        second_dialogue = AudioLessonDialogue(
+            SCRIPT, "bakery", "situation", self.da, teacher_language=self.en, builds_on_history=True
         )
-        generator = DailyLessonGenerator()
-        generator.update_lesson_state_for_user(self.user, lesson.id, {"action": "complete"})
-        generator.update_lesson_state_for_user(self.user, lesson.id, {"action": "complete"})
+        db.session.add(second_dialogue)
+        second = self._lesson(second_dialogue)
+        calls = self._counting_model_calls([("kaffe", "coffee", "En kaffe, tak.")])
+        self._complete(second)
 
-        assert runs == [lesson.id]
+        assert calls == [self.dialogue.id, second_dialogue.id]
+        assert set(self._user_words()) == {"kaffe"}
+        for lesson in (first, second):
+            assert db.session.get(DailyAudioLesson, lesson.id).words_scheduled_at is not None
 
     def test_a_learned_word_or_a_choice_of_the_learner_is_left_alone(self):
         from datetime import datetime

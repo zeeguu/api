@@ -11,7 +11,7 @@ future-work/a0-audio-lessons.md in the docs repo.
 """
 
 import json
-import re
+from datetime import datetime, timedelta
 
 from zeeguu.core.model.language import Language
 from zeeguu.logging import log
@@ -29,6 +29,14 @@ Output only a JSON list: [{{"word": "...", "translation": "...", "sentence": "..
 
 LESSON:
 {script}"""
+
+
+# How far back a lesson whose words could not be scheduled is tried again.
+RETRY_WITHIN = timedelta(days=14)
+
+
+class UnreadableAnswer(Exception):
+    """The model's answer held no list of words: the lesson is tried again."""
 
 
 def _first_json_list(text):
@@ -54,7 +62,7 @@ def _text(value):
 def words_taught_to_say(dialogue):
     """
     [(word, translation, sentence)] for an AudioLessonDialogue that builds on
-    history. Empty when the model's answer cannot be read.
+    history. Raises UnreadableAnswer when the model's answer holds no list.
     """
     from zeeguu.core.llm_services.llm_service import get_llm_service
 
@@ -69,8 +77,7 @@ def words_taught_to_say(dialogue):
 
     items = _first_json_list(answer)
     if items is None:
-        log(f"[lesson_words] dialogue {dialogue.id}: unreadable answer {(answer or '')[:200]!r}")
-        return []
+        raise UnreadableAnswer(f"dialogue {dialogue.id}: {(answer or '')[:200]!r}")
 
     words = []
     for item in items:
@@ -132,20 +139,91 @@ def schedule_words_from_lesson(db_session, user, dialogue):
     return added
 
 
+def _builds_on_history(lesson):
+    return any(
+        segment.audio_lesson_dialogue is not None and segment.audio_lesson_dialogue.builds_on_history
+        for segment in lesson.segments
+    )
+
+
+def _claim(lesson):
+    """Mark the lesson's words as being scheduled, in one UPDATE: of two runs
+    at once (two "complete" requests), only one gets it."""
+    from zeeguu.core.model import db
+    from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+
+    claimed = db.session.execute(
+        DailyAudioLesson.__table__.update()
+        .where(DailyAudioLesson.id == lesson.id, DailyAudioLesson.words_scheduled_at.is_(None))
+        .values(words_scheduled_at=datetime.utcnow())
+    ).rowcount
+    db.session.commit()
+    return claimed == 1
+
+
+def _release(lesson):
+    from zeeguu.core.model import db
+    from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+
+    db.session.rollback()
+    db.session.execute(
+        DailyAudioLesson.__table__.update()
+        .where(DailyAudioLesson.id == lesson.id)
+        .values(words_scheduled_at=None)
+    )
+    db.session.commit()
+
+
+def _schedule_words_of(user, lesson):
+    from zeeguu.core.model import db
+
+    if not _claim(lesson):
+        return
+    try:
+        for segment in lesson.segments:
+            dialogue = segment.audio_lesson_dialogue
+            if dialogue is not None and dialogue.builds_on_history and dialogue.teacher_language:
+                schedule_words_from_lesson(db.session, user, dialogue)
+    except Exception as e:
+        # Tried again with the learner's next A0 lesson. Words already added
+        # stay; the next run leaves them alone.
+        _release(lesson)
+        log(f"[lesson_words] lesson {lesson.id}: not scheduled, to be tried again: {e}")
+
+
+def _not_yet_scheduled(user, language, since):
+    """The learner's completed A0 lessons whose words are not on their list yet."""
+    from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+
+    lessons = (
+        DailyAudioLesson.query.filter(
+            DailyAudioLesson.user_id == user.id,
+            DailyAudioLesson.language_id == language.id,
+            DailyAudioLesson.last_completed_at.isnot(None),
+            DailyAudioLesson.last_completed_at >= since,
+            DailyAudioLesson.words_scheduled_at.is_(None),
+        )
+        .order_by(DailyAudioLesson.last_completed_at)
+        .all()
+    )
+    return [lesson for lesson in lessons if _builds_on_history(lesson)]
+
+
 def schedule_words_after_lesson(user_id, lesson_id):
     """
-    For run_in_background, when a lesson is completed for the first time: the
-    model call takes seconds, and the learner's "complete" request does not wait
-    for it. Takes ids: it runs in its own session.
+    For run_in_background, each time an A0 lesson is completed: the model call
+    takes seconds, and the learner's "complete" request does not wait for it.
+    Takes ids: it runs in its own session.
+
+    Each lesson's words are scheduled once (words_scheduled_at). Earlier lessons
+    whose run failed are tried again here, oldest first.
     """
-    from zeeguu.core.model import db, User
+    from zeeguu.core.model import User
     from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 
     user = User.find_by_id(user_id)
     lesson = DailyAudioLesson.query.get(lesson_id)
-    if not user or not lesson:
+    if not user or not lesson or not _builds_on_history(lesson):
         return
-    for segment in lesson.segments:
-        dialogue = segment.audio_lesson_dialogue
-        if dialogue is not None and dialogue.builds_on_history and dialogue.teacher_language:
-            schedule_words_from_lesson(db.session, user, dialogue)
+    for each in _not_yet_scheduled(user, lesson.language, datetime.utcnow() - RETRY_WITHIN):
+        _schedule_words_of(user, each)

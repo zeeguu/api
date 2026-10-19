@@ -14,12 +14,7 @@ from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
 from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport, TranslationService
 from zeeguu.core.model.ai_generator import AIGenerator
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-from zeeguu.core.model.context_identifier import ContextIdentifier
-from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
-from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
-from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
 from . import api, db_session
 
@@ -574,70 +569,32 @@ def add_word_to_learning():
         final_translation = learning_card["translation"]
         final_example = learning_card["example"]
 
-        # Create or find the meaning
-        meaning = Meaning.find_or_create(
-            db_session, final_word, from_lang, final_translation, to_lang
+        from zeeguu.core.bookmark_operations.add_word_to_study import (
+            WordNotInContext,
+            add_word_to_study,
         )
 
-        # Create UserWord with is_user_added flag
-        user_word = UserWord.find_or_create(
-            db_session, user, meaning, is_user_added=True
-        )
-
-        user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
-        user_word.update_fit_for_study(db_session)
-
-        # Validate word position in example
-        validation_result = validate_single_occurrence(final_word, final_example, origin_lang)
-
-        if not validation_result["valid"]:
-            log(f"Word validation failed for '{final_word}' in example: {validation_result['error_message']}")
-            # Use fallback position data
-            sentence_i = 0
-            token_i = 0
-            c_sentence_i = 0
-            c_token_i = 0
-            total_tokens = len(final_example.split())
+        # The example is the model's: when it does not contain the word exactly
+        # once, the word goes in with itself as its context, rather than with
+        # an example whose highlighted word would be the wrong one.
+        for context in dict.fromkeys([final_example, final_word]):
+            try:
+                bookmark, user_word, _ = add_word_to_study(
+                    db_session,
+                    user,
+                    final_word,
+                    final_translation,
+                    from_lang,
+                    to_lang,
+                    context,
+                    translation_service=TranslationService.LEARNING_CARD,
+                )
+                break
+            except WordNotInContext as e:
+                log(f"'{final_word}' not usable in context '{context}': {e.message}")
         else:
-            position_data = validation_result["position_data"]
-            sentence_i = position_data["sentence_i"]
-            token_i = position_data["token_i"]
-            c_sentence_i = position_data["c_sentence_i"]
-            c_token_i = position_data["c_token_i"]
-            total_tokens = position_data["total_tokens"]
+            raise ValueError(f"'{final_word}' could not be placed in any context")
 
-        # Create context identifier for user-added word
-        context_identifier = ContextIdentifier(
-            context_type=ContextType.USER_EDITED_TEXT
-        )
-
-        # Create bookmark
-        bookmark = Bookmark.find_or_create(
-            db_session,
-            user,
-            final_word,
-            from_lang,
-            final_translation,
-            to_lang,
-            final_example,
-            None,  # article_id
-            None,  # source_id
-            sentence_i=sentence_i,
-            token_i=token_i,
-            total_tokens=total_tokens,
-            c_sentence_i=c_sentence_i,
-            c_token_i=c_token_i,
-            context_identifier=context_identifier,
-            translation_source="user_added",
-            translation_service=TranslationService.LEARNING_CARD,
-        )
-
-        # Set as preferred bookmark and schedule for learning
-        user_word.preferred_bookmark = bookmark
-        # Note: find_or_create has side effect of creating schedule and setting level=1
-        FourLevelsPerWord.find_or_create(db_session, user_word)
-
-        db_session.add(user_word)
         db_session.commit()
 
         return json_result({
