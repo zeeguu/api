@@ -39,7 +39,7 @@ MAX_SEEN_SOURCE_IDS = 100
 
 
 class UserActivityData(db.Model):
-    __table_args__ = dict(mysql_collate="utf8_bin")
+    __table_args__ = dict(mysql_charset="utf8mb4", mysql_collate="utf8mb4_bin")
     __tablename__ = "user_activity_data"
 
     id = Column(Integer, primary_key=True)

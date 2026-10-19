@@ -20,7 +20,7 @@ class UserFeedback(db.Model):
 
     """
 
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __table_args__ = {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_unicode_ci"}
     __tablename__ = "user_feedback"
 
     id = db.Column(db.Integer, primary_key=True)
