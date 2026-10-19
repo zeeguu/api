@@ -60,6 +60,7 @@ from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerato
 from zeeguu.core.audio_lessons.script_generator import VALID_LESSON_TYPES
 from zeeguu.core.audio_lessons.suggestion_validator import validate_suggestion
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+from zeeguu.operations.task_status import set_summary
 
 PER_USER_TIMEOUT_SECONDS = 600
 
@@ -271,6 +272,7 @@ output("Daily audio lesson pre-generation summary:")
 for key in sorted(counts):
     output(f"  {key}: {counts[key]}")
 output(f"  processing time: {processing_time:.1f}s")
+set_summary(", ".join(f"{counts[k]} {k}" for k in sorted(counts)) or "nothing to do")
 if language_breakdown:
     output("\nBy language:")
     for lang, count in sorted(language_breakdown.items(), key=lambda x: x[1], reverse=True):

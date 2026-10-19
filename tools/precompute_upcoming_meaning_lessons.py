@@ -54,6 +54,7 @@ from zeeguu.core.audio_lessons.word_selector import (
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
 from zeeguu.core.audio_lessons.voice_config import is_language_supported_for_audio
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+from zeeguu.operations.task_status import set_summary
 
 # Initialize daily lesson generator (contains the audio generation logic)
 lesson_generator = DailyLessonGenerator()
@@ -464,6 +465,11 @@ if not DRY_RUN:
     output(f"  Audio lessons already existing: {total_audio_existing}")
     output(f"  Failed generations: {total_failures}")
 output(f"  Processing time: {processing_time:.1f} seconds")
+
+set_summary(
+    f"{total_users} users, {total_meanings_processed} meanings"
+    + ("" if DRY_RUN else f", {total_audio_generated} audio generated, {total_failures} failed")
+)
 
 output(f"\nBreakdown by language:")
 for lang, count in sorted(language_breakdown.items(), key=lambda x: x[1], reverse=True):

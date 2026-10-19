@@ -25,6 +25,7 @@ from markupsafe import escape
 from . import api
 from zeeguu.api.utils.admin_html import admin_html_response
 from zeeguu.api.utils.route_wrappers import requires_session, only_admins
+from zeeguu.operations import task_status
 
 PROMETHEUS_URL = os.environ.get("PROMETHEUS_URL", "http://prometheus:9090")
 
@@ -336,7 +337,40 @@ def _newsigs_html(daily):
     return f'<div class="newhdr">&#128308; {len(sigs)} new since baseline</div>{rows}'
 
 
-def _render(v, overall, headline, roster, daily):
+def _job_state(job):
+    if not job["ok"]:
+        return "red"
+    return "yellow" if job["late"] else "green"
+
+
+def _ago(seconds):
+    minutes = int(seconds // 60)
+    if minutes < 60:
+        return f"{minutes}m"
+    return f"{minutes // 60}h" if minutes < 48 * 60 else f"{minutes // 1440}d"
+
+
+def _jobs_html(jobs):
+    """Last run of each cron task: a dot (failed / late / ok), how long ago,
+    and the one-line summary the task left (see task_status)."""
+    if not jobs:
+        return ""
+    now = time.time()
+    rows = ""
+    for j in jobs:
+        state = _job_state(j)
+        note = j.get("error") or j.get("summary") or ("exit " + str(j["exit_code"]) if not j["ok"] else "")
+        if j["late"]:
+            note = "late · " + note
+        rows += (
+            f'<div class="job"><span class="dot" style="background:{_DOT[state]}"></span>'
+            f' <b>{escape(j["task"])}</b> <span class="cnt">{_ago(now - j["started_at"])} ago</span>'
+            f' {escape((note or "")[:140])}</div>'
+        )
+    return f'<div class="newhdr jobshdr">jobs</div>{rows}'
+
+
+def _render(v, overall, headline, roster, daily, jobs):
     disk = v["disk"]
     mem = v["mem"]
     load_pct = None
@@ -365,6 +399,7 @@ def _render(v, overall, headline, roster, daily):
         "__COUNT__": count,
         "__BRIEF__": _brief_html(daily),
         "__NEWSIGS__": _newsigs_html(daily),
+        "__JOBS__": _jobs_html(jobs),
     }
     return re.sub(r"__[A-Z]+__", lambda mo: subs.get(mo.group(0), mo.group(0)), _PAGE)
 
@@ -406,6 +441,11 @@ _PAGE = """<!doctype html>
   .newhdr{font-family:ui-monospace,monospace;font-size:9px;color:#e0a52a;margin-bottom:5px;}
   .sig{font-family:ui-monospace,monospace;font-size:9px;line-height:1.45;color:#c9d6cf;overflow-wrap:anywhere;margin-bottom:2px;}
   .sig .cnt,.sig.cnt{color:#7d8a83;}
+  .jobs{margin-top:10px;}
+  .jobshdr{color:#9fb3a8;}
+  .job{font-family:ui-monospace,monospace;font-size:9px;line-height:1.45;color:#c9d6cf;overflow-wrap:anywhere;margin-bottom:3px;}
+  .job .dot{display:inline-block;width:7px;height:7px;}
+  .job .cnt{color:#7d8a83;}
   .foot{text-align:center;font-size:10px;color:#5a6560;margin-top:12px;font-family:ui-monospace,monospace;}
 </style></head>
 <body>
@@ -418,13 +458,14 @@ _PAGE = """<!doctype html>
       <div class="roster"><div class="dots">__DOTS__</div><div class="count">__COUNT__ &middot; __STATUS__</div></div>
       <div class="brief">__BRIEF__</div>
       <div class="newsigs">__NEWSIGS__</div>
+      <div class="jobs">__JOBS__</div>
     </div>
     <div class="foot">live &middot; refreshes every 30s</div>
   </div>
 </body></html>"""
 
 
-def _summary(v, overall, headline, roster, daily):
+def _summary(v, overall, headline, roster, daily, jobs):
     """The same verdict as the page, as a compact dict — for the phone widget
     (GET /status?format=json). No HTML, just the numbers a widget renders.
     `daily` is the afternoon watch's reasoned briefing (incl. log analysis)."""
@@ -447,6 +488,10 @@ def _summary(v, overall, headline, roster, daily):
             "issues": [{"name": n, "status": s, "detail": d} for n, s, d in roster if s != "green"],
         },
         "datastores": {"elasticsearch": v["es"], "mysql_up": v["mysql_up"]},
+        "jobs": [
+            {k: j.get(k) for k in ("task", "started_at", "duration_s", "ok", "late", "summary", "error")}
+            for j in jobs
+        ],
     }
 
 
@@ -457,6 +502,7 @@ def status():
     v = _gather()
     overall, headline, roster = _judge(v)
     daily = _read_daily()
+    jobs = task_status.read_all()
     if flask.request.args.get("format") == "json":
-        return flask.jsonify(_summary(v, overall, headline, roster, daily))
-    return admin_html_response(_render(v, overall, headline, roster, daily))
+        return flask.jsonify(_summary(v, overall, headline, roster, daily, jobs))
+    return admin_html_response(_render(v, overall, headline, roster, daily, jobs))
