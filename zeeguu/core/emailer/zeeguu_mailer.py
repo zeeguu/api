@@ -91,6 +91,17 @@ class ZeeguuMailer(object):
             ).send()
 
     @classmethod
+    def send_alert(cls, subject, content_lines):
+        """Something is broken and someone should look now (crawler stalled,
+        feeds failing). Goes to ALERTS_EMAIL (an address or a list): mail to
+        SMTP_EMAIL, the team Gmail, lands in its Sent folder only."""
+        body = "\r\n".join(content_lines)
+        to = zeeguu.core.app.config.get(
+            "ALERTS_EMAIL", zeeguu.core.app.config.get("SMTP_EMAIL")
+        )
+        ZeeguuMailer(subject, body, to).send()
+
+    @classmethod
     def send_mail(cls, subject, content_lines):
 
         logger.info("Sending email...")

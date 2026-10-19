@@ -73,7 +73,7 @@ def main():
     # Print for the run_task log (manual/debug runs) and email the report so it
     # actually reaches a human.
     print("\n".join(lines))
-    ZeeguuMailer.send_mail(f"⚠️ Zeeguu: {len(stale_feeds)} stale feed(s) (>{args.days}d)", lines)
+    ZeeguuMailer.send_alert(f"⚠️ Zeeguu: {len(stale_feeds)} stale feed(s) (>{args.days}d)", lines)
 
 
 if __name__ == "__main__":
