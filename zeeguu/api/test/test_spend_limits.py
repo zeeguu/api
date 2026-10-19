@@ -8,6 +8,7 @@ Every cap here is checked before the paid call, so none of these tests needs
 a provider mocked: a request that reaches the provider has already failed.
 """
 
+import logging
 import re
 import time
 
@@ -76,6 +77,10 @@ def test_a_refused_request_is_logged_with_account_and_endpoint(
     client, limiting_enabled, _mock_web, caplog
 ):
     """The daily log digest finds limit hits by this line."""
+    # zeeguu.logging's basicConfig(level=INFO) is a no-op when pytest has
+    # attached its handlers first (it does when the whole tree is collected,
+    # as in CI), leaving the root at WARNING and the INFO line uncaptured.
+    caplog.set_level(logging.INFO, logger="zeeguu.logging")
     reader = LoggedInClient(client, email="loud.listener@zeeguu.test")
     for _ in range(31):
         reader.response_from_post("/mp3_of_full_article")
