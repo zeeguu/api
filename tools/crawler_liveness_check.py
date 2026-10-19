@@ -100,7 +100,7 @@ def main():
 
     print(f"ALERT: {subject} — {headline} (threshold {args.max_age_hours}h)")
     set_summary(f"STALLED: {headline}")
-    ZeeguuMailer.send_mail(subject, body_lines)
+    ZeeguuMailer.send_alert(subject, body_lines)
     # Non-zero, so the run shows as failed on /status and in the health digest
     sys.exit(1)
 

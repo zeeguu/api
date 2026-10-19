@@ -573,7 +573,7 @@ def main():
     if args.dry_run:
         print(f"\n[dry-run] would email: {subject}")
     else:
-        ZeeguuMailer.send_mail(subject, report)
+        ZeeguuMailer.send_alert(subject, report)
 
     return 1
 
