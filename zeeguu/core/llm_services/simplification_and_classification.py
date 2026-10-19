@@ -446,16 +446,17 @@ def assess_summarize_and_classify(
     session, original_article: Article, simplification_provider: str = None
 ) -> tuple[list, list]:
     """
-    Crawl-time entry point for the on-demand pipeline. Mirrors the return
-    contract of ``simplify_and_classify`` — ``(simplified_articles, classifications)``
-    — but NEVER creates simplified children: it only assesses the original's
-    CEFR level, writes an abstractive summary, and detects article type and
+    The on-demand pipeline's assessment of an article that already exists
+    (e.g. tools/backfill_reassess_summaries.py). Mirrors the return contract of
+    ``simplify_and_classify`` — ``(simplified_articles, classifications)`` — but
+    NEVER creates simplified children: it only assesses the original's CEFR
+    level, writes an abstractive summary, and detects article type and
     disturbing content. Simplification happens later, on demand, when a learner
     opens the article (POST /simplify_article/<id>).
 
-    The empty ``simplified_articles`` list keeps the caller in
-    ``article_downloader.py`` working with no branch changes, and PAYWALL/
-    ADVERTORIAL exceptions propagate so junk rejection is unchanged.
+    The crawler calls ``assess_and_summarize`` and ``save_assessment`` itself,
+    so that it can ask the LLM before creating the article. PAYWALL/ADVERTORIAL
+    exceptions propagate.
     """
     if original_article.parent_article_id:
         log(
@@ -478,21 +479,32 @@ def assess_summarize_and_classify(
         original_article.language.code,
         simplification_provider=simplification_provider,
     )
+    return [], save_assessment(session, original_article, result)
 
-    original_article.cefr_level = result["original_cefr_level"]
+
+def save_assessment(session, article: Article, result: dict) -> list:
+    """
+    Write an ``assess_and_summarize`` result onto its article: CEFR level, type,
+    summary and the per-level preview summaries. Returns the LLM classifications
+    for the caller to save.
+
+    Separate from the LLM call so the crawler can ask the LLM before it creates
+    the article, and create nothing at all for what the LLM rejects.
+    """
+    article.cefr_level = result["original_cefr_level"]
     if result["article_type"]:
-        original_article.article_type = result["article_type"]
+        article.article_type = result["article_type"]
     # Prefer the LLM's abstractive summary over the feed's RSS blurb, which is
     # often just the headline reworded (and can be verbatim publisher text).
     if result["original_summary"]:
-        original_article.summary = result["original_summary"]
+        article.summary = result["original_summary"]
     session.commit()
 
     # Persist the per-level preview summaries (tokenized so the tappable feed-card
     # preview renders without re-tokenizing on the request path).
     _store_level_summaries(
         session,
-        original_article,
+        article,
         result.get("level_summaries", {}),
         result.get("model_name"),
         result.get("level_titles", {}),
@@ -501,7 +513,7 @@ def assess_summarize_and_classify(
     classifications = []
     if result["is_disturbing"]:
         classifications.append(("DISTURBING", "LLM"))
-    return [], classifications
+    return classifications
 
 
 # Prompt-version tag so the first-class AIGenerator entity records which prompt
