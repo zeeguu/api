@@ -35,7 +35,7 @@ DEEPSEEK_CHAT = "deepseek-chat"
 # not capped here.
 # DeepSeek: https://api-docs.deepseek.com/quick_start/pricing
 MAX_OUTPUT_TOKENS = {
-    "deepseek-chat": 8192,
+    DEEPSEEK_CHAT: 8192,
 }
 
 # (model, wanted) pairs already logged as capped: some callers ask for more on
@@ -51,10 +51,10 @@ def output_tokens(model: str, wanted: int) -> int:
     back cut off, and most paths still return it as complete (zeeguu/api#863).
     Every capping is logged, so the callers that ask a model for more than it
     writes show up in the logs rather than passing silently."""
-    cap = next(
-        (cap for prefix, cap in MAX_OUTPUT_TOKENS.items() if model.startswith(prefix)),
-        None,
-    )
+    # The longest matching prefix: a more specific family listed later must not
+    # get the cap of a broader one listed before it.
+    matching = [prefix for prefix in MAX_OUTPUT_TOKENS if model.startswith(prefix)]
+    cap = MAX_OUTPUT_TOKENS[max(matching, key=len)] if matching else None
     if cap is not None and wanted > cap:
         if (model, wanted) not in _logged_caps:
             _logged_caps.add((model, wanted))
