@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import sqlalchemy
-from sqlalchemy.exc import NoResultFound
+from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from wordstats import Word
 
@@ -14,7 +14,12 @@ from zeeguu.core.model.db import db
 
 
 class UserWord(db.Model):
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __table_args__ = (
+        # Declared so create_all (the test DB) has it too; prod's comes from
+        # tools/migrations/25-05-24--adding_the_user_word_table.sql
+        db.UniqueConstraint("user_id", "meaning_id", name="unique_user_word"),
+        {"mysql_collate": "utf8_bin"},
+    )
     __tablename__ = "user_word"  # Explicitly set table name for migration
 
     id = db.Column(db.Integer, primary_key=True)
@@ -446,13 +451,30 @@ class UserWord(db.Model):
         """
         try:
             user_word = cls.query.filter_by(user=user, meaning=meaning).one()
-            # If it exists but we're marking it as user_added, update the flag
-            if is_user_added and not user_word.is_user_added:
-                user_word.is_user_added = True
-                session.add(user_word)
-                session.commit()
         except NoResultFound:
-            user_word = cls(user, meaning, is_user_added=is_user_added)
+            # A double tap sends two translate_word requests that both miss
+            # the query above, and unique_user_word lets one insert through.
+            # The savepoint undoes only the losing insert, not the caller's
+            # pending work (see UserLanguage.find_or_create).
+            try:
+                with session.begin_nested():
+                    user_word = cls(user, meaning, is_user_added=is_user_added)
+                    session.add(user_word)
+                session.commit()
+                return user_word
+            except IntegrityError:
+                # A locking read: a plain SELECT would reuse this
+                # transaction's REPEATABLE READ snapshot from the query
+                # above, which predates the winner's row.
+                user_word = (
+                    cls.query.filter_by(user=user, meaning=meaning)
+                    .with_for_update(read=True)
+                    .one()
+                )
+
+        # If it exists but we're marking it as user_added, update the flag
+        if is_user_added and not user_word.is_user_added:
+            user_word.is_user_added = True
             session.add(user_word)
             session.commit()
 
