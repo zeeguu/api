@@ -13,6 +13,7 @@ from zeeguu.core.exercises.cloze_alternatives import (
     context_hash,
     is_plausible_answer,
     judge_alternative,
+    judge_translation_alternative,
     normalize,
 )
 from zeeguu.core.llm_services import claude
@@ -22,6 +23,7 @@ from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.meaning_alternative import MeaningAlternative
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
+from zeeguu.core.test.rules.language_rule import LanguageRule
 from zeeguu.core.test.rules.user_rule import UserRule
 from zeeguu.core.word_scheduling.basicSR.basicSR import _counts_as_progress
 
@@ -122,10 +124,10 @@ class ClozeAlternativesTest(ModelTestMixIn, TestCase):
         meaning_id = self.bookmark.user_word.meaning.id
         sentence = context_hash(self.bookmark.get_context())
         session.add_all([
-            MeaningAlternative(meaning_id=meaning_id, alternative="tænker", context_hash="",
-                               relation="SYNONYM"),
-            MeaningAlternative(meaning_id=meaning_id, alternative="tænker", context_hash=sentence,
-                               relation="NEAR_SYNONYM_NOT_IDIOMATIC"),
+            MeaningAlternative(meaning_id=meaning_id, language_id=self.language.id, alternative="tænker",
+                               context_hash="", relation="SYNONYM"),
+            MeaningAlternative(meaning_id=meaning_id, language_id=self.language.id, alternative="tænker",
+                               context_hash=sentence, relation="NEAR_SYNONYM_NOT_IDIOMATIC"),
         ])
         session.commit()
 
@@ -167,6 +169,60 @@ class ClozeAlternativesTest(ModelTestMixIn, TestCase):
         self.assertEqual(call["translation"], meaning.translation.content)
         self.assertEqual(call["typed"], "tænker")
         self.assertEqual(call["sentence"], self.bookmark.get_context())
+
+
+class TranslationAlternativesTest(ModelTestMixIn, TestCase):
+    """The same judging for a translation typed for the word."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = UserRule().user
+        self.bookmark = BookmarkRule(self.user).bookmark
+        self.meaning = self.bookmark.user_word.meaning
+
+    def test_the_judge_gets_the_word_the_expected_translation_and_the_sentence(self):
+        judge = FakeJudge()
+        judge_translation_alternative(session, self.bookmark, "Consult", judge=judge)
+
+        call = judge.calls[0]
+        self.assertEqual(call["word"], self.meaning.origin.content)
+        self.assertEqual(call["expected"], self.meaning.translation.content)
+        self.assertEqual(call["typed"], "consult")
+        self.assertEqual(call["sentence"], self.bookmark.get_context())
+        self.assertEqual(call["target_lang"], self.meaning.translation.language.code)
+
+    def test_a_verdict_is_stored_in_the_language_of_the_answer(self):
+        judge = FakeJudge(MeaningAlternative.NOT_SYNONYM)
+        judge_translation_alternative(session, self.bookmark, "blabla", judge=judge)
+
+        stored = MeaningAlternative.query.one()
+        self.assertEqual(stored.language_id, self.meaning.translation.language.id)
+
+    def test_a_translation_verdict_is_not_a_cloze_verdict(self):
+        """The same string on the two sides of a meaning is two questions."""
+        judge = FakeJudge(MeaningAlternative.NOT_SYNONYM)
+        judge_translation_alternative(session, self.bookmark, "blabla", judge=judge)
+        cloze = judge_alternative(session, self.bookmark, "blabla", judge=judge)
+
+        self.assertFalse(cloze["cached"])
+        self.assertEqual(len(judge.calls), 2)
+
+    def test_the_infinitive_to_is_the_same_english_answer(self):
+        self.meaning.translation.content = "to look up"
+        self.meaning.translation.language = LanguageRule.get_or_create_language("en")
+        session.add(self.meaning.translation)
+        session.commit()
+        judge = FakeJudge(MeaningAlternative.NOT_SYNONYM)
+
+        result = judge_translation_alternative(session, self.bookmark, "Look up", judge=judge)
+
+        self.assertEqual(result["relation"], "SYNONYM")
+        self.assertEqual(judge.calls, [])
+
+    def test_translations_may_be_a_few_words_longer(self):
+        judge = FakeJudge()
+        judge_translation_alternative(session, self.bookmark, "to get rid of something", judge=judge)
+        self.assertEqual(len(judge.calls), 1)
 
 
 class ClozeAlternativeHelpersTest(TestCase):

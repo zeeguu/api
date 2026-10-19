@@ -5,10 +5,12 @@ import flask
 import sentry_sdk
 from flask import request, Response
 
+from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.exercises.example_contexts import bookmark_for_example
+from zeeguu.core.exercises.example_contexts import anchorable_examples, bookmark_for_example
 from zeeguu.core.llm_services import get_llm_service
+from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
 from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport
 from zeeguu.core.model.ai_generator import AIGenerator
@@ -189,8 +191,9 @@ def alternative_sentences(user_word_id):
             source_lang=origin_lang,
             target_lang=translation_lang,
             cefr_level=cefr_level,
-            prompt_version="v3",
+            prompt_version=CURRENT_PROMPT_VERSION,
         )
+        examples = anchorable_examples(examples, origin_word, user_word.meaning.origin.language)
 
         # Extract model and version from first example (they're all the same)
         llm_model = examples[0]["llm_model"] if examples else "unknown"
@@ -419,6 +422,8 @@ def generate_examples_for_word(word, from_lang, to_lang):
 
     cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
     translation = request.args.get("translation", "")
+    abort_if_too_long("word", word, MAX_PHRASE_CHARS)
+    abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
 
     try:
         # If we have a translation, try to find/create meaning and check for existing examples
@@ -472,9 +477,10 @@ def generate_examples_for_word(word, from_lang, to_lang):
             source_lang=origin_lang.code,
             target_lang=translation_lang.code,
             cefr_level=cefr_level,
-            prompt_version="v3",
+            prompt_version=CURRENT_PROMPT_VERSION,
             count=MAX_EXAMPLES_GENERATE,
         )
+        examples = anchorable_examples(examples, word, origin_lang)
 
         return json_result({
             "examples": examples,
@@ -540,6 +546,8 @@ def add_word_to_learning():
 
     if not word or not translation or not from_lang or not to_lang:
         return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
+    abort_if_too_long("word", word, MAX_PHRASE_CHARS)
+    abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
 
     # Get user's CEFR level
     cefr_level = data.get("cefr_level", DEFAULT_CEFR_LEVEL)
@@ -693,6 +701,8 @@ def preview_learning_card():
 
     if not word or not translation or not from_lang or not to_lang:
         return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
+    abort_if_too_long("word", word, MAX_PHRASE_CHARS)
+    abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
 
     cefr_level = data.get("cefr_level", DEFAULT_CEFR_LEVEL)
 
@@ -794,6 +804,8 @@ def report_meaning():
 
     if not word or not translation or not from_lang or not to_lang:
         return json_result({"error": "word, translation, from_lang, to_lang required"}, status=400)
+    abort_if_too_long("word", word, MAX_PHRASE_CHARS)
+    abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
 
     valid_reasons = ["bad_examples", "wrong_meaning", "wrong_level", "other"]
     if reason not in valid_reasons:

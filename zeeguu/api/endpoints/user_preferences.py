@@ -5,6 +5,7 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
 from ...core.model import UserPreference, User
+from zeeguu.api.utils.abort_handling import make_error
 
 db_session = zeeguu.core.model.db.session
 
@@ -23,6 +24,19 @@ def user_preferences():
 def save_user_preferences():
     data = flask.request.form
     user = User.find_by_id(flask.g.user_id)
+
+    # Refused before anything is written: a choice the learner made that is not
+    # saved must not come back as OK.
+    audio_lesson_character_value = data.get(UserPreference.AUDIO_LESSON_CHARACTER, None)
+    if (
+        audio_lesson_character_value is not None
+        and audio_lesson_character_value not in UserPreference.AUDIO_LESSON_CHARACTERS
+    ):
+        return make_error(
+            400,
+            f"{UserPreference.AUDIO_LESSON_CHARACTER} must be one of "
+            f"{', '.join(UserPreference.AUDIO_LESSON_CHARACTERS)}",
+        )
 
     max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
     if max_words_to_schedule_value:
@@ -113,6 +127,15 @@ def save_user_preferences():
         )
         email_on_article_shared.value = email_on_article_shared_value
         db_session.add(email_on_article_shared)
+
+    if audio_lesson_character_value is not None:
+        audio_lesson_character = UserPreference.find_or_create(
+            db_session,
+            user,
+            UserPreference.AUDIO_LESSON_CHARACTER,
+        )
+        audio_lesson_character.value = audio_lesson_character_value
+        db_session.add(audio_lesson_character)
 
     # ---- LEGACY DAILY-AUDIO COMPAT (remove ~2026-06-05) ---------------------
     # Daily-audio config now lives in DailyAudioSubscription, written by the

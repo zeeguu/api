@@ -8,6 +8,7 @@ from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.abort_handling import make_error
+from zeeguu.api.utils.input_limits import MAX_ARTICLE_CHARS_FOR_LLM
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 
 from . import api, db_session
@@ -44,6 +45,14 @@ def _promote_upload_or_abort(upload):
         flask.abort(406, "Language not supported")
     except FailedToParseWithReadabilityServer:
         flask.abort(422, "Could not parse article content")
+
+
+def _too_long_for_llm(upload):
+    # An upload that cannot come back whole from one LLM reply. Checked before
+    # the call, so that we don't pay for the input tokens of a reply that
+    # would be truncated and thrown away.
+    content = upload.text_content or upload.raw_html or ""
+    return len(content) > MAX_ARTICLE_CHARS_FOR_LLM
 
 
 def _user_cefr_level(user):
@@ -153,6 +162,12 @@ def article_upload_simplify(upload_id):
     existing = Article.query.filter_by(
         source_upload_id=upload.id, cefr_level=user_level
     ).first()
+    if not existing and _too_long_for_llm(upload):
+        return make_error(
+            422,
+            "This article is too long to simplify in one piece — try a "
+            "shorter piece or a single chapter.",
+        )
     simplified = existing or create_simplified_version_from_upload(
         db_session, upload, user_level
     )
@@ -203,6 +218,13 @@ def article_upload_translate_and_adapt(upload_id):
         uai["is_translated"] = True
         uai["source_language"] = source_language
         return json_result(uai)
+
+    if _too_long_for_llm(upload):
+        return make_error(
+            422,
+            "This article is too long to translate in one piece — try "
+            "importing a single chapter.",
+        )
 
     content = upload.text_content or upload.raw_html or ""
     title = upload.title or ""

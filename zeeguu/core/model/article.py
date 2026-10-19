@@ -34,7 +34,12 @@ from zeeguu.logging import log
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100
 
-HTML_TAG_CLEANR = re.compile("<[^>]*>")
+# [^<>] rather than [^>]: with [^>], a run of "<" with no ">" makes every
+# match attempt scan to the end of the input, which is quadratic. Excluding
+# "<" as well stops each attempt at the next "<", so the whole pass is linear.
+# It runs on user-posted HTML (/is_article_language_supported), where a few
+# hundred KB of "<" took over a minute.
+HTML_TAG_CLEANR = re.compile("<[^<>]*>")
 
 MULTIPLE_NEWLINES = re.compile(r"\n\s*\n")
 

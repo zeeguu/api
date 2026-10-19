@@ -1,8 +1,10 @@
 # Rate limiting utilities for security-sensitive endpoints
+import os
 import unicodedata
+from dataclasses import dataclass
+from urllib.parse import urlsplit, urlunsplit
 
 import flask
-from dataclasses import dataclass
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -133,6 +135,20 @@ RATE_LIMITS = {
         Limit("30 per minute;200 per hour", count="failures"),
     ),
 
+    # Changing one's own email. Requesting mails a code to an address of the
+    # caller's choosing, so like send_code the successful request is the costly
+    # one; confirming charges only failures (wrong password or code). Keyed on
+    # the account, like confirm_email: logging in again for a fresh session
+    # must not start the count over.
+    "endpoints.request_email_change": (
+        Limit("5 per hour", key="user"),
+        Limit("100 per minute;600 per hour"),
+    ),
+    "endpoints.confirm_email_change": (
+        Limit("10 per hour", key="user", count="failures"),
+        Limit("100 per minute;600 per hour", count="failures"),
+    ),
+
     # Account creation. A whole school onboarding at once has to fit under
     # this, which is why it is generous: invite codes, not this limit, are the
     # primary protection against mass bot registration.
@@ -180,6 +196,80 @@ RATE_LIMITS = {
     # second device doesn't double the allowance. Only successful deletes count,
     # so a 404 on an already-gone lesson doesn't use any of it up.
     "endpoints.delete_todays_lesson": Limit("3 per 5 hours", key="user", count="successes"),
+
+    # --- Paid calls: LLM, machine translation, text to speech ---------------
+    #
+    # Each request below can end in a bill from Anthropic, DeepSeek, DeepL,
+    # Google or Azure. Any account can make them, and accounts are cheap to
+    # create, so without a ceiling one script could spend a month's budget in
+    # an afternoon. Keyed on the account, so a second device or a fresh login
+    # doesn't hand out a second allowance, and per day, because a day is what
+    # the bill is counted in.
+    #
+    # The numbers are set from the heaviest real use we can picture, not from
+    # what is typical: a student reading for five hours, or a teacher
+    # preparing a week of texts in one evening. Nobody doing that should ever
+    # see a 429; anyone above these numbers is not reading.
+
+    # Every word tap in the reader. Five hours of reading at a tap every ten
+    # seconds is 1800; the own-past-translation shortcut makes many of those
+    # free, but the limit counts them anyway, hence the headroom.
+    "endpoints.translate_word": Limit("3000 per day", key="user"),
+    # The alternatives menu, opened on a fraction of the taps above.
+    "endpoints.get_multiple_translations": Limit("1000 per day", key="user"),
+    "endpoints.get_translations_stream": Limit("1000 per day", key="user"),
+    "endpoints.translation_alternatives": Limit("1000 per day", key="user"),
+    # Typed lookups in the Translate tab. Each is a deliberate search, so a
+    # thousand is a very long session of looking words up.
+    "endpoints.basic_translate": Limit("1000 per day", key="user"),
+    # The explicit "Ask LLM" and "Explain" buttons. Both are a learner asking
+    # about one word they are stuck on, a few dozen times on a hard day.
+    "endpoints.ask_llm_translation": Limit("300 per day", key="user"),
+    "endpoints.explain_selection_endpoint": Limit("300 per day", key="user"),
+
+    # Pronouncing a word or phrase. Exercises play audio on their own, so a
+    # long practice session plus reading can reach several hundred. Cached
+    # per phrase, so repeats cost us nothing, but they still count here.
+    "endpoints.tts": Limit("2000 per day", key="user"),
+    # A whole article read aloud is the single most expensive TTS call. It is
+    # cached per article, and nobody listens to more than a handful a day.
+    "endpoints.mp3_of_full_article": Limit("30 per day", key="user"),
+
+    # Example sentences and learning cards for words added by hand. Adding
+    # a word is a deliberate act; three hundred in a day is a vocabulary
+    # list being typed in, which is about as heavy as this gets.
+    "endpoints.generate_examples_for_word": Limit("300 per day", key="user"),
+    "endpoints.add_word_to_learning": Limit("300 per day", key="user"),
+    "endpoints.preview_learning_card": Limit("300 per day", key="user"),
+    # Not like the three above: every exercise fetches these on its own, to
+    # offer other contexts to swipe through. Mostly served from the database,
+    # with the LLM as the fallback. A marathon of exercises is a few hundred.
+    "endpoints.alternative_sentences": Limit("2000 per day", key="user"),
+    # Asked only when a cloze answer differs from the expected word, and the
+    # verdict is cached per (bookmark, typed word). Five hundred is a full day
+    # of exercises with an unusually inventive learner.
+    "endpoints.judge_cloze_alternative": Limit("500 per day", key="user"),
+
+    # Whole-text LLM calls: the expensive ones, so tighter than the rest. Ten
+    # texts at three levels is thirty simplifications; the busiest teacher-day
+    # in the year to Oct 2026 was 25 uploads. Anyone hitting these shows up as
+    # RATE LIMIT HIT in the daily log digest; raise the number then.
+    "endpoints.simplify_own_text": Limit("30 per day", key="user"),
+    "endpoints.simplify_article": Limit("30 per day", key="user"),
+    "endpoints.translate_and_adapt_article": Limit("20 per day", key="user"),
+    "endpoints.article_upload_simplify": Limit("20 per day", key="user"),
+    "endpoints.article_upload_translate_and_adapt": Limit("20 per day", key="user"),
+    # Promoting an upload runs an LLM CEFR assessment the first time.
+    "endpoints.article_upload_promote": Limit("30 per day", key="user"),
+    # The teacher's "assess with LLM" button in the text editor.
+    "endpoints.assess_llm": Limit("30 per day", key="user"),
+    # Each share generates a copy adapted to the recipient, and sends an email.
+    # A hundred shares in a day is more friends than anyone has.
+    "endpoints.share_article_with_friend": Limit("100 per day", key="user"),
+    # Generating a lesson is a script from the LLM plus several minutes of
+    # TTS. An existing lesson for today is returned without generating, so
+    # legitimate calls are a handful a day.
+    "endpoints.generate_daily_lesson": Limit("20 per day", key="user"),
 }
 
 
@@ -309,6 +399,57 @@ def _user_key():
     return f"user:{session.user_id}" if session else _session_key()
 
 
+def _storage_uri(app):
+    """
+    Where the counters live. memory:// keeps them inside each gunicorn worker,
+    so with N workers across zapi and pink every limit in this file is really
+    N times what it says, and a deploy resets them all. A shared store
+    (redis://host:6379/0) makes the numbers mean what they say.
+
+    The config file wins; the environment variable lets docker-compose set it
+    without touching api.cfg. Neither set means memory://, which is right for
+    local development and the tests.
+    """
+    return (
+        app.config.get("RATELIMIT_STORAGE_URI")
+        or os.environ.get("RATELIMIT_STORAGE_URI")
+        or "memory://"
+    )
+
+
+def _redacted(uri):
+    """The storage URI without its password, fit for a log line."""
+    parts = urlsplit(uri)
+    if not parts.password:
+        return uri
+    netloc = parts.netloc.replace(f":{parts.password}@", ":***@")
+    return urlunsplit(parts._replace(netloc=netloc))
+
+
+def _log_breach(request_limit):
+    """
+    One log line per refused request, so that a real user running into a
+    limit shows up in the daily log digest and the number can be raised.
+    Names the account when the request has a session and the address
+    otherwise; never the limiter key or the path, which can contain an email
+    address or a session id. The limiter runs before @requires_session, so
+    flask.g.user_id isn't set yet: the account comes from _user_key.
+    """
+    from zeeguu.logging import log
+
+    user_key = _user_key()
+    who = (
+        f"user={user_key.removeprefix('user:')}"
+        if user_key.startswith("user:")
+        else f"ip={get_remote_address()}"
+    )
+    log(
+        f"RATE LIMIT HIT: {who} endpoint={flask.request.endpoint} "
+        f"limit={request_limit.limit}"
+    )
+    return None  # keep the standard 429 response
+
+
 def init_limiter(app, enabled=True):
     """
     Initialize the rate limiter with the Flask app.
@@ -321,8 +462,7 @@ def init_limiter(app, enabled=True):
     """
     global limiter
 
-    # Use Redis if available (for distributed rate limiting), otherwise use in-memory storage
-    storage_uri = app.config.get("RATELIMIT_STORAGE_URI", "memory://")
+    storage_uri = _storage_uri(app)
 
     limiter = Limiter(
         key_func=get_remote_address,
@@ -332,8 +472,18 @@ def init_limiter(app, enabled=True):
         default_limits=[],
         # Return standard HTTP 429 for rate-limited requests
         strategy="fixed-window",
+        # If the shared store goes away, count in this worker's memory until it
+        # comes back, rather than answering 500 on every limited endpoint --
+        # login among them. Per-worker counting is what we ran on for years;
+        # a Redis restart shouldn't be an outage.
+        in_memory_fallback_enabled=not storage_uri.startswith("memory://"),
+        on_breach=_log_breach,
     )
     limiter.enabled = enabled
+
+    from zeeguu.logging import log
+
+    log(f"Rate limiter storage: {_redacted(storage_uri)}")
 
     # Configure headers to inform clients about rate limits
     app.config.setdefault("RATELIMIT_HEADERS_ENABLED", True)

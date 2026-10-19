@@ -22,6 +22,51 @@ ANTHROPIC_SONNET = "claude-sonnet-5-5"  # current Sonnet tier; thinking off via 
 ANTHROPIC_HAIKU = "claude-haiku-5-5"  # current Haiku (fast / cheap); low-effort thinking via claude.request_options
 DEEPSEEK_CHAT = "deepseek-chat"
 
+# --- The most a model writes in one reply. ---
+# A request above it is rejected outright: deepseek-chat answers max_tokens >
+# 8192 with HTTP 400 "Invalid max_tokens". So no call site knows these numbers;
+# each asks for what its reply needs through output_tokens(), and a model with a
+# lower cap -- typically the fallback -- gets its cap instead of a 400. On
+# 2026-10-18 the A0 audio lessons asked for 16000, which would have failed every
+# time Anthropic did.
+# Keys are model-id prefixes, matched like claude.py matches its models, so a
+# new snapshot of a listed family is capped too -- the family, not the vendor:
+# deepseek-reasoner writes far more than deepseek-chat. A model matching none is
+# not capped here.
+# DeepSeek: https://api-docs.deepseek.com/quick_start/pricing
+MAX_OUTPUT_TOKENS = {
+    DEEPSEEK_CHAT: 8192,
+}
+
+# (model, wanted) pairs already logged as capped: some callers ask for more on
+# purpose (translate-and-adapt asks every provider for the same 16000), and one
+# line per pair is enough to find them.
+_logged_caps = set()
+
+
+def output_tokens(model: str, wanted: int) -> int:
+    """max_tokens to send `model` for a reply that may need `wanted` tokens.
+
+    Capped at what the model accepts. A reply that needs more than the cap comes
+    back cut off, and most paths still return it as complete (zeeguu/api#863).
+    Every capping is logged, so the callers that ask a model for more than it
+    writes show up in the logs rather than passing silently."""
+    # The longest matching prefix: a more specific family listed later must not
+    # get the cap of a broader one listed before it.
+    matching = [prefix for prefix in MAX_OUTPUT_TOKENS if model.startswith(prefix)]
+    cap = MAX_OUTPUT_TOKENS[max(matching, key=len)] if matching else None
+    if cap is not None and wanted > cap:
+        if (model, wanted) not in _logged_caps:
+            _logged_caps.add((model, wanted))
+            # Imported here, not at the top: this module is plain constants that
+            # anything may import for a model id, and zeeguu.logging configures
+            # logging and loads Sentry on import.
+            from zeeguu.logging import log
+
+            log(f"max_tokens capped for {model}: asked {wanted}, sent {cap}")
+        return cap
+    return wanted
+
 # --- Roles → model. Change the right-hand side to re-point a feature. ---
 
 # Reader "Ask LLM" on-demand single word/phrase translation (ADR 022) and
@@ -42,6 +87,11 @@ TRANSLATION_VALIDATION = ANTHROPIC_SONNET
 # each verdict is stored and shared by all learners, so accuracy on nuance
 # (register, idiomaticity) is worth the slower tier.
 CLOZE_ALTERNATIVE_JUDGE = ANTHROPIC_SONNET
+
+# Judging whether another translation a learner typed is also right
+# ("consult" where the exercise expected "look up" for "slå op"). Same
+# reasoning as the cloze judge: shared verdicts, worth the slower tier.
+TRANSLATION_ALTERNATIVE_JUDGE = ANTHROPIC_SONNET
 
 # Meaning-frequency classification (COMMON / RARE / …). NOTE: also used as the
 # DB lookup key in AiGenerator.get_current_classification_model — keep the model
