@@ -220,20 +220,27 @@ class UserWordValidationService:
         return user_word
 
     @classmethod
-    def _take_out_for_other_learners(cls, db_session, old_meaning, user_word, validation_result, context):
+    def _take_out_for_other_learners(cls, db_session, old_meaning, user_word, validation_result, context,
+                                     including_this_learner=False):
         """
         The meaning is now INVALID; other learners' unlearned words on it leave
         study too. Until 2026-10-19 only the learner being validated was moved
         or taken out, and 2,374 unlearned words of 948 other learners stayed in
         study on 915 broken pairs, 213 of them scheduled for exercises. One
         validation_log row per word taken out, so each says why.
+
+        including_this_learner: when the pair cannot be fixed, the validated
+        learner's own word leaves study the same way (it used to become unfit
+        but stay scheduled); its log row is written by the caller.
         """
         from zeeguu.core.model import UserWord
         from zeeguu.core.model.validation_log import ValidationLog
 
         for other in UserWord.take_meaning_out_of_study(
-            db_session, old_meaning.id, except_user_word_id=user_word.id
+            db_session, old_meaning.id, except_user_word_id=None if including_this_learner else user_word.id
         ):
+            if other.id == user_word.id:
+                continue
             ValidationLog.log_invalid(
                 db_session,
                 meaning=old_meaning,
@@ -278,7 +285,9 @@ class UserWordValidationService:
                 reason=validation_result.reason,
                 context=context
             )
-            cls._take_out_for_other_learners(db_session, old_meaning, user_word, validation_result, context)
+            cls._take_out_for_other_learners(
+                db_session, old_meaning, user_word, validation_result, context, including_this_learner=True
+            )
 
             db_session.commit()
             return None

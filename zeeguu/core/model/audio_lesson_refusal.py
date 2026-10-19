@@ -8,7 +8,7 @@ migration 26-10-19--add_audio_lesson_refusal.sql.
 
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.exc import IntegrityError
 
 from zeeguu.core.model.db import db
@@ -18,7 +18,13 @@ from zeeguu.core.model.meaning import Meaning
 
 class AudioLessonRefusal(db.Model):
     __tablename__ = "audio_lesson_refusal"
-    __table_args__ = {"mysql_collate": "utf8mb4_unicode_ci"}
+    # The key the migration creates, declared so create_all builds it too
+    __table_args__ = (
+        UniqueConstraint(
+            "meaning_id", "teacher_language_id", "prompt_version", name="uq_audio_lesson_refusal"
+        ),
+        {"mysql_collate": "utf8mb4_unicode_ci"},
+    )
 
     NOT_A_SCRIPT = "not_a_script"
     NOT_CORRECT = "not_correct"

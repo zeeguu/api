@@ -111,7 +111,13 @@ def checker_id(model: str) -> str:
     2026-08-18 note in tools/audit_audio_lesson_script_languages.py for what
     happens when a run acts on a report from a different configuration.
     """
-    text = LESSON_SYSTEM + LESSON_PROMPT + WITH_CONTEXT + WITHOUT_CONTEXT
+    from zeeguu.core.llm_services.prompts.translation_validator import COMBINED_VALIDATION_PROMPT
+
+    # The pair-only verdict too: --deprecate marks meanings INVALID on it
+    text = (
+        LESSON_SYSTEM + LESSON_PROMPT + WITH_CONTEXT + WITHOUT_CONTEXT
+        + COMBINED_VALIDATION_PROMPT + PAIR_JSON_REMINDER
+    )
     return f"{model}:{hashlib.sha1(text.encode()).hexdigest()[:8]}"
 
 
@@ -259,8 +265,10 @@ def judge_pair(service, lesson: LessonToCheck):
     reply = json_object(
         service.generate_text(prompt + PAIR_JSON_REMINDER, max_tokens=1000, temperature=0)
     )
-    # Without the schema nothing stops "valid", which the parser would read as FIX.
-    reply["verdict"] = str(reply.get("verdict", "")).strip().upper()
+    # Without the schema nothing holds the reply to strings: "valid" would
+    # read as FIX, and a number or list where the parser expects text raises.
+    reply = {k: v if isinstance(v, str) else ("" if v is None else str(v)) for k, v in reply.items()}
+    reply["verdict"] = reply.get("verdict", "").strip().upper()
     if reply["verdict"] not in ("VALID", "FIX"):
         raise ValueError(f"no VALID/FIX verdict in reply: {str(reply)[:200]}")
     return TranslationValidator._parse_response(json.dumps(reply))

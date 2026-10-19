@@ -55,6 +55,7 @@ app = create_app_for_scripts()
 app.app_context().push()
 
 from zeeguu.core.audio_lessons.lesson_correctness_check import (
+    ABOUT_THE_DATA,
     FAIL,
     LessonToCheck,
     blocking,
@@ -196,10 +197,12 @@ errors = []
 
 def on_row(row):
     report[row["id"]] = row
-    if row["verdict"] == FAIL:
+    # Only what would block it at build time: an "unnatural" line alone is
+    # not a finding, and under --quiet it would mail every night
+    if row["verdict"] == FAIL and blocking(row["problems"]):
         new_fails.append(row)
         out(describe(row))
-    elif row["verdict"] != "pass":
+    elif row["verdict"] not in ("pass", FAIL):
         errors.append(row)
 
 
@@ -237,7 +240,10 @@ if args.deprecate:
         {
             selected[row["id"]].meaning_id: row
             for row in condemned_rows
+            # Both, as at build time: the lesson check said the pair is wrong
+            # and the pair-only verdict confirmed it
             if row.get("pair_verdict") == "FIX"
+            and any(p["kind"] in ABOUT_THE_DATA for p in row["problems"])
         }.items()
     )
 

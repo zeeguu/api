@@ -30,8 +30,11 @@ NOT_INVALID = Meaning.validated != Meaning.INVALID
 
 def _teachable(user):
     """Not INVALID, and no meaning lesson refused for it under the current
-    prompt in this learner's teacher language (AudioLessonRefusal): generating
-    it again would only be refused again, every night, by the precompute."""
+    prompt (AudioLessonRefusal): generating it again would only be refused
+    again, every night, by the precompute. In any teacher language: the
+    precompute records the meaning's translation language and the daily
+    lesson the learner's native one, which can differ, and what got a lesson
+    refused is the word in the learned language either way."""
     from sqlalchemy import and_, exists
 
     from zeeguu.core.audio_lessons.script_generator import MEANING_LESSON_PROMPT_VERSION
@@ -40,7 +43,6 @@ def _teachable(user):
     refused = exists().where(
         and_(
             AudioLessonRefusal.meaning_id == UserWord.meaning_id,
-            AudioLessonRefusal.teacher_language_id == user.native_language_id,
             AudioLessonRefusal.prompt_version == MEANING_LESSON_PROMPT_VERSION,
         )
     )

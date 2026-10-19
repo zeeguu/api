@@ -69,9 +69,19 @@ class ValidatorTakesOutOtherLearnersTest(ModelTestMixIn, TestCase):
         self._validate(ValidationResult(is_valid=False, corrected_translation="entirely different", reason="wrong"))
         self._assert_other_taken_out()
 
-    def test_an_unfixable_pair_is_taken_out_for_other_learners(self):
+    def test_an_unfixable_pair_is_taken_out_for_other_learners_and_this_one(self):
+        self.meaning.validated = Meaning.VALID  # so scheduling skips the validator
+        session.add(self.meaning)
+        session.commit()
+        FourLevelsPerWord.find_or_create(session, self.user_word)
+        self.meaning.validated = Meaning.NOT_VALIDATED
+        session.add(self.meaning)
+        session.commit()
         self._validate(ValidationResult(is_valid=False, reason="arbitrary fragment"))
         self._assert_other_taken_out()
+        # It used to become unfit but stay scheduled
+        self.assertIsNone(BasicSRSchedule.query.filter_by(user_word_id=self.user_word.id).first())
+        self.assertEqual(ValidationLog.query.filter_by(user_word_id=self.user_word.id).count(), 1)
 
     def test_a_valid_pair_leaves_other_learners_alone(self):
         self._validate(ValidationResult(is_valid=True))

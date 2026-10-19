@@ -145,3 +145,20 @@ def test_only_current_checker_verdicts_count_as_done():
     assert not is_done({"checker": current, "verdict": "error"}, current)
     assert not is_done({"checker": "deepseek-chat:00000000", "verdict": PASS}, current)
     assert not is_done(None, current)
+
+
+def test_a_pair_reply_with_numbers_and_lists_is_still_read():
+    from zeeguu.core.audio_lessons.lesson_correctness_check import judge_pair
+
+    class Replies:
+        model = "fake"
+
+        def generate_text(self, *args, **kwargs):
+            return '{"reason": "connu is known", "verdict": "fix", "corrected_word": "", ' \
+                   '"corrected_translation": "known", "frequency": "common", "cefr": 2, ' \
+                   '"phrase_type": "single_word", "explanation": ["formal"], "literal_meaning": null}'
+
+    lesson = LessonToCheck(1, "fr", "en", "en", "connu", "experienced", 1, "Ce restaurant est connu.", "")
+    verdict = judge_pair(Replies(), lesson)
+    assert not verdict.is_valid
+    assert verdict.corrected_translation == "known"

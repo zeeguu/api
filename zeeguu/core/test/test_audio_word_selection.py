@@ -55,14 +55,33 @@ class AudioWordSelectionTest(ModelTestMixIn, TestCase):
         self._invalidate()
         self.assertEqual(self._selected(), [])
 
-    def _refuse(self, prompt_version):
+    def _refuse(self, prompt_version, teacher_language_id=None):
         from zeeguu.core.model.audio_lesson_refusal import AudioLessonRefusal
 
         AudioLessonRefusal.record(
-            session, self.user_word.meaning_id, self.user.native_language_id,
+            session, self.user_word.meaning_id, teacher_language_id or self.user.native_language_id,
             prompt_version, AudioLessonRefusal.NOT_CORRECT, "test",
         )
         session.commit()
+
+    def test_a_refusal_in_another_teacher_language_counts_too(self):
+        # The precompute records the meaning's translation language, which can
+        # differ from the learner's native language
+        from zeeguu.core.audio_lessons.script_generator import MEANING_LESSON_PROMPT_VERSION
+
+        other = self.user_word.meaning.translation.language_id
+        if other == self.user.native_language_id:
+            other = self.language.id
+        self._refuse(MEANING_LESSON_PROMPT_VERSION, teacher_language_id=other)
+        self.assertEqual(self._selected(), [])
+
+    def test_recording_the_same_refusal_twice_keeps_one(self):
+        from zeeguu.core.audio_lessons.script_generator import MEANING_LESSON_PROMPT_VERSION
+        from zeeguu.core.model.audio_lesson_refusal import AudioLessonRefusal
+
+        self._refuse(MEANING_LESSON_PROMPT_VERSION)
+        self._refuse(MEANING_LESSON_PROMPT_VERSION)
+        self.assertEqual(AudioLessonRefusal.query.count(), 1)
 
     def test_a_word_refused_under_the_current_prompt_is_skipped(self):
         from zeeguu.core.audio_lessons.script_generator import MEANING_LESSON_PROMPT_VERSION
