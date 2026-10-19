@@ -10,6 +10,7 @@ from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.exercises.example_contexts import bookmark_for_example
 from zeeguu.core.llm_services import get_llm_service
+from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
 from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport
 from zeeguu.core.model.ai_generator import AIGenerator
@@ -190,7 +191,7 @@ def alternative_sentences(user_word_id):
             source_lang=origin_lang,
             target_lang=translation_lang,
             cefr_level=cefr_level,
-            prompt_version="v3",
+            prompt_version=CURRENT_PROMPT_VERSION,
         )
 
         # Extract model and version from first example (they're all the same)
@@ -475,7 +476,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
             source_lang=origin_lang.code,
             target_lang=translation_lang.code,
             cefr_level=cefr_level,
-            prompt_version="v3",
+            prompt_version=CURRENT_PROMPT_VERSION,
             count=MAX_EXAMPLES_GENERATE,
         )
 

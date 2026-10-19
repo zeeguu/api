@@ -117,6 +117,7 @@ def delete_examples(example_ids):
 def regenerate_examples_for_meaning(meaning_id, target_count=5):
     """Regenerate examples for a specific meaning."""
     from zeeguu.core.llm_services import get_llm_service
+    from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 
     meaning = Meaning.query.get(meaning_id)
     if not meaning:
@@ -148,7 +149,7 @@ def regenerate_examples_for_meaning(meaning_id, target_count=5):
             source_lang=origin_lang,
             target_lang=translation_lang,
             cefr_level="B1",
-            prompt_version="v3",
+            prompt_version=CURRENT_PROMPT_VERSION,
             count=examples_to_generate,
         )
 

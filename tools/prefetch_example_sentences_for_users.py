@@ -22,6 +22,7 @@ import zeeguu.core
 from zeeguu.core.model import User, UserWord, ExampleSentence
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.llm_services import get_llm_service
+from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.logging import log
 from zeeguu.core.model.db import db
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
@@ -161,7 +162,7 @@ def generate_examples_for_user_word(
             source_lang=origin_lang,
             target_lang=translation_lang,
             cefr_level=cefr_level,
-            prompt_version="v3",
+            prompt_version=CURRENT_PROMPT_VERSION,
             count=examples_to_generate,
         )
 
