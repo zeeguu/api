@@ -18,13 +18,23 @@ from . import api, db_session
 CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
+def _language_from_form():
+    code = request.form.get("language", "")
+    # find_or_create maps "cn" to "zh-CN"; any other unknown code is a KeyError
+    if code != "cn" and code not in Language.LANGUAGE_NAMES:
+        return None
+    return Language.find_or_create(code)
+
+
 @api.route("/upload_own_text", methods=["POST"])
 @cross_domain
 @requires_session
 def upload_own_text():
 
     db_session.rollback()
-    language = Language.find_or_create(request.form.get("language", ""))
+    language = _language_from_form()
+    if not language:
+        return make_error(406, "Language not supported")
     content = request.form.get("content", "")
     htmlContent = request.form.get("htmlContent", "")
     title = request.form.get("title", "")
@@ -106,7 +116,9 @@ def update_own_text(article_id):
     if not a.is_owned_by(User.find_by_id(flask.g.user_id)):
         return _not_your_text()
 
-    language = Language.find_or_create(request.form.get("language", ""))
+    language = _language_from_form()
+    if not language:
+        return make_error(406, "Language not supported")
     content = request.form.get("content", "")
     title = request.form.get("title", "")
     htmlContent = request.form.get("htmlContent", "")
