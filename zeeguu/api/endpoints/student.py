@@ -29,6 +29,13 @@ def join_cohort_api():
         # caller's mistake, not a server error. Clients treat both as failure.
         return make_error(400, "Invalid invite code")
 
+    # Joining a class you are already in is a no-op, not a duplicate-key 500
+    # (the client shows "check the invite code" for that, so students retry).
+    # Before the capacity check: a member of a full class is still a member.
+    user = User.find_by_id(flask.g.user_id)
+    if user.is_member_of_cohort(cohort.id):
+        return "OK"
+
     # Same rule as signup (create_account): a full class, or one closed by
     # setting max_students to -10 as event codes are, takes nobody new. A
     # class with no max_students at all could always be joined here, and
@@ -39,7 +46,6 @@ def join_cohort_api():
         )
 
     try:
-        user = User.find_by_id(flask.g.user_id)
         user.add_user_to_cohort(cohort, db_session)
 
         return "OK"

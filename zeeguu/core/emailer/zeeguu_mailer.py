@@ -48,18 +48,24 @@ class ZeeguuMailer(object):
         return message.as_string()
 
     @classmethod
-    def send_feedback(cls, subject, context, message, user, url=None):
-
-        print("sending feedback...")
+    def send_feedback(cls, subject, component, message, user, url=None, origin=None):
+        where = " · ".join(escape(x) for x in [component, origin, url] if x)
+        body = (
+            f"{escape(message)}\n\n"
+            + "—\n"
+            + f"{escape(user.name)} ({user.id}) · {escape(user.email)}\n"
+            + f"{where}\n"
+            + _learner_line(user)
+            + _recent_activity(user)
+        )
         mailer = ZeeguuMailer(
             subject,
-            f"Dear Zeeguu Team,\n\nWrt. **{escape(context)}** I'd like to report that: \n\n"
-            + f"{escape(message)}"
-            + f"\n@url ({escape(url)})"
-            + "\n\n"
-            + "Cheers,\n"
-            + f"{escape(user.name)} ({user.id}, {escape(user.email)})",
-            zeeguu.core.app.config.get("SMTP_EMAIL"),
+            body,
+            # Gmail files mail it sends to itself under Sent only, never the
+            # Inbox, so feedback goes to an address someone actually reads.
+            zeeguu.core.app.config.get(
+                "FEEDBACK_EMAIL", zeeguu.core.app.config.get("SMTP_EMAIL")
+            ),
         )
         mailer.send()
 
@@ -125,3 +131,55 @@ class ZeeguuMailer(object):
             "zeeguu.team@gmail.com",
         )
         mailer.send()
+
+
+def _learner_line(user):
+    try:
+        line = f"Learning: {user.learned_language.code} (from {user.native_language.code})"
+        classes = [m.cohort.name for m in user.cohorts]
+        if classes:
+            line += " · Class: " + ", ".join(classes)
+        return escape(line) + "\n"
+    except Exception as e:
+        log(f"feedback mail: no learner line: {e}")
+        return ""
+
+
+# Read aloud on every click; drowns out the events that say what happened
+_NOISY_EVENTS = {"SPEAK TEXT"}
+
+
+def _recent_activity(user, minutes=15, max_lines=12):
+    """What the user did right before sending feedback, oldest first,
+    with consecutive repeats of an event collapsed into one line."""
+    from datetime import datetime, timedelta
+    from zeeguu.core.model.user_activitiy_data import UserActivityData
+
+    try:
+        events = (
+            UserActivityData.query.filter(UserActivityData.user_id == user.id)
+            .filter(UserActivityData.time > datetime.utcnow() - timedelta(minutes=minutes))
+            .filter(UserActivityData.event.notin_(_NOISY_EVENTS))
+            .order_by(UserActivityData.time)
+            .all()
+        )
+    except Exception as e:
+        log(f"feedback mail: no recent activity: {e}")
+        return ""
+
+    lines = []
+    for e in events:
+        if lines and lines[-1]["event"] == e.event:
+            lines[-1]["count"] += 1
+            lines[-1]["value"] = e.value
+            continue
+        lines.append(dict(time=e.time, event=e.event, value=e.value, count=1))
+    if not lines:
+        return ""
+
+    out = f"\nBefore (last {minutes} min, UTC):\n"
+    for l in lines[-max_lines:]:
+        count = f" ×{l['count']}" if l["count"] > 1 else ""
+        value = f": {l['value'][:60]}" if l["value"] else ""
+        out += f"{l['time']:%H:%M} {l['event'].lower()}{count}{value}\n"
+    return escape(out)

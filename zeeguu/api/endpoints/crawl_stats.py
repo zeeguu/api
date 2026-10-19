@@ -112,7 +112,7 @@ def crawl_stats():
                 })
                 result["summary"]["total_feeds_with_articles"] += 1
 
-    # Get simplified articles by topic (today only for daily cap tracking)
+    # Get simplified articles by topic (today only)
     # Join: SimplifiedArticle -> Parent Article -> ArticleTopicMap -> Topic
     # Simplified articles have parent_article_id set
     ParentArticle = db_session.query(Article).subquery()
@@ -133,14 +133,10 @@ def crawl_stats():
         .all()
     )
 
-    from zeeguu.core.content_retriever.article_downloader import get_max_simplified_for_language, MAX_SIMPLIFIED_POPULAR, MAX_SIMPLIFIED_DEFAULT
-
     for topic_id, topic_title, count in topic_counts:
         result["by_topic"][topic_title] = {
             "id": topic_id,
             "simplified_today": count,
-            "daily_cap_popular": MAX_SIMPLIFIED_POPULAR,
-            "daily_cap_default": MAX_SIMPLIFIED_DEFAULT,
         }
 
     return result
@@ -276,8 +272,6 @@ def crawl_stats_dashboard():
         .all()
     )
 
-    from zeeguu.core.content_retriever.article_downloader import get_max_simplified_for_language, MAX_SIMPLIFIED_POPULAR, MAX_SIMPLIFIED_DEFAULT, POPULAR_LANGUAGES
-
     # Sort languages by article count
     lang_stats.sort(key=lambda x: x["articles"], reverse=True)
 
@@ -324,8 +318,6 @@ def crawl_stats_dashboard():
             transition: width 0.3s;
         }}
         .bar-container {{ background: #ecf0f1; border-radius: 3px; width: 200px; }}
-        .cap-reached {{ color: #e74c3c; font-weight: bold; }}
-        .cap-ok {{ color: #27ae60; }}
         .lang-code {{
             display: inline-block; padding: 2px 8px;
             background: #3498db; color: white; border-radius: 4px;
@@ -369,10 +361,6 @@ def crawl_stats_dashboard():
                 <div class="number">{len(lang_stats)}</div>
                 <div class="label">Active Languages</div>
             </div>
-            <div class="stat-card">
-                <div class="number">{MAX_SIMPLIFIED_POPULAR}/{MAX_SIMPLIFIED_DEFAULT}</div>
-                <div class="label">Cap (pop/other)</div>
-            </div>
         </div>
 
         <div class="section">
@@ -401,8 +389,7 @@ def crawl_stats_dashboard():
         </div>
 
         <div class="section">
-            <h2>🏷️ Simplified by Topic per Language (Today)</h2>
-            <p style="color:#7f8c8d; margin-bottom:15px;">Daily cap: {MAX_SIMPLIFIED_POPULAR}/topic for popular langs ({', '.join(sorted(POPULAR_LANGUAGES)).upper()}), {MAX_SIMPLIFIED_DEFAULT}/topic for others</p>"""
+            <h2>🏷️ Simplified by Topic per Language (Today)</h2>"""
 
     # Group topic stats by language
     from collections import defaultdict
@@ -414,27 +401,22 @@ def crawl_stats_dashboard():
         for lang_code in sorted(topics_by_lang.keys()):
             topics = topics_by_lang[lang_code]
             lang_name = topics[0][0]  # Get language name from first entry
-            max_for_lang = get_max_simplified_for_language(lang_code)
+            max_count = max(count for _, _, _, count in topics)
             html += f"""
             <h3><span class="lang-code">{escape(lang_code.upper())}</span> {escape(lang_name)}</h3>
             <table>
                 <tr>
                     <th>Topic</th>
                     <th>Simplified</th>
-                    <th>Status</th>
-                    <th style="width:220px">Progress</th>
+                    <th style="width:220px">Distribution</th>
                 </tr>"""
             for _, topic_id, topic_title, count in topics:
-                cap_reached = count >= max_for_lang
-                bar_width = min(int((count / max_for_lang) * 200), 200)
-                status_class = "cap-reached" if cap_reached else "cap-ok"
-                status_text = "CAP REACHED" if cap_reached else f"{max_for_lang - count} remaining"
+                bar_width = int((count / max_count) * 200)
                 html += f"""
                 <tr>
                     <td>{escape(topic_title)}</td>
-                    <td>{count} / {max_for_lang}</td>
-                    <td class="{status_class}">{status_text}</td>
-                    <td><div class="bar-container"><div class="bar" style="width:{bar_width}px; background: {'#e74c3c' if cap_reached else '#27ae60'}"></div></div></td>
+                    <td>{count}</td>
+                    <td><div class="bar-container"><div class="bar" style="width:{bar_width}px"></div></div></td>
                 </tr>"""
             html += "</table>"
     else:
