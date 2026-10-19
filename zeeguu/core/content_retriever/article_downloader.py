@@ -611,20 +611,6 @@ def download_from_feed(
     return summary_stream
 
 
-# Cap simplifications per topic per language per day
-# Popular languages (high user activity) get higher caps
-POPULAR_LANGUAGES = {"da", "fr", "de"}  # Danish, French, German
-MAX_SIMPLIFIED_POPULAR = 50  # For popular languages
-MAX_SIMPLIFIED_DEFAULT = 20  # For other languages
-
-
-def get_max_simplified_for_language(language_code):
-    """Get the daily topic simplification cap for a given language."""
-    if language_code.lower() in POPULAR_LANGUAGES:
-        return MAX_SIMPLIFIED_POPULAR
-    return MAX_SIMPLIFIED_DEFAULT
-
-
 def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None):
     import html
 
