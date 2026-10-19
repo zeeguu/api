@@ -1,7 +1,6 @@
-"""What a validator FIX does to the old pair: INVALID when its translation
-was wrong, untouched when only the word changed. Other learners' words on it
-are never touched here; the nightly validate_scheduled_meanings judges each
-in its own sentence."""
+"""What a validator FIX does to the old pair: it becomes INVALID. Other
+learners' words on it are never touched here; the nightly
+validate_scheduled_meanings judges each in its own sentence."""
 from datetime import datetime
 from unittest import TestCase
 from unittest.mock import patch
@@ -78,15 +77,13 @@ class ValidatorTakesOutOtherLearnersTest(ModelTestMixIn, TestCase):
         self.assertEqual(session.get(Meaning, self.meaning.id).validated, Meaning.INVALID)
         self._assert_other_untouched()
 
-    def test_a_fix_that_changes_the_word_does_not_mark_the_pair(self):
-        # 'ud' in 'ud af' → 'ud af' = 'out of': this learner selected too
-        # little; 'ud' = 'out' is not wrong, and INVALID would cost it its
-        # audio lessons for everyone
+    def test_a_fix_that_changes_the_word_marks_the_pair_too(self):
+        # Most such pairs are broken themselves ('bruger den' → 'are using it')
         word = self.meaning.origin.content
         self._validate(ValidationResult(
             is_valid=False, corrected_word=word + " af", corrected_translation="out of", reason="part of an expression"
         ))
-        self.assertNotEqual(session.get(Meaning, self.meaning.id).validated, Meaning.INVALID)
+        self.assertEqual(session.get(Meaning, self.meaning.id).validated, Meaning.INVALID)
         self._assert_other_untouched()
 
     def test_a_valid_pair_leaves_other_learners_alone(self):
