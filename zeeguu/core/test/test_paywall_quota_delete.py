@@ -11,11 +11,12 @@ the crawler abandoned the rest of the feed.
 """
 from datetime import datetime, timedelta
 from unittest import TestCase
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import zeeguu.core
 from zeeguu.core.content_retriever import article_downloader
-from zeeguu.core.model import ArticleTopicMap
+from zeeguu.core.model import Article, ArticleTopicMap
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.url_keyword import UrlKeyword
 from zeeguu.core.model.article_topic_map import TopicOriginType
@@ -90,3 +91,94 @@ class PaywallQuotaDeleteTest(ModelTestMixIn, TestCase):
             )
 
         assert summary.startswith("1 new articles")
+
+    def test_a_later_failure_does_not_undo_an_earlier_article(self):
+        # download_feed_item leaves the last of an article's work (fragments,
+        # tokenization cache) pending. The rollback for a failing item that
+        # comes after it in the feed must not take that work with it.
+        feed = FeedRule().feed
+        crawl_report = CrawlReport()
+        crawl_report.add_feed(feed)
+        now = datetime.now()
+        items = [
+            {
+                "url": f"https://example.com/{name}",
+                "title": name,
+                "summary": "",
+                "published_datetime": now - timedelta(minutes=i),
+            }
+            for i, name in enumerate(["works", "fails"])
+        ]
+        survivor = ArticleRule().article
+
+        def download_feed_item(session, feed, feed_item, url, *args, **kwargs):
+            if feed_item["title"] == "fails":
+                raise ConnectionError("readability server went away")
+            # stands in for the fragments + cache, added but not committed
+            survivor.add_topic_if_doesnt_exist(
+                self.topic, session, TopicOriginType.INFERRED.value
+            )
+            return survivor
+
+        with patch.object(feed, "feed_items", return_value=items), patch.object(
+            article_downloader, "_url_after_redirects", side_effect=lambda u: u
+        ), patch.object(
+            article_downloader, "download_feed_item", side_effect=download_feed_item
+        ):
+            article_downloader.download_from_feed(
+                feed, session, crawl_report, save_in_elastic=False
+            )
+
+        session.rollback()
+        assert ArticleTopicMap.query.filter_by(article_id=survivor.id).count() == 1
+
+    def test_over_quota_paywall_is_deleted_and_skipped(self):
+        # The real download_feed_item, from the download up to the LLM saying
+        # "paywall" with the day's sample quota already full.
+        feed = FeedRule().feed
+        crawl_report = CrawlReport()
+        crawl_report.add_feed(feed)
+        url = "https://example.com/kultur/paywalled-story"
+        items = [
+            {
+                "url": url,
+                "title": "Paywalled story",
+                "summary": "",
+                "published_datetime": datetime.now(),
+            }
+        ]
+        np_article = SimpleNamespace(
+            text="Only the teaser is visible. " * 20,
+            authors=[],
+            htmlContent="<p>Only the teaser is visible.</p>",
+        )
+
+        def paywall(*args, **kwargs):
+            raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
+
+        patches = {
+            "_url_after_redirects": lambda u: u,
+            "readability_download_and_parse": lambda u: np_article,
+            "is_duplicate_by_simhash": lambda *a: (False, None),
+            "sufficient_quality": lambda *a: (True, "", None),
+            "cleanup_text_w_crawl_report": lambda text, *a: text,
+            "extract_article_image": lambda *a: None,
+            "get_topic_classification_based_on_similar_content": lambda *a, **k: self.topic,
+            "is_advertorial": lambda **k: (False, None),
+            "is_disturbing_content_based_on_keywords": lambda **k: (False, None),
+            "assess_summarize_and_classify": paywall,
+            "simplify_and_classify": paywall,
+            "_should_save_paywall_sample": lambda *a: False,
+        }
+        with patch.object(feed, "feed_items", return_value=items), patch.multiple(
+            article_downloader,
+            SIMPLIFY_AT_CRAWL=False,
+            **{name: MagicMock(side_effect=fn) for name, fn in patches.items()},
+        ):
+            summary = article_downloader.download_from_feed(
+                feed, session, crawl_report, save_in_elastic=False
+            )
+
+        assert summary.startswith("0 new articles")
+        assert crawl_report._get_feed_dict(feed)["total_low_quality"] == 1
+        assert Article.find(url) is None

@@ -278,14 +278,14 @@ class Article(db.Model):
     topics = relationship(
         "ArticleTopicMap",
         back_populates="article",
-        cascade="all, delete-orphan",
+        cascade="save-update, merge, delete",
         passive_deletes=True,
     )
 
     url_keywords = relationship(
         "ArticleUrlKeywordMap",
         back_populates="article",
-        cascade="all, delete-orphan",
+        cascade="save-update, merge, delete",
         passive_deletes=True,
     )
     # Few words in an article is very often not an

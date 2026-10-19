@@ -467,6 +467,11 @@ def download_from_feed(
                     .replace("Ã¸", "ø")
                     .replace("Ã¦", "æ")
                 )
+            # The article's own commit. download_feed_item leaves its fragments
+            # and tokenization cache pending; without this they ride along with
+            # whatever commits next, and a rollback for a LATER item in this
+            # feed would discard them, leaving this article in ES with no text.
+            session.commit()
 
             downloaded += 1
             log(f"✓ NEW ARTICLE SAVED TO DATABASE (#{downloaded})")
@@ -549,6 +554,11 @@ def download_from_feed(
         except Exception as e:
             import traceback
 
+            # Disarm before the slow work below (Sentry, rollback): a timeout
+            # raised inside this handler would escape the loop and drop the
+            # rest of the feed.
+            if article_timeout_armed:
+                signal.alarm(0)
             print(e)
             traceback.print_stack()
             capture_to_sentry(e)
