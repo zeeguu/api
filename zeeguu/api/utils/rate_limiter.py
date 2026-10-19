@@ -135,6 +135,20 @@ RATE_LIMITS = {
         Limit("30 per minute;200 per hour", count="failures"),
     ),
 
+    # Changing one's own email. Requesting mails a code to an address of the
+    # caller's choosing, so like send_code the successful request is the costly
+    # one; confirming charges only failures (wrong password or code). Keyed on
+    # the account, like confirm_email: logging in again for a fresh session
+    # must not start the count over.
+    "endpoints.request_email_change": (
+        Limit("5 per hour", key="user"),
+        Limit("100 per minute;600 per hour"),
+    ),
+    "endpoints.confirm_email_change": (
+        Limit("10 per hour", key="user", count="failures"),
+        Limit("100 per minute;600 per hour", count="failures"),
+    ),
+
     # Account creation. A whole school onboarding at once has to fit under
     # this, which is why it is generous: invite codes, not this limit, are the
     # primary protection against mass bot registration.

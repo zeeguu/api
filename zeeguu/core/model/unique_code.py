@@ -17,6 +17,7 @@ class UniqueCode(db.Model):
     # its own purpose, so a code only ever works where it was meant to.
     RESET = "reset"  # mailed by /send_code, redeemed by /reset_password
     VERIFY = "verify"  # email confirmation: /confirm_email, /complete_account_upgrade
+    CHANGE_EMAIL = "change_email"  # /request_email_change, /confirm_email_change
 
     # Submissions a code survives. Four digits are only a small space, so the
     # code itself has to stop answering after a few tries; the rate limiter
@@ -31,7 +32,7 @@ class UniqueCode(db.Model):
     attempts = db.Column(db.Integer, nullable=False, default=0)
 
     def __init__(self, email, purpose):
-        if purpose not in (self.RESET, self.VERIFY):
+        if purpose not in (self.RESET, self.VERIFY, self.CHANGE_EMAIL):
             raise ValueError(f"unknown code purpose {purpose!r}")
         # 4-digit numeric code — easy to type on mobile. 10,000 possibilities
         # are enough only together with the 15-min expiry and MAX_ATTEMPTS.

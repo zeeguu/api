@@ -381,6 +381,94 @@ def resend_verification_code():
         return bad_request("Could not send verification code")
 
 
+def _email_change_error(user, new_email, password):
+    """None if `user` may move to `new_email`, else the error message.
+
+    The password is checked on both steps, not only the first: codes are keyed
+    by address, not by user, so the code only proves the inbox, and the
+    password is what proves the person.
+    """
+    import re
+
+    if user.is_anonymous():
+        return "Anonymous accounts add an email by upgrading the account"
+    if not new_email or not password:
+        return "New email and password are required"
+    if not re.match(User.EMAIL_VALIDATION_REGEX, new_email):
+        return "Invalid email format"
+    if new_email == user.email:
+        return "That is already your email address"
+    if User.authorize(user.email, password) is None:
+        return "Wrong password"
+    if User.email_exists(new_email):
+        return "Email already in use"
+    return None
+
+
+@api.route("/request_email_change", methods=["POST"])
+@cross_domain
+@requires_session
+@allows_unverified
+def request_email_change():
+    """
+    Step 1 of changing the logged-in user's email: send a code to the new
+    address. Nothing changes on the account until /confirm_email_change.
+
+    Allowed while unverified: someone who mistyped their address at sign-up is
+    exactly who needs this.
+    """
+    from zeeguu.core.emailer.email_confirmation import send_email_confirmation
+
+    new_email = (request.form.get("new_email") or "").lower().strip()
+    user = User.find_by_id(flask.g.user_id)
+    error = _email_change_error(user, new_email, request.form.get("password"))
+    if error:
+        return bad_request(error)
+
+    code = UniqueCode(new_email, UniqueCode.CHANGE_EMAIL)
+    db_session.add(code)
+    db_session.commit()
+    send_email_confirmation(new_email, code)
+    log(f"EMAIL CHANGE REQUESTED: user_id={user.id}")
+    return "OK"
+
+
+@api.route("/confirm_email_change", methods=["POST"])
+@cross_domain
+@requires_session
+@allows_unverified
+def confirm_email_change():
+    """
+    Step 2: the code mailed to the new address proves the user owns it; the
+    email is switched and marked verified, and the old address is told.
+    """
+    from zeeguu.core.emailer.email_confirmation import send_email_changed_notice
+
+    new_email = (request.form.get("new_email") or "").lower().strip()
+    user = User.find_by_id(flask.g.user_id)
+    error = _email_change_error(user, new_email, request.form.get("password"))
+    if error:
+        return bad_request(error)
+
+    if redeem_code(new_email, UniqueCode.CHANGE_EMAIL, request.form.get("code")) is None:
+        return bad_request(INVALID_CODE)
+
+    old_email = user.email
+    try:
+        with db_session.begin_nested():
+            user.email = new_email
+            user.email_verified = True
+    except sqlalchemy.exc.IntegrityError:
+        # taken between the check above and now
+        return bad_request("Email already in use")
+    delete_all_codes_for_email(new_email)
+    db_session.commit()
+    log(f"EMAIL CHANGED: user_id={user.id}")
+
+    send_email_changed_notice(old_email, new_email)
+    return "OK"
+
+
 @api.route("/send_code/<email>", methods=["POST"])
 @cross_domain
 def send_code(email):
