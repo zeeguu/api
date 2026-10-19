@@ -1068,17 +1068,20 @@ class DailyLessonGenerator:
     def _schedule_words_taught_to_say(self, lesson, user):
         """
         After a lesson built on the learner's history (A0) is heard to the end,
-        the words it taught them to say go on their study list. Never stops the
-        lesson from being marked complete.
+        the words it taught them to say go on their study list -- in the
+        background (a model call takes seconds), and never in the way of the
+        lesson being marked complete.
         """
-        from zeeguu.core.audio_lessons.lesson_words import schedule_words_from_lesson
+        from zeeguu.api.utils.background import run_in_background
+        from zeeguu.core.audio_lessons.lesson_words import schedule_words_after_lesson
 
-        for segment in lesson.segments:
-            dialogue = segment.audio_lesson_dialogue
-            if dialogue is None or not dialogue.builds_on_history or dialogue.teacher_language is None:
-                continue
+        if any(
+            segment.audio_lesson_dialogue is not None
+            and segment.audio_lesson_dialogue.builds_on_history
+            for segment in lesson.segments
+        ):
             try:
-                schedule_words_from_lesson(db.session, user, dialogue)
+                run_in_background(schedule_words_after_lesson, user.id, lesson.id)
             except Exception as e:
                 log(f"[schedule_words_taught_to_say] lesson {lesson.id}: {e}")
 

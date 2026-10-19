@@ -1,19 +1,26 @@
 """
 The words an A0 lesson taught the learner to say go on their study list once
 they have heard the lesson. See zeeguu/core/audio_lessons/lesson_words.py.
+
+Against the real test database and the (fake) tokenizer: the helpers commit as
+they go, which a stand-in session would hide.
 """
 
 from types import SimpleNamespace
 
-from zeeguu.core.audio_lessons import lesson_words
-from zeeguu.core.bookmark_operations import add_word_to_study as adding
+import pytest
 
-DIALOGUE = SimpleNamespace(
-    id=1,
-    script="Woman: Hej! Hvad vil du have?\nMan: En kaffe, tak.",
-    language=SimpleNamespace(code="da"),
-    teacher_language=SimpleNamespace(code="en"),
-)
+from zeeguu.core.audio_lessons import lesson_words
+from zeeguu.core.model import db
+from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
+from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+from zeeguu.core.model.language import Language
+from zeeguu.core.model.user_word import UserWord
+from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
+from zeeguu.core.test.model_test_mixin import ModelTestMixIn
+from zeeguu.core.test.rules.user_rule import UserRule
+
+SCRIPT = "Woman: Hej! Hvad vil du have? [1 seconds]\nMan: En kaffe, tak. [1 seconds]"
 
 
 class _Llm:
@@ -30,47 +37,112 @@ def _answering(monkeypatch, answer):
     monkeypatch.setattr(llm_service, "get_llm_service", lambda *a, **k: _Llm(answer))
 
 
-def test_reads_the_words_out_of_the_answer(monkeypatch):
+_FAKE = SimpleNamespace(
+    id=1, script=SCRIPT, language=SimpleNamespace(code="da"), teacher_language=SimpleNamespace(code="en")
+)
+
+
+def test_reads_the_list_even_after_a_bracket_in_the_prose(monkeypatch):
     _answering(
         monkeypatch,
-        'Here they are:\n[{"word": "kaffe", "translation": "coffee", "sentence": "En kaffe, tak."},'
+        'The words said [slow] and asked for:\n[{"word": "kaffe", "translation": "coffee", "sentence": "En kaffe, tak."},'
         ' {"word": "tak", "translation": "thank you"}]',
     )
-    assert lesson_words.words_taught_to_say(DIALOGUE) == [
+    assert lesson_words.words_taught_to_say(_FAKE) == [
         ("kaffe", "coffee", "En kaffe, tak."),
         ("tak", "thank you", "tak"),
     ]
 
 
+def test_a_missing_translation_is_not_the_word_none(monkeypatch):
+    _answering(monkeypatch, '[{"word": "hej", "translation": null, "sentence": null}]')
+    assert lesson_words.words_taught_to_say(_FAKE) == []
+
+
 def test_an_unreadable_answer_schedules_nothing(monkeypatch):
     _answering(monkeypatch, "[not json")
-    assert lesson_words.words_taught_to_say(DIALOGUE) == []
+    assert lesson_words.words_taught_to_say(_FAKE) == []
 
 
-class _Savepoint:
-    def commit(self):
-        pass
+class LessonWordsTest(ModelTestMixIn):
+    def setUp(self):
+        super().setUp()
+        self.user = UserRule().user
+        self.da = Language.find_or_create("da")
+        self.en = Language.find_or_create("en")
+        self.dialogue = AudioLessonDialogue(
+            SCRIPT, "café", "situation", self.da, teacher_language=self.en, builds_on_history=True
+        )
+        db.session.add(self.dialogue)
+        db.session.commit()
+        self.monkeypatch = pytest.MonkeyPatch()
 
-    def rollback(self):
-        pass
+    def tearDown(self):
+        self.monkeypatch.undo()
+        super().tearDown()
 
+    def _taught(self, words):
+        self.monkeypatch.setattr(lesson_words, "words_taught_to_say", lambda dialogue: words)
 
-def test_a_word_not_found_in_its_sentence_is_tried_on_its_own(monkeypatch):
-    monkeypatch.setattr(
-        lesson_words,
-        "words_taught_to_say",
-        lambda dialogue: [("kaffe", "coffee", "Hej!"), ("tak", "thank you", "En kaffe, tak.")],
-    )
-    tried = []
+    def _user_words(self):
+        return {
+            uw.meaning.origin.content: uw for uw in UserWord.query.filter_by(user=self.user).all()
+        }
 
-    def add(session, user, word, translation, from_code, to_code, context):
-        tried.append((word, context))
-        if word not in context.lower():
-            raise adding.WordNotInContext("not_found", "not there")
-        return None, None
+    def test_all_the_words_are_scheduled_not_just_the_first(self):
+        self._taught(
+            [
+                ("kaffe", "coffee", "En kaffe, tak."),
+                ("hej", "hello", "En kaffe, tak."),  # not in its line: tried on its own
+                ("tak", "thank you", "En kaffe, tak."),
+            ]
+        )
+        added = lesson_words.schedule_words_from_lesson(db.session, self.user, self.dialogue)
 
-    monkeypatch.setattr(adding, "add_word_to_study", add)
-    session = SimpleNamespace(begin_nested=lambda: _Savepoint())
+        assert added == 3
+        words = self._user_words()
+        assert set(words) == {"kaffe", "hej", "tak"}
+        assert words["hej"].preferred_bookmark.context.get_content() == "hej"
+        assert words["kaffe"].preferred_bookmark.context.get_content() == "En kaffe, tak."
+        for user_word in words.values():
+            assert user_word.level == 1 and user_word.fit_for_study
+            assert not user_word.is_user_added
+            interactions = {
+                i.interaction_type
+                for i in UserWordInteractionHistory.query.filter_by(user_word=user_word).all()
+            }
+            # (Bookmark.find_or_create also logs "translated", for typed-in words too.)
+            assert UserWordInteractionHistory.AUDIO_LESSON in interactions
+            assert UserWordInteractionHistory.MANUAL_ADDITION not in interactions
 
-    assert lesson_words.schedule_words_from_lesson(session, SimpleNamespace(id=7), DIALOGUE) == 2
-    assert tried == [("kaffe", "Hej!"), ("kaffe", "kaffe"), ("tak", "En kaffe, tak.")]
+    def test_a_word_the_learner_already_has_is_left_alone(self):
+        from zeeguu.core.bookmark_operations.add_word_to_study import add_word_to_study
+
+        _, kaffe = add_word_to_study(db.session, self.user, "kaffe", "coffee", "da", "en", "En kaffe, tak.")
+        kaffe.level = 3
+        db.session.commit()
+
+        self._taught([("kaffe", "coffee", "En kaffe, tak."), ("tak", "thank you", "En kaffe, tak.")])
+        added = lesson_words.schedule_words_from_lesson(db.session, self.user, self.dialogue)
+
+        assert added == 1
+        assert self._user_words()["kaffe"].level == 3
+
+    def test_completing_the_lesson_schedules_its_words(self):
+        # run_in_background runs inline under app.testing.
+        from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
+
+        lesson = DailyAudioLesson(
+            user=self.user, created_by="test", duration_seconds=600, language=self.da, lesson_type="situation"
+        )
+        lesson.add_dialogue_segment(audio_lesson_dialogue=self.dialogue, sequence_order=1)
+        db.session.add(lesson)
+        db.session.commit()
+
+        self._taught([("kaffe", "coffee", "En kaffe, tak.")])
+        result = DailyLessonGenerator().update_lesson_state_for_user(
+            self.user, lesson.id, {"action": "complete"}
+        )
+
+        assert result.get("is_completed")
+        assert set(self._user_words()) == {"kaffe"}
