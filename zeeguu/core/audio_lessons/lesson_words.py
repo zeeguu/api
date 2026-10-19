@@ -40,7 +40,8 @@ def _first_json_list(text):
             value, _ = decoder.raw_decode(text[start:])
         except ValueError:
             continue
-        if isinstance(value, list) and all(isinstance(item, dict) for item in value):
+        # Not an empty list: "[]" in the prose is not the answer.
+        if isinstance(value, list) and value and all(isinstance(item, dict) for item in value):
             return value
     return None
 
@@ -111,7 +112,7 @@ def schedule_words_from_lesson(db_session, user, dialogue):
             log(f"[lesson_words] dialogue {dialogue.id}: '{word}' not found in '{sentence}', skipped")
             continue
         try:
-            if add_word_to_study(
+            result = add_word_to_study(
                 db_session,
                 user,
                 word,
@@ -120,7 +121,8 @@ def schedule_words_from_lesson(db_session, user, dialogue):
                 dialogue.teacher_language.code,
                 context,
                 from_audio_lesson=True,
-            ):
+            )
+            if result and result[2] is not None:
                 added += 1
         except Exception as e:
             db_session.rollback()

@@ -54,6 +54,11 @@ def test_reads_the_list_even_after_a_bracket_in_the_prose(monkeypatch):
     ]
 
 
+def test_an_empty_list_in_the_prose_is_not_the_answer(monkeypatch):
+    _answering(monkeypatch, 'Not counted: [] -- the words: [{"word": "tak", "translation": "thank you"}]')
+    assert lesson_words.words_taught_to_say(_FAKE) == [("tak", "thank you", "tak")]
+
+
 def test_a_missing_translation_is_not_the_word_none(monkeypatch):
     _answering(monkeypatch, '[{"word": "hej", "translation": null, "sentence": null}]')
     assert lesson_words.words_taught_to_say(_FAKE) == []
@@ -118,7 +123,7 @@ class LessonWordsTest(ModelTestMixIn):
     def test_a_word_the_learner_already_has_is_left_alone(self):
         from zeeguu.core.bookmark_operations.add_word_to_study import add_word_to_study
 
-        _, kaffe = add_word_to_study(db.session, self.user, "kaffe", "coffee", "da", "en", "En kaffe, tak.")
+        _, kaffe, _ = add_word_to_study(db.session, self.user, "kaffe", "coffee", "da", "en", "En kaffe, tak.")
         kaffe.level = 3
         db.session.commit()
 
@@ -146,3 +151,35 @@ class LessonWordsTest(ModelTestMixIn):
 
         assert result.get("is_completed")
         assert set(self._user_words()) == {"kaffe"}
+
+    def test_a_word_looked_up_but_never_studied_is_scheduled(self):
+        from zeeguu.core.model.meaning import Meaning
+        from zeeguu.core.word_scheduling import BasicSRSchedule
+
+        meaning = Meaning.find_or_create(db.session, "tak", "da", "thank you", "en", user=self.user)
+        looked_up = UserWord.find_or_create(db.session, self.user, meaning)
+        assert not BasicSRSchedule.find(looked_up)
+
+        self._taught([("tak", "thank you", "En kaffe, tak.")])
+        assert lesson_words.schedule_words_from_lesson(db.session, self.user, self.dialogue) == 1
+        assert BasicSRSchedule.find(self._user_words()["tak"])
+
+    def test_completing_again_does_not_schedule_again(self):
+        from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
+
+        lesson = DailyAudioLesson(
+            user=self.user, created_by="test", duration_seconds=600, language=self.da, lesson_type="situation"
+        )
+        lesson.add_dialogue_segment(audio_lesson_dialogue=self.dialogue, sequence_order=1)
+        db.session.add(lesson)
+        db.session.commit()
+
+        runs = []
+        self.monkeypatch.setattr(
+            lesson_words, "schedule_words_after_lesson", lambda user_id, lesson_id: runs.append(lesson_id)
+        )
+        generator = DailyLessonGenerator()
+        generator.update_lesson_state_for_user(self.user, lesson.id, {"action": "complete"})
+        generator.update_lesson_state_for_user(self.user, lesson.id, {"action": "complete"})
+
+        assert runs == [lesson.id]

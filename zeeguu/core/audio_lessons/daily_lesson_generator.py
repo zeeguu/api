@@ -1132,13 +1132,15 @@ class DailyLessonGenerator:
                     lesson.listened_count += 1
 
             elif action == "complete":
+                # Completed for the first time now, not again: what follows the
+                # commit below runs once per lesson, not on every repeat.
+                first_completion = not lesson.is_completed
                 # Mark lesson as completed
                 lesson.mark_completed()
 
                 # Progress words when audio lesson is completed
                 if lesson.listened_count == 1:
                     self._progress_words_from_completed_lesson(lesson, user)
-                    self._schedule_words_taught_to_say(lesson, user)
 
                 # Send email notification for lesson completion
                 self._send_lesson_completion_notification(lesson, user)
@@ -1153,6 +1155,11 @@ class DailyLessonGenerator:
                 }
 
             db.session.commit()
+
+            # After the commit: the words of a lesson that was not recorded as
+            # completed must not go on the study list.
+            if action == "complete" and first_completion:
+                self._schedule_words_taught_to_say(lesson, user)
 
             return {
                 "message": f"Lesson state updated successfully",

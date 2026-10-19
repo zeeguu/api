@@ -2,9 +2,9 @@
 Add a word or expression to a learner's study list, with a context sentence, and
 schedule it for exercises right away.
 
-The one way to do it: /add_custom_word (a learner typing a word in) and the A0
-audio lessons (the words a lesson taught the learner to say) both come through
-here.
+Used by /add_custom_word (a learner typing a word in) and by the A0 audio
+lessons (the words a lesson taught the learner to say). The generated-examples
+"add to learning" endpoint still has its own copy of these steps.
 
 The find_or_create helpers below commit the session themselves, so nothing here
 can be undone afterwards: everything that can refuse a word is checked before
@@ -14,6 +14,7 @@ anything is created.
 from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
+from zeeguu.core.word_scheduling import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 
 
@@ -48,14 +49,17 @@ def add_word_to_study(
     from_audio_lesson=False,
 ):
     """
-    Returns (bookmark, user_word), the word scheduled at level 1. Raises
-    WordNotInContext, before anything is created.
+    Returns (bookmark, user_word, schedule). schedule is None when scheduling
+    refused the word -- the translation failed validation, or the learner
+    already studies an equivalent meaning; user_word is then not forced into
+    study. Raises WordNotInContext, before anything is created.
 
     from_audio_lesson: the word comes from an A0 lesson, not from the learner
     typing it in. It is recorded as such (not is_user_added, an "audio_lesson"
-    interaction), and a word the learner already has is left exactly as it is --
-    lessons repeat earlier words on purpose, and must not set them back to level
-    1. Returns None then.
+    interaction), and a word the learner is already studying is left exactly as
+    it is -- lessons repeat earlier words on purpose, and must not set them back
+    to level 1. Returns None then. A word they have but do not study (looked up
+    once, never scheduled) is scheduled.
     """
     from zeeguu.core.model import Bookmark, Language, Meaning
     from zeeguu.core.model.user_word import UserWord
@@ -70,7 +74,9 @@ def add_word_to_study(
         db_session, word, from_lang_code, translation, to_lang_code, user=user
     )
     if from_audio_lesson and UserWord.exists(user, meaning):
-        return None
+        existing = UserWord.find_or_create(db_session, user, meaning)
+        if BasicSRSchedule.find(existing):
+            return None
 
     user_word = UserWord.find_or_create(
         db_session, user, meaning, is_user_added=not from_audio_lesson
@@ -86,6 +92,9 @@ def add_word_to_study(
     # checks that hide looked-up words ("too short", ...) do not apply.
     user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
     user_word.update_fit_for_study(db_session)
+
+    # Bookmark.find_or_create looks this row up and fails without it.
+    ContextType.find_or_create(db_session, ContextType.USER_EDITED_TEXT, commit=False)
 
     bookmark = Bookmark.find_or_create(
         db_session,
@@ -106,12 +115,18 @@ def add_word_to_study(
         # The closest existing value; the interaction history above says
         # whether it was typed in or taught by an audio lesson.
         translation_source="user_added",
+        user_word=user_word,
     )
 
     user_word.preferred_bookmark = bookmark
-    FourLevelsPerWord.find_or_create(db_session, user_word)
-    user_word.fit_for_study = True
-    user_word.level = 1
-    db_session.add(user_word)
+    schedule = FourLevelsPerWord.find_or_create(db_session, user_word)
+    if schedule is None:
+        return bookmark, user_word, None
 
-    return bookmark, user_word
+    # Validation may have settled on another user_word for a corrected meaning.
+    user_word = schedule.user_word
+    if not from_audio_lesson:
+        # Typed in again: start it over, as /add_custom_word always has.
+        user_word.level = 1
+    db_session.add(user_word)
+    return bookmark, user_word, schedule

@@ -844,7 +844,7 @@ def add_custom_word():
         )
 
         try:
-            bookmark, user_word = add_word_to_study(
+            bookmark, user_word, schedule = add_word_to_study(
                 db_session, user, word, translation, from_lang_code, to_lang_code, context
             )
         except WordNotInContext as e:
@@ -883,9 +883,13 @@ def add_custom_word():
             {
                 "bookmark_id": bookmark.id,
                 "user_word_id": user_word.id,
-                "scheduled": True,
+                "scheduled": schedule is not None,
                 "level": user_word.level,
-                "message": "Word added successfully and scheduled for practice",
+                "message": (
+                    "Word added successfully and scheduled for practice"
+                    if schedule is not None
+                    else "Word added, but not scheduled: its translation did not pass validation, or an equivalent word is already being practised"
+                ),
             }
         )
 
