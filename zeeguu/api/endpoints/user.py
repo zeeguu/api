@@ -433,6 +433,8 @@ def send_feedback():
 
     # Get component name from frontend
     component_name = flask.request.form.get("feedbackComponentName", "")
+    # Where the feedback was sent from (Sidebar, Loading, an audio lesson…)
+    origin = flask.request.form.get("origin", None)
 
     from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
@@ -448,12 +450,14 @@ def send_feedback():
         message,
         user,
         url,
+        origin,
     )
 
     try:
         feedback_component = FeedbackComponent.find_or_create(session, component_name)
         url_obj = Url.find_or_create(session, url) if url is not None else None
-        UserFeedback.create(session, user, feedback_component, message, url_obj)
+        stored = f"{origin} - {message}" if origin else message
+        UserFeedback.create(session, user, feedback_component, stored, url_obj)
         session.commit()
     except Exception as e:
         session.rollback()
