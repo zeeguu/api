@@ -37,7 +37,7 @@ from zeeguu.core.llm_services.prompts.article_simplification import (
 from zeeguu.core.llm_services.simplification_and_classification import (
     _call_simplification_llm,
     _parse_assessment_and_summary,
-    _select_provider_and_key,
+    _api_key_for,
     _summaries_to_check,
 )
 from zeeguu.core.model.article import Article
@@ -103,7 +103,7 @@ def main():
     )
     args = p.parse_args()
 
-    provider, api_key = _select_provider_and_key(args.provider)
+    provider, api_key = args.provider, _api_key_for(args.provider)
     variants = [v.strip() for v in args.variants.split(",") if v.strip()]
     for v in variants:
         if v not in VARIANTS:
