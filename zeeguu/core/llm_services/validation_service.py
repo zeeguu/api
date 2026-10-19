@@ -220,6 +220,36 @@ class UserWordValidationService:
         return user_word
 
     @classmethod
+    def fix_with_verdict(cls, db_session, user_word, verdict):
+        """
+        Apply a FIX verdict reached elsewhere (the audio lesson check's
+        pair-only verdict) exactly as validate_and_fix applies its own: the
+        learner moves to the corrected pair with their progress, or, with no
+        correction, leaves study; the meaning becomes INVALID and other
+        learners' words on it are taken out. Commits. Returns the user word to
+        use, or None.
+        """
+        from zeeguu.core.model import Bookmark, Meaning
+        from zeeguu.core.model.validation_log import ValidationLog
+
+        bookmark = user_word.preferred_bookmark or (
+            Bookmark.query.filter_by(user_word_id=user_word.id).order_by(Bookmark.id.desc()).first()
+        )
+        if bookmark:
+            return cls._fix_bookmark(db_session, user_word, bookmark, verdict, bookmark.get_context())
+
+        # No bookmark to move: the no-correction outcome, for everyone
+        meaning = user_word.meaning
+        meaning.validated = Meaning.INVALID
+        db_session.add(meaning)
+        ValidationLog.log_invalid(db_session, meaning=meaning, user_word_id=user_word.id, reason=verdict.reason)
+        cls._take_out_for_other_learners(
+            db_session, meaning, user_word, verdict, None, including_this_learner=True
+        )
+        db_session.commit()
+        return None
+
+    @classmethod
     def _take_out_for_other_learners(cls, db_session, old_meaning, user_word, validation_result, context,
                                      including_this_learner=False):
         """

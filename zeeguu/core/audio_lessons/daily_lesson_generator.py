@@ -10,7 +10,6 @@ from sqlalchemy.orm import sessionmaker
 
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
-from zeeguu.core.audio_lessons.lesson_correctness_check import mark_pair_invalid
 from zeeguu.core.audio_lessons.script_generator import (
     MEANING_LESSON_PROMPT_VERSION,
     LessonNotCorrect,
@@ -207,6 +206,27 @@ class DailyLessonGenerator:
             user, num_words, return_unscheduled_info=return_unscheduled_info
         )
 
+    def fix_refused_pair(self, user_word, refusal):
+        """
+        The lesson check found this word's pair wrong and the pair-only verdict
+        confirmed it: apply that verdict the way the translation validator
+        applies its own, moving the learner to the corrected pair with their
+        progress (2026-10-19; it used to just leave study). Call it after your
+        own transaction has ended: it commits. A failure is reported, not
+        raised: the lesson has already left the word out.
+        """
+        from zeeguu.core.llm_services.validation_service import UserWordValidationService
+
+        try:
+            UserWordValidationService.fix_with_verdict(db.session, user_word, refusal.pair_verdict)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            log(f"[lesson check] could not apply the pair fix for user_word {user_word.id}: {e}")
+            from sentry_sdk import capture_exception
+
+            capture_exception(e)
+
     def generate_audio_lesson_meaning(
         self,
         user_word,
@@ -260,32 +280,28 @@ class DailyLessonGenerator:
                 context=context,
             )
         except (LessonNotCorrect, NotAScript) as e:
-            # Recorded in a session of their own: callers roll theirs back on
+            if isinstance(e, LessonNotCorrect) and e.about_the_data:
+                # The pair is wrong: the caller applies the fix after its own
+                # transaction (fix_refused_pair), which moves this learner to
+                # the corrected pair and needs the default session.
+                raise
+            # Recorded in a session of its own: callers roll theirs back on
             # errors, and without a record the precompute cron would generate
             # and refuse this word again every night. A failure to record must
             # not replace the refusal, or the learner loses the whole lesson
             # instead of this one word.
-            def record(session):
-                if isinstance(e, LessonNotCorrect) and e.about_the_data:
-                    mark_pair_invalid(
-                        session, meaning.id, e.problems,
-                        user_word_id=user_word.id, context=context,
-                    )
-                else:
-                    AudioLessonRefusal.record(
-                        session,
-                        meaning.id,
-                        teacher_lang.id,
-                        MEANING_LESSON_PROMPT_VERSION,
-                        AudioLessonRefusal.NOT_CORRECT
-                        if isinstance(e, LessonNotCorrect)
-                        else AudioLessonRefusal.NOT_A_SCRIPT,
-                        str(e),
-                    )
-
             separate_session = sessionmaker(bind=flask_db.engine)()
             try:
-                record(separate_session)
+                AudioLessonRefusal.record(
+                    separate_session,
+                    meaning.id,
+                    teacher_lang.id,
+                    MEANING_LESSON_PROMPT_VERSION,
+                    AudioLessonRefusal.NOT_CORRECT
+                    if isinstance(e, LessonNotCorrect)
+                    else AudioLessonRefusal.NOT_A_SCRIPT,
+                    str(e),
+                )
                 separate_session.commit()
             except Exception as recording_error:
                 separate_session.rollback()
@@ -495,6 +511,9 @@ class DailyLessonGenerator:
             Dictionary with lesson details or error information
         """
         start_time = time.time()
+        # Words whose pair the check found wrong: fixed after this lesson's
+        # transaction has ended, whichever way it ends (fix_refused_pair)
+        pairs_to_fix = []
 
         try:
             log(
@@ -578,6 +597,8 @@ class DailyLessonGenerator:
                         # Same for a word the model will not write a lesson for.
                         log(f"[generate_daily_lesson] Leaving out '{meaning.origin.content}': {e}")
                         refused.append(user_word)
+                        if isinstance(e, LessonNotCorrect) and e.about_the_data:
+                            pairs_to_fix.append((user_word, e))
                         continue
                     except Exception as e:
                         log(
@@ -658,6 +679,10 @@ class DailyLessonGenerator:
 
             log(f"[generate_daily_lesson] Traceback: {traceback.format_exc()}")
             return {"error": f"Unexpected error: {str(e)}"}
+
+        finally:
+            for user_word, refusal in pairs_to_fix:
+                self.fix_refused_pair(user_word, refusal)
 
     def _get_user_day_range_utc(self, timezone_offset=0):
         """
