@@ -14,7 +14,15 @@ from zeeguu.core.model.db import db
 
 
 class UserWord(db.Model):
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # Named for the index production already has (added by
+    # tools/migrations/25-05-24--adding_the_user_word_table.sql), so nobody
+    # generates a second one under a different name. Declared here so the
+    # SQLite test database refuses the duplicate pairs MySQL refuses -- without
+    # it, a test exercising the find_or_create race passes against unfixed code.
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "meaning_id", name="unique_user_word"),
+        {"mysql_collate": "utf8_bin"},
+    )
     __tablename__ = "user_word"  # Explicitly set table name for migration
 
     id = db.Column(db.Integer, primary_key=True)

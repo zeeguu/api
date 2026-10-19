@@ -7,7 +7,12 @@ from zeeguu.core.model.db import db
 
 
 class TeacherCohortMap(db.Model):
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    # user_id_2 is production's own (auto-generated) name for this index; keep it
+    # so nobody generates a second one under a tidier name.
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "cohort_id", name="user_id_2"),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = Column(Integer, primary_key=True)
 
