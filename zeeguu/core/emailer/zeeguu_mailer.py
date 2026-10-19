@@ -59,7 +59,11 @@ class ZeeguuMailer(object):
             + "\n\n"
             + "Cheers,\n"
             + f"{escape(user.name)} ({user.id}, {escape(user.email)})",
-            zeeguu.core.app.config.get("SMTP_EMAIL"),
+            # Gmail files mail it sends to itself under Sent only, never the
+            # Inbox, so feedback goes to an address someone actually reads.
+            zeeguu.core.app.config.get(
+                "FEEDBACK_EMAIL", zeeguu.core.app.config.get("SMTP_EMAIL")
+            ),
         )
         mailer.send()
 
