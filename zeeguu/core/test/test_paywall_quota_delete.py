@@ -168,7 +168,6 @@ class PaywallQuotaDeleteTest(ModelTestMixIn, TestCase):
         }
         with patch.object(feed, "feed_items", return_value=items), patch.multiple(
             article_downloader,
-            SIMPLIFY_AT_CRAWL=False,
             **{name: MagicMock(side_effect=fn) for name, fn in patches.items()},
         ):
             summary = article_downloader.download_from_feed(

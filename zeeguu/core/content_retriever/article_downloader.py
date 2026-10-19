@@ -40,7 +40,6 @@ from zeeguu.core.content_retriever import (
     readability_download_and_parse,
 )
 from zeeguu.core.llm_services.simplification_and_classification import (
-    simplify_and_classify,
     assess_and_summarize,
     save_assessment,
 )
@@ -52,15 +51,10 @@ from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
 TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
-# On-demand simplification: at crawl time we only assess + summarize + classify;
-# full simplification to each CEFR level happens lazily when a learner opens an
-# article (POST /simplify_article/<id>). Set SIMPLIFY_AT_CRAWL=true to restore the
-# legacy behavior of pre-generating every sub-level at crawl time.
-SIMPLIFY_AT_CRAWL = os.environ.get("SIMPLIFY_AT_CRAWL", "false").strip().lower() in (
-    "1",
-    "true",
-    "yes",
-)
+# At crawl time we only assess + summarize + classify; simplification to each
+# CEFR level happens when a learner opens an article (POST /simplify_article/<id>).
+# Shorter articles are saved without that LLM pass.
+MIN_WORDS_TO_ASSESS = 100
 # Max time per feed (safety valve for sequential crawls) - configurable via env var
 MAX_FEED_PROCESSING_TIME_SECONDS = int(os.environ.get("MAX_FEED_PROCESSING_TIME_SECONDS", "300"))
 
@@ -320,7 +314,7 @@ def extract_article_image(np_article):
 
 
 def download_from_feed(
-    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, simplification_provider=None, topic_simplification_counts=None
+    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, simplification_provider=None
 ):
     """
 
@@ -453,7 +447,6 @@ def download_from_feed(
                 url,
                 crawl_report,
                 simplification_provider=simplification_provider,
-                topic_simplification_counts=topic_simplification_counts,
             )
             # The article is fetched + saved; disarm now so the alarm can't fire
             # during the ES-indexing/bookkeeping below — a timeout there would
@@ -632,40 +625,7 @@ def get_max_simplified_for_language(language_code):
     return MAX_SIMPLIFIED_DEFAULT
 
 
-def get_todays_simplified_counts_by_language_topic(session, language_id):
-    """Get count of simplified articles per topic created today for a given language.
-
-    Simplified articles are stored in the Article table with parent_article_id set.
-    Topics are on the parent article, so we join: SimplifiedArticle -> ParentArticle -> ArticleTopicMap
-
-    Returns dict of {topic_id: count} for this specific language.
-    """
-    from datetime import datetime
-    from zeeguu.core.model import ArticleTopicMap
-    from sqlalchemy import func
-    from sqlalchemy.orm import aliased
-
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-    # Simplified articles have parent_article_id set
-    # Topics are associated with the parent article
-    ParentArticle = aliased(model.Article)
-
-    results = (
-        session.query(ArticleTopicMap.topic_id, func.count(model.Article.id))
-        .join(ParentArticle, model.Article.parent_article_id == ParentArticle.id)
-        .join(ArticleTopicMap, ArticleTopicMap.article_id == ParentArticle.id)
-        .filter(ParentArticle.language_id == language_id)
-        .filter(model.Article.published_time >= today_start)
-        .filter(model.Article.parent_article_id != None)
-        .group_by(ArticleTopicMap.topic_id)
-        .all()
-    )
-
-    return {topic_id: count for topic_id, count in results}
-
-
-def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None, topic_simplification_counts=None):
+def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None):
     import html
 
     title = html.unescape(feed_item["title"])
@@ -749,11 +709,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         return article
 
     # Check for disturbing content (keyword-based detection). Saved below, as
-    # soon as the article exists, decoupled from simplification: the LLM
-    # classification only runs if the article gets simplified, but
-    # simplification can be skipped (daily cap below, on-demand simplification,
-    # or an LLM error). The always-on keyword gate must set is_disturbing
-    # regardless, or the feed filter can't work.
+    # soon as the article exists, decoupled from the LLM classification, which
+    # can be skipped (short article) or fail. The always-on keyword gate must
+    # set is_disturbing regardless, or the feed filter can't work.
     is_disturbing_keyword, disturbing_reason = is_disturbing_content_based_on_keywords(
         title=title, content=np_article.text, language=feed.language.code
     )
@@ -762,16 +720,17 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
             f"   ⚠ Disturbing content detected ({disturbing_reason})"
         )
 
-    # On-demand mode asks the LLM before anything is written. Most of what it
-    # rejects is still saved, as a broken article, but a paywall over the daily
-    # sample quota is not, and must leave nothing behind: deleting it again
-    # afterwards is what dropped the rest of the feed from August to October
-    # 2026 (api#856), and still left its source and source_text rows.
-    # Legacy mode simplifies into child articles, which need their parent saved
-    # first, so it asks after.
+    # Ask the LLM before anything is written. Most of what it rejects is still
+    # saved, as a broken article, but a paywall over the daily sample quota is
+    # not, and must leave nothing behind: deleting it again afterwards is what
+    # dropped the rest of the feed from August to October 2026 (api#856), and
+    # still left its source and source_text rows.
     assessment = llm_error = None
-    if not SIMPLIFY_AT_CRAWL:
-        log(f"   Calling LLM for assessment and summary (on-demand simplification)...")
+    word_count = len(np_article.text.split())
+    if word_count < MIN_WORDS_TO_ASSESS:
+        log(f"   Too short to assess ({word_count} words), saving without LLM pass")
+    else:
+        log(f"   Calling LLM for assessment and summary...")
         llm_start_time = time()
         try:
             assessment = assess_and_summarize(
@@ -793,13 +752,6 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     article = new_article()
     _add_image_and_topics(article, np_article, feed, session)
 
-    # IMPORTANT: Capture topic data NOW before any potential session rollback.
-    # _cache_article_tokenization can rollback on failure, which would delete
-    # the ArticleTopicMap entries from the session. Store the data we need.
-    # Fixes ZEEGUU-API-X1: ObjectDeletedError when accessing topics after rollback.
-    article_topic_ids = [t.topic_id for t in article.topics]
-    article_topic_names = [t.topic.title for t in article.topics]
-
     # Fragments and the tokenization cache are built only once the article has
     # survived every rejection below (see _prepare_for_reading).
 
@@ -811,65 +763,6 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
             _save_classifications(session, article, save_assessment(session, article, assessment))
         except Exception as e:
             llm_error = e
-
-    if SIMPLIFY_AT_CRAWL:
-        # The per-(language, topic) daily simplification cap only exists to
-        # bound the cost of pre-generating simplified versions at crawl time.
-        # topic_simplification_counts is keyed by (language_id, topic_id) tuple
-        # Note: article_topic_ids/names were captured earlier before potential rollback
-        language_id = feed.language_id
-        lang_code = feed.language.code
-        max_for_lang = get_max_simplified_for_language(lang_code)
-
-        if topic_simplification_counts is not None and article_topic_ids:
-            # Check if ANY topic still needs simplified articles today for this language
-            needs_simplification = False
-            for topic_id in article_topic_ids:
-                key = (language_id, topic_id)
-                current_count = topic_simplification_counts.get(key, 0)
-                if current_count < max_for_lang:
-                    needs_simplification = True
-                    break
-
-            if not needs_simplification:
-                log(f"   ⏭ Skipping simplification - daily cap ({max_for_lang}/topic) reached for: {article_topic_names}")
-                _prepare_for_reading(article, session)
-                return article
-
-        log(f"   Calling LLM for simplification and classification...")
-        llm_start_time = time()
-        try:
-            simplified_articles, llm_classifications = simplify_and_classify(
-                session, article, simplification_provider=simplification_provider
-            )
-            llm_duration = time() - llm_start_time
-            log(f"   ✓ LLM call completed in {llm_duration:.1f}s")
-            if simplified_articles:
-                log(
-                    f"   Created {len(simplified_articles)} simplified versions"
-                )
-                # Pre-tokenize each simplified child's title/summary too. These are what
-                # the recommended feed renders as tappable preview cards; caching them
-                # here keeps that off the request path (mirrors the original above).
-                for simplified in simplified_articles:
-                    _cache_article_tokenization(simplified, session)
-                # Update topic simplification counts after successful simplification
-                # Key is (language_id, topic_id) to track per language
-                if topic_simplification_counts is not None:
-                    for topic_id in article_topic_ids:
-                        key = (language_id, topic_id)
-                        topic_simplification_counts[key] = topic_simplification_counts.get(key, 0) + 1
-            else:
-                log(
-                    f"   No simplified versions created"
-                )
-
-            # Save LLM-based classifications. The keyword-based DISTURBING flag was
-            # already persisted above, so it survives even when simplification is
-            # skipped or errors out.
-            _save_classifications(session, article, llm_classifications)
-        except Exception as e:
-            llm_error, llm_duration = e, time() - llm_start_time
 
     if llm_error:
         _mark_llm_rejection(session, article, llm_error, llm_duration)
@@ -935,18 +828,10 @@ def _mark_llm_rejection(session, new_article, e, llm_duration):
         new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_LLM)
     # Check if LLM detected paywall - sample to avoid DB bloat
     elif _is_paywall(e):
-        if _should_save_paywall_sample(session, new_article.language):
-            log(f"   ✗ LLM detected paywall after {llm_duration:.1f}s - saving as sample for pattern analysis")
-            new_article.set_as_broken(session, LowQualityTypes.LLM_PAYWALL_PATTERN)
-        else:
-            # Legacy mode only: on-demand mode skips these before the
-            # article exists.
-            log(
-                f"   ✗ LLM detected paywall after {llm_duration:.1f}s - skipping (daily quota of {MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE} samples reached)"
-            )
-            session.delete(new_article)
-            session.commit()
-            raise SkippedForLowQuality("LLM-detected paywall, sample quota reached")
+        # Over the daily quota never gets here: download_feed_item skips
+        # those before the article exists.
+        log(f"   ✗ LLM detected paywall after {llm_duration:.1f}s - saving as sample for pattern analysis")
+        new_article.set_as_broken(session, LowQualityTypes.LLM_PAYWALL_PATTERN)
     else:
         # Don't fail the entire crawl if simplification fails for other reasons
         log(
