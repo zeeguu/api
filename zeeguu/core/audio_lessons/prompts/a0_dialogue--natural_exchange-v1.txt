@@ -1,0 +1,14 @@
+Write a short dialogue in {target_language} for an audio lesson for an absolute beginner.
+
+Situation: "{suggestion}"
+
+Picture how this really happens: who speaks first, and why; what the other person answers. Write that exchange between a man and a woman, the way native speakers would have it: each line is a natural answer to the line before. As many lines as the exchange really has: two to six. Keep it as simple as a natural exchange allows, because the learner will learn all of it.
+
+{known_words}
+{earlier_lessons}
+
+Both speakers are adults. If they have names, the man's is a man's name and the woman's a woman's.
+
+The learner plays the {learner}: the person the situation is about (the customer, the guest, the one who does not understand). Keep their lines short, because they will learn to say them; the other person may speak as they naturally would, because the learner only needs to understand them.
+
+Output only the dialogue, one line per speaker, as "Man: ..." and "Woman: ...".

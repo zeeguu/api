@@ -20,6 +20,9 @@ from zeeguu.core.audio_lessons.azure_voice_synthesizer import AzureVoiceSynthesi
 from zeeguu.core.audio_lessons.script_parser import parse_script
 from zeeguu.logging import log
 
+# For lines marked [slow]: a new word said once slowly in an A0 lesson.
+SLOW_SPEAKING_RATE = 0.7
+
 
 class VoiceSynthesizer:
     """Handles text-to-speech synthesis and audio file management."""
@@ -177,19 +180,19 @@ class VoiceSynthesizer:
 
     def _synthesize_script_to_file(self, script, output_path, language_code, teacher_language_code, cefr_level=None, on_progress=None, *, variety):
         """Shared logic: parse script, synthesize all segments, combine and export to output_path."""
-        segments = parse_script(script)
+        segments = parse_script(script, with_speed=True)
         audio_segments = []
 
-        speech_segments = [(v, t, s) for v, t, s in segments if v != "silence"]
+        speech_segments = [s for s in segments if s[0] != "silence"]
         total_speech_segments = len(speech_segments)
         current_speech_segment = 0
 
         # Determine speaking rate based on CEFR level
         speaking_rate = 1.0
-        if cefr_level and cefr_level in ("A1", "A2"):
+        if cefr_level and cefr_level in ("A0", "A1", "A2"):
             speaking_rate = 0.9
 
-        for voice_type, text, silence_duration in segments:
+        for voice_type, text, silence_duration, slow in segments:
             if voice_type == "silence":
                 silence = AudioSegment.silent(duration=silence_duration * 1000)
                 audio_segments.append(silence)
@@ -199,6 +202,11 @@ class VoiceSynthesizer:
                     on_progress(current_speech_segment, total_speech_segments, voice_type)
 
                 rate = speaking_rate if voice_type in ["man", "woman", "teacherl2"] else 1.0
+                if slow and voice_type in ["man", "woman", "teacherl2"]:
+                    # A word said slowly so a beginner can hear its sounds: slowing
+                    # the whole word keeps it natural, which saying it in syllables
+                    # with TTS does not ("ka.ka. fee.fee").
+                    rate = SLOW_SPEAKING_RATE
                 audio_path = self.synthesize_segment(
                     text, voice_type, language_code, rate, teacher_language_code, variety=variety
                 )

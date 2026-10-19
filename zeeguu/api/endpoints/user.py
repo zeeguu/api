@@ -270,6 +270,12 @@ def _validated_settings(user, data):
         )
         User.validated_feed_variety(feed_variety_language_code, submitted_feed_variety)
 
+    # The level is stored by set_learned_language, after other writes; refused
+    # here instead. Checked as given, never with `if level:`: 0 is A0.
+    from zeeguu.core.model import UserLanguage
+
+    UserLanguage.parse_cefr_level(data.get("cefr_level", None))
+
     # Same shape as the feed variety above, and a separate setting: which dialect
     # you are learning is not the same question as which country's news to read.
     submitted_dialect = data.get("dialect", None)

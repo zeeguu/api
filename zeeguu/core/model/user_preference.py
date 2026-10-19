@@ -46,6 +46,13 @@ class UserPreference(db.Model):
     SHOW_READING_TIMER = "show_reading_timer"  # Show timer in reader and exercises
     EMAIL_ON_ARTICLE_SHARED = "email_on_article_shared"  # Email me when a friend shares an article
 
+    # Which character the learner plays in situation lessons: "man", "woman", or
+    # "either" (alternate). Asked, never inferred -- not from the name either: a
+    # wrong guess would address them, and in many languages drill their own
+    # sentences, in the wrong gender every day. Unset behaves like "either".
+    AUDIO_LESSON_CHARACTER = "audio_lesson_character"
+    AUDIO_LESSON_CHARACTERS = ("man", "woman", "either")
+
     # Daily audio lesson preferences. Keyed PER learned-language because the daily
     # lesson is stored/queried per user.learned_language; the language code is
     # appended to the prefix (e.g. "daily_audio_lesson_type_da"). A user can keep a
@@ -158,6 +165,12 @@ class UserPreference(db.Model):
             user_id=user.id, key=cls.SHOW_EASIER_ARTICLES
         ).first()
         return setting and setting.value == "true"
+
+    @classmethod
+    def get_audio_lesson_character(cls, user: User):
+        """'man' or 'woman' when the learner chose one; None for either or unset."""
+        value = cls.get(user, cls.AUDIO_LESSON_CHARACTER)
+        return value if value in cls.AUDIO_LESSON_CHARACTERS and value != "either" else None
 
     @classmethod
     def daily_audio_lesson_type_key(cls, language_code: str):

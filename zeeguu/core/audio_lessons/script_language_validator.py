@@ -80,6 +80,15 @@ LINES_PER_GROUP = 4
 # judged text there is no cushion, and the honest answer is "can't judge".
 MIN_CHARS_TO_JUDGE_A_LESSON = 200
 
+# Lessons for absolute beginners (A0) are made of one- and two-word lines, which
+# the per-line minimum above discards: such a lesson would never be judged. Their
+# DISTINCT target-language lines are judged together instead, as one text.
+# Measured 2026-10-19: six A0 lessons (Danish, Bulgarian), 162-328 distinct
+# characters each, read 0.68-1.00 as their language; the same Danish drill
+# written in Norwegian read 0.125 as Danish, in English 0.00. GROUP_LEVEL_FLOOR
+# sits between. Below this many characters, too little to judge.
+MIN_CHARS_TO_JUDGE_SHORT_LINES = 100
+
 
 def _without_echoes(lines: list) -> list:
     """
@@ -102,13 +111,47 @@ def _without_echoes(lines: list) -> list:
     return kept
 
 
+def _short_line_mismatches(script, target_language, label_for_log):
+    """See MIN_CHARS_TO_JUDGE_SHORT_LINES."""
+    distinct = []
+    for voice_type, text, _ in parse_script(script):
+        if voice_type in TARGET_LANGUAGE_VOICES and text.lower() not in (
+            seen.lower() for seen in distinct
+        ):
+            distinct.append(text)
+    text = " ".join(distinct)
+
+    confidence = plausibility(text, target_language) if len(text) >= MIN_CHARS_TO_JUDGE_SHORT_LINES else None
+    if confidence is None:
+        log(
+            f"[script_language_validator] {label_for_log or 'script'}: too little "
+            f"{target_language} text to judge ({len(text)} chars of short lines)"
+        )
+        return []
+    if confidence >= GROUP_LEVEL_FLOOR:
+        return []
+    return [
+        LanguageMismatch(
+            label=f"{TARGET_LABEL} (all {len(distinct)} distinct short lines)",
+            expected=target_language,
+            detected=_reads_as(text, target_language),
+            expected_probability=confidence,
+            sample=text[:120],
+        )
+    ]
+
+
 def _reads_as(line, target_language) -> str:
     detected = detected_language_of(line)
     return detected if detected != target_language else "no language confidently"
 
 
 def find_language_mismatches(
-    script: str, target_language: str, source_language=None, label_for_log: str = ""
+    script: str,
+    target_language: str,
+    source_language=None,
+    label_for_log: str = "",
+    short_lines: bool = False,
 ) -> list:
     """
     Check a lesson script against the language it was supposed to be written in.
@@ -122,7 +165,13 @@ def find_language_mismatches(
     Returns:
         A list of LanguageMismatch — empty when the script looks right, and also
         empty when there was too little to judge or the language has no model.
+
+    short_lines: the script is made of one- and two-word lines (A0 lessons); its
+    distinct target-language lines are judged together, as one text.
     """
+    if short_lines:
+        return _short_line_mismatches(script, target_language, label_for_log)
+
     lines = [
         text
         for voice_type, text, _ in parse_script(script)

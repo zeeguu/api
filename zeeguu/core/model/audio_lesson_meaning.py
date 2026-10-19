@@ -31,7 +31,7 @@ class AudioLessonMeaning(db.Model):
     teacher_language = relationship(Language)
 
     difficulty_level = Column(
-        Enum("A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
+        Enum("A0", "A1", "A2", "B1", "B2", "C1", "C2", name="cefr_level")
     )
 
     # The regional variety of the language being learned that this row was voiced

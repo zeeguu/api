@@ -293,8 +293,12 @@ for user, last_activity in user_activity_map:
         )
         output(f"   Main language: {user.learned_language.name}")
 
-        # Get user's CEFR level
-        cefr_level = user.cefr_level_for_learned_language()
+        # The level the live generator writes word lessons at: the audio level
+        # (A1 when unset, where this used to read an unset level as C2), with A0
+        # mapped to A1 since there are no A0 word lessons.
+        from zeeguu.core.audio_lessons.script_generator import word_lesson_level
+
+        cefr_level = word_lesson_level(user.audio_lesson_level_for_learned_language())
 
         # Get all languages for this user
         user_languages = user.get_all_languages()
