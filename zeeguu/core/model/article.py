@@ -33,6 +33,9 @@ from zeeguu.logging import log
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
 MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100
+# Tokenizations above this (json chars ≈ bytes) are not cached; see
+# _cache_tokenized_content
+MAX_CACHED_TOKENIZATION_CHARS = 16 * 1024 * 1024
 
 # [^<>] rather than [^>]: with [^>], a run of "<" with no ">" makes every
 # match attempt scan to the end of the input, which is quadratic. Excluding
@@ -697,15 +700,27 @@ class Article(db.Model):
         from zeeguu.core.mwe import tokenize_for_reading
         import json
 
+        tokenized_content = json.dumps(
+            {
+                "tokenized_fragments": tokenized_data["tokenized_fragments"],
+                "tokenized_title_new": tokenized_data["tokenized_title_new"],
+                "tokenized_title": tokenized_data["tokenized_title"],
+            }
+        )
+        # An UPDATE over max_allowed_packet (64 MB on prod, set in ops) drops
+        # the connection ("MySQL server has gone away"). A 15k-word Wikipedia
+        # page tokenizes to ~4 MB, so 16 MB covers the longest real articles
+        # with margin; anything bigger is just re-tokenized on each open.
+        if len(tokenized_content) > MAX_CACHED_TOKENIZATION_CHARS:
+            log(
+                f"[CACHE-SKIP] Article {self.id} - Tokenized content too large "
+                f"to cache ({len(tokenized_content) // 1024} KB)"
+            )
+            return
+
         try:
             cache = ArticleTokenizationCache.find_or_create(session, self)
-            cache.tokenized_content = json.dumps(
-                {
-                    "tokenized_fragments": tokenized_data["tokenized_fragments"],
-                    "tokenized_title_new": tokenized_data["tokenized_title_new"],
-                    "tokenized_title": tokenized_data["tokenized_title"],
-                }
-            )
+            cache.tokenized_content = tokenized_content
             # Also populate summary and title to keep everything in sync
             if self.summary:
                 tokenized_summary = tokenize_for_reading(
@@ -718,6 +733,7 @@ class Article(db.Model):
             session.commit()
             log(f"[CACHE-WRITE] Article {self.id} - Cached tokenized content, summary, and title")
         except Exception as e:
+            session.rollback()
             log(f"[CACHE-WRITE-FAIL] Article {self.id} - Failed to cache: {e}")
 
     @classmethod
