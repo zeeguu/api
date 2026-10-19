@@ -270,19 +270,22 @@ class Article(db.Model):
     source_upload_id = Column(Integer, ForeignKey("article_upload.id"))
     source_upload = relationship("ArticleUpload", foreign_keys=[source_upload_id])
 
+    # The DB cascades both maps (ON DELETE CASCADE). passive_deletes only stops
+    # SQLAlchemy from LOADING the maps to delete them; maps already in the
+    # session (e.g. the crawler deleting an article it just tagged) still need
+    # the delete cascade, or SQLAlchemy tries to NULL article_id, which is part
+    # of their primary key, and the flush fails.
     topics = relationship(
         "ArticleTopicMap",
         back_populates="article",
-        # passive_deletes = tells SQLAlchemy to rely on the database's CASCADE behavior
-        # instead of trying to manage the deletion itself
+        cascade="save-update, merge, delete",
         passive_deletes=True,
     )
 
     url_keywords = relationship(
         "ArticleUrlKeywordMap",
         back_populates="article",
-        # passive_deletes = tells SQLAlchemy to rely on the database's
-        # CASCADE behavior instead of trying to manage the deletion itself
+        cascade="save-update, merge, delete",
         passive_deletes=True,
     )
     # Few words in an article is very often not an
