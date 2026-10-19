@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import Feed
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+from zeeguu.operations.task_status import set_summary
 
 app = create_app_for_scripts()
 app.app_context().push()
@@ -54,7 +55,9 @@ def main():
 
     if not stale_feeds:
         print(f"OK: no active feed is more than {args.days} days stale.")
+        set_summary(f"no feed stale over {args.days}d")
         return
+    set_summary(f"{len(stale_feeds)} feed(s) stale over {args.days}d")
 
     lines = [f"=== STALE FEEDS (no updates in {args.days}+ days) ===", ""]
     for feed, days in stale_feeds:

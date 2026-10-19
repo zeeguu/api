@@ -25,9 +25,12 @@ Usage:
     python -m tools.crawler_liveness_check [--max-age-hours N]
 """
 import argparse
+import sys
 from datetime import datetime
 
 from sqlalchemy import func
+
+from zeeguu.operations.task_status import set_summary
 
 from zeeguu.api.app import create_app_for_scripts
 from zeeguu.core.model import db, Feed
@@ -70,6 +73,7 @@ def main():
     if age_hours is not None and age_hours < args.max_age_hours:
         print(f"OK: newest feed crawl was {age_hours:.1f}h ago ({newest:%Y-%m-%d %H:%M}); "
               f"under the {args.max_age_hours}h threshold.")
+        set_summary(f"newest crawl {age_hours:.1f}h ago")
         return
 
     # --- stalled: alert via the app's own mailer ---
@@ -95,7 +99,10 @@ def main():
     ]
 
     print(f"ALERT: {subject} — {headline} (threshold {args.max_age_hours}h)")
+    set_summary(f"STALLED: {headline}")
     ZeeguuMailer.send_mail(subject, body_lines)
+    # Non-zero, so the run shows as failed on /status and in the health digest
+    sys.exit(1)
 
 
 if __name__ == "__main__":

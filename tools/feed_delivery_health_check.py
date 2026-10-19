@@ -66,6 +66,7 @@ from datetime import datetime, timedelta
 
 from zeeguu.core.model import User, Language
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+from zeeguu.operations.task_status import set_summary
 
 # NOTE: the Flask app + app context are created inside main(), NOT at module
 # import time. The DB-touching functions below need an app context at CALL time,
@@ -562,11 +563,13 @@ def main():
             else ""
         )
         print(f"\nOK: no alerting segment failures.{note}")
+        set_summary(f"all {len(results)} segments ok{note}")
         return 0
 
     subject = (
         f"⚠️ Zeeguu feed delivery: {len(alerting_failures)} segment(s) failing (empty/stale/error)"
     )
+    set_summary(f"{len(alerting_failures)} of {len(results)} segments failing (empty/stale/error)")
     if args.dry_run:
         print(f"\n[dry-run] would email: {subject}")
     else:

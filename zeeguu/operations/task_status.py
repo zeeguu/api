@@ -63,6 +63,9 @@ def read_all(now=None):
     except OSError:
         return []
     runs = [r for r in (_read(os.path.join(TASK_STATUS_DIR, n)) for n in names) if r]
+    # A record without a start time can't be shown or judged; skip it rather
+    # than break /status
+    runs = [r for r in runs if isinstance(r.get("started_at"), (int, float))]
     for r in runs:
         interval = _usual_interval(r.get("history") or [])
         r["late"] = bool(interval) and now - r["started_at"] > 1.5 * interval + 600

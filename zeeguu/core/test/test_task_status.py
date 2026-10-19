@@ -82,3 +82,11 @@ def test_traced_task_records_a_crash(tmp_path, monkeypatch):
     monkeypatch.setattr(task_status, "TASK_STATUS_DIR", str(status_dir))
     [run] = task_status.read_all()
     assert not run["ok"] and run["error"] == "ValueError: boom"
+
+
+def test_a_record_without_a_start_time_is_skipped(tmp_path, monkeypatch):
+    _use(tmp_path, monkeypatch)
+    (tmp_path / "broken.json").write_text('{"task": "broken"}')
+    task_status.record("ok_task", 0, 60, 0)
+
+    assert [r["task"] for r in task_status.read_all(now=100)] == ["ok_task"]
