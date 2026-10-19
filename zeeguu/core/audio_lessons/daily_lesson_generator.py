@@ -6,9 +6,14 @@ import os
 import time
 from datetime import datetime, timezone, timedelta
 
+from sqlalchemy.orm import sessionmaker
+
 from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
 from zeeguu.core.audio_lessons.script_generator import (
+    MEANING_LESSON_PROMPT_VERSION,
+    LessonNotCorrect,
+    NotAScript,
     builds_on_history as level_builds_on_history,
     generate_dialogue_script,
     generate_lesson_script,
@@ -31,6 +36,8 @@ from zeeguu.core.model import (
     AudioLessonGenerationProgress,
 )
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
+from zeeguu.core.model.audio_lesson_refusal import AudioLessonRefusal
+from zeeguu.core.model.db import db as flask_db  # the module `db` above has no engine
 from zeeguu.core.model.user_language import UserLanguage
 from zeeguu.core.model.user_preference import UserPreference
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
@@ -47,6 +54,17 @@ def _ai_generator_for(generated):
     return AIGenerator.find_or_create(
         db.session, generated.model_name, prompt_version=generated.prompt_version
     )
+
+
+def _lookup_sentence(user_word):
+    """The sentence the learner looked the word up in, or None. Never the
+    "[Context deleted]" placeholder: the lesson check would judge the pair
+    against it as if it were the sentence."""
+    bookmark = user_word.preferred_bookmark
+    if not bookmark or not (bookmark.context or bookmark.text):
+        return None
+    sentence = bookmark.get_context()
+    return None if sentence == "[Context deleted]" else sentence
 
 
 class DailyLessonGenerator:
@@ -192,6 +210,27 @@ class DailyLessonGenerator:
             user, num_words, return_unscheduled_info=return_unscheduled_info
         )
 
+    def fix_refused_pair(self, user_word, refusal):
+        """
+        The lesson check found this word's pair wrong and the pair-only verdict
+        confirmed it: apply that verdict the way the translation validator
+        applies its own, moving the learner to the corrected pair with their
+        progress (2026-10-19). Call it after your
+        own transaction has ended: it commits. A failure is reported, not
+        raised: the lesson has already left the word out.
+        """
+        from zeeguu.core.llm_services.validation_service import UserWordValidationService
+
+        try:
+            UserWordValidationService.fix_with_verdict(db.session, user_word, refusal.pair_verdict)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            log(f"[lesson check] could not apply the pair fix for user_word {user_word.id}: {e}")
+            from sentry_sdk import capture_exception
+
+            capture_exception(e)
+
     def generate_audio_lesson_meaning(
         self,
         user_word,
@@ -235,13 +274,47 @@ class DailyLessonGenerator:
             progress.update_generating_script()
             db.session.commit()
 
-        generated = generate_lesson_script(
-            origin_word=meaning.origin.content,
-            translation_word=meaning.translation.content,
-            origin_language=origin_language,
-            translation_language=translation_language,
-            cefr_level=cefr_level,
-        )
+        context = _lookup_sentence(user_word)
+        try:
+            generated = generate_lesson_script(
+                origin_word=meaning.origin.content,
+                translation_word=meaning.translation.content,
+                origin_language=origin_language,
+                translation_language=translation_language,
+                cefr_level=cefr_level,
+                context=context,
+            )
+        except (LessonNotCorrect, NotAScript) as e:
+            # Recorded in a session of its own: callers roll theirs back on
+            # errors, and without a record the precompute cron would generate
+            # and refuse this word again every night. Also for a wrong pair,
+            # whose fix (fix_refused_pair, applied by the caller after its own
+            # transaction) does not always stop the meaning being picked: a
+            # fix that changes the word leaves it as it was. A failure to
+            # record must not replace the refusal, or the learner loses the
+            # whole lesson instead of this one word.
+            separate_session = sessionmaker(bind=flask_db.engine)()
+            try:
+                AudioLessonRefusal.record(
+                    separate_session,
+                    meaning.id,
+                    teacher_lang.id,
+                    MEANING_LESSON_PROMPT_VERSION,
+                    AudioLessonRefusal.NOT_CORRECT
+                    if isinstance(e, LessonNotCorrect)
+                    else AudioLessonRefusal.NOT_A_SCRIPT,
+                    str(e),
+                )
+                separate_session.commit()
+            except Exception as recording_error:
+                separate_session.rollback()
+                log(f"[lesson check] could not record the refusal of '{meaning.origin.content}': {recording_error}")
+                from sentry_sdk import capture_exception
+
+                capture_exception(recording_error)
+            finally:
+                separate_session.close()
+            raise
 
         # Update progress: script done
         if progress:
@@ -464,6 +537,9 @@ class DailyLessonGenerator:
             Dictionary with lesson details or error information
         """
         start_time = time.time()
+        # Words whose pair the check found wrong: fixed after this lesson's
+        # transaction has ended, whichever way it ends (fix_refused_pair)
+        pairs_to_fix = []
 
         try:
             log(
@@ -492,6 +568,9 @@ class DailyLessonGenerator:
                     log(
                         f"[generate_daily_lesson] Scheduled unscheduled word: {user_word.meaning.origin.content}"
                     )
+
+            # Words the correctness check would not let us teach (auto mode only)
+            refused = []
 
             # Branch: topic/situation → single dialogue; auto → per-word meaning lessons
             if canonical_suggestion and lesson_type in ("topic", "situation"):
@@ -536,6 +615,17 @@ class DailyLessonGenerator:
                             progress=progress,
                             voice_variety=voice_variety,
                         )
+                    except (LessonNotCorrect, NotAScript) as e:
+                        # A word we cannot teach correctly is left out, not the
+                        # learner's whole lesson: on 2026-10-18 the check refused
+                        # half of a 30-lesson sample, mostly for pairs that are
+                        # wrong in our data (connu → experienced, dem → De wandeling).
+                        # Same for a word the model will not write a lesson for.
+                        log(f"[generate_daily_lesson] Leaving out '{meaning.origin.content}': {e}")
+                        refused.append(user_word)
+                        if isinstance(e, LessonNotCorrect) and e.about_the_data:
+                            pairs_to_fix.append((user_word, e))
+                        continue
                     except Exception as e:
                         log(
                             f"[generate_daily_lesson] Failed to generate audio lesson meaning for {meaning.origin.content}: {str(e)}"
@@ -551,8 +641,19 @@ class DailyLessonGenerator:
 
                     # Add segment to daily lesson
                     daily_lesson.add_meaning_segment(
-                        audio_lesson_meaning=audio_lesson_meaning, sequence_order=idx + 1
+                        audio_lesson_meaning=audio_lesson_meaning,
+                        sequence_order=idx + 1 - len(refused),
                     )
+
+                if refused and len(refused) == len(selected_words):
+                    words = ", ".join(w.meaning.origin.content for w in refused)
+                    message = f"No word could be taught correctly: {words}"
+                    log(f"[generate_daily_lesson] {message}")
+                    if progress:
+                        progress.mark_error(message)
+                        db.session.commit()
+                    db.session.rollback()
+                    return {"error": message}
 
             # Build the final concatenated MP3 for the daily lesson
             try:
@@ -589,7 +690,7 @@ class DailyLessonGenerator:
                 "audio_url": f"/audio/daily_lessons/{daily_lesson.id}.mp3",
                 "duration_seconds": daily_lesson.duration_seconds,
                 "generation_time_seconds": round(generation_time, 2),
-                "words": [w.as_dictionary() for w in selected_words],
+                "words": [w.as_dictionary() for w in selected_words if w not in refused],
             }
 
         except Exception as e:
@@ -604,6 +705,10 @@ class DailyLessonGenerator:
 
             log(f"[generate_daily_lesson] Traceback: {traceback.format_exc()}")
             return {"error": f"Unexpected error: {str(e)}"}
+
+        finally:
+            for user_word, refusal in pairs_to_fix:
+                self.fix_refused_pair(user_word, refusal)
 
     def _get_user_day_range_utc(self, timezone_offset=0):
         """

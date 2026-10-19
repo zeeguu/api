@@ -92,3 +92,13 @@ class ValidationLogTranslationServiceTest(ModelTestMixIn, TestCase):
         self._validate(ValidationResult(is_valid=True))
         self.assertEqual(ValidationLog.query.one().translation_service_id, judged.translation_service_id)
         self.assertNotEqual(judged.translation_service_id, self.engine_id)
+
+    def test_the_lesson_check_s_invalid_mark_records_the_engine_too(self):
+        from zeeguu.core.audio_lessons.lesson_correctness_check import mark_pair_invalid
+
+        mark_pair_invalid(
+            session, self.user_word.meaning_id,
+            [{"kind": "translation", "issue": "wrong", "line": 0, "text": None}],
+        )
+        session.commit()
+        self.assertEqual(ValidationLog.query.one().translation_service_id, self.engine_id)

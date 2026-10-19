@@ -18,8 +18,7 @@ def parse(**fields):
         "dictionary_translation": "",
         **fields,
     }
-    # _parse_response uses no instance state; skip __init__ (needs an API key)
-    return TranslationValidator._parse_response(object.__new__(TranslationValidator), json.dumps(reply))
+    return TranslationValidator._parse_response(json.dumps(reply))
 
 
 def test_valid_is_classified_and_empty_fields_are_none():

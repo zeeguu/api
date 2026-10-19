@@ -28,6 +28,17 @@ from typing import Optional
 from zeeguu.logging import log
 
 
+def word_changed(old_meaning, new_meaning):
+    """Did a fix change the word itself, not just its translation?"""
+    return changes_the_word(old_meaning.origin.content, new_meaning.origin.content)
+
+
+def changes_the_word(old_word, corrected_word):
+    """corrected_word empty means the word was kept."""
+    corrected = (corrected_word or "").strip().lower()
+    return bool(corrected) and corrected != old_word.strip().lower()
+
+
 def _engine_of(user_word):
     """Who produced the pair being judged, for the validation log: the judged
     (preferred) bookmark's service, or else the user word's earliest bookmark
@@ -244,6 +255,25 @@ class UserWordValidationService:
         return user_word
 
     @classmethod
+    def fix_with_verdict(cls, db_session, user_word, verdict):
+        """
+        Apply a FIX verdict reached elsewhere (the audio lesson check's
+        pair-only verdict) exactly as validate_and_fix applies its own: the
+        learner moves to the corrected pair with their progress, or, with no
+        correction, becomes unfit for study, and the old meaning becomes
+        INVALID. Other learners' words on it are judged in their own sentences
+        by tools/validate_scheduled_meanings.py (nightly), as after any
+        validator verdict. Commits. Returns the user word to use, or None.
+        """
+        # The verdict was reached in this bookmark's sentence: no sentence, no
+        # verdict (script_generator._pair_verdict)
+        bookmark = user_word.preferred_bookmark
+        if not bookmark:
+            log(f"[VALIDATION] No preferred bookmark for user_word {user_word.id}, cannot apply the fix")
+            return None
+        return cls._fix_bookmark(db_session, user_word, bookmark, verdict, bookmark.get_context())
+
+    @classmethod
     def _fix_bookmark(cls, db_session, user_word, bookmark, validation_result, context=None):
         """
         Fix bookmark with corrected word/translation.
@@ -318,9 +348,14 @@ class UserWordValidationService:
 
         # If meaning actually changed, update user's data
         if new_meaning.id != old_meaning.id:
-            # Mark old meaning as invalid (only if it's a different meaning!)
-            old_meaning.validated = Meaning.INVALID
-            db_session.add(old_meaning)
+            # Mark old meaning as invalid (only if it's a different meaning!),
+            # and only when its translation was wrong. A fix that changes the
+            # word ('ud' in 'ud af' → 'ud af' = 'out of') says this learner
+            # selected too little, not that 'ud' = 'out' is wrong; marked
+            # INVALID, it lost its audio lessons for everyone (2026-10-19).
+            if not word_changed(old_meaning, new_meaning):
+                old_meaning.validated = Meaning.INVALID
+                db_session.add(old_meaning)
 
             # Log the fix
             ValidationLog.log_fixed(
