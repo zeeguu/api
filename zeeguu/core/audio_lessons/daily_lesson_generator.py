@@ -1065,6 +1065,23 @@ class DailyLessonGenerator:
                 "status_code": 500,
             }
 
+    def _schedule_words_taught_to_say(self, lesson, user):
+        """
+        After a lesson built on the learner's history (A0) is heard to the end,
+        the words it taught them to say go on their study list. Never stops the
+        lesson from being marked complete.
+        """
+        from zeeguu.core.audio_lessons.lesson_words import schedule_words_from_lesson
+
+        for segment in lesson.segments:
+            dialogue = segment.audio_lesson_dialogue
+            if dialogue is None or not dialogue.builds_on_history or dialogue.teacher_language is None:
+                continue
+            try:
+                schedule_words_from_lesson(db.session, user, dialogue)
+            except Exception as e:
+                log(f"[schedule_words_taught_to_say] lesson {lesson.id}: {e}")
+
     def update_lesson_state_for_user(self, user, lesson_id, state_data):
         """
         Update the state of a daily audio lesson for a user.
@@ -1118,6 +1135,7 @@ class DailyLessonGenerator:
                 # Progress words when audio lesson is completed
                 if lesson.listened_count == 1:
                     self._progress_words_from_completed_lesson(lesson, user)
+                    self._schedule_words_taught_to_say(lesson, user)
 
                 # Send email notification for lesson completion
                 self._send_lesson_completion_notification(lesson, user)
