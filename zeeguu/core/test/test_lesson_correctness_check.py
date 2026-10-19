@@ -162,3 +162,18 @@ def test_a_pair_reply_with_numbers_and_lists_is_still_read():
     verdict = judge_pair(Replies(), lesson)
     assert not verdict.is_valid
     assert verdict.corrected_translation == "known"
+
+
+def test_a_pair_correction_listing_options_is_cut_to_one():
+    from zeeguu.core.audio_lessons.lesson_correctness_check import judge_pair
+
+    class Replies:
+        model = "fake"
+
+        def generate_text(self, *args, **kwargs):
+            return '{"reason": "r", "verdict": "FIX", "corrected_word": "", ' \
+                   '"corrected_translation": "which must/which should", "frequency": "common", ' \
+                   '"cefr": "B1", "phrase_type": "single_word", "explanation": "", "literal_meaning": ""}'
+
+    lesson = LessonToCheck(1, "da", "en", "en", "som skal", "who", 1, "Den som skal gå.", "")
+    assert judge_pair(Replies(), lesson).corrected_translation == "which must"

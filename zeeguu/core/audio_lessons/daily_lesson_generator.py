@@ -280,16 +280,14 @@ class DailyLessonGenerator:
                 context=context,
             )
         except (LessonNotCorrect, NotAScript) as e:
-            if isinstance(e, LessonNotCorrect) and e.about_the_data:
-                # The pair is wrong: the caller applies the fix after its own
-                # transaction (fix_refused_pair), which moves this learner to
-                # the corrected pair and needs the default session.
-                raise
             # Recorded in a session of its own: callers roll theirs back on
             # errors, and without a record the precompute cron would generate
-            # and refuse this word again every night. A failure to record must
-            # not replace the refusal, or the learner loses the whole lesson
-            # instead of this one word.
+            # and refuse this word again every night. Also for a wrong pair,
+            # whose fix (fix_refused_pair, applied by the caller after its own
+            # transaction) does not always stop the meaning being picked: a
+            # fix that changes the word leaves it as it was. A failure to
+            # record must not replace the refusal, or the learner loses the
+            # whole lesson instead of this one word.
             separate_session = sessionmaker(bind=flask_db.engine)()
             try:
                 AudioLessonRefusal.record(

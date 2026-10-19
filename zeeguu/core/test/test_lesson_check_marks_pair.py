@@ -31,7 +31,9 @@ UNFIXABLE = ValidationResult(is_valid=False, reason="not a learning unit")
 class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
     def setUp(self):
         super().setUp()
-        self.user_word = BookmarkRule(UserRule().user).bookmark.user_word
+        bookmark = BookmarkRule(UserRule().user).bookmark
+        self.user_word = bookmark.user_word
+        self.user_word.preferred_bookmark = bookmark  # the sentence the verdict is reached in
         self.meaning = self.user_word.meaning
         self.meaning.validated = Meaning.VALID
         self.user_word.fit_for_study = True
@@ -150,6 +152,8 @@ class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
         self.assertEqual(refusal.reason, AudioLessonRefusal.NOT_A_SCRIPT)
         self.assertIn("amenaza", refusal.detail)
 
-    def test_a_wrong_pair_is_not_a_refusal(self):
+    def test_a_wrong_pair_is_remembered_too(self):
+        # Its fix does not always stop the meaning being picked (a fix that
+        # changes the word leaves it as it was), so it is a refusal as well
         self._generate_refused_with(WRONG_PAIR, pair_verdict=FIXABLE)
-        self.assertIsNone(self._refusal())
+        self.assertEqual(self._refusal().reason, AudioLessonRefusal.NOT_CORRECT)

@@ -1,8 +1,9 @@
 """
 A meaning lesson we could not get written under one prompt version: the model
 declined (NotAScript) or the script stayed wrong after a rewrite
-(LessonNotCorrect). The audio word selector skips the meaning for learners
-with that teacher language until the prompt version changes. See the
+(LessonNotCorrect). The audio word selector skips the meaning, whatever the
+learner's teacher language, until the prompt version changes; the teacher
+language is recorded for the person reading the refusal. See the
 migration 26-10-19--add_audio_lesson_refusal.sql.
 """
 

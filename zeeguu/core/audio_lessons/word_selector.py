@@ -28,7 +28,7 @@ from zeeguu.logging import log
 NOT_INVALID = Meaning.validated != Meaning.INVALID
 
 
-def _teachable(user):
+def _teachable():
     """Not INVALID, and no meaning lesson refused for it under the current
     prompt (AudioLessonRefusal): generating it again would only be refused
     again, every night, by the precompute. In any teacher language: the
@@ -121,7 +121,7 @@ def select_words_for_audio_lesson(
             f"[select_words_for_audio_lesson] Getting learning words for user {user.id} in {language.name}"
         )
 
-    teachable = _teachable(user)
+    teachable = _teachable()
 
     # Track which words are unscheduled (for auto-scheduling if pipeline not full)
     unscheduled_word_ids = set()

@@ -65,7 +65,9 @@ from zeeguu.core.audio_lessons.lesson_correctness_check import (
     mark_pair_invalid,
     read_report,
 )
+from zeeguu.core.audio_lessons.daily_lesson_generator import _lookup_sentence
 from zeeguu.core.audio_lessons.script_generator import _is_a_script
+from zeeguu.core.llm_services.validation_service import changes_the_word
 from zeeguu.core.llm_services.deepseek_service import DeepSeekService
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
 from zeeguu.core.model.language import Language
@@ -130,10 +132,7 @@ def context_of(meaning):
         .order_by(UserWord.id)
         .first()
     )
-    if not user_word:
-        return None
-    context = user_word.preferred_bookmark.get_context()
-    return None if context == "[Context deleted]" else context
+    return _lookup_sentence(user_word) if user_word else None
 
 
 def to_check(lesson):
@@ -149,11 +148,6 @@ def to_check(lesson):
         context=context_of(meaning),
         script=lesson.script,
     )
-
-
-def _changes_the_word(row):
-    corrected = (row.get("pair_corrected_word") or "").strip().lower()
-    return bool(corrected) and corrected != row["word"].strip().lower()
 
 
 def describe(row):
@@ -251,7 +245,7 @@ if args.deprecate:
             and any(p["kind"] in ABOUT_THE_DATA for p in row["problems"])
             # Not when the fix changes the word: then it was one learner's
             # selection that was wrong, not the pair (as in the validator)
-            and not _changes_the_word(row)
+            and not changes_the_word(row["word"], row.get("pair_corrected_word"))
         }.items()
     )
 

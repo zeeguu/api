@@ -271,7 +271,12 @@ def judge_pair(service, lesson: LessonToCheck):
     reply["verdict"] = reply.get("verdict", "").strip().upper()
     if reply["verdict"] not in ("VALID", "FIX"):
         raise ValueError(f"no VALID/FIX verdict in reply: {str(reply)[:200]}")
-    return TranslationValidator._parse_response(json.dumps(reply))
+    verdict = TranslationValidator._parse_response(json.dumps(reply))
+    # As the validator does with its own replies: a correction may become a
+    # flashcard, which takes one translation, not "which must/which should"
+    if TranslationValidator._lists_options(verdict, lesson.word, lesson.translation):
+        verdict = TranslationValidator._with_one_option(verdict, lesson.word, lesson.translation)
+    return verdict
 
 
 def judge_lesson(service, lesson: LessonToCheck) -> tuple:

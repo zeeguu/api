@@ -113,10 +113,12 @@ class UserWord(db.Model):
         for user_word in unlearned:
             user_word.fit_for_study = False
             session.add(user_word)
-        if scheduled:
-            session.query(BasicSRSchedule).filter(
-                BasicSRSchedule.user_word_id.in_(scheduled)
-            ).delete(synchronize_session=False)
+        # Through the session, not a bulk DELETE: a caller (validate_and_fix)
+        # may hold these schedules, and a bulk delete would leave them live
+        for schedule in session.query(BasicSRSchedule).filter(
+            BasicSRSchedule.user_word_id.in_(scheduled)
+        ):
+            session.delete(schedule)
         return taken_out
 
     def set_unfit_for_study(self, session=None):

@@ -30,7 +30,13 @@ from zeeguu.logging import log
 
 def word_changed(old_meaning, new_meaning):
     """Did a fix change the word itself, not just its translation?"""
-    return old_meaning.origin.content.strip().lower() != new_meaning.origin.content.strip().lower()
+    return changes_the_word(old_meaning.origin.content, new_meaning.origin.content)
+
+
+def changes_the_word(old_word, corrected_word):
+    """corrected_word empty means the word was kept."""
+    corrected = (corrected_word or "").strip().lower()
+    return bool(corrected) and corrected != old_word.strip().lower()
 
 
 class UserWordValidationService:
@@ -234,25 +240,13 @@ class UserWordValidationService:
         learners' words on it are taken out. Commits. Returns the user word to
         use, or None.
         """
-        from zeeguu.core.model import Bookmark, Meaning
-        from zeeguu.core.model.validation_log import ValidationLog
-
-        bookmark = user_word.preferred_bookmark or (
-            Bookmark.query.filter_by(user_word_id=user_word.id).order_by(Bookmark.id.desc()).first()
-        )
-        if bookmark:
-            return cls._fix_bookmark(db_session, user_word, bookmark, verdict, bookmark.get_context())
-
-        # No bookmark to move: the no-correction outcome, for everyone
-        meaning = user_word.meaning
-        meaning.validated = Meaning.INVALID
-        db_session.add(meaning)
-        ValidationLog.log_invalid(db_session, meaning=meaning, user_word_id=user_word.id, reason=verdict.reason)
-        cls._take_out_for_other_learners(
-            db_session, meaning, user_word, verdict, None, including_this_learner=True
-        )
-        db_session.commit()
-        return None
+        # The verdict was reached in this bookmark's sentence: no sentence, no
+        # verdict (script_generator._pair_verdict)
+        bookmark = user_word.preferred_bookmark
+        if not bookmark:
+            log(f"[VALIDATION] No preferred bookmark for user_word {user_word.id}, cannot apply the fix")
+            return None
+        return cls._fix_bookmark(db_session, user_word, bookmark, verdict, bookmark.get_context())
 
     @classmethod
     def _take_out_for_other_learners(cls, db_session, old_meaning, user_word, validation_result, context,
