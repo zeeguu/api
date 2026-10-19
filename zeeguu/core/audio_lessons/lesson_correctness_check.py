@@ -313,6 +313,7 @@ def check(service, lesson: LessonToCheck) -> dict:
             row["pair_verdict"] = "VALID" if pair.is_valid else "FIX"
             row["pair_reason"] = pair.reason
             if not pair.is_valid:
+                row["pair_corrected_word"] = pair.corrected_word
                 row["pair_correction"] = (
                     f"{pair.corrected_word or lesson.word} → "
                     f"{pair.corrected_translation or lesson.translation}"

@@ -2,14 +2,20 @@
 """
 Take words on INVALID meanings out of study, for every learner.
 
-A meaning marked INVALID has a broken word/translation pair, whoever looked it
-up. Until 2026-10-19 the translation validator moved or took out only the
+Until 2026-10-19 the translation validator moved or took out only the
 learner it was validating; everyone else's word on the same pair stayed in
-study. On that day that was 2,374 unlearned words of 948 learners on 915
-INVALID meanings, 213 of them scheduled for exercises. The validator and the
-audio lesson check now take such words out as they mark the meaning
+study. It now takes the pair out for everyone when the pair itself is broken
 (UserWord.take_meaning_out_of_study); this tool does it for what is already
 there.
+
+Not every INVALID meaning is a broken pair. The validator also marks one
+INVALID when it moves a learner to a bigger expression ('ud' in 'ud af' →
+'ud af' = 'out of'), and 'ud' = 'out' is still right for others. So only
+meanings with a verdict that the pair itself is wrong are taken: no
+correction possible, or a corrected translation for the same word. On
+2026-10-19 that was 1,437 unlearned words on 526 meanings, 166 of them
+scheduled; the 1,005 words on 399 meanings where the fix changed the word
+stay.
 
 Usage:
     python -m tools.backfill_invalid_meanings_out_of_study           # report only
@@ -39,16 +45,34 @@ from zeeguu.core.model import db
 app = create_app_for_scripts()
 app.app_context().push()
 
+from sqlalchemy import text
+
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.model.validation_log import ValidationLog
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
 APPLY = "--apply" in sys.argv
-REASON = "[invalid meaning backfill] the meaning is marked INVALID"
+REASON = "[invalid meaning backfill] the pair is broken: no correction, or the translation was corrected"
+
+# Meanings with a verdict that the pair is broken: an INVALID verdict (no
+# correction), or a FIX whose corrected pair keeps the same word
+BROKEN_PAIRS = text("""
+    SELECT DISTINCT v.meaning_id
+    FROM validation_log v
+    JOIN meaning m ON m.id = v.meaning_id
+    JOIN phrase po ON po.id = m.origin_id
+    LEFT JOIN meaning nm ON nm.id = v.new_meaning_id
+    LEFT JOIN phrase np ON np.id = nm.origin_id
+    WHERE m.validated = 2
+      AND (v.action = 'INVALID'
+           OR (v.action = 'FIXED' AND LOWER(TRIM(np.content)) = LOWER(TRIM(po.content))))
+""")
+broken = [row[0] for row in db.session.execute(BROKEN_PAIRS)]
 
 in_study = (
     db.session.query(UserWord)
+    .filter(UserWord.meaning_id.in_(broken))
     .join(Meaning, UserWord.meaning_id == Meaning.id)
     .outerjoin(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
     .filter(Meaning.validated == Meaning.INVALID, UserWord.learned_time.is_(None))
@@ -62,7 +86,7 @@ schedules = BasicSRSchedule.query.filter(
 
 print(f"Mode: {'APPLY' if APPLY else 'REPORT ONLY'}")
 print(
-    f"{len(in_study)} unlearned words in study on {len(meaning_ids)} INVALID meanings, "
+    f"{len(in_study)} unlearned words in study on {len(meaning_ids)} broken pairs, "
     f"of {len({w.user_id for w in in_study})} learners; {len(schedules)} scheduled"
 )
 for w in in_study[:20]:

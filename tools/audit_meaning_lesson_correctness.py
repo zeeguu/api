@@ -151,6 +151,11 @@ def to_check(lesson):
     )
 
 
+def _changes_the_word(row):
+    corrected = (row.get("pair_corrected_word") or "").strip().lower()
+    return bool(corrected) and corrected != row["word"].strip().lower()
+
+
 def describe(row):
     head = f"  [{row['id']}] {row['word']} → {row['translation']} ({row['language']}, validated={row['validated']})"
     lines = [head]
@@ -244,6 +249,9 @@ if args.deprecate:
             # and the pair-only verdict confirmed it
             if row.get("pair_verdict") == "FIX"
             and any(p["kind"] in ABOUT_THE_DATA for p in row["problems"])
+            # Not when the fix changes the word: then it was one learner's
+            # selection that was wrong, not the pair (as in the validator)
+            and not _changes_the_word(row)
         }.items()
     )
 

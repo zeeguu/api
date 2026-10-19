@@ -87,3 +87,13 @@ class ValidatorTakesOutOtherLearnersTest(ModelTestMixIn, TestCase):
         self._validate(ValidationResult(is_valid=True))
         self.assertTrue(session.get(UserWord, self.other.id).fit_for_study)
         self.assertIsNotNone(BasicSRSchedule.query.filter_by(user_word_id=self.other.id).first())
+
+    def test_a_fix_that_changes_the_word_leaves_other_learners_alone(self):
+        # 'ud' in 'ud af' → 'ud af' = 'out of': this learner selected too
+        # little; 'ud' = 'out' still holds for the others
+        word = self.meaning.origin.content
+        self._validate(ValidationResult(
+            is_valid=False, corrected_word=word + " af", corrected_translation="out of", reason="part of an expression"
+        ))
+        self.assertTrue(session.get(UserWord, self.other.id).fit_for_study)
+        self.assertIsNotNone(BasicSRSchedule.query.filter_by(user_word_id=self.other.id).first())

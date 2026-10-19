@@ -28,6 +28,11 @@ from typing import Optional
 from zeeguu.logging import log
 
 
+def word_changed(old_meaning, new_meaning):
+    """Did a fix change the word itself, not just its translation?"""
+    return old_meaning.origin.content.strip().lower() != new_meaning.origin.content.strip().lower()
+
+
 class UserWordValidationService:
     """Validates and fixes user_word translations before exercises."""
 
@@ -365,7 +370,12 @@ class UserWordValidationService:
                 reason=validation_result.reason,
                 context=context
             )
-            cls._take_out_for_other_learners(db_session, old_meaning, user_word, validation_result, context)
+            # Only when the translation was wrong for the word itself. When
+            # the fix changed the word ('ud' in 'ud af' → 'ud af' = 'out of'),
+            # it was this learner's selection that was wrong: 'ud' = 'out'
+            # still holds for a learner who met it in 'Han gik ud'.
+            if not word_changed(old_meaning, new_meaning):
+                cls._take_out_for_other_learners(db_session, old_meaning, user_word, validation_result, context)
 
             # Find or create UserWord for new meaning
             new_user_word = UserWord.find_or_create(
