@@ -215,3 +215,13 @@ class LessonWordsTest(ModelTestMixIn):
         words = self._user_words()
         assert set(words) == {"kaffe", "tak"}
         assert sum(1 for w in words.values() if BasicSRSchedule.find(w)) == 1
+
+    def test_a_word_a_lesson_taught_records_the_lesson_as_its_translator(self):
+        # Not MANUAL: the translation came from the lesson's LLM, not the learner
+        from zeeguu.core.model import TranslationService
+
+        self._taught([("kaffe", "coffee", "En kaffe, tak.")])
+        lesson_words.schedule_words_from_lesson(db.session, self.user, self.dialogue)
+
+        bookmark = self._user_words()["kaffe"].preferred_bookmark
+        assert bookmark.translation_service.name == TranslationService.AUDIO_LESSON

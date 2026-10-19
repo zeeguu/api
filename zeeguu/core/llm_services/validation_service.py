@@ -39,6 +39,28 @@ def changes_the_word(old_word, corrected_word):
     return bool(corrected) and corrected != old_word.strip().lower()
 
 
+def _engine_of(user_word):
+    """Who produced the pair being judged, for the validation log: the judged
+    (preferred) bookmark's service, or else the user word's earliest bookmark
+    that records one. The fallback is for when the preferred bookmark is a
+    generated example sentence (example_contexts), which is a placement, not a
+    translation, and records none."""
+    from zeeguu.core.model.bookmark import Bookmark
+
+    judged = user_word.preferred_bookmark
+    if judged is not None and judged.translation_service_id is not None:
+        return judged.translation_service_id
+    first = (
+        Bookmark.query.filter(
+            Bookmark.user_word_id == user_word.id,
+            Bookmark.translation_service_id.isnot(None),
+        )
+        .order_by(Bookmark.id)
+        .first()
+    )
+    return first.translation_service_id if first else None
+
+
 class UserWordValidationService:
     """Validates and fixes user_word translations before exercises."""
 
@@ -222,7 +244,8 @@ class UserWordValidationService:
             db_session,
             meaning=meaning,
             user_word_id=user_word.id,
-            context=context
+            context=context,
+            translation_service_id=_engine_of(user_word),
         )
 
         db_session.commit()
@@ -259,6 +282,7 @@ class UserWordValidationService:
         """
         from zeeguu.core.model import Meaning, UserWord
         from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
+        from zeeguu.core.model.translation_service import TranslationService
         from zeeguu.core.model.validation_log import ValidationLog
         from zeeguu.core.bookmark_operations.update_bookmark import (
             transfer_learning_progress,
@@ -284,7 +308,8 @@ class UserWordValidationService:
                 meaning=old_meaning,
                 user_word_id=user_word.id,
                 reason=validation_result.reason,
-                context=context
+                context=context,
+                translation_service_id=_engine_of(user_word),
             )
 
             db_session.commit()
@@ -339,7 +364,8 @@ class UserWordValidationService:
                 new_meaning=new_meaning,
                 user_word_id=user_word.id,
                 reason=validation_result.reason,
-                context=context
+                context=context,
+                translation_service_id=_engine_of(user_word),
             )
 
             # Find or create UserWord for new meaning
@@ -356,6 +382,7 @@ class UserWordValidationService:
             # Update bookmark to point to new user_word
             # Use ID to avoid circular dependency (Bookmark.user_word <-> UserWord.preferred_bookmark)
             bookmark.user_word_id = new_user_word.id
+            bookmark.set_translation_service(db_session, TranslationService.VALIDATOR)
             db_session.add(bookmark)
             db_session.flush()  # Flush bookmark first
 
@@ -378,7 +405,8 @@ class UserWordValidationService:
                 db_session,
                 meaning=new_meaning,
                 user_word_id=user_word.id,
-                context=context
+                context=context,
+                translation_service_id=_engine_of(user_word),
             )
 
             db_session.commit()

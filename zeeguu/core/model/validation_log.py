@@ -53,6 +53,15 @@ class ValidationLog(db.Model):
     reason = db.Column(db.Text, nullable=True)
     context = db.Column(db.Text, nullable=True)
 
+    # Who produced the translation this verdict judged. Kept here because a FIX
+    # moves the bookmark to the corrected pair, and with it the bookmark's own
+    # translation_service; this is how a wrong pair is traced to its engine.
+    translation_service_id = db.Column(
+        db.SmallInteger,
+        db.ForeignKey("translation_service.id", name="validation_log_translation_service_fk"),
+        nullable=True,
+    )
+
     created_at = db.Column(
         db.DateTime,
         default=datetime.now,
@@ -66,7 +75,8 @@ class ValidationLog(db.Model):
         new_meaning=None,
         user_word_id=None,
         reason=None,
-        context=None
+        context=None,
+        translation_service_id=None,
     ):
         self.meaning = meaning
         self.action = action
@@ -74,21 +84,24 @@ class ValidationLog(db.Model):
         self.user_word_id = user_word_id
         self.reason = reason
         self.context = context
+        self.translation_service_id = translation_service_id
 
     @classmethod
-    def log_valid(cls, db_session, meaning, user_word_id=None, context=None):
+    def log_valid(cls, db_session, meaning, user_word_id=None, context=None, translation_service_id=None):
         """Log a valid translation."""
         log_entry = cls(
             meaning=meaning,
             action=ValidationAction.VALID,
             user_word_id=user_word_id,
-            context=context
+            context=context,
+            translation_service_id=translation_service_id,
         )
         db_session.add(log_entry)
         return log_entry
 
     @classmethod
-    def log_fixed(cls, db_session, old_meaning, new_meaning, user_word_id=None, reason=None, context=None):
+    def log_fixed(cls, db_session, old_meaning, new_meaning, user_word_id=None, reason=None, context=None,
+                  translation_service_id=None):
         """Log a fixed translation."""
         log_entry = cls(
             meaning=old_meaning,
@@ -96,20 +109,23 @@ class ValidationLog(db.Model):
             new_meaning=new_meaning,
             user_word_id=user_word_id,
             reason=reason,
-            context=context
+            context=context,
+            translation_service_id=translation_service_id,
         )
         db_session.add(log_entry)
         return log_entry
 
     @classmethod
-    def log_invalid(cls, db_session, meaning, user_word_id=None, reason=None, context=None):
+    def log_invalid(cls, db_session, meaning, user_word_id=None, reason=None, context=None,
+                    translation_service_id=None):
         """Log an invalid translation that couldn't be fixed."""
         log_entry = cls(
             meaning=meaning,
             action=ValidationAction.INVALID,
             user_word_id=user_word_id,
             reason=reason,
-            context=context
+            context=context,
+            translation_service_id=translation_service_id,
         )
         db_session.add(log_entry)
         return log_entry

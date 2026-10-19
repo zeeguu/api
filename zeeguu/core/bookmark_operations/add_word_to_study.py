@@ -64,7 +64,7 @@ def add_word_to_study(
     "max words to practise" it is added but not scheduled yet; the usual
     scheduling takes it when there is room.
     """
-    from zeeguu.core.model import Bookmark, Language, Meaning, UserPreference
+    from zeeguu.core.model import Bookmark, Language, Meaning, TranslationService, UserPreference
     from zeeguu.core.model.user_word import UserWord
     from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
 
@@ -120,6 +120,9 @@ def add_word_to_study(
         # whether it was typed in or taught by an audio lesson.
         translation_source="user_added",
         user_word=user_word,
+        translation_service=(
+            TranslationService.AUDIO_LESSON if from_audio_lesson else TranslationService.MANUAL
+        ),
     )
 
     user_word.preferred_bookmark = bookmark

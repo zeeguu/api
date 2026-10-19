@@ -219,7 +219,29 @@ def mark_pair_invalid(db_session, meaning_id, problems, context=None):
     meaning = db_session.get(Meaning, meaning_id)
     meaning.validated = Meaning.INVALID
     db_session.add(meaning)
-    ValidationLog.log_invalid(db_session, meaning=meaning, reason=reason, context=context)
+    ValidationLog.log_invalid(
+        db_session,
+        meaning=meaning,
+        reason=reason,
+        context=context,
+        translation_service_id=_engine_of_meaning(db_session, meaning_id),
+    )
+
+
+def _engine_of_meaning(db_session, meaning_id):
+    """Who produced this pair, for the per-translator feedback: the service on
+    the meaning's earliest bookmark that records one (the first lookup)."""
+    from zeeguu.core.model.bookmark import Bookmark
+    from zeeguu.core.model.user_word import UserWord
+
+    first = (
+        db_session.query(Bookmark)
+        .join(UserWord, Bookmark.user_word_id == UserWord.id)
+        .filter(UserWord.meaning_id == meaning_id, Bookmark.translation_service_id.isnot(None))
+        .order_by(Bookmark.id)
+        .first()
+    )
+    return first.translation_service_id if first else None
 
 
 def blocking(problems) -> list:
