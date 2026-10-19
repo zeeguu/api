@@ -132,9 +132,13 @@ def generate_script_in_languages(
     source_language: str,
     context: str,
     max_tokens: int = None,
+    short_lines: bool = False,
 ) -> tuple:
     """
     Generate a lesson script and verify it came back in the languages we asked for.
+
+    short_lines: an A0 script, made of one- and two-word lines; see
+    script_language_validator.MIN_CHARS_TO_JUDGE_SHORT_LINES.
 
     Retries with an explicit correction when the detected language is wrong, and
     raises if the LLM keeps getting it wrong.
@@ -159,7 +163,9 @@ def generate_script_in_languages(
                 f"{(script or '').strip()[:300]!r}"
             )
 
-        mismatches = find_language_mismatches(script, target_language, source_language)
+        mismatches = find_language_mismatches(
+            script, target_language, source_language, short_lines=short_lines
+        )
         if not mismatches:
             return script, model_name
 
@@ -304,6 +310,7 @@ def generate_dialogue_script(
             source_language=translation_language,
             context=f"dialogue lesson '{suggestion}'",
             max_tokens=max_tokens,
+            short_lines=builds_on_history(cefr_level),
         )
 
         # Parse title from first line
@@ -348,10 +355,23 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
     else:
         known_words = f"This is the learner's first lesson: they know no {origin_lang_name} yet."
 
-    prompt = get_prompt_template("a0_dialogue_lesson--dialogue-v1.txt").format(
+    # Without this, a learner whose daily situation is always "at the café" would
+    # get the same exchange every day: the same situation and the same known
+    # words lead to the same dialogue.
+    earlier = [lesson.title for lesson in heard if lesson.title]
+    earlier_lessons = (
+        "Their earlier lessons were: "
+        + "; ".join(earlier[-10:])
+        + ". If this situation is one of them, write a different exchange in it."
+        if earlier
+        else ""
+    )
+
+    prompt = get_prompt_template("a0_dialogue--natural_exchange-v1.txt").format(
         target_language=origin_lang_name,
         suggestion=suggestion,
         known_words=known_words,
+        earlier_lessons=earlier_lessons,
         learner=learner_role.lower(),
     )
     dialogue, model_name = generate_script_in_languages(
@@ -360,16 +380,22 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
         source_language=translation_language,
         context=f"A0 dialogue '{suggestion}'",
         max_tokens=500,
+        short_lines=True,
     )
     # The lesson around it may not change it, so it is checked here: only the
     # speakers' lines (a preamble like "Here is the dialogue:" is dropped), and
     # 2 to 6 of them. Fewer, or more, means the model did not write what was
     # asked -- possibly cut off -- and the lesson is not built on it.
-    lines = [
-        line.strip()
-        for line in dialogue.splitlines()
-        if re.match(r"^(Man|Woman):\s*\S", line.strip())
-    ]
+    lines = []
+    for line in dialogue.splitlines():
+        # **Woman:** and WOMAN: are the same speaker as Woman:
+        speaker_line = re.match(r"^(man|woman)\s*:\s*(\S.*)$", line.replace("*", "").strip(), re.IGNORECASE)
+        if speaker_line:
+            lines.append(f"{speaker_line.group(1).capitalize()}: {speaker_line.group(2)}")
+        elif lines and line.strip():
+            # Text after the dialogue has started that is not a speaker's line:
+            # a lost turn or a comment. Not dropped silently.
+            raise Exception(f"A0 dialogue for '{suggestion}' has a line that is not a speaker's: {line.strip()[:120]!r}")
     if not 2 <= len(lines) <= 6:
         raise Exception(
             f"A0 dialogue for '{suggestion}' has {len(lines)} lines, not 2-6: "
@@ -378,5 +404,5 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
     return GeneratedScript(
         "\n".join(lines),
         model_name,
-        prompt_version_of("a0_dialogue_lesson--dialogue-v1.txt"),
+        prompt_version_of("a0_dialogue--natural_exchange-v1.txt"),
     )

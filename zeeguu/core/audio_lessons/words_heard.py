@@ -76,7 +76,8 @@ def history_lesson_count(user, language) -> int:
 def heard_lessons(user, language, limit=30) -> list:
     """
     The user's lessons built on their history in `language` that they engaged
-    with, oldest first, with the words each one said. The most recent `limit`.
+    with, oldest first, with the words each one said. The most recent `limit` of
+    the ones they engaged with: lessons never played do not take up the window.
 
     Engaged = DailyAudioLesson.is_engaged: finished, or listened at least
     halfway. A lesson generated but never played was not heard.
@@ -91,14 +92,13 @@ def heard_lessons(user, language, limit=30) -> list:
                 DailyAudioLessonSegment.audio_lesson_dialogue
             )
         )
-        .limit(limit)
         .all()
     )
+    # is_engaged is computed in Python, so the window is applied after it.
+    engaged = [lesson for lesson in lessons if lesson.is_engaged][:limit]
 
     heard = []
-    for lesson in reversed(lessons):
-        if not lesson.is_engaged:
-            continue
+    for lesson in reversed(engaged):
         words = Counter()
         for segment in lesson.segments:
             if segment.audio_lesson_dialogue is not None:

@@ -220,6 +220,17 @@ class HistoryTest(ModelTestMixIn):
         # Roles alternate over every lesson of this kind, heard or not.
         assert history_lesson_count(self.user, self.language) == 2
 
+    def test_lessons_never_played_do_not_push_heard_ones_out(self):
+        from zeeguu.core.audio_lessons.words_heard import heard_lessons
+
+        self._lesson("Man: En kaffe, tak. [1 seconds]", builds_on_history=True, completed=True)
+        for _ in range(3):
+            self._lesson("Man: Jeg forstår ikke. [1 seconds]", builds_on_history=True, completed=False)
+
+        assert [set(h.words) for h in heard_lessons(self.user, self.language, limit=1)] == [
+            {"en", "kaffe", "tak"}
+        ]
+
 
 def test_a_level_must_be_a_whole_number():
     with pytest.raises(ValueError):
@@ -301,3 +312,48 @@ def test_the_example_drills_the_learners_own_voice():
     prompt = get_prompt_template("a0_dialogue_lesson--pimsleur_style_situation-v1.txt")
     assert "{learner_role}: <the word> [slow]" in prompt
     assert "Woman: <the word>" not in prompt
+
+
+def test_a_speaker_written_in_markdown_or_capitals_is_kept(monkeypatch):
+    generated = _dialogue_answering(
+        monkeypatch, "**Woman:** Hej! Hvad vil du have?\nMAN: En kaffe, tak."
+    )
+    assert generated.script == "Woman: Hej! Hvad vil du have?\nMan: En kaffe, tak."
+
+
+def test_a_lost_turn_is_not_dropped_silently(monkeypatch):
+    with pytest.raises(Exception, match="not a speaker's"):
+        _dialogue_answering(
+            monkeypatch, "Woman: Hej! Hvad vil du have?\n(she smiles)\nMan: En kaffe, tak."
+        )
+
+
+A0_DANISH = "\n".join(
+    f"Man: {line} [3 seconds]"
+    for line in [
+        "Hej!", "Hvad vil du have?", "En kaffe, tak.", "Værsgo.", "Det er tyve kroner.",
+        "Tak skal du have.", "Jeg forstår kun lidt dansk.", "Taler du engelsk?", "Ja, lidt.",
+        "Undskyld.", "Farvel.",
+    ]
+)
+
+
+def test_an_a0_script_in_the_right_language_passes():
+    from zeeguu.core.audio_lessons.script_language_validator import find_language_mismatches
+
+    assert find_language_mismatches(A0_DANISH, "da", short_lines=True) == []
+
+
+def test_an_a0_script_in_a_sibling_language_is_caught():
+    # One- and two-word lines: the ordinary check would not judge this at all.
+    from zeeguu.core.audio_lessons.script_language_validator import find_language_mismatches
+
+    norwegian = "\n".join(
+        f"Man: {line} [3 seconds]"
+        for line in [
+            "Hei!", "Hva vil du ha?", "En kaffe, takk.", "Vær så god.", "Det blir tjue kroner.",
+            "Takk skal du ha.", "Jeg forstår bare litt norsk.", "Snakker du engelsk?", "Ja, litt.",
+        ]
+    )
+    assert find_language_mismatches(norwegian, "da") == []
+    assert find_language_mismatches(norwegian, "da", short_lines=True) != []
