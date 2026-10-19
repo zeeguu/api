@@ -54,3 +54,22 @@ class AudioWordSelectionTest(ModelTestMixIn, TestCase):
         self.assertEqual(self._selected(), [self.user_word])
         self._invalidate()
         self.assertEqual(self._selected(), [])
+
+    def _refuse(self, prompt_version):
+        from zeeguu.core.model.audio_lesson_refusal import AudioLessonRefusal
+
+        AudioLessonRefusal.record(
+            session, self.user_word.meaning_id, self.user.native_language_id,
+            prompt_version, AudioLessonRefusal.NOT_CORRECT, "test",
+        )
+        session.commit()
+
+    def test_a_word_refused_under_the_current_prompt_is_skipped(self):
+        from zeeguu.core.audio_lessons.script_generator import MEANING_LESSON_PROMPT_VERSION
+
+        self._refuse(MEANING_LESSON_PROMPT_VERSION)
+        self.assertEqual(self._selected(), [])
+
+    def test_a_word_refused_under_an_older_prompt_is_tried_again(self):
+        self._refuse("meaning_lesson-v5")
+        self.assertEqual(self._selected(), [self.user_word])

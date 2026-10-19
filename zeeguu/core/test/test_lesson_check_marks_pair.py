@@ -7,7 +7,8 @@ from unittest.mock import patch
 import zeeguu.core
 from zeeguu.core.audio_lessons import daily_lesson_generator
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
-from zeeguu.core.audio_lessons.script_generator import LessonNotCorrect
+from zeeguu.core.audio_lessons.script_generator import LessonNotCorrect, NotAScript, MEANING_LESSON_PROMPT_VERSION
+from zeeguu.core.model.audio_lesson_refusal import AudioLessonRefusal
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.validation_log import ValidationAction, ValidationLog
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
@@ -45,13 +46,13 @@ class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
         session.commit()
         FourLevelsPerWord.find_or_create(session, self.other)
 
-    def _generate_refused_with(self, problems):
+    def _generate_refused_with(self, problems, raising=None):
         def refuse(**kwargs):
-            raise LessonNotCorrect("refused", problems, about_the_data=problems is WRONG_PAIR)
+            raise raising or LessonNotCorrect("refused", problems, about_the_data=problems is WRONG_PAIR)
 
         generator = DailyLessonGenerator.__new__(DailyLessonGenerator)
         with patch.object(daily_lesson_generator, "generate_lesson_script", refuse):
-            with self.assertRaises(LessonNotCorrect):
+            with self.assertRaises((LessonNotCorrect, NotAScript)):
                 generator.generate_audio_lesson_meaning(
                     self.user_word, "da", "en", "A1", voice_variety=None
                 )
@@ -98,3 +99,23 @@ class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
         self.assertIsNotNone(_lookup_sentence(self.user_word))
         with patch.object(type(self.user_word.preferred_bookmark), "get_context", lambda b: "[Context deleted]"):
             self.assertIsNone(_lookup_sentence(self.user_word))
+
+    def _refusal(self):
+        return AudioLessonRefusal.query.filter_by(meaning_id=self.meaning.id).one_or_none()
+
+    def test_a_script_still_wrong_is_remembered_and_the_pair_left_alone(self):
+        meaning = self._generate_refused_with(WRONG_LINE)
+        self.assertEqual(meaning.validated, Meaning.VALID)
+        refusal = self._refusal()
+        self.assertEqual(refusal.reason, AudioLessonRefusal.NOT_CORRECT)
+        self.assertEqual(refusal.prompt_version, MEANING_LESSON_PROMPT_VERSION)
+
+    def test_a_word_the_model_will_not_write_is_remembered(self):
+        self._generate_refused_with([], raising=NotAScript("it said: 'amenaza means threat, not hot'"))
+        refusal = self._refusal()
+        self.assertEqual(refusal.reason, AudioLessonRefusal.NOT_A_SCRIPT)
+        self.assertIn("amenaza", refusal.detail)
+
+    def test_a_wrong_pair_is_not_a_refusal(self):
+        self._generate_refused_with(WRONG_PAIR)
+        self.assertIsNone(self._refusal())

@@ -28,6 +28,25 @@ from zeeguu.logging import log
 NOT_INVALID = Meaning.validated != Meaning.INVALID
 
 
+def _teachable(user):
+    """Not INVALID, and no meaning lesson refused for it under the current
+    prompt in this learner's teacher language (AudioLessonRefusal): generating
+    it again would only be refused again, every night, by the precompute."""
+    from sqlalchemy import and_, exists
+
+    from zeeguu.core.audio_lessons.script_generator import MEANING_LESSON_PROMPT_VERSION
+    from zeeguu.core.model.audio_lesson_refusal import AudioLessonRefusal
+
+    refused = exists().where(
+        and_(
+            AudioLessonRefusal.meaning_id == UserWord.meaning_id,
+            AudioLessonRefusal.teacher_language_id == user.native_language_id,
+            AudioLessonRefusal.prompt_version == MEANING_LESSON_PROMPT_VERSION,
+        )
+    )
+    return and_(NOT_INVALID, ~refused)
+
+
 def get_meanings_already_in_audio_lessons(user: User, days: int = 14) -> set:
     """
     Get the set of meaning IDs that have already been used in recent audio lessons for a user.
@@ -100,6 +119,8 @@ def select_words_for_audio_lesson(
             f"[select_words_for_audio_lesson] Getting learning words for user {user.id} in {language.name}"
         )
 
+    teachable = _teachable(user)
+
     # Track which words are unscheduled (for auto-scheduling if pipeline not full)
     unscheduled_word_ids = set()
 
@@ -111,7 +132,7 @@ def select_words_for_audio_lesson(
     # Step 1: Get scheduled words due today (highest priority - need practice!)
     scheduled_due_query = BasicSRSchedule._scheduled_user_words_query(user, language)
     scheduled_due_query = scheduled_due_query.filter(
-        BasicSRSchedule.next_practice_time < _get_end_of_today(), NOT_INVALID
+        BasicSRSchedule.next_practice_time < _get_end_of_today(), teachable
     )
     # Exclude words already in recent audio lessons
     if meanings_in_recent_lessons:
@@ -130,7 +151,7 @@ def select_words_for_audio_lesson(
     if len(learning_words) < num_words:
         more_scheduled_query = BasicSRSchedule._scheduled_user_words_query(
             user, language
-        ).filter(NOT_INVALID)
+        ).filter(teachable)
         # Exclude words we already have
         existing_user_word_ids = [w.id for w in learning_words]
         if existing_user_word_ids:
@@ -169,7 +190,7 @@ def select_words_for_audio_lesson(
                 .join(Meaning, UserWord.meaning_id == Meaning.id)
                 .join(Phrase, Meaning.origin_id == Phrase.id)
                 .filter(Phrase.language_id == language.id)
-                .filter(NOT_INVALID)
+                .filter(teachable)
             )
             # Exclude words we already have
             existing_user_word_ids = [w.id for w in learning_words]
@@ -215,7 +236,7 @@ def select_words_for_audio_lesson(
             .join(Meaning, UserWord.meaning_id == Meaning.id)
             .join(Phrase, Meaning.origin_id == Phrase.id)
             .filter(Phrase.language_id == language.id)
-            .filter(NOT_INVALID)
+            .filter(teachable)
         )
         # Exclude words we already have in this lesson
         existing_user_word_ids = [w.id for w in learning_words]

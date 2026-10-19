@@ -114,3 +114,14 @@ def test_an_unavailable_checker_lets_the_script_through():
 def test_without_a_sentence_the_prompt_says_so():
     _, prompts = run([[]], context=None)
     assert "is not available" in prompts[0]
+
+
+def test_a_refusal_to_write_reaches_the_caller_as_itself():
+    # Not wrapped in a generic Exception: the daily lesson leaves such a word
+    # out and records it, where any other error fails the whole lesson.
+    def decline(prompt, **kwargs):
+        raise script_generator.NotAScript("it said: 'amenaza means threat, not hot'")
+
+    with patch.object(script_generator, "generate_script_in_languages", decline):
+        with pytest.raises(script_generator.NotAScript):
+            generate_lesson_script("amenaza", "hot", "es", "en", context="La amenaza es real.")

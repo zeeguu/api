@@ -179,6 +179,7 @@ CORRECTNESS_ATTEMPTS = 2
 # both the generator and the check read the bare gloss as the question word;
 # saying the meaning out loud fixed both (2026-10-18).
 MEANING_LESSON_PROMPT = "meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v6.txt"
+MEANING_LESSON_PROMPT_VERSION = prompt_version_of(MEANING_LESSON_PROMPT)
 
 
 class LessonNotCorrect(Exception):
@@ -308,6 +309,9 @@ def generate_lesson_script(
                 source_language=translation_language,
                 context=f"meaning lesson '{origin_word}'",
             )
+        except NotAScript:
+            # Kept as itself: the caller records it and leaves the word out
+            raise
         except Exception as e:
             log(f"Failed to generate script for {origin_word}: {e}")
             raise Exception(f"Failed to generate script: {str(e)}")

@@ -12,7 +12,9 @@ from zeeguu.config import ZEEGUU_DATA_FOLDER
 from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
 from zeeguu.core.audio_lessons.lesson_correctness_check import mark_pair_invalid
 from zeeguu.core.audio_lessons.script_generator import (
+    MEANING_LESSON_PROMPT_VERSION,
     LessonNotCorrect,
+    NotAScript,
     generate_dialogue_script,
     generate_lesson_script,
 )
@@ -32,6 +34,7 @@ from zeeguu.core.model import (
     AudioLessonGenerationProgress,
 )
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
+from zeeguu.core.model.audio_lesson_refusal import AudioLessonRefusal
 from zeeguu.core.model.db import db as flask_db  # the module `db` above has no engine
 from zeeguu.core.model.user_language import UserLanguage
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
@@ -256,28 +259,42 @@ class DailyLessonGenerator:
                 cefr_level=cefr_level,
                 context=context,
             )
-        except LessonNotCorrect as e:
-            if e.about_the_data:
-                # In a session of its own: callers roll theirs back on errors,
-                # and without the mark the precompute cron would regenerate and
-                # refuse this word again every night. A failure here must not
-                # replace the refusal, or the learner loses the whole lesson
-                # instead of this one word.
-                separate_session = sessionmaker(bind=flask_db.engine)()
-                try:
+        except (LessonNotCorrect, NotAScript) as e:
+            # Recorded in a session of their own: callers roll theirs back on
+            # errors, and without a record the precompute cron would generate
+            # and refuse this word again every night. A failure to record must
+            # not replace the refusal, or the learner loses the whole lesson
+            # instead of this one word.
+            def record(session):
+                if isinstance(e, LessonNotCorrect) and e.about_the_data:
                     mark_pair_invalid(
-                        separate_session, meaning.id, e.problems,
+                        session, meaning.id, e.problems,
                         user_word_id=user_word.id, context=context,
                     )
-                    separate_session.commit()
-                except Exception as marking_error:
-                    separate_session.rollback()
-                    log(f"[lesson check] could not mark '{meaning.origin.content}' invalid: {marking_error}")
-                    from sentry_sdk import capture_exception
+                else:
+                    AudioLessonRefusal.record(
+                        session,
+                        meaning.id,
+                        teacher_lang.id,
+                        MEANING_LESSON_PROMPT_VERSION,
+                        AudioLessonRefusal.NOT_CORRECT
+                        if isinstance(e, LessonNotCorrect)
+                        else AudioLessonRefusal.NOT_A_SCRIPT,
+                        str(e),
+                    )
 
-                    capture_exception(marking_error)
-                finally:
-                    separate_session.close()
+            separate_session = sessionmaker(bind=flask_db.engine)()
+            try:
+                record(separate_session)
+                separate_session.commit()
+            except Exception as recording_error:
+                separate_session.rollback()
+                log(f"[lesson check] could not record the refusal of '{meaning.origin.content}': {recording_error}")
+                from sentry_sdk import capture_exception
+
+                capture_exception(recording_error)
+            finally:
+                separate_session.close()
             raise
 
         # Update progress: script done
@@ -553,11 +570,12 @@ class DailyLessonGenerator:
                             progress=progress,
                             voice_variety=voice_variety,
                         )
-                    except LessonNotCorrect as e:
+                    except (LessonNotCorrect, NotAScript) as e:
                         # A word we cannot teach correctly is left out, not the
                         # learner's whole lesson: on 2026-10-18 the check refused
                         # half of a 30-lesson sample, mostly for pairs that are
                         # wrong in our data (connu → experienced, dem → De wandeling).
+                        # Same for a word the model will not write a lesson for.
                         log(f"[generate_daily_lesson] Leaving out '{meaning.origin.content}': {e}")
                         refused.append(user_word)
                         continue
