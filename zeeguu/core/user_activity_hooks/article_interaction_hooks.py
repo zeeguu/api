@@ -43,23 +43,6 @@ def distill_article_interactions(session, user, data):
 
 
 def article_feedback(session, article_id, user, event_value):
-    from zeeguu.core.emailer.user_activity import send_notification_article_feedback
-
-    nicer = {
-        '"not_finished_for_broken"': "BROKEN",
-        '"maybe_finish_later"': "Later",
-        '"finished_difficulty_ok"': "OK",
-        '"finished_difficulty_hard"': "HARD",
-        '"finished_difficulty_easy"': "EASY",
-        '"not_finished_for_other"': "Not Finished - OTHER",
-        '"not_finished_for_boring"': "Not Finished - BORINNG",
-        '"read_later"': "Read Later",
-        '"not_finished_for_too_difficult"': "Not Finished - TOO DIFFICULT",
-    }
-
-    def beautify_article_feedback(feedback):
-        return nicer.get(feedback, feedback)
-
     article = Article.query.filter_by(id=article_id).one()
 
     # `"broken" or ... in event_value` short-circuited on the first truthy
@@ -69,27 +52,14 @@ def article_feedback(session, article_id, user, event_value):
         session.add(article)
         session.commit()
 
-    send_notification_article_feedback(
-        beautify_article_feedback(event_value),
-        user,
-        article.title,
-        article.url.as_string(),
-        article.id,
-    )
-
 
 def article_liked(session, article_id, user, like_value):
-    from zeeguu.core.emailer.user_activity import send_notification_article_feedback
-
     article = Article.query.filter_by(id=article_id).one()
     ua = UserArticle.find(user, article)
     ua.liked = like_value
     session.add(ua)
     session.commit()
     log(f"{ua}")
-    send_notification_article_feedback(
-        "Liked", user, article.title, article.url.as_string(), article.id
-    )
 
 
 def article_opened(session, article_id, user):
