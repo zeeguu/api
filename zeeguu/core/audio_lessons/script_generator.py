@@ -11,6 +11,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
     find_language_mismatches,
 )
 from zeeguu.core.audio_lessons.script_parser import parse_script
+from zeeguu.core.audio_lessons.words_heard import history_table
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
 from zeeguu.core.model.language import Language
@@ -27,7 +28,13 @@ LANGUAGE_ATTEMPTS = 3
 # What produced a script: the model that actually answered (not the one configured,
 # which a fallback chain can silently override) and the prompt file that was used.
 # Both are known at generation time and unrecoverable afterwards.
-GeneratedScript = namedtuple("GeneratedScript", ["script", "model_name", "prompt_version"])
+GeneratedScript = namedtuple(
+    "GeneratedScript",
+    ["script", "model_name", "prompt_version", "dialogue"],
+    # dialogue: for a lesson written in two calls, the GeneratedScript of the
+    # call that wrote its dialogue; None otherwise.
+    defaults=[None],
+)
 
 
 _PROMPT_VERSION = re.compile(r"-(v\d+)$")
@@ -125,9 +132,13 @@ def generate_script_in_languages(
     source_language: str,
     context: str,
     max_tokens: int = None,
+    short_lines: bool = False,
 ) -> tuple:
     """
     Generate a lesson script and verify it came back in the languages we asked for.
+
+    short_lines: an A0 script, made of one- and two-word lines; see
+    script_language_validator.MIN_CHARS_TO_JUDGE_SHORT_LINES.
 
     Retries with an explicit correction when the detected language is wrong, and
     raises if the LLM keeps getting it wrong.
@@ -152,7 +163,9 @@ def generate_script_in_languages(
                 f"{(script or '').strip()[:300]!r}"
             )
 
-        mismatches = find_language_mismatches(script, target_language, source_language)
+        mismatches = find_language_mismatches(
+            script, target_language, source_language, short_lines=short_lines
+        )
         if not mismatches:
             return script, model_name
 
@@ -209,6 +222,24 @@ def generate_lesson_script(
         raise Exception(f"Failed to generate script: {str(e)}")
 
 
+def builds_on_history(cefr_level: str) -> bool:
+    """
+    Whether a situation lesson at this level is written from the learner's own
+    history (words_heard), Pimsleur-style, and belongs to them alone. The one
+    place this is decided: the generator and the script writer both ask here.
+    """
+    return cefr_level == "A0"
+
+
+def word_lesson_level(cefr_level: str) -> str:
+    """
+    The level a word (meaning) lesson is written at. There is no A0 word lesson:
+    A0 is a way of building situation lessons, and meaning lessons are cached and
+    shared across users by word, so an "A0" one would be served to everyone.
+    """
+    return "A1" if cefr_level == "A0" else cefr_level
+
+
 def generate_dialogue_script(
     origin_language: str,
     translation_language: str,
@@ -216,9 +247,17 @@ def generate_dialogue_script(
     lesson_type: str,
     cefr_level: str = "A1",
     past_titles: list = None,
+    heard: list = None,
+    learner_character: str = None,
 ) -> tuple:
     """
     Generate a single flowing dialogue script about a topic or situation.
+
+    At a level that builds_on_history:
+    heard: the lessons the learner heard before (words_heard.heard_lessons);
+    [] or None when they have heard nothing yet.
+    learner_character: "man" or "woman", the character the learner plays.
+    Such a lesson is written in two calls, see _dialogue_for_beginner.
 
     Returns:
         Tuple of (title, script) — title is a short description of the dialogue
@@ -226,18 +265,37 @@ def generate_dialogue_script(
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
-    if lesson_type == "situation":
-        prompt_file = "dialogue_lesson--situation-v2.txt"
-    else:
-        prompt_file = "dialogue_lesson--topic-v2.txt"
-
-    prompt_template = get_prompt_template(prompt_file)
-    prompt = prompt_template.format(
+    # Also enough for the A0 scripts, which measured 1.6k-4k tokens.
+    max_tokens = 8000
+    common = dict(
         target_language=origin_lang_name,
         source_language=translation_lang_name,
         cefr_level=cefr_level,
         suggestion=suggestion,
     )
+
+    if builds_on_history(cefr_level):
+        # One prompt for topics and situations: at A0 a topic is a situation
+        # where people talk about it.
+        prompt_file = "a0_dialogue_lesson--pimsleur_style_situation-v1.txt"
+        heard = heard or []
+        learner_role = (learner_character or "man").capitalize()
+        dialogue = _dialogue_for_beginner(
+            origin_language, translation_language, suggestion, heard, learner_role
+        )
+        prompt = get_prompt_template(prompt_file).format(
+            **common,
+            history=history_table(heard) or "Nothing yet: this is their first lesson.",
+            dialogue=dialogue.script,
+            learner_role=learner_role,
+        )
+    else:
+        dialogue = None
+        if lesson_type == "situation":
+            prompt_file = "dialogue_lesson--situation-v2.txt"
+        else:
+            prompt_file = "dialogue_lesson--topic-v2.txt"
+        prompt = get_prompt_template(prompt_file).format(**common)
 
     if past_titles:
         titles_list = "\n".join([f"- {t}" for t in past_titles])
@@ -251,7 +309,8 @@ def generate_dialogue_script(
             target_language=origin_language,
             source_language=translation_language,
             context=f"dialogue lesson '{suggestion}'",
-            max_tokens=8000,
+            max_tokens=max_tokens,
+            short_lines=builds_on_history(cefr_level),
         )
 
         # Parse title from first line
@@ -263,8 +322,87 @@ def generate_dialogue_script(
             script = lines[1].strip()
 
         log(f"Successfully generated dialogue script, title: '{title}'")
-        return title, GeneratedScript(script, model_name, prompt_version_of(prompt_file))
+        return title, GeneratedScript(
+            script, model_name, prompt_version_of(prompt_file), dialogue
+        )
 
     except Exception as e:
         log(f"Failed to generate dialogue script: {e}")
         raise Exception(f"Failed to generate dialogue script: {str(e)}")
+
+
+def _dialogue_for_beginner(origin_language, translation_language, suggestion, heard, learner_role):
+    """
+    The dialogue a beginner's lesson is built around, written on its own.
+
+    Asked for together with the 150 lines of drill around it, the dialogue was
+    unnatural in about a third of the lessons (2026-10-18, "at a party: you only
+    understand a little"): the model wrote it already thinking in the words it
+    had to drill, and kept tacking those on ("Goddag." / "Jeg forstår lidt." /
+    "Værsgo."). Asked for alone, 5 of 5 were exchanges as they really happen.
+    The lesson is then written around this dialogue and may not change it.
+    Returned as a GeneratedScript, so the model that wrote it is recorded too
+    (AudioLessonDialogue.dialogue_ai_generator).
+    """
+    origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
+    known = sorted({word for lesson in heard for word in lesson.words})
+    if known:
+        known_words = (
+            "The learner already knows these words from earlier lessons: "
+            + ", ".join(known)
+            + ". Use them only where they belong in this situation."
+        )
+    else:
+        known_words = f"This is the learner's first lesson: they know no {origin_lang_name} yet."
+
+    # Without this, a learner whose daily situation is always "at the café" would
+    # get the same exchange every day: the same situation and the same known
+    # words lead to the same dialogue.
+    earlier = [lesson.title for lesson in heard if lesson.title]
+    earlier_lessons = (
+        "Their earlier lessons were: "
+        + "; ".join(earlier[-10:])
+        + ". If this situation is one of them, write a different exchange in it."
+        if earlier
+        else ""
+    )
+
+    prompt = get_prompt_template("a0_dialogue--natural_exchange-v1.txt").format(
+        target_language=origin_lang_name,
+        suggestion=suggestion,
+        known_words=known_words,
+        earlier_lessons=earlier_lessons,
+        learner=learner_role.lower(),
+    )
+    dialogue, model_name = generate_script_in_languages(
+        prompt,
+        target_language=origin_language,
+        source_language=translation_language,
+        context=f"A0 dialogue '{suggestion}'",
+        max_tokens=500,
+        short_lines=True,
+    )
+    # The lesson around it may not change it, so it is checked here: only the
+    # speakers' lines (a preamble like "Here is the dialogue:" is dropped), and
+    # 2 to 6 of them. Fewer, or more, means the model did not write what was
+    # asked -- possibly cut off -- and the lesson is not built on it.
+    lines = []
+    for line in dialogue.splitlines():
+        # **Woman:** and WOMAN: are the same speaker as Woman:
+        speaker_line = re.match(r"^(man|woman)\s*:\s*(\S.*)$", line.replace("*", "").strip(), re.IGNORECASE)
+        if speaker_line:
+            lines.append(f"{speaker_line.group(1).capitalize()}: {speaker_line.group(2)}")
+        elif lines and line.strip():
+            # Text after the dialogue has started that is not a speaker's line:
+            # a lost turn or a comment. Not dropped silently.
+            raise Exception(f"A0 dialogue for '{suggestion}' has a line that is not a speaker's: {line.strip()[:120]!r}")
+    if not 2 <= len(lines) <= 6:
+        raise Exception(
+            f"A0 dialogue for '{suggestion}' has {len(lines)} lines, not 2-6: "
+            f"{dialogue.strip()[:300]!r}"
+        )
+    return GeneratedScript(
+        "\n".join(lines),
+        model_name,
+        prompt_version_of("a0_dialogue--natural_exchange-v1.txt"),
+    )

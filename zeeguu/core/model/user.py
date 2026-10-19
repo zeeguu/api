@@ -369,10 +369,11 @@ class User(db.Model):
             if feed_variety is not None
             else None
         )
+        from zeeguu.core.model import UserLanguage
+
+        level = UserLanguage.parse_cefr_level(cefr_level)
 
         self.learned_language = Language.find(language_code)
-
-        from zeeguu.core.model import UserLanguage
 
         # disable the exercises and reading for all the other languages
         all_other_languages = (
@@ -389,8 +390,8 @@ class User(db.Model):
         language = UserLanguage.find_or_create(session, self, self.learned_language)
         language.reading_news = True
         language.doing_exercises = True
-        if cefr_level:
-            language.cefr_level = cefr_level
+        if level is not None:
+            language.cefr_level = level
 
         # Unlike the level, a variety is cleared by sending it empty: "no
         # preference" is a choice a learner can go back to.
@@ -485,7 +486,7 @@ class User(db.Model):
         from zeeguu.core.model import UserLanguage
 
         language = UserLanguage.find_or_create(session, self, learned_language)
-        language.cefr_level = int(cefr_level)
+        language.cefr_level = UserLanguage.parse_cefr_level(cefr_level)
         if session:
             session.add(language)
 
@@ -1305,14 +1306,48 @@ class User(db.Model):
     def word_count(self):
         return len(self.user_words())
 
-    def cefr_level_for_language(self, language):
+    # user_language.cefr_level is an index into this list; NULL means not set.
+    CEFR_LEVELS = ["A0", "A1", "A2", "B1", "B2", "C1", "C2"]
+
+    def _stored_cefr_level(self, language):
+        """The stored level as A0..C2; ValueError when there is none to use."""
+        from sqlalchemy.orm.exc import NoResultFound
         from zeeguu.core.model import UserLanguage
 
-        lang_info = UserLanguage.with_language_id(language.id, self)
-        return ["A1", "A2", "B1", "B2", "C1", "C2"][lang_info.cefr_level - 1]
+        try:
+            lang_info = UserLanguage.with_language_id(language.id, self)
+        except NoResultFound:
+            raise ValueError(f"no user_language for {language.code}")
+        level = lang_info.cefr_level
+        if level is None or not 0 <= level < len(self.CEFR_LEVELS):
+            raise ValueError(f"no usable CEFR level for {language.code}: {level}")
+        return self.CEFR_LEVELS[level]
+
+    def cefr_level_for_language(self, language):
+        """
+        The level to pick texts by: A1..C2. Raises ValueError when none is set;
+        callers fall back to a default.
+
+        A0 reads as A1. Nothing is written below A1, and every caller of this
+        compares against the levels articles are written at, so an A0 learner
+        reads the easiest texts there are. Only the audio lessons go below A1,
+        and they ask for audio_lesson_level_for_learned_language instead.
+        """
+        level = self._stored_cefr_level(language)
+        return "A1" if level == "A0" else level
 
     def cefr_level_for_learned_language(self):
         return self.cefr_level_for_language(self.learned_language)
+
+    def audio_lesson_level_for_learned_language(self):
+        """
+        The level to write audio lessons at, A0 included. A1 when none is set:
+        before NULL meant unset, an unset level read as C2 here.
+        """
+        try:
+            return self._stored_cefr_level(self.learned_language)
+        except ValueError:
+            return "A1"
 
     def get_all_languages(self):
         """Get all languages that this user has words in."""
@@ -1359,9 +1394,10 @@ class User(db.Model):
             if lang_info.declared_level_max < 10:
                 declared_level_max = lang_info.declared_level_max
 
-        if lang_info.cefr_level and lang_info.cefr_level > 0:
+        if lang_info.cefr_level is not None:
+            # A0 (0) reads the A1 range: see cefr_level_for_language.
             declared_level_min, declared_level_max = CEFR_TO_DIFFICULTY_MAPPING[
-                lang_info.cefr_level
+                max(lang_info.cefr_level, 1)
             ]
 
         # ML, Sept 12, 2024

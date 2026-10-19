@@ -3,6 +3,7 @@ import zeeguu.core
 from flask import request
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.user_language import UserLanguage
+from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.core.model import User
 
 
@@ -41,10 +42,12 @@ def modify_user_language():
         language_exercises = int(request.form.get("language_exercises", ""))
     except:
         language_exercises = None
+    # 0 is A0 (see UserLanguage.parse_cefr_level). A level that cannot be stored
+    # is refused: answering OK would tell the client it was saved.
     try:
-        language_level = int(request.form.get("language_level", ""))
-    except:
-        language_level = None
+        language_level = UserLanguage.parse_cefr_level(request.form.get("language_level", ""))
+    except ValueError as e:
+        return make_error(400, str(e))
     user = User.find_by_id(flask.g.user_id)
     language_object = Language.find(language_code)
     user_language = UserLanguage.find_or_create(db_session, user, language_object)

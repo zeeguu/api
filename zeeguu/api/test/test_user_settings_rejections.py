@@ -65,6 +65,25 @@ class TestARefusedSaveChangesNothing:
         assert response.status_code == 400
         assert stored_user(app, "switcher@zeeguu.test") == before
 
+    def test_a_level_out_of_range_leaves_the_language_alone(self, app, client):
+        lc = logged_in(app, client, "badlevel@zeeguu.test", "badlevel")
+        save_settings(lc, learned_language="de")
+        before = stored_user(app, "badlevel@zeeguu.test")
+
+        response = save_settings(lc, learned_language="pt", cefr_level="7")
+
+        assert response.status_code == 400
+        assert stored_user(app, "badlevel@zeeguu.test") == before
+
+    def test_a0_is_saved(self, app, client):
+        # 0 is A0, not "no level": `if cefr_level:` used to drop it.
+        lc = logged_in(app, client, "absolutebeginner@zeeguu.test", "absolutebeginner")
+
+        response = save_settings(lc, learned_language="pt", cefr_level="0")
+
+        assert response.status_code == 200
+        assert stored_user(app, "absolutebeginner@zeeguu.test")["languages"]["pt"][2] == 0
+
     def test_an_email_someone_else_holds_leaves_the_name_alone(self, app, client):
         # The name is assigned before the language is saved, so the commit inside
         # find_or_create would carry it along with everything else.
