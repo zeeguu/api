@@ -1,6 +1,6 @@
 from markupsafe import escape
 
-from zeeguu.core.model import User
+from zeeguu.core.model import User, Article
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 import human_readable
@@ -70,7 +70,8 @@ def send_notification_article_feedback(
 
         # user activity data
         stream.append("\n\nUser Interactions:\n")
-        events = UserActivityData.find(article_id=article_id)
+        article = Article.find_by_id(article_id)
+        events = UserActivityData.find(user=user, source_id=article.source_id)
         prev_short_time = ""
         for event in events:
             short_time = dt.strftime(event.time, "%H:%M")
