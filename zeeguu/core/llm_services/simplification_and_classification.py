@@ -104,7 +104,7 @@ def _deepseek_stop_that_fired(result, finish_reason, stop):
 
 
 def _call_simplification_llm(
-    prompt, provider, api_key, max_tokens, timeout=180, stop=None
+    prompt, provider, api_key, max_tokens, timeout=180, stop=None, cached_prefix=None
 ):
     """
     Send `prompt` to the chosen provider and return (result_text, model_name).
@@ -112,6 +112,9 @@ def _call_simplification_llm(
 
     `stop` sequences end the reply early. Both providers strip the one that
     fired; it is put back, so the text reads as the model wrote it.
+
+    `cached_prefix` is the part of `prompt` that is the same on every call; on
+    Anthropic it is prompt-cached. DeepSeek caches repeated prefixes by itself.
     """
     api_start_time = time.time()
     if provider == "deepseek":
@@ -148,6 +151,7 @@ def _call_simplification_llm(
             temperature=0.1,
             timeout=timeout,
             stop_sequences=stop,
+            cached_prefix=cached_prefix,
         ).strip()
     log(f"  {provider.upper()} responded in {time.time() - api_start_time:.2f}s ({len(result)} chars)")
     return result, model_name
@@ -304,6 +308,10 @@ def assess_and_summarize(
     """
     prompt_template = get_assessment_and_summary_prompt(target_language)
     prompt = prompt_template.format(title=title, content=content)
+    # The text before the first placeholder is the same for every article in
+    # this language, so it is cached; the crawler sends a language's articles
+    # in bursts.
+    instructions = os.path.commonprefix([prompt_template, prompt])
 
     provider, api_key = _select_provider_and_key(simplification_provider)
     log(f"Assessing+summarizing article '{title[:50]}...' in {target_language}")
@@ -320,6 +328,7 @@ def assess_and_summarize(
             max_tokens=2000,
             timeout=120,
             stop=REJECTION_STOPS,
+            cached_prefix=instructions,
         )
         _raise_if_paywall_or_advertorial(result)
         assessment = _parse_assessment_and_summary(result, provider, model_name)

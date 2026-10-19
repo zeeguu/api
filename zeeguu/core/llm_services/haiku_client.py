@@ -32,6 +32,7 @@ def _create(
     temperature: float,
     timeout: int,
     stop_sequences: Optional[list] = None,
+    cached_prefix: Optional[str] = None,
 ):
     api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
     if not api_key:
@@ -47,8 +48,23 @@ def _create(
         **claude.sampling_options(HAIKU_MODEL, temperature),
         **extra,
         max_tokens=claude.max_tokens(HAIKU_MODEL, max_tokens),
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": _content(prompt, cached_prefix)}],
     )
+
+
+def _content(prompt: str, cached_prefix: Optional[str]):
+    """
+    The user message for `prompt`, with `cached_prefix` (the instructions it
+    starts with, the same on every call) marked for prompt caching so repeat
+    calls pay a tenth of the input price for it. Below the model's minimum
+    cacheable length (512 tokens on Haiku 5.5) the mark is silently ignored.
+    """
+    if not cached_prefix or not prompt.startswith(cached_prefix) or prompt == cached_prefix:
+        return prompt
+    return [
+        {"type": "text", "text": cached_prefix, "cache_control": {"type": "ephemeral"}},
+        {"type": "text", "text": prompt[len(cached_prefix):]},
+    ]
 
 
 def haiku_completion(
@@ -87,6 +103,7 @@ def haiku_completion_or_raise(
     temperature: float = 0.0,
     timeout: int = 30,
     stop_sequences: Optional[list] = None,
+    cached_prefix: Optional[str] = None,
 ) -> str:
     """
     Send a single-turn prompt to Haiku. Returns the response text, or
@@ -96,8 +113,13 @@ def haiku_completion_or_raise(
     When one of `stop_sequences` ends the reply, the matched sequence is put
     back on the end of the text (Anthropic strips it), so the caller reads the
     reply exactly as the model wrote it, just cut short.
+
+    `cached_prefix`: the fixed instructions `prompt` starts with, cached across
+    calls (see `_content`).
     """
-    response = _create(prompt, max_tokens, temperature, timeout, stop_sequences)
+    response = _create(
+        prompt, max_tokens, temperature, timeout, stop_sequences, cached_prefix
+    )
     # Haiku 5.5's safety classifiers can decline (HTTP 200, no text); Haiku has
     # no server-side fallback model, so this surfaces as a failure.
     if response.stop_reason == "refusal":
