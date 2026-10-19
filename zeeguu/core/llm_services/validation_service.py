@@ -29,12 +29,16 @@ from zeeguu.logging import log
 
 
 def _engine_of(user_word):
-    """Who produced the pair being judged, for the validation log: the service
-    on the user word's earliest bookmark that records one. Not the preferred
-    bookmark's: before the first exercise that is often a generated example
-    sentence (example_contexts), which is a placement, not a translation."""
+    """Who produced the pair being judged, for the validation log: the judged
+    (preferred) bookmark's service, or else the user word's earliest bookmark
+    that records one. The fallback is for when the preferred bookmark is a
+    generated example sentence (example_contexts), which is a placement, not a
+    translation, and records none."""
     from zeeguu.core.model.bookmark import Bookmark
 
+    judged = user_word.preferred_bookmark
+    if judged is not None and judged.translation_service_id is not None:
+        return judged.translation_service_id
     first = (
         Bookmark.query.filter(
             Bookmark.user_word_id == user_word.id,

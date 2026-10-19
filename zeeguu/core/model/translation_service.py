@@ -34,32 +34,50 @@ class TranslationService(db.Model):
     def __repr__(self):
         return f"<TranslationService {self.name}>"
 
+    # Never accepted from a client: they would claim our own provenance
+    INTERNAL = (MANUAL, CHOSEN_ALTERNATIVE, LEARNING_CARD, VALIDATOR)
+
     @classmethod
     def find_or_create(cls, session, name):
-        name = name[:50]
-        found = cls.query.filter_by(name=name).first()
+        """
+        For names from our own code and from the translate endpoint's engines;
+        a name from a client goes through known() instead.
+
+        Never flushes the caller's pending work: callers are mid-way through
+        reassigning a bookmark (update_bookmark_full, the validator's fix),
+        and a flush there would write that half-done state, which the
+        preferred-bookmark write check (user_word.py) can reject. So the
+        lookups skip autoflush and a new row is committed in a session of its
+        own; a stray service row is harmless if the caller then rolls back.
+        """
+        name = name.strip()[:50]
+        with session.no_autoflush:
+            found = session.query(cls).filter_by(name=name).first()
         if found:
             return found
-        # Under a savepoint, so losing the race to another request undoes this
-        # insert only, not the caller's pending bookmark.
+
+        from sqlalchemy.orm import sessionmaker
+
+        own = sessionmaker(bind=session.get_bind())()
         try:
-            with session.begin_nested():
-                found = cls(name)
-                session.add(found)
+            own.add(cls(name))
+            own.commit()
         except IntegrityError:
-            # Another request created it first; anything else is a real error.
-            # A locking read: a plain SELECT would reuse this transaction's
-            # REPEATABLE READ snapshot from the lookup above, which predates
-            # the other request's row.
-            found = cls.query.filter_by(name=name).with_for_update(read=True).first()
-            if found is None:
-                raise
-        return found
+            own.rollback()  # another request created it first
+        finally:
+            own.close()
+        # A locking read: a plain SELECT would reuse the caller's REPEATABLE
+        # READ snapshot from the lookup above, which predates the new row.
+        with session.no_autoflush:
+            return session.query(cls).filter_by(name=name).with_for_update(read=True).one()
 
     @classmethod
     def known(cls, name):
-        """The existing service with this name, or None; never creates one.
-        For names that come from a client rather than from our own code."""
+        """The existing engine with this name, or None; never creates one and
+        never returns one of our INTERNAL names. For names from a client."""
         if not isinstance(name, str) or not name.strip():
             return None
-        return cls.query.filter_by(name=name.strip()[:50]).first()
+        name = name.strip()[:50]
+        if name in cls.INTERNAL:
+            return None
+        return cls.query.filter_by(name=name).first()

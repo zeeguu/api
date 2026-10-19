@@ -188,7 +188,8 @@ def translate_word(from_lang_code, to_lang_code):
                 reading_session_id=reading_session_id,
                 is_mwe=is_mwe_expression,
                 mwe_partner_token_i=mwe_partner_token_i,
-                translation_service=t1.get("source"),
+                # Not the dev placeholder: it would become a service row
+                translation_service=None if IS_DEV_SKIP_TRANSLATION else t1.get("source"),
             )
 
         bookmark_elapsed = time.time() - bookmark_start
@@ -469,8 +470,10 @@ def update_bookmark_translation_only(bookmark_id):
     # predate it send only the translation. Only a service we already know
     # counts: the alternatives come from the engines that win lookups, and a
     # client must not be able to add rows to translation_service.
-    service = TranslationService.known(request.json.get("translation_service"))
-    service_name = service.name if service else TranslationService.CHOSEN_ALTERNATIVE
+    service = (
+        TranslationService.known(request.json.get("translation_service"))
+        or TranslationService.CHOSEN_ALTERNATIVE
+    )
 
     # Find or create new Meaning with the new translation
     old_meaning = bookmark.user_word.meaning
@@ -510,7 +513,7 @@ def update_bookmark_translation_only(bookmark_id):
         cleanup_old_user_word(db_session, old_user_word, bookmark)
 
     if new_meaning.id != old_meaning.id:
-        bookmark.set_translation_service(db_session, service_name)
+        bookmark.set_translation_service(db_session, service)
     db_session.commit()
 
     # Return updated bookmark
@@ -705,7 +708,9 @@ def contribute_translation(from_lang_code, to_lang_code):
     )
     # when a translation is added by hand, the servicename_translation is None
     # thus we set it to MANUAL
-    service_name = request_params.get("servicename_translation") or TranslationService.MANUAL
+    service_name = request_params.get("servicename_translation", "MANUAL")
+    # For the bookmark, only an engine we know: this comes from the client
+    service = TranslationService.known(service_name) or TranslationService.MANUAL
     article_id = None
     if "articleID" in url:
         article_id = url.split("articleID=")[-1]
@@ -747,7 +752,7 @@ def contribute_translation(from_lang_code, to_lang_code):
         total_tokens=w_total_tokens,
         context_identifier=context_identifier,
         translation_source="reading",
-        translation_service=service_name,
+        translation_service=service,
     )
 
     # Inform apimux about translation selection

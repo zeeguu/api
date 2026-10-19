@@ -76,3 +76,19 @@ class ValidationLogTranslationServiceTest(ModelTestMixIn, TestCase):
 
         self._validate(ValidationResult(is_valid=True))
         self.assertEqual(ValidationLog.query.one().translation_service_id, self.engine_id)
+
+    def test_the_judged_bookmark_s_own_engine_comes_first(self):
+        # setUp's bookmark (engine_id) is the word's earliest; a later one
+        # from DeepL is the one being judged
+        judged = BookmarkRule(self.user_word.user).bookmark
+        judged.user_word_id = self.user_word.id
+        judged.set_translation_service(session, "DeepL")
+        session.add(judged)
+        session.flush()
+        self.user_word.preferred_bookmark = judged
+        session.add(self.user_word)
+        session.commit()
+
+        self._validate(ValidationResult(is_valid=True))
+        self.assertEqual(ValidationLog.query.one().translation_service_id, judged.translation_service_id)
+        self.assertNotEqual(judged.translation_service_id, self.engine_id)

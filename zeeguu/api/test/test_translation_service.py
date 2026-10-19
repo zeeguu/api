@@ -124,3 +124,48 @@ def test_a_chosen_alternative_from_an_older_client_is_still_marked(client):
     client.post(f"/update_bookmark_translation/{bookmark_id}", json={"translation": "after"})
     assert _service(bookmark_id) == TranslationService.CHOSEN_ALTERNATIVE
 
+
+
+def _contribute(client, **extra):
+    article = create_and_get_article(client)
+    context_i = ContextIdentifier(ContextType.ARTICLE_TITLE, None, article["id"])
+    return client.client.post(
+        client.append_session("/contribute_translation/de/en"),
+        json={"word": "hinter", "translation": "behind", "context": "stellt sich hinter Präsident",
+              "source_id": article["source_id"], "context_identifier": context_i.as_dictionary(), **extra},
+    )
+
+
+def test_a_contributed_translation_cannot_invent_or_claim_services(client):
+    import json
+
+    add_context_types()
+    add_source_types()
+    for claimed in ("made up", 5, {"a": 1}, TranslationService.VALIDATOR):
+        response = _contribute(client, servicename_translation=claimed)
+        assert response.status_code == 200
+        assert _service(json.loads(response.data)["bookmark_id"]) == TranslationService.MANUAL
+    assert TranslationService.query.filter_by(name="made up").count() == 0
+
+
+def test_an_alternative_cannot_claim_an_internal_service(client):
+    add_context_types()
+    add_source_types()
+    bookmark_id = add_one_bookmark(client)  # creates the MANUAL row
+    client.post(f"/update_bookmark_translation/{bookmark_id}",
+                json={"translation": "after", "translation_service": TranslationService.MANUAL})
+    assert _service(bookmark_id) == TranslationService.CHOSEN_ALTERNATIVE
+
+
+def test_a_bookmark_from_before_services_learns_its_service_when_found_again(client):
+    from zeeguu.core.model import db
+
+    add_context_types()
+    add_source_types()
+    bookmark_id = add_one_bookmark(client)
+    bookmark = Bookmark.find(bookmark_id)
+    bookmark.translation_service_id = None
+    db.session.add(bookmark)
+    db.session.commit()
+    assert _service(add_one_bookmark(client)) == TranslationService.MANUAL
+    assert _service(bookmark_id) == TranslationService.MANUAL

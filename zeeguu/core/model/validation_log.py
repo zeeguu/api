@@ -57,7 +57,9 @@ class ValidationLog(db.Model):
     # moves the bookmark to the corrected pair, and with it the bookmark's own
     # translation_service; this is how a wrong pair is traced to its engine.
     translation_service_id = db.Column(
-        db.SmallInteger, db.ForeignKey("translation_service.id"), nullable=True
+        db.SmallInteger,
+        db.ForeignKey("translation_service.id", name="validation_log_translation_service_fk"),
+        nullable=True,
     )
 
     created_at = db.Column(
