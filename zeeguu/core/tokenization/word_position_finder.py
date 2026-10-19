@@ -80,11 +80,12 @@ def find_word_positions_in_text(target_word, context_text, from_lang, strict_mat
             if strict_matching:
                 matches = (context_slice == target_normalized)
             else:
-                # Fuzzy: each token must match (equal or substring). A token
-                # that normalizes to "" (".", "_____") is a substring of
-                # everything, so it never counts as a match
+                # Fuzzy: each token must match (equal or substring). A context
+                # token that normalizes to "" (".", "_____") is a substring of
+                # everything, so it only matches an equally empty target token
+                # (the "'" in "qu' à", the "." in "z. B.")
                 matches = all(
-                    c and (t == c or t in c or c in t)
+                    t == c or (c and (t in c or c in t))
                     for t, c in zip(target_normalized, context_slice)
                 )
 

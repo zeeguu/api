@@ -14,7 +14,7 @@ from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.model.exercise import Exercise
-from zeeguu.core.tokenization.word_position_finder import find_first_occurrence
+from zeeguu.core.tokenization.word_position_finder import find_first_occurrence, find_word_positions_in_text
 from zeeguu.logging import log
 
 
@@ -24,14 +24,21 @@ def anchorable_examples(examples, word, language):
     anchor it. The others get no bookmark (see bookmark_for_example) and are
     not worth storing or showing.
     """
-    usable = [
-        example
-        for example in examples
-        if find_first_occurrence(word, example["sentence"], language)["found"]
-    ]
+    usable = [example for example in examples if _may_contain(word, example["sentence"], language)]
     if len(usable) < len(examples):
         log(f"Dropped {len(examples) - len(usable)} generated examples without '{word}'")
     return usable
+
+
+def _may_contain(word, sentence, language):
+    """False only when the sentence was tokenized and the word isn't in it.
+    find_first_occurrence also says "not found" when tokenizing fails, and
+    a tokenizer problem shouldn't silently drop every generated example."""
+    try:
+        return bool(find_word_positions_in_text(word, sentence, language)["found_positions"])
+    except Exception as e:
+        log(f"Couldn't check for '{word}' in a generated example, keeping it: {e}")
+        return True
 
 
 def bookmark_for_example(session, user, user_word, example_sentence):

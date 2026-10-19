@@ -176,3 +176,11 @@ class AnchorableExamplesTest(ModelTestMixIn, TestCase):
             example_contexts.anchorable_examples(examples, "selv", danish),
             [{"sentence": "Selv børnene kunne løse opgaven."}],
         )
+
+    def test_examples_are_kept_when_tokenizing_fails(self):
+        from zeeguu.core.model import Language
+
+        danish = Language.find_or_create("da")
+        examples = [{"sentence": "Selv børnene kunne løse opgaven."}]
+        with patch.object(example_contexts, "find_word_positions_in_text", side_effect=KeyError("bug")):
+            self.assertEqual(example_contexts.anchorable_examples(examples, "selv", danish), examples)
