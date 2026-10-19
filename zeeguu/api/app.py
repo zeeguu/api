@@ -135,6 +135,12 @@ def create_app(testing=False):
 
         connection_thread_guard.install()
 
+        # ...and who holds the connection when mysqlclient's own lock refuses
+        # it, which the guard above can't see
+        from zeeguu.core.model import connection_lock_probe
+
+        connection_lock_probe.install()
+
     from zeeguu.core.model.db import db
 
     db.init_app(app)
