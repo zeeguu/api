@@ -42,7 +42,7 @@ class DeepSeekService(LLMService):
                 {"role": "system", "content": prompt["system"]},
                 {"role": "user", "content": prompt["user"]}
             ],
-            "max_tokens": max_tokens,
+            "max_tokens": models.output_tokens(self.model, max_tokens),
             "temperature": temperature
         }
 

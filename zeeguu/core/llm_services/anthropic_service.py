@@ -47,7 +47,7 @@ class AnthropicService(LLMService):
             response = self.client.messages.create(
                 model=self.model,
                 **claude.request_options(self.model),
-                max_tokens=max_tokens,
+                max_tokens=models.output_tokens(self.model, max_tokens),
                 system=prompt["system"],
                 messages=[
                     {"role": "user", "content": prompt["user"]}
