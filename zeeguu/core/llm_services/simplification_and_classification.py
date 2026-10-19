@@ -9,8 +9,10 @@ This module handles:
 """
 
 import os
+import anthropic
 import requests
 import time
+from collections import namedtuple
 from requests.exceptions import Timeout, RequestException
 from zeeguu.logging import log
 from zeeguu.core.language.language_check import describe_mismatches
@@ -29,52 +31,236 @@ from .prompts.article_simplification import (
 from zeeguu.core.llm_services import models
 
 
-# Round-robin counter for alternating between providers
-_simplification_provider_counter = 0
-
-
-def _get_next_simplification_provider() -> str:
+class ProviderUnavailable(Exception):
     """
-    Round-robin between 'deepseek' and 'anthropic' for simplification.
-    This allows A/B comparison of error rates between providers.
+    The provider itself cannot serve us: out of credit, over a spend cap, rate
+    limited, key rejected, or down.
+
+    Deliberately distinct from a bad RESPONSE (paywall, advertorial, wrong
+    language, a refusal). Those are facts about the article and must NOT be
+    retried on another provider — only this one is worth failing over.
     """
-    global _simplification_provider_counter
-    _simplification_provider_counter += 1
-
-    if _simplification_provider_counter % 2 == 0:
-        return "deepseek"
-    else:
-        return "anthropic"
 
 
-def _select_provider_and_key(simplification_provider: str = None):
-    """
-    Resolve the provider (round-robin unless one is given) and its API key,
-    falling back to the other provider when the primary key is unset.
-    Returns (provider, api_key). Shared by the assess-only and full-simplify paths.
-    """
-    if simplification_provider:
-        provider = simplification_provider
-    else:
-        provider = _get_next_simplification_provider()
-    log(f"Using {provider.upper()} provider for simplification")
-
+def _api_key_for(provider: str):
     if provider == "deepseek":
-        api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
-        fallback_api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
-    else:
-        api_key = os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
-        fallback_api_key = os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
+        return os.environ.get("DEEPSEEK_API_SIMPLIFICATIONS")
+    return os.environ.get("ANTHROPIC_TEXT_SIMPLIFICATION_KEY")
 
-    if not api_key:
-        log(f"WARNING: {provider.upper()} API key not set, trying fallback")
-        provider = "anthropic" if provider == "deepseek" else "deepseek"
-        api_key = fallback_api_key
-        if not api_key:
-            raise Exception(
-                "Neither DEEPSEEK_API_SIMPLIFICATIONS nor ANTHROPIC_TEXT_SIMPLIFICATION_KEY environment variable set"
-            )
-    return provider, api_key
+
+# Statuses that mean "this provider cannot serve us right now" rather than "you
+# sent a bad request": 402 is DeepSeek's Insufficient Balance, 429 is rate
+# limiting, 401/403 a revoked or wrong key, 5xx/529 an outage.
+_PROVIDER_DOWN_STATUSES = {401, 402, 403, 429, 500, 502, 503, 504, 529}
+
+# Anthropic reports its monthly spend cap as a 400 invalid_request_error — NOT a
+# quota status — so the status code alone cannot catch the exact outage that
+# starved the crawl through August 2026. Matched on the body instead, which reads:
+#   {"type":"error","error":{"type":"invalid_request_error","message":
+#    "You have reached your specified API usage limits. You will regain
+#     access on 2026-09-01 at 00:00 UTC."}}
+# DeepSeek's out-of-credit body says "Insufficient Balance" and already carries
+# 402, so it is covered twice over.
+_PROVIDER_DOWN_MARKERS = ("usage limits", "insufficient balance", "credit balance")
+
+
+def _is_provider_unavailable(status_code, body) -> bool:
+    if status_code in _PROVIDER_DOWN_STATUSES:
+        return True
+    return any(marker in str(body or "").lower() for marker in _PROVIDER_DOWN_MARKERS)
+
+
+# Which (from -> to) failovers this PROCESS has already emailed about.
+#
+# Deliberately once per process, not once per failover: a dead provider fails
+# over on EVERY article, and the crawl handles ~1200 a day, so per-event mail
+# would bury the signal it exists to raise. The crawler is a fresh process per
+# hourly run, so a sustained outage sends about one mail an hour — enough to
+# notice, little enough to read. The case where BOTH providers are gone is
+# covered from the other side by the assessment-coverage check in
+# tools/feed_delivery_health_check.py.
+_failover_notified = set()
+
+
+def _notify_failover_once(from_provider, to_provider, reason):
+    key = (from_provider, to_provider)
+    if key in _failover_notified:
+        return
+    _failover_notified.add(key)
+
+    # Never let a mail problem turn a SUCCESSFUL failover into a failed article:
+    # the whole point of this path is that the work still got done.
+    try:
+        from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+
+        ZeeguuMailer.send_alert(
+            f"⚠️ Zeeguu LLM failover: {from_provider.upper()} → {to_provider.upper()}",
+            [
+                f"{from_provider.upper()} could not serve the simplification "
+                f"pipeline, so it fell over to {to_provider.upper()}.",
+                "",
+                "Articles are still being assessed — this is the degraded-but-working",
+                f"state, on one provider instead of two. If {to_provider.upper()} also",
+                "goes, assessment stops entirely and feed cards fall back to the",
+                "publisher blurb at every CEFR level.",
+                "",
+                f"Reason given by {from_provider.upper()}:",
+                f"  {reason}",
+                "",
+                "Check: DeepSeek balance https://platform.deepseek.com/usage",
+                "       Anthropic spend cap (Console -> Billing/Limits)",
+                "",
+                "Sent once per crawl process, so expect roughly one an hour while",
+                "this lasts rather than one per article.",
+            ],
+        )
+    except Exception as mail_error:
+        log(f"  (could not send failover notification: {mail_error})")
+
+
+# Every model is a genie: it grants the wish as worded, and each genie reads the
+# wording its own way. The wish is the prompt. The difference arrives as
+# well-formed but different answers, not as errors. In Aug 2026 DeepSeek granted
+# the assess prompt's bare-word "unfinished" exit on 6/6 complete articles
+# (api#717), and it was read as DeepSeek being broken.
+#
+# So the unit of fallback is a Task: a genie together with its wish. Each
+# feature declares its tasks, in fallback order, and a failover only ever moves
+# along that list, never to "the other provider" with whatever wish the first
+# one had.
+#
+# A task without a wish gets the wish of the task before it (PREVIOUS_WISH): the
+# cheap default. But do see how the new genie grants that wish (run it on
+# recorded production inputs and compare the DECISIONS, e.g. rejection rate and
+# level distribution, not only whether it parses) before adding the task, and
+# give it a wish of its own, worded for it, when it reads the shared one
+# differently.
+PREVIOUS_WISH = None
+
+# The features that run on declared tasks.
+ASSESS_AND_SUMMARIZE = "assess_and_summarize"
+ADAPTIVE_SIMPLIFICATION = "adaptive_simplification"
+
+Task = namedtuple("Task", ["genie", "wish"], defaults=[PREVIOUS_WISH])
+# genie: a provider; wish: a prompt, `language -> template`
+
+
+def _prioritized(*tasks):
+    """
+    A feature's tasks in priority order: the first runs, each next one is the
+    fallback for the one before. A task without a wish gets the wish of the
+    task before it (PREVIOUS_WISH).
+    """
+    declared = []
+    for task in tasks:
+        if task.wish is PREVIOUS_WISH:
+            if not declared:
+                raise ValueError("the first task of a feature needs a wish")
+            task = task._replace(wish=declared[-1].wish)
+        declared.append(task)
+    return declared
+
+
+_TASKS = {
+    # The field-based assess prompt (api#717) runs on DeepSeek in the crawl;
+    # Haiku 5.5 at low effort parsed 200/200 prod articles on the same wish
+    # (tools/eval_haiku_models.py).
+    ASSESS_AND_SUMMARIZE: _prioritized(
+        Task(genie="deepseek", wish=get_assessment_and_summary_prompt),
+        Task(genie="anthropic"),
+    ),
+    # Anthropic only: the adaptive prompt still has the bare-word "unfinished" /
+    # "advertorial" exit that DeepSeek takes (api#717), so PREVIOUS_WISH is
+    # known to be wrong here. A DeepSeek task needs a field-based wording of
+    # this wish first, evaluated on DeepSeek.
+    ADAPTIVE_SIMPLIFICATION: _prioritized(
+        Task(genie="anthropic", wish=get_adaptive_simplification_prompt),
+    ),
+}
+
+
+def _tasks_in_order(feature, genie=None):
+    """
+    The feature's tasks in the order to try them: as declared, or starting at
+    `genie`'s task when one is asked for (evals, backfills). Tasks whose genie
+    has no API key are skipped, the first one included.
+    """
+    tasks = _TASKS[feature]
+    if genie:
+        start = next((i for i, t in enumerate(tasks) if t.genie == genie), None)
+        if start is None:
+            log(f"  {genie.upper()} has no task for {feature}; using the declared order")
+        else:
+            tasks = tasks[start:] + tasks[:start]
+    with_key = [t for t in tasks if _api_key_for(t.genie)]
+    if not with_key:
+        raise Exception(f"No API key set for any genie of {feature}")
+    return with_key
+
+
+def _call_task(
+    task, target_language, prompt_fields, correction, max_tokens, timeout, stop
+):
+    return _call_simplification_llm(
+        task.wish(target_language).format(**prompt_fields) + correction,
+        task.genie,
+        _api_key_for(task.genie),
+        max_tokens,
+        timeout,
+        stop=stop,
+    )
+
+
+def _run_tasks(
+    feature,
+    target_language,
+    prompt_fields,
+    max_tokens,
+    timeout=180,
+    stop=None,
+    correction="",
+    genie=None,
+):
+    """
+    Run `feature`'s first task, and if its genie cannot serve us, run the next
+    task once, with ITS wish. `genie` asks for a particular genie to go first
+    (evals, backfills); normally the declared order decides.
+    Returns (result_text, model_name, genie_that_answered).
+
+    Without this, a single provider's billing state stops all assessment in every
+    language: through August 2026 the Anthropic spend cap did exactly that, and
+    with the crawl on DeepSeek only, running out of DeepSeek credit would
+    reproduce it symptom-for-symptom (articles crawled, none assessed, nothing in
+    the logs but a per-article error). Two funded providers should degrade to
+    one, not to zero.
+
+    Only ProviderUnavailable triggers the retry — a paywalled or wrong-language
+    response is the article's problem and retrying it elsewhere would just spend
+    twice for the same answer.
+    """
+    primary, *fallbacks = _tasks_in_order(feature, genie)
+    log(f"  {feature}: {primary.genie.upper()}")
+    call = lambda task: _call_task(
+        task, target_language, prompt_fields, correction, max_tokens, timeout, stop
+    )
+    try:
+        result, model_name = call(primary)
+        return result, model_name, primary.genie
+    except ProviderUnavailable as e:
+        if not fallbacks:
+            log(f"  {primary.genie.upper()} unavailable and no other task for {feature}")
+            raise
+        fallback = fallbacks[0]
+        log(
+            f"  {primary.genie.upper()} unavailable ({e}) — failing over to "
+            f"{fallback.genie.upper()}"
+        )
+        result, model_name = call(fallback)
+        # After the fallback call succeeds, so a failover that helps nobody
+        # (both providers down) raises instead of mailing about a rescue that
+        # did not happen.
+        _notify_failover_once(primary.genie, fallback.genie, str(e))
+        return result, model_name, fallback.genie
 
 
 # The assess prompt emits these two flags before anything else, so stopping on
@@ -103,12 +289,31 @@ def _deepseek_stop_that_fired(result, finish_reason, stop):
     return None
 
 
+def _post_deepseek(prompt, model_name, api_key, max_tokens, stop, timeout):
+    return requests.post(
+        "https://api.deepseek.com/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": model_name,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": models.output_tokens(model_name, max_tokens),
+            "temperature": 0.1,
+            **({"stop": stop} if stop else {}),
+        },
+        timeout=timeout,
+    )
+
+
 def _call_simplification_llm(
     prompt, provider, api_key, max_tokens, timeout=180, stop=None
 ):
     """
     Send `prompt` to the chosen provider and return (result_text, model_name).
-    Raises on a non-200 DeepSeek response or an Anthropic error.
+    Raises ProviderUnavailable when the provider itself cannot serve us (see
+    _is_provider_unavailable), and a plain exception for any other failure.
 
     `stop` sequences end the reply early. Both providers strip the one that
     fired; it is put back, so the text reads as the model wrote it.
@@ -116,25 +321,18 @@ def _call_simplification_llm(
     api_start_time = time.time()
     if provider == "deepseek":
         model_name = models.DEEPSEEK_GENERAL
-        response = requests.post(
-            "https://api.deepseek.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": model_name,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": models.output_tokens(model_name, max_tokens),
-                "temperature": 0.1,
-                **({"stop": stop} if stop else {}),
-            },
-            timeout=timeout,
-        )
+        try:
+            response = _post_deepseek(prompt, model_name, api_key, max_tokens, stop, timeout)
+        except requests.exceptions.ConnectionError as e:
+            # Could not reach DeepSeek at all (includes ConnectTimeout). A
+            # ReadTimeout (reached, but slow to answer) is not a ConnectionError
+            # and is left as-is: see the Anthropic branch below.
+            raise ProviderUnavailable(f"DEEPSEEK unreachable: {e}") from e
         if response.status_code != 200:
-            raise Exception(
-                f"DEEPSEEK API error: {response.status_code} - {response.text}"
-            )
+            message = f"DEEPSEEK API error: {response.status_code} - {response.text}"
+            if _is_provider_unavailable(response.status_code, response.text):
+                raise ProviderUnavailable(message)
+            raise Exception(message)
         choice = response.json()["choices"][0]
         result = (choice["message"]["content"] or "").strip()
         fired = _deepseek_stop_that_fired(result, choice.get("finish_reason"), stop)
@@ -142,13 +340,31 @@ def _call_simplification_llm(
             result = f"{result}\n\n{fired}".strip()
     else:  # anthropic
         model_name = HAIKU_MODEL
-        result = haiku_completion_or_raise(
-            prompt,
-            max_tokens=max_tokens,
-            temperature=0.1,
-            timeout=timeout,
-            stop_sequences=stop,
-        ).strip()
+        try:
+            result = haiku_completion_or_raise(
+                prompt,
+                max_tokens=max_tokens,
+                temperature=0.1,
+                timeout=timeout,
+                stop_sequences=stop,
+            ).strip()
+        except anthropic.APIStatusError as e:
+            # The spend cap is a 400, so the body is checked as well as the
+            # status. A refusal is about the article, so it is not caught here.
+            if _is_provider_unavailable(e.status_code, f"{e.message} {e.body}"):
+                raise ProviderUnavailable(
+                    f"ANTHROPIC API error: {e.status_code} - {e.message}"
+                ) from e
+            raise
+        except anthropic.APITimeoutError:
+            # Reached, but no answer in time. Not failed over: a timeout cannot
+            # tell a slow provider from a request too big for any provider, and
+            # a slow provider shows up in the assessment-coverage check instead.
+            # (Caught before APIConnectionError, which it subclasses.)
+            raise
+        except anthropic.APIConnectionError as e:
+            # Could not reach Anthropic at all: never about the article.
+            raise ProviderUnavailable(f"ANTHROPIC unreachable: {e}") from e
     log(f"  {provider.upper()} responded in {time.time() - api_start_time:.2f}s ({len(result)} chars)")
     return result, model_name
 
@@ -302,10 +518,6 @@ def assess_and_summarize(
         Exception: "PAYWALL: ..." or "ADVERTORIAL: ..." when the LLM flags the
         article, or on API failure.
     """
-    prompt_template = get_assessment_and_summary_prompt(target_language)
-    prompt = prompt_template.format(title=title, content=content)
-
-    provider, api_key = _select_provider_and_key(simplification_provider)
     log(f"Assessing+summarizing article '{title[:50]}...' in {target_language}")
 
     def generate(correction):
@@ -313,16 +525,21 @@ def assess_and_summarize(
         # for a C2 article) plus the original summary. 2000 gives headroom over the
         # single-summary sizing so the last-emitted levels aren't truncated — still
         # a fraction of the 6000 the full multi-level bodies needed.
-        result, model_name = _call_simplification_llm(
-            prompt + correction,
-            provider,
-            api_key,
+        result, model_name, genie = _run_tasks(
+            ASSESS_AND_SUMMARIZE,
+            target_language,
+            {"title": title, "content": content},
             max_tokens=2000,
             timeout=120,
             stop=REJECTION_STOPS,
+            correction=correction,
+            genie=simplification_provider,
         )
         _raise_if_paywall_or_advertorial(result)
-        assessment = _parse_assessment_and_summary(result, provider, model_name)
+        # The genie that answered, not the one asked first: on a failover the row
+        # must record the model that actually wrote the text, or AIGenerator
+        # attributes it to the wrong one.
+        assessment = _parse_assessment_and_summary(result, genie, model_name)
         # Raised, not returned, so junk propagates out of the language-check retry
         # loop exactly as the bare-word rejection always has.
         _raise_if_flagged(assessment)
@@ -831,23 +1048,22 @@ def simplify_article_adaptive_levels(
         is still in the wrong language after the retry
     """
 
-    # Get the adaptive prompt
-    prompt_template = get_adaptive_simplification_prompt(target_language)
-    prompt = prompt_template.format(title=title, content=content)
-
-    provider, api_key = _select_provider_and_key(simplification_provider)
-
     try:
         log(f"Adaptively simplifying article '{title[:50]}...' in {target_language}")
         log(f"  Article length: {len(content)} characters")
-        log(f"  Prompt length: {len(prompt)} characters")
 
         def generate(correction):
-            result, model_name = _call_simplification_llm(
-                prompt + correction, provider, api_key, max_tokens=6000, timeout=180
+            result, model_name, genie = _run_tasks(
+                ADAPTIVE_SIMPLIFICATION,
+                target_language,
+                {"title": title, "content": content},
+                max_tokens=6000,
+                timeout=180,
+                correction=correction,
+                genie=simplification_provider,
             )
             _raise_if_paywall_or_advertorial(result)
-            return _parse_adaptive_response(result, provider, model_name)
+            return _parse_adaptive_response(result, genie, model_name)
 
         simplification = generate_in_language(
             generate,
