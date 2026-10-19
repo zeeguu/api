@@ -35,7 +35,7 @@ MAX_CHAR_COUNT_IN_SUMMARY = 300
 MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100
 # Tokenizations above this (json chars ≈ bytes) are not cached; see
 # _cache_tokenized_content
-MAX_CACHED_TOKENIZATION_CHARS = 1024 * 1024
+MAX_CACHED_TOKENIZATION_CHARS = 16 * 1024 * 1024
 
 # [^<>] rather than [^>]: with [^>], a run of "<" with no ">" makes every
 # match attempt scan to the end of the input, which is quadratic. Excluding
@@ -707,9 +707,10 @@ class Article(db.Model):
                 "tokenized_title": tokenized_data["tokenized_title"],
             }
         )
-        # A multi-MB UPDATE can exceed max_allowed_packet (4 MB on prod) and
-        # drop the connection ("MySQL server has gone away"). Such articles
-        # are rare (<1% of cache rows are over 1 MB); just re-tokenize them.
+        # An UPDATE over max_allowed_packet (64 MB on prod, set in ops) drops
+        # the connection ("MySQL server has gone away"). A 15k-word Wikipedia
+        # page tokenizes to ~4 MB, so 16 MB covers the longest real articles
+        # with margin; anything bigger is just re-tokenized on each open.
         if len(tokenized_content) > MAX_CACHED_TOKENIZATION_CHARS:
             log(
                 f"[CACHE-SKIP] Article {self.id} - Tokenized content too large "

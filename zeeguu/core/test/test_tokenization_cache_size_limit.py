@@ -1,6 +1,6 @@
 """Oversized tokenizations are not cached.
 
-A 2.4 MB cache write dropped the MySQL connection ("server has gone away")
+A 4 MB cache write dropped the MySQL connection ("server has gone away")
 on prod, so _cache_tokenized_content skips anything over the limit.
 """
 from unittest import TestCase
