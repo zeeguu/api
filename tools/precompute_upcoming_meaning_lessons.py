@@ -47,6 +47,7 @@ from collections import defaultdict
 from zeeguu.core.model import User, db, AudioLessonMeaning, UserLanguage
 from zeeguu.core.model.user_activitiy_data import UserActivityData
 from zeeguu.core.audio_lessons.voice_config import distinguishing_variety
+from zeeguu.core.audio_lessons.script_generator import LessonNotCorrect
 from zeeguu.core.audio_lessons.word_selector import (
     select_words_for_audio_lesson,
 )
@@ -244,6 +245,13 @@ def generate_audio_lesson_for_meaning(user, user_word, cefr_level="B1", timeout_
             # Cancel the alarm
             signal.alarm(0)
 
+    except LessonNotCorrect as e:
+        db.session.rollback()
+        output(f"        ✗ Not taught: {meaning.origin.content}: {str(e)[:200]}")
+        if e.about_the_data:
+            # After the rollback: it moves the learner to the corrected pair
+            lesson_generator.fix_refused_pair(user_word, e)
+        return None, False
     except TimeoutException:
         db.session.rollback()
         output(

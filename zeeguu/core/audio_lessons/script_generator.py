@@ -180,17 +180,128 @@ def generate_script_in_languages(
     )
 
 
+# Script-correctness attempts: the first script, and one rewrite told what the
+# check found. On 2026-10-18 a DeepSeek check of 200 stored lessons failed 70% of
+# those built on pairs our validator passed (lesson 41749 taught Danish "Sådan
+# gør du det?" for "How do you do it?"); the rewrite is cheaper than a learner
+# repeating a wrong sentence for weeks.
+CORRECTNESS_ATTEMPTS = 2
+
+# v6 has the Teacher say exactly what the word means in this lesson and name its
+# other meanings. "How" for Sådan was right in its headline ("this is how"), and
+# both the generator and the check read the bare gloss as the question word;
+# saying the meaning out loud fixed both (2026-10-18).
+MEANING_LESSON_PROMPT = "meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v6.txt"
+MEANING_LESSON_PROMPT_VERSION = prompt_version_of(MEANING_LESSON_PROMPT)
+
+
+class LessonNotCorrect(Exception):
+    """
+    The script still teaches the word wrong after a rewrite, or the
+    word/translation pair itself is wrong (`about_the_data`, which only a
+    confirmed pair verdict sets; see _pair_verdict). Like NotAScript, the
+    model's findings travel with the exception.
+    """
+
+    def __init__(self, message, problems, pair_verdict=None):
+        super().__init__(message)
+        self.problems = problems
+        # The pair-only verdict when it found the pair wrong (a
+        # ValidationResult, with the correction if it has one)
+        self.pair_verdict = pair_verdict
+
+    @property
+    def about_the_data(self):
+        return self.pair_verdict is not None
+
+
+def _pair_verdict(lesson):
+    """
+    A second, pair-only opinion before we act on the script check's word or
+    translation complaint: acting marks the meaning INVALID and takes it out of
+    study for every learner, and the script check is a lesson reviewer, noisy
+    on pairs (2 of the 6 pairs it refused in the 2026-10-18 sample were
+    doubtful). This asks the translation validator's own question, in the
+    learner's sentence; without a sentence there is nothing to confirm against.
+    Any failure to get an answer counts as not confirmed. Returns the verdict
+    (a ValidationResult) when it says the pair is wrong, else None.
+    """
+    from zeeguu.core.audio_lessons.lesson_correctness_check import judge_pair
+    from zeeguu.core.llm_services.deepseek_service import DeepSeekService
+
+    if not lesson.context:
+        return None
+    try:
+        verdict = judge_pair(DeepSeekService(), lesson)
+    except Exception as e:
+        log(f"[lesson check] could not confirm the pair '{lesson.word}': {e}")
+        return None
+    log(f"[lesson check] pair '{lesson.word}' → '{lesson.translation}': "
+        f"{'VALID' if verdict.is_valid else 'FIX'} ({verdict.reason})")
+    return None if verdict.is_valid else verdict
+
+
+def _context_paragraph(origin_word, translation_word, context):
+    if context:
+        return (
+            f'The learner met "{origin_word}" in this sentence, where it was translated '
+            f'as "{translation_word}":\n"{context.strip()}"'
+        )
+    return (
+        f'The sentence where the learner met "{origin_word}" is not available: use it '
+        f'only in the sense that "{translation_word}" translates.'
+    )
+
+
+def _correctness_note(problems) -> str:
+    listed = "\n".join(
+        f"- {p['text'] or 'the script as a whole'}: {p['issue']}" for p in problems
+    )
+    return (
+        "\n\nA reviewer found these problems in your previous script:\n"
+        f"{listed}\nWrite the whole script again without them."
+    )
+
+
+def _blocking_problems(lesson):
+    """The problems that keep this script from being stored, or [] when the
+    check could not be done. The check failing open is deliberate: a learner
+    waits on this, and tools/audit_meaning_lesson_correctness.py --quiet runs
+    nightly over whatever got through."""
+    from zeeguu.core.audio_lessons.lesson_correctness_check import blocking, judge_lesson
+    from zeeguu.core.llm_services.deepseek_service import DeepSeekService
+
+    try:
+        _, problems = judge_lesson(DeepSeekService(), lesson)
+    except Exception as e:
+        log(f"[lesson check] could not check '{lesson.word}', storing unchecked: {e}")
+        import sentry_sdk
+
+        sentry_sdk.capture_exception(e)
+        return []
+    return blocking(problems)
+
+
 def generate_lesson_script(
     origin_word: str,
     translation_word: str,
     origin_language: str,
     translation_language: str,
     cefr_level: str = "A1",
-    generator_prompt_file="meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v4.txt",
+    context: str = None,
+    generator_prompt_file=MEANING_LESSON_PROMPT,
 ) -> GeneratedScript:
     """
     Generate a meaning lesson script for a single word (auto mode only).
+
+    `context` is the sentence the learner looked the word up in. The translation
+    was chosen for that sentence, and without it the model guesses the sense
+    from the translation alone ("Sådan" = "How" became the question word).
     """
+    from zeeguu.core.audio_lessons.lesson_correctness_check import (
+        ABOUT_THE_DATA,
+        LessonToCheck,
+    )
 
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
@@ -202,24 +313,61 @@ def generate_lesson_script(
         target_language=origin_lang_name,
         source_language=translation_lang_name,
         cefr_level=cefr_level,
+        context_paragraph=_context_paragraph(origin_word, translation_word, context),
     )
 
     log(f"Generating script for {origin_word} -> {translation_word}")
 
-    try:
-        # Use unified LLM service with automatic Anthropic -> DeepSeek fallback
-        script, model_name = generate_script_in_languages(
-            prompt,
-            target_language=origin_language,
-            source_language=translation_language,
-            context=f"meaning lesson '{origin_word}'",
-        )
-        log(f"Successfully generated script for {origin_word}")
-        return GeneratedScript(script, model_name, prompt_version_of(generator_prompt_file))
+    attempt_prompt = prompt
+    pair_verdict, pair_asked = None, False  # asked at most once
+    for attempt in range(1, CORRECTNESS_ATTEMPTS + 1):
+        try:
+            # Use unified LLM service with automatic Anthropic -> DeepSeek fallback
+            script, model_name = generate_script_in_languages(
+                attempt_prompt,
+                target_language=origin_language,
+                source_language=translation_language,
+                context=f"meaning lesson '{origin_word}'",
+            )
+        except NotAScript:
+            # Kept as itself: the caller records it and leaves the word out
+            raise
+        except Exception as e:
+            log(f"Failed to generate script for {origin_word}: {e}")
+            raise Exception(f"Failed to generate script: {str(e)}")
 
-    except Exception as e:
-        log(f"Failed to generate script for {origin_word}: {e}")
-        raise Exception(f"Failed to generate script: {str(e)}")
+        lesson = LessonToCheck(
+            id=None,
+            learned_language=origin_language,
+            teacher_language=translation_language,
+            translation_language=translation_language,
+            word=origin_word,
+            translation=translation_word,
+            validated=None,
+            context=context,
+            script=script,
+        )
+        problems = _blocking_problems(lesson)
+        if not problems:
+            log(f"Successfully generated script for {origin_word}")
+            return GeneratedScript(script, model_name, prompt_version_of(generator_prompt_file))
+
+        found = "; ".join(f"[{p['kind']}] {p['text'] or ''} {p['issue']}" for p in problems)
+        log(f"[lesson check] '{origin_word}' attempt {attempt}/{CORRECTNESS_ATTEMPTS}: {found}")
+        if any(p["kind"] in ABOUT_THE_DATA for p in problems):
+            if not pair_asked:
+                pair_verdict, pair_asked = _pair_verdict(lesson), True
+            if pair_verdict:
+                break
+        # Unconfirmed pair complaints go into the rewrite like any other problem
+        attempt_prompt = prompt + _correctness_note(problems)
+
+    raise LessonNotCorrect(
+        f"meaning lesson '{origin_word}' → '{translation_word}' did not pass the "
+        f"correctness check: {found[:500]}",
+        problems,
+        pair_verdict=pair_verdict,
+    )
 
 
 def builds_on_history(cefr_level: str) -> bool:
