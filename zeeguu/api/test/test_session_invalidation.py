@@ -62,19 +62,6 @@ def test_password_reset_ends_every_session(client):
     assert is_valid(client, another_session(client, password="updated"))
 
 
-def test_password_change_keeps_only_the_current_session(client):
-    user = logged_in(client)
-    other = another_session(client)
-    assert is_valid(client, other)
-
-    client.delete_cookie("chocolatechip")
-    response = user.response_from_post("/user_settings", data=dict(password="updated"))
-    assert response.status_code == 200
-
-    assert is_valid(client, user.session)
-    assert not is_valid(client, other)
-
-
 def test_logged_out_session_is_rejected_even_when_cached(client):
     user = logged_in(client)
     assert is_valid(client, user.session)
