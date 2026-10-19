@@ -16,7 +16,8 @@ from unittest.mock import MagicMock, patch
 
 import zeeguu.core
 from zeeguu.core.content_retriever import article_downloader
-from zeeguu.core.model import Article, ArticleTopicMap
+from zeeguu.core.model import Article, ArticleTopicMap, Url
+from zeeguu.core.model.source_text import SourceText
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.url_keyword import UrlKeyword
 from zeeguu.core.model.article_topic_map import TopicOriginType
@@ -132,9 +133,9 @@ class PaywallQuotaDeleteTest(ModelTestMixIn, TestCase):
         session.rollback()
         assert ArticleTopicMap.query.filter_by(article_id=survivor.id).count() == 1
 
-    def test_over_quota_paywall_is_deleted_and_skipped(self):
-        # The real download_feed_item, from the download up to the LLM saying
-        # "paywall" with the day's sample quota already full.
+    def _crawl_one_item(self, assess_and_summarize):
+        # The real download_feed_item, with the network, the models and the
+        # LLM mocked out.
         feed = FeedRule().feed
         crawl_report = CrawlReport()
         crawl_report.add_feed(feed)
@@ -153,9 +154,6 @@ class PaywallQuotaDeleteTest(ModelTestMixIn, TestCase):
             htmlContent="<p>Only the teaser is visible.</p>",
         )
 
-        def paywall(*args, **kwargs):
-            raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
-
         patches = {
             "_url_after_redirects": lambda u: u,
             "readability_download_and_parse": lambda u: np_article,
@@ -166,9 +164,7 @@ class PaywallQuotaDeleteTest(ModelTestMixIn, TestCase):
             "get_topic_classification_based_on_similar_content": lambda *a, **k: self.topic,
             "is_advertorial": lambda **k: (False, None),
             "is_disturbing_content_based_on_keywords": lambda **k: (False, None),
-            "assess_summarize_and_classify": paywall,
-            "simplify_and_classify": paywall,
-            "_should_save_paywall_sample": lambda *a: False,
+            "assess_and_summarize": assess_and_summarize,
         }
         with patch.object(feed, "feed_items", return_value=items), patch.multiple(
             article_downloader,
@@ -178,7 +174,39 @@ class PaywallQuotaDeleteTest(ModelTestMixIn, TestCase):
             summary = article_downloader.download_from_feed(
                 feed, session, crawl_report, save_in_elastic=False
             )
+        return summary, crawl_report._get_feed_dict(feed), url, np_article
+
+    def test_over_quota_paywall_leaves_nothing_behind(self):
+        # The LLM is asked before the article is created, so a paywall over
+        # the day's sample quota has nothing to delete.
+        def paywall(*args, **kwargs):
+            raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
+
+        with patch.object(
+            article_downloader, "_should_save_paywall_sample", return_value=False
+        ):
+            summary, report, url, np_article = self._crawl_one_item(paywall)
 
         assert summary.startswith("0 new articles")
-        assert crawl_report._get_feed_dict(feed)["total_low_quality"] == 1
+        assert report["total_low_quality"] == 1
         assert Article.find(url) is None
+        assert Url.query.filter_by(path=Url.get_path(url)).count() == 0
+        assert SourceText.query.filter_by(content=np_article.text).count() == 0
+
+    def test_the_assessment_is_saved_on_the_article_created_after_it(self):
+        assessment = {
+            "original_cefr_level": "B1",
+            "original_summary": "What the LLM wrote.",
+            "article_type": "news",
+            "is_disturbing": False,
+            "provider": "test",
+            "model_name": None,
+        }
+
+        summary, _, url, _ = self._crawl_one_item(lambda *a, **k: assessment)
+
+        assert summary.startswith("1 new articles")
+        article = Article.find(url)
+        assert article.cefr_level == "B1"
+        assert article.summary == "What the LLM wrote."
+        assert not article.broken
