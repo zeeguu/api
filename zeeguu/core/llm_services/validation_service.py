@@ -28,17 +28,6 @@ from typing import Optional
 from zeeguu.logging import log
 
 
-def word_changed(old_meaning, new_meaning):
-    """Did a fix change the word itself, not just its translation?"""
-    return changes_the_word(old_meaning.origin.content, new_meaning.origin.content)
-
-
-def changes_the_word(old_word, corrected_word):
-    """corrected_word empty means the word was kept."""
-    corrected = (corrected_word or "").strip().lower()
-    return bool(corrected) and corrected != old_word.strip().lower()
-
-
 def _engine_of(user_word):
     """Who produced the pair being judged, for the validation log: the judged
     (preferred) bookmark's service, or else the user word's earliest bookmark
@@ -348,14 +337,14 @@ class UserWordValidationService:
 
         # If meaning actually changed, update user's data
         if new_meaning.id != old_meaning.id:
-            # Mark old meaning as invalid (only if it's a different meaning!),
-            # and only when its translation was wrong. A fix that changes the
-            # word ('ud' in 'ud af' → 'ud af' = 'out of') says this learner
-            # selected too little, not that 'ud' = 'out' is wrong; marked
-            # INVALID, it lost its audio lessons for everyone (2026-10-19).
-            if not word_changed(old_meaning, new_meaning):
-                old_meaning.validated = Meaning.INVALID
-                db_session.add(old_meaning)
+            # Mark old meaning as invalid (only if it's a different meaning!).
+            # Also when the fix changed the word: on 2026-10-19 most of the 871
+            # meanings marked by such fixes were broken pairs themselves
+            # ('bruger den' → 'are using it', 'tenu' → 'tenuous'), and only
+            # about a third were a fine word inside a bigger expression ('ud'
+            # in 'ud af'), which then lose only their audio lessons.
+            old_meaning.validated = Meaning.INVALID
+            db_session.add(old_meaning)
 
             # Log the fix
             ValidationLog.log_fixed(

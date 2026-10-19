@@ -68,7 +68,6 @@ from zeeguu.core.audio_lessons.lesson_correctness_check import (
 )
 from zeeguu.core.audio_lessons.daily_lesson_generator import _lookup_sentence
 from zeeguu.core.audio_lessons.script_generator import _is_a_script
-from zeeguu.core.llm_services.validation_service import changes_the_word
 from zeeguu.core.llm_services.deepseek_service import DeepSeekService
 from zeeguu.core.model.audio_lesson_meaning import AudioLessonMeaning
 from zeeguu.core.model.language import Language
@@ -244,9 +243,6 @@ if args.deprecate:
             # and the pair-only verdict confirmed it
             if row.get("pair_verdict") == "FIX"
             and any(p["kind"] in ABOUT_THE_DATA for p in row["problems"])
-            # Not when the fix changes the word: then it was one learner's
-            # selection that was wrong, not the pair (as in the validator)
-            and not changes_the_word(row["word"], row.get("pair_corrected_word"))
         }.items()
     )
 
