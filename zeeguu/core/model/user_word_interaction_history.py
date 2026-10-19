@@ -23,6 +23,7 @@ class UserWordInteractionHistory(db.Model):
     DECLARED_KNOWN = "declared_known"
     BAD_TRANSLATION = "bad_translation"
     MANUAL_ADDITION = "manual_addition"
+    AUDIO_LESSON = "audio_lesson"  # taught by an A0 audio lesson, put on the study list after it
 
     def __init__(self, user_word, interaction_type):
         self.user_word = user_word

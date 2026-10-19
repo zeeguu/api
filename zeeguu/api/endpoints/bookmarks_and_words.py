@@ -807,13 +807,7 @@ def add_custom_word():
         "level": 1
     }
     """
-    from zeeguu.core.model import Language, Meaning, Bookmark
-    from zeeguu.core.model.bookmark_context import BookmarkContext
-    from zeeguu.core.model.context_type import ContextType
-    from zeeguu.core.model.user_word import UserWord
-    from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
-        FourLevelsPerWord,
-    )
+    from zeeguu.core.model import Language
 
     try:
         data = request.get_json()
@@ -844,153 +838,58 @@ def add_custom_word():
         if not from_lang or not to_lang:
             return flask.jsonify({"error": "Invalid language codes"}), 400
 
-        # Create or find the meaning
-        meaning = Meaning.find_or_create(
-            db_session, word, from_lang_code, translation, to_lang_code, user=user
+        from zeeguu.core.bookmark_operations.add_word_to_study import (
+            WordNotInContext,
+            add_word_to_study,
         )
 
-        # Create UserWord with is_user_added flag
-        user_word = UserWord.find_or_create(
-            db_session, user, meaning, is_user_added=True  # Mark as user-added
-        )
-
-        # User explicitly added this word — override quality checks
-        from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
-
-        UserWordInteractionHistory.log(
-            db_session, user_word,
-            UserWordInteractionHistory.MANUAL_ADDITION,
-        )
-
-        user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
-        user_word.update_fit_for_study(db_session)
-
-        # If no context provided, use the word itself as context
-        if not context:
-            context = word
-
-        # Get the USER_EDITED_TEXT context type
-        context_type = ContextType.find_or_create(
-            db_session, ContextType.USER_EDITED_TEXT, commit=False
-        )
-
-        # Create bookmark context
-        bookmark_context = BookmarkContext.find_or_create(
-            db_session,
-            context,
-            context_type.type,
-            from_lang,
-            None,  # c_sentence_i
-            None,  # c_token_i
-            False,  # left_ellipsis
-            False,  # right_ellipsis
-        )
-
-        # Create bookmark
-        from zeeguu.core.model.text import Text
-        from zeeguu.core.model.source import Source
-
-        # Validate and find position data using shared utility
-        from zeeguu.core.tokenization.word_position_finder import (
-            validate_single_occurrence,
-        )
-
-        validation_result = validate_single_occurrence(word, context, from_lang)
-
-        if not validation_result["valid"]:
-            log(
-                f"ERROR: Word validation failed for '{word}' in context '{context}': {validation_result['error_type']}"
+        try:
+            bookmark, user_word, schedule = add_word_to_study(
+                db_session, user, word, translation, from_lang_code, to_lang_code, context
             )
-
-            # Return appropriate error response based on error type
-            if validation_result["error_type"] == "multiple_occurrences":
+        except WordNotInContext as e:
+            log(
+                f"ERROR: Word validation failed for '{word}' in context '{context or word}': {e.error_type}"
+            )
+            if e.error_type == "multiple_occurrences":
                 return (
                     flask.jsonify(
                         {
                             "error": "Ambiguous word placement",
-                            "detail": validation_result["error_message"],
-                            "context": context,
+                            "detail": e.message,
+                            "context": context or word,
                         }
                     ),
                     400,
                 )
-            else:
-                return (
-                    flask.jsonify(
-                        {
-                            "error": (
-                                "Word not found in context"
-                                if validation_result["error_type"] == "not_found"
-                                else "Processing failed"
-                            ),
-                            "detail": validation_result["error_message"],
-                            "word": word,
-                            "context": context,
-                        }
-                    ),
-                    400,
-                )
-
-        # Extract position data from validation result
-        position_data = validation_result["position_data"]
-        sentence_i = position_data["sentence_i"]
-        token_i = position_data["token_i"]
-        c_sentence_i = position_data["c_sentence_i"]
-        c_token_i = position_data["c_token_i"]
-        total_tokens_found = position_data["total_tokens"]
-
-        log(
-            f"Successfully found user word '{word}' at position sent_i={sentence_i}, token_i={token_i}, total_tokens={total_tokens_found}"
-        )
-
-        # Create a simple context identifier for user-edited text
-        # Since USER_EDITED_TEXT doesn't have a specific table mapping,
-        # we just create the identifier to mark the context type
-        context_identifier = ContextIdentifier(
-            context_type=ContextType.USER_EDITED_TEXT
-        )
-
-        # Create bookmark using find_or_create with proper position data
-        bookmark = Bookmark.find_or_create(
-            db_session,
-            user,
-            word,
-            from_lang_code,
-            translation,
-            to_lang_code,
-            context,
-            None,  # article_id - None for user-added words
-            None,  # source_id - None for user-added words
-            sentence_i=sentence_i,
-            token_i=token_i,
-            total_tokens=total_tokens_found,
-            c_sentence_i=c_sentence_i,
-            c_token_i=c_token_i,
-            context_identifier=context_identifier,
-            translation_source="user_added",
-        )
-
-        # Set this bookmark as preferred for the user word
-        user_word.preferred_bookmark = bookmark
-
-        # Immediately schedule the word for learning
-        schedule = FourLevelsPerWord.find_or_create(db_session, user_word)
-
-        # Ensure the word is fit for study
-        user_word.fit_for_study = True
-        user_word.level = 1  # Start at level 1
-
-        # Commit the user_word changes
-        db_session.add(user_word)
+            return (
+                flask.jsonify(
+                    {
+                        "error": (
+                            "Word not found in context"
+                            if e.error_type == "not_found"
+                            else "Processing failed"
+                        ),
+                        "detail": e.message,
+                        "word": word,
+                        "context": context or word,
+                    }
+                ),
+                400,
+            )
         db_session.commit()
 
         return json_result(
             {
                 "bookmark_id": bookmark.id,
                 "user_word_id": user_word.id,
-                "scheduled": True,
+                "scheduled": schedule is not None,
                 "level": user_word.level,
-                "message": "Word added successfully and scheduled for practice",
+                "message": (
+                    "Word added successfully and scheduled for practice"
+                    if schedule is not None
+                    else "Word added, but not scheduled: its translation did not pass validation, or an equivalent word is already being practised"
+                ),
             }
         )
 

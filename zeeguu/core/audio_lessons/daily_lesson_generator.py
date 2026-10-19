@@ -1065,6 +1065,26 @@ class DailyLessonGenerator:
                 "status_code": 500,
             }
 
+    def _schedule_words_taught_to_say(self, lesson, user):
+        """
+        After a lesson built on the learner's history (A0) is heard to the end,
+        the words it taught them to say go on their study list -- in the
+        background (a model call takes seconds), and never in the way of the
+        lesson being marked complete.
+        """
+        from zeeguu.api.utils.background import run_in_background
+        from zeeguu.core.audio_lessons.lesson_words import schedule_words_after_lesson
+
+        if any(
+            segment.audio_lesson_dialogue is not None
+            and segment.audio_lesson_dialogue.builds_on_history
+            for segment in lesson.segments
+        ):
+            try:
+                run_in_background(schedule_words_after_lesson, user.id, lesson.id)
+            except Exception as e:
+                log(f"[schedule_words_taught_to_say] lesson {lesson.id}: {e}")
+
     def update_lesson_state_for_user(self, user, lesson_id, state_data):
         """
         Update the state of a daily audio lesson for a user.
@@ -1112,6 +1132,9 @@ class DailyLessonGenerator:
                     lesson.listened_count += 1
 
             elif action == "complete":
+                # Completed for the first time now, not again: what follows the
+                # commit below runs once per lesson, not on every repeat.
+                first_completion = not lesson.is_completed
                 # Mark lesson as completed
                 lesson.mark_completed()
 
@@ -1132,6 +1155,11 @@ class DailyLessonGenerator:
                 }
 
             db.session.commit()
+
+            # After the commit: the words of a lesson that was not recorded as
+            # completed must not go on the study list.
+            if action == "complete" and first_completion:
+                self._schedule_words_taught_to_say(lesson, user)
 
             return {
                 "message": f"Lesson state updated successfully",
