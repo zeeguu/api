@@ -21,6 +21,7 @@ from typing import List, Optional
 import zeeguu.core
 from zeeguu.core.model import User, UserWord, ExampleSentence
 from zeeguu.core.model.ai_generator import AIGenerator
+from zeeguu.core.exercises.example_contexts import anchorable_examples
 from zeeguu.core.llm_services import get_llm_service
 from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.logging import log
@@ -165,6 +166,7 @@ def generate_examples_for_user_word(
             prompt_version=CURRENT_PROMPT_VERSION,
             count=examples_to_generate,
         )
+        examples = anchorable_examples(examples, origin_word, user_word.meaning.origin.language)
 
         # Get or create AIGenerator record
         llm_model = examples[0]["llm_model"] if examples else "unknown"

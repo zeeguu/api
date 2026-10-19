@@ -161,3 +161,18 @@ class ExampleBookmarkStaysOnTheWordTest(ModelTestMixIn, TestCase):
                 translation_source="generated_example",
                 user_word=self.user_word,
             )
+
+
+class AnchorableExamplesTest(ModelTestMixIn, TestCase):
+    def test_examples_without_the_word_are_dropped(self):
+        from zeeguu.core.model import Language
+
+        danish = Language.find_or_create("da")
+        examples = [
+            {"sentence": "Selv børnene kunne løse opgaven."},
+            {"sentence": "_____ min bedstemor bruger internettet."},
+        ]
+        self.assertEqual(
+            example_contexts.anchorable_examples(examples, "selv", danish),
+            [{"sentence": "Selv børnene kunne løse opgaven."}],
+        )

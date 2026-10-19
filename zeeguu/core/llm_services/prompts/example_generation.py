@@ -157,7 +157,7 @@ CRITICAL REQUIREMENTS:
 3. GRAMMATICAL FIT: Choose a sentence in which that exact form is grammatically correct. If the form only fits a particular gender, number, case or tense, build the sentence around it - never force it into a sentence where it does not agree
    - If given "créé", write "Ce site a été créé en 2010", NOT "Notre école a été créé" (école needs "créée")
    - If given "Rabatten" (dative plural), write "mit hohen Rabatten", NOT "gewährte hohe Rabatten" (accusative needs "Rabatte")
-   - If given "Das Opfer" (with its article), start a clause with it: "Das Opfer wurde ins Krankenhaus gebracht", NOT "ein Das Opfer"
+   - If given "Das Opfer" (with its article), use it only where that article is correct: "Die Polizei befragte das Opfer", NOT "mit dem Opfer" or "ein Das Opfer"
 4. If the word has multiple meanings, you MUST ONLY use the meaning that corresponds to "{translation}"
 5. NO LARGER EXPRESSIONS: Do NOT use "{word}" as part of a fixed expression, conjunction, separable or phrasal verb, or idiom whose meaning differs from "{translation}" on its own. A learner who reads "{word}" in the sentence must be able to translate it as "{translation}" by itself
 6. Each sentence MUST provide enough context to make "{word}" with the meaning "{translation}" the ONLY logical choice if it were blanked out

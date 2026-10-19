@@ -18,6 +18,22 @@ from zeeguu.core.tokenization.word_position_finder import find_first_occurrence
 from zeeguu.logging import log
 
 
+def anchorable_examples(examples, word, language):
+    """
+    The generated examples in which `word` can be located, so a bookmark can
+    anchor it. The others get no bookmark (see bookmark_for_example) and are
+    not worth storing or showing.
+    """
+    usable = [
+        example
+        for example in examples
+        if find_first_occurrence(word, example["sentence"], language)["found"]
+    ]
+    if len(usable) < len(examples):
+        log(f"Dropped {len(examples) - len(usable)} generated examples without '{word}'")
+    return usable
+
+
 def bookmark_for_example(session, user, user_word, example_sentence):
     """
     Find or create the bookmark that anchors the user word in a generated
