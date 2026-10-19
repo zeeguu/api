@@ -146,3 +146,5 @@ from .article_public_code import ArticlePublicCode
 
 from .onboarding_funnel_event import OnboardingFunnelEvent
 
+
+from .skipped_url import SkippedUrl
