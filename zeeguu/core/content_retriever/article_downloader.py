@@ -24,7 +24,7 @@ from zeeguu.core.semantic_search import (
 )
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
-from zeeguu.core.model import Url, Feed, UrlKeyword, Topic
+from zeeguu.core.model import Url, Feed, UrlKeyword, Topic, SkippedUrl
 from zeeguu.core.model.article_topic_map import TopicOriginType
 from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.model.source import Source
@@ -248,6 +248,22 @@ def is_duplicate_by_simhash(content, feed, session):
     return False, None
 
 
+def skipped_before_by_simhash(content, feed):
+    """
+    Near-duplicate of a feed item skipped recently without saving an article:
+    the same text under a new url, as when an outlet renames the slug.
+    Returns the reason it was skipped, or None.
+    """
+    new_simhash = compute_simhash(content)
+    if new_simhash is None:
+        return None
+    cutoff = datetime.now() - timedelta(days=SIMHASH_LOOKBACK_DAYS)
+    for skipped, reason in SkippedUrl.simhashes_of_feed_since(feed, cutoff):
+        if Simhash(new_simhash).distance(Simhash(skipped)) <= SIMHASH_DUPLICATE_DISTANCE_THRESHOLD:
+            return reason
+    return None
+
+
 def _url_after_redirects(url):
     # solve redirects and save the clean url
     # Some sites block requests without User-Agent (e.g. atlasmag.dk)
@@ -423,6 +439,10 @@ def download_from_feed(
             if art:
                 skipped_already_in_db += 1
                 log(" - Already in DB")
+                continue
+            if SkippedUrl.find(url):
+                skipped_already_in_db += 1
+                log(" - Skipped before")
                 continue
 
         except requests.exceptions.TooManyRedirects:
@@ -646,6 +666,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         if is_dup:
             log(f" - Near-duplicate content detected (similar to article {dup_id})")
             raise SkippedAlreadyInDB()
+        skipped_reason = skipped_before_by_simhash(np_article.text, feed)
+        if skipped_reason:
+            log(f" - Near-duplicate of a url skipped before ({skipped_reason})")
+            _remember_skipped(session, url, feed, np_article, skipped_reason)
+            raise SkippedAlreadyInDB()
 
     is_quality_article, reason, code = sufficient_quality(
         np_article, feed.language.code
@@ -733,6 +758,9 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
                 log(
                     f"   ✗ LLM detected paywall after {llm_duration:.1f}s - skipping (daily quota of {MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE} samples reached)"
                 )
+                # Remember it, or the next crawl asks the LLM again while
+                # the item stays in the feed.
+                _remember_skipped(session, url, feed, np_article, SkippedUrl.PAYWALL_OVER_SAMPLE_QUOTA)
                 raise SkippedForLowQuality("LLM-detected paywall, sample quota reached")
 
     article = new_article()
@@ -757,6 +785,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         _prepare_for_reading(article, session)
 
     return article
+
+
+def _remember_skipped(session, url, feed, np_article, reason):
+    SkippedUrl.record(session, url, feed, compute_simhash(np_article.text), reason)
+    session.commit()
 
 
 def _create_article(session, feed, url, title, np_article, summary, published_datetime):

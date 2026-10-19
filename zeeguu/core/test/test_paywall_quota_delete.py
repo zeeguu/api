@@ -16,7 +16,7 @@ from unittest.mock import MagicMock, patch
 
 import zeeguu.core
 from zeeguu.core.content_retriever import article_downloader
-from zeeguu.core.model import Article, ArticleTopicMap, Url
+from zeeguu.core.model import Article, ArticleTopicMap, SkippedUrl
 from zeeguu.core.model.source_text import SourceText
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.url_keyword import UrlKeyword
@@ -133,13 +133,12 @@ class PaywallQuotaDeleteTest(ModelTestMixIn, TestCase):
         session.rollback()
         assert ArticleTopicMap.query.filter_by(article_id=survivor.id).count() == 1
 
-    def _crawl_one_item(self, assess_and_summarize):
+    def _crawl_one_item(self, assess_and_summarize, feed=None, url="https://example.com/kultur/paywalled-story"):
         # The real download_feed_item, with the network, the models and the
         # LLM mocked out.
-        feed = FeedRule().feed
+        feed = feed or FeedRule().feed
         crawl_report = CrawlReport()
         crawl_report.add_feed(feed)
-        url = "https://example.com/kultur/paywalled-story"
         items = [
             {
                 "url": url,
@@ -166,31 +165,62 @@ class PaywallQuotaDeleteTest(ModelTestMixIn, TestCase):
             "is_disturbing_content_based_on_keywords": lambda **k: (False, None),
             "assess_and_summarize": assess_and_summarize,
         }
+        mocks = {name: MagicMock(side_effect=fn) for name, fn in patches.items()}
+        self.downloads = mocks["readability_download_and_parse"]
         with patch.object(feed, "feed_items", return_value=items), patch.multiple(
-            article_downloader,
-            **{name: MagicMock(side_effect=fn) for name, fn in patches.items()},
+            article_downloader, **mocks
         ):
             summary = article_downloader.download_from_feed(
                 feed, session, crawl_report, save_in_elastic=False
             )
         return summary, crawl_report._get_feed_dict(feed), url, np_article
 
-    def test_over_quota_paywall_leaves_nothing_behind(self):
-        # The LLM is asked before the article is created, so a paywall over
-        # the day's sample quota has nothing to delete.
-        def paywall(*args, **kwargs):
-            raise Exception("PAYWALL: Article appears to be incomplete due to paywall")
-
+    def _crawl_over_quota_paywall(self, feed=None, **kwargs):
+        llm = MagicMock(
+            side_effect=Exception(
+                "PAYWALL: Article appears to be incomplete due to paywall"
+            )
+        )
         with patch.object(
             article_downloader, "_should_save_paywall_sample", return_value=False
         ):
-            summary, report, url, np_article = self._crawl_one_item(paywall)
+            result = self._crawl_one_item(
+                lambda *a, **k: llm(), feed=feed, **kwargs
+            )
+        return result, llm
+
+    def test_over_quota_paywall_leaves_only_a_skipped_url(self):
+        # The LLM is asked before the article is created, so a paywall over
+        # the day's sample quota has nothing to delete; what is left is the
+        # note that it was skipped.
+        (summary, report, url, np_article), _ = self._crawl_over_quota_paywall()
 
         assert summary.startswith("0 new articles")
         assert report["total_low_quality"] == 1
         assert Article.find(url) is None
-        assert Url.query.filter_by(path=Url.get_path(url)).count() == 0
         assert SourceText.query.filter_by(content=np_article.text).count() == 0
+        assert SkippedUrl.find(url).reason == SkippedUrl.PAYWALL_OVER_SAMPLE_QUOTA
+
+    def test_a_skipped_url_is_not_sent_to_the_llm_again(self):
+        feed = FeedRule().feed
+        self._crawl_over_quota_paywall(feed)
+
+        (summary, report, _, _), llm = self._crawl_over_quota_paywall(feed)
+
+        assert self.downloads.call_count == 0
+        assert llm.call_count == 0
+        assert report["total_in_db"] == 1
+
+    def test_the_same_text_under_a_new_url_is_not_sent_to_the_llm_again(self):
+        feed = FeedRule().feed
+        self._crawl_over_quota_paywall(feed)
+
+        renamed = "https://example.com/kultur/paywalled-story-updated-headline"
+        (_, report, _, _), llm = self._crawl_over_quota_paywall(feed, url=renamed)
+
+        assert llm.call_count == 0
+        assert report["total_in_db"] == 1
+        assert SkippedUrl.find(renamed) is not None
 
     def test_the_assessment_is_saved_on_the_article_created_after_it(self):
         assessment = {
