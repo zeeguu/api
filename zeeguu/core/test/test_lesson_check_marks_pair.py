@@ -88,23 +88,18 @@ class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
         self.assertTrue(self._scheduled(moved_to.id))  # the progress came along
         self.assertEqual(moved_to.user_id, self.user_word.user_id)
 
-    def test_a_fixable_pair_takes_it_out_for_other_learners(self):
+    def test_a_fixable_pair_leaves_other_learners_alone(self):
+        # They are judged in their own sentences by the nightly validator
         self._generate_refused_with(WRONG_PAIR, pair_verdict=FIXABLE)
-        self.assertFalse(self._fit(self.other))
-        self.assertFalse(self._scheduled(self.other.id))
-        self.assertTrue(self._fit(self.done))
+        self.assertTrue(self._fit(self.other))
+        self.assertTrue(self._scheduled(self.other.id))
 
-    def test_an_unfixable_pair_takes_it_out_for_everyone(self):
+    def test_an_unfixable_pair_takes_out_this_learner_only(self):
         meaning = self._generate_refused_with(WRONG_PAIR, pair_verdict=UNFIXABLE)
         self.assertEqual(meaning.validated, Meaning.INVALID)
-        for user_word in (self.user_word, self.other):
-            self.assertFalse(self._fit(user_word))
-            self.assertFalse(self._scheduled(user_word.id))
-        self.assertTrue(self._fit(self.done))
-        self.assertEqual(
-            {l.user_word_id for l in ValidationLog.query.filter_by(meaning_id=meaning.id)},
-            {self.user_word.id, self.other.id},
-        )
+        self.assertFalse(self._fit(self.user_word))
+        self.assertTrue(self._fit(self.other))
+        self.assertTrue(self._scheduled(self.other.id))
 
     def test_a_wrong_script_leaves_the_meaning_alone(self):
         meaning = self._generate_refused_with(WRONG_LINE)

@@ -236,9 +236,10 @@ class UserWordValidationService:
         Apply a FIX verdict reached elsewhere (the audio lesson check's
         pair-only verdict) exactly as validate_and_fix applies its own: the
         learner moves to the corrected pair with their progress, or, with no
-        correction, leaves study; the meaning becomes INVALID and other
-        learners' words on it are taken out. Commits. Returns the user word to
-        use, or None.
+        correction, becomes unfit for study, and the old meaning becomes
+        INVALID. Other learners' words on it are judged in their own sentences
+        by tools/validate_scheduled_meanings.py (nightly), as after any
+        validator verdict. Commits. Returns the user word to use, or None.
         """
         # The verdict was reached in this bookmark's sentence: no sentence, no
         # verdict (script_generator._pair_verdict)
@@ -247,36 +248,6 @@ class UserWordValidationService:
             log(f"[VALIDATION] No preferred bookmark for user_word {user_word.id}, cannot apply the fix")
             return None
         return cls._fix_bookmark(db_session, user_word, bookmark, verdict, bookmark.get_context())
-
-    @classmethod
-    def _take_out_for_other_learners(cls, db_session, old_meaning, user_word, validation_result, context,
-                                     including_this_learner=False):
-        """
-        The meaning is now INVALID; other learners' unlearned words on it leave
-        study too. Until 2026-10-19 only the learner being validated was moved
-        or taken out, and 2,374 unlearned words of 948 other learners stayed in
-        study on 915 broken pairs, 213 of them scheduled for exercises. One
-        validation_log row per word taken out, so each says why.
-
-        including_this_learner: when the pair cannot be fixed, the validated
-        learner's own word leaves study the same way (it used to become unfit
-        but stay scheduled); its log row is written by the caller.
-        """
-        from zeeguu.core.model import UserWord
-        from zeeguu.core.model.validation_log import ValidationLog
-
-        for other in UserWord.take_meaning_out_of_study(
-            db_session, old_meaning.id, except_user_word_id=None if including_this_learner else user_word.id
-        ):
-            if other.id == user_word.id:
-                continue
-            ValidationLog.log_invalid(
-                db_session,
-                meaning=old_meaning,
-                user_word_id=other.id,
-                reason=f"[another learner's validation] {validation_result.reason or ''}".strip(),
-                context=context,
-            )
 
     @classmethod
     def _fix_bookmark(cls, db_session, user_word, bookmark, validation_result, context=None):
@@ -313,9 +284,6 @@ class UserWordValidationService:
                 user_word_id=user_word.id,
                 reason=validation_result.reason,
                 context=context
-            )
-            cls._take_out_for_other_learners(
-                db_session, old_meaning, user_word, validation_result, context, including_this_learner=True
             )
 
             db_session.commit()
@@ -369,10 +337,6 @@ class UserWordValidationService:
                 reason=validation_result.reason,
                 context=context
             )
-            # Likewise: 'ud' = 'out' still holds for a learner who met it in
-            # 'Han gik ud'
-            if not word_changed(old_meaning, new_meaning):
-                cls._take_out_for_other_learners(db_session, old_meaning, user_word, validation_result, context)
 
             # Find or create UserWord for new meaning
             new_user_word = UserWord.find_or_create(

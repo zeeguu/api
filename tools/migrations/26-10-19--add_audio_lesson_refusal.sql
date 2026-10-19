@@ -11,8 +11,8 @@
 --
 -- A refusal holds for its prompt_version only: a new prompt may succeed, so a
 -- prompt bump retries every refused word once. The word stays in exercises;
--- only its audio lesson failed. A pair found WRONG is not a refusal: that
--- marks the meaning INVALID and takes it out of study instead.
+-- only its audio lesson failed. A pair found WRONG is recorded too, and its
+-- meaning is also marked INVALID.
 
 CREATE TABLE audio_lesson_refusal (
     id INT AUTO_INCREMENT PRIMARY KEY,

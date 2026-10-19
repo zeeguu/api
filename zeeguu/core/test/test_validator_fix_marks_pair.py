@@ -1,5 +1,7 @@
-"""When the translation validator finds a pair broken for one learner, the
-other learners' unlearned words on it leave study too."""
+"""What a validator FIX does to the old pair: INVALID when its translation
+was wrong, untouched when only the word changed. Other learners' words on it
+are never touched here; the nightly validate_scheduled_meanings judges each
+in its own sentence."""
 from datetime import datetime
 from unittest import TestCase
 from unittest.mock import patch
@@ -58,45 +60,35 @@ class ValidatorTakesOutOtherLearnersTest(ModelTestMixIn, TestCase):
             UserWordValidationService.validate_and_fix(session, self.user_word)
         session.expire_all()
 
-    def _assert_other_taken_out(self):
-        self.assertFalse(session.get(UserWord, self.other.id).fit_for_study)
-        self.assertIsNone(BasicSRSchedule.query.filter_by(user_word_id=self.other.id).first())
-        self.assertTrue(session.get(UserWord, self.done.id).fit_for_study)
-        logged = ValidationLog.query.filter_by(user_word_id=self.other.id).one()
-        self.assertTrue(logged.reason.startswith("[another learner's validation]"))
-
-    def test_a_fix_takes_the_broken_pair_out_for_other_learners(self):
-        self._validate(ValidationResult(is_valid=False, corrected_translation="entirely different", reason="wrong"))
-        self._assert_other_taken_out()
-        self.assertEqual(session.get(Meaning, self.meaning.id).validated, Meaning.INVALID)
-
-    def test_an_unfixable_pair_is_taken_out_for_other_learners_and_this_one(self):
-        self.meaning.validated = Meaning.VALID  # so scheduling skips the validator
-        session.add(self.meaning)
-        session.commit()
-        FourLevelsPerWord.find_or_create(session, self.user_word)
-        self.meaning.validated = Meaning.NOT_VALIDATED
-        session.add(self.meaning)
-        session.commit()
-        self._validate(ValidationResult(is_valid=False, reason="arbitrary fragment"))
-        self._assert_other_taken_out()
-        # It used to become unfit but stay scheduled
-        self.assertIsNone(BasicSRSchedule.query.filter_by(user_word_id=self.user_word.id).first())
-        self.assertEqual(ValidationLog.query.filter_by(user_word_id=self.user_word.id).count(), 1)
-
-    def test_a_valid_pair_leaves_other_learners_alone(self):
-        self._validate(ValidationResult(is_valid=True))
+    def _assert_other_untouched(self):
         self.assertTrue(session.get(UserWord, self.other.id).fit_for_study)
         self.assertIsNotNone(BasicSRSchedule.query.filter_by(user_word_id=self.other.id).first())
+        self.assertEqual(ValidationLog.query.filter_by(user_word_id=self.other.id).count(), 0)
 
-    def test_a_fix_that_changes_the_word_leaves_other_learners_alone(self):
+    def test_a_translation_fix_marks_the_pair_invalid_and_leaves_others_alone(self):
+        # A learner who met it in another sentence may have it right ('Bank'
+        # = 'bench' on a park bench); they are judged in their own sentence
+        self._validate(ValidationResult(is_valid=False, corrected_translation="entirely different", reason="wrong"))
+        self.assertEqual(session.get(Meaning, self.meaning.id).validated, Meaning.INVALID)
+        self._assert_other_untouched()
+
+    def test_an_unfixable_pair_takes_out_this_learner_only(self):
+        self._validate(ValidationResult(is_valid=False, reason="arbitrary fragment"))
+        self.assertFalse(session.get(UserWord, self.user_word.id).fit_for_study)
+        self.assertEqual(session.get(Meaning, self.meaning.id).validated, Meaning.INVALID)
+        self._assert_other_untouched()
+
+    def test_a_fix_that_changes_the_word_does_not_mark_the_pair(self):
         # 'ud' in 'ud af' → 'ud af' = 'out of': this learner selected too
-        # little; 'ud' = 'out' still holds for the others
+        # little; 'ud' = 'out' is not wrong, and INVALID would cost it its
+        # audio lessons for everyone
         word = self.meaning.origin.content
         self._validate(ValidationResult(
             is_valid=False, corrected_word=word + " af", corrected_translation="out of", reason="part of an expression"
         ))
-        self.assertTrue(session.get(UserWord, self.other.id).fit_for_study)
-        self.assertIsNotNone(BasicSRSchedule.query.filter_by(user_word_id=self.other.id).first())
-        # and the old pair is not stamped broken, so it keeps its audio lessons
         self.assertNotEqual(session.get(Meaning, self.meaning.id).validated, Meaning.INVALID)
+        self._assert_other_untouched()
+
+    def test_a_valid_pair_leaves_other_learners_alone(self):
+        self._validate(ValidationResult(is_valid=True))
+        self._assert_other_untouched()

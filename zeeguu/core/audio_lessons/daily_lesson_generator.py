@@ -211,7 +211,7 @@ class DailyLessonGenerator:
         The lesson check found this word's pair wrong and the pair-only verdict
         confirmed it: apply that verdict the way the translation validator
         applies its own, moving the learner to the corrected pair with their
-        progress (2026-10-19; it used to just leave study). Call it after your
+        progress (2026-10-19). Call it after your
         own transaction has ended: it commits. A failure is reported, not
         raised: the lesson has already left the word out.
         """

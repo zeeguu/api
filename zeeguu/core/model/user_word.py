@@ -80,47 +80,6 @@ class UserWord(db.Model):
     def should_be_studied(self):
         return self.fit_for_study and not self.is_learned()
 
-    @classmethod
-    def take_meaning_out_of_study(cls, session, meaning_id, except_user_word_id=None):
-        """
-        Every learner's unlearned word on this meaning leaves study: unfit, and
-        unscheduled, so it is out of exercises and audio lessons alike. For a
-        meaning found broken: the pair is wrong whoever looked it up. Learned
-        words keep their history. Returns the words that were in study (fit or
-        scheduled) and are not any more. Does not commit.
-
-        Not set_unfit_for_study: that looks the schedule up through the default
-        session and commits, and callers may be in a session of their own.
-        """
-        from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
-
-        query = session.query(cls).filter(
-            cls.meaning_id == meaning_id, cls.learned_time.is_(None)
-        )
-        if except_user_word_id:
-            query = query.filter(cls.id != except_user_word_id)
-        unlearned = query.all()
-        if not unlearned:
-            return []
-        ids = [w.id for w in unlearned]
-        scheduled = {
-            row.user_word_id
-            for row in session.query(BasicSRSchedule.user_word_id).filter(
-                BasicSRSchedule.user_word_id.in_(ids)
-            )
-        }
-        taken_out = [w for w in unlearned if w.fit_for_study or w.id in scheduled]
-        for user_word in unlearned:
-            user_word.fit_for_study = False
-            session.add(user_word)
-        # Through the session, not a bulk DELETE: a caller (validate_and_fix)
-        # may hold these schedules, and a bulk delete would leave them live
-        for schedule in session.query(BasicSRSchedule).filter(
-            BasicSRSchedule.user_word_id.in_(scheduled)
-        ):
-            session.delete(schedule)
-        return taken_out
-
     def set_unfit_for_study(self, session=None):
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 

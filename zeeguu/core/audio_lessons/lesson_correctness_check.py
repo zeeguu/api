@@ -203,15 +203,14 @@ def parse_lesson_verdict(reply: str, lines: list) -> tuple:
     return verdict, problems
 
 
-def mark_pair_invalid(db_session, meaning_id, problems, user_word_id=None, context=None):
-    """The pair was confirmed wrong: mark the meaning INVALID, so the audio word
-    selector stops picking it, and take it out of study for every learner who
-    has not learned it (UserWord.take_meaning_out_of_study). On 2026-10-18, 6
-    of the 7 wrong pairs in a 200-lesson sample were on scheduled words, most
-    of them passed by the translation validator. Logs why in validation_log,
-    next to that validator's own verdicts. Does not commit."""
+def mark_pair_invalid(db_session, meaning_id, problems, context=None):
+    """The pair was confirmed wrong: mark the meaning INVALID, so the audio
+    word selector stops picking it, and log why in validation_log next to the
+    translation validator's own verdicts. Learners' words on it are then
+    judged in their own sentences by tools/validate_scheduled_meanings.py
+    (nightly), which re-validates scheduled words on any meaning not VALID:
+    a pair wrong in one sentence can be right in another. Does not commit."""
     from zeeguu.core.model.meaning import Meaning
-    from zeeguu.core.model.user_word import UserWord
     from zeeguu.core.model.validation_log import ValidationLog
 
     reason = "[audio lesson check] " + "; ".join(
@@ -220,16 +219,7 @@ def mark_pair_invalid(db_session, meaning_id, problems, user_word_id=None, conte
     meaning = db_session.get(Meaning, meaning_id)
     meaning.validated = Meaning.INVALID
     db_session.add(meaning)
-
-    taken_out = UserWord.take_meaning_out_of_study(db_session, meaning_id)
-
-    # One row per word taken out of study, so each learner's word answers "why
-    # is this no longer studied?"; the context is the sentence the verdict was
-    # reached in, which may be another learner's.
-    for logged_id in [w.id for w in taken_out] or [user_word_id]:
-        ValidationLog.log_invalid(
-            db_session, meaning=meaning, user_word_id=logged_id, reason=reason, context=context
-        )
+    ValidationLog.log_invalid(db_session, meaning=meaning, reason=reason, context=context)
 
 
 def blocking(problems) -> list:
