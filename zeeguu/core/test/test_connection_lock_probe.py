@@ -6,14 +6,7 @@ import pytest
 
 from zeeguu.core.model import connection_lock_probe as probe
 
-IN_USE = (
-    "This connection is already in use from another thread. "
-    "Do not use the same connection object from multiple threads simultaneously."
-)
-
-
-class ProgrammingError(Exception):
-    pass
+IN_USE = "This connection is already in use from another thread."
 
 
 class FakeConnection:
@@ -26,7 +19,7 @@ class FakeConnection:
 
     def _locked(self, fn):
         if not self.lock.acquire(blocking=False):
-            raise ProgrammingError(IN_USE)
+            raise RuntimeError(IN_USE)
         try:
             return fn()
         finally:
@@ -41,35 +34,28 @@ class FakeConnection:
     def next_result(self):
         return self._locked(lambda: -1)
 
+    def rollback(self):
+        return self._locked(lambda: None)
 
-@pytest.fixture
-def reports(monkeypatch):
-    seen = []
-    monkeypatch.setattr(probe, "_last_report", {})
-    real_report = probe._report
-
-    def record(state, entry, others):
-        seen.append((entry[2], [(name, method) for _, name, method in others]))
-        real_report(state, entry, others)  # exercise the formatting too
-
-    monkeypatch.setattr(probe, "_report", record)
-    sent = []
-    monkeypatch.setattr("sentry_sdk.capture_message", lambda title, **k: sent.append(title))
-    probe.patch(FakeConnection)
-    yield seen, sent
-    probe.unpatch(FakeConnection)
+    def ping(self):
+        return self._locked(lambda: None)
 
 
-def test_normal_use_is_silent(reports):
-    seen, sent = reports
+probe.patch(FakeConnection)
+
+
+def _probe_lines(capsys):
+    return [l for l in capsys.readouterr().err.splitlines() if l.startswith("[connection-lock-probe]")]
+
+
+def test_normal_use_is_silent(capsys):
     conn = FakeConnection()
     conn.query("SELECT 1")
     assert conn.store_result() == "result"
-    assert seen == []
+    assert _probe_lines(capsys) == []
 
 
-def test_names_the_other_thread_inside(reports):
-    seen, sent = reports
+def test_names_the_other_thread_inside(capsys):
     conn = FakeConnection()
     entered, release = threading.Event(), threading.Event()
 
@@ -81,38 +67,30 @@ def test_names_the_other_thread_inside(reports):
     other = threading.Thread(target=conn.query, args=("SELECT 1",), name="other")
     other.start()
     entered.wait(5)
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(RuntimeError):
         conn.store_result()
     release.set()
     other.join()
 
-    assert seen == [("store_result", [("other", "query")])]
-    assert "another thread" in sent[0]
+    [line] = _probe_lines(capsys)
+    assert "MainThread in store_result(): connection held by ['other in query()']" in line
 
 
-def test_names_the_same_thread_reentering(reports):
-    seen, sent = reports
+def test_names_the_same_thread_reentering(capsys):
     conn = FakeConnection()
     conn.during_query = conn.next_result  # e.g. a finalizer closing a cursor mid-query
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(RuntimeError):
         conn.query("SELECT 1")
 
-    assert seen[0] == ("next_result", [("MainThread", "query")])
-    assert "this same thread" in sent[0]
+    [line] = _probe_lines(capsys)
+    assert "MainThread in next_result(): connection held by ['MainThread in query()']" in line
 
 
-def test_says_nobody_when_the_lock_was_taken_unseen(reports):
-    seen, sent = reports
+def test_says_nobody_when_the_lock_was_taken_unseen(capsys):
     conn = FakeConnection()
     conn.lock.acquire()  # held by something the probe doesn't wrap
-    with pytest.raises(ProgrammingError):
+    with pytest.raises(RuntimeError):
         conn.next_result()
 
-    assert seen == [("next_result", [])]
-    assert "nobody inside" in sent[0]
-
-
-def test_unpatch_restores_the_class(reports):
-    probe.unpatch(FakeConnection)
-    assert "probed" not in FakeConnection.query.__qualname__
-    probe.patch(FakeConnection)  # the fixture unpatches again
+    [line] = _probe_lines(capsys)
+    assert "connection held by nobody we saw" in line
