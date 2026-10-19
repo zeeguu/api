@@ -259,9 +259,13 @@ def _validated_settings(user, data):
     if submitted_username:
         validated["username"] = _validated_username(user, submitted_username)
 
+    # Still accepted, because every client posts the whole user-details object
+    # back, email included, and native builds keep doing so forever. Unchanged
+    # it is a no-op; a *different* address has to go through the verified
+    # /request_email_change + /confirm_email_change flow instead.
     submitted_email = data.get("email", None)
     if submitted_email:
-        validated["email"] = _validated_email(user, submitted_email)
+        _reject_email_change(user, submitted_email)
 
     for submitted_language_code in (
         data.get("native_language", None),
@@ -311,11 +315,12 @@ def _validated_username(user, submitted_username):
     return normalized_username
 
 
-def _validated_email(user, submitted_email):
-    normalized_email = submitted_email.strip().lower()
-    if normalized_email != user.email.lower() and User.email_exists(normalized_email):
-        raise ValueError("Email already in use")
-    return normalized_email
+def _reject_email_change(user, submitted_email):
+    if submitted_email.strip().lower() != user.email.lower():
+        raise ValueError(
+            "To change your email, use Change email under Settings > Profile details "
+            "(if you don't see it, update the app first)"
+        )
 
 
 def _validated_language(language_code):
@@ -343,7 +348,7 @@ def user_settings():
             - native_language
             - learned_language (with optional CEFR level and feed variety)
             - dialect (which variety of the learned language is being studied)
-            - email (must be unique)
+            - email (only the current one; changing it is /request_email_change)
             - avatar (image name, character color, background color)
 
         Returns:
@@ -368,9 +373,6 @@ def user_settings():
         submitted_native_language_code = data.get("native_language", None)
         if submitted_native_language_code:
             user.set_native_language(submitted_native_language_code)
-
-        if "email" in validated:
-            user.email = validated["email"]
 
         submitted_avatar_image_name = data.get("avatar_image_name", None)
         submitted_avatar_character_color = data.get("avatar_character_color", None)
