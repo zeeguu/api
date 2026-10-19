@@ -28,8 +28,12 @@ class DeepSeekService(LLMService):
         # Set timeout (default 120 seconds = 2 minutes)
         self.timeout = timeout
 
-    def _make_deepseek_request(self, prompt: Dict, max_tokens: int = 1000, temperature: float = 0.7) -> str:
-        """Make DeepSeek API request with timeout"""
+    def _make_deepseek_request(self, prompt: Dict, max_tokens: int = 1000, temperature: float = 0.7,
+                               json_output: bool = False) -> str:
+        """Make DeepSeek API request with timeout.
+
+        With `json_output`, DeepSeek's JSON mode: the reply is one valid JSON
+        object (not checked against a schema; the prompt must say "json")."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -45,6 +49,8 @@ class DeepSeekService(LLMService):
             "max_tokens": models.output_tokens(self.model, max_tokens),
             "temperature": temperature
         }
+        if json_output:
+            payload["response_format"] = {"type": "json_object"}
 
         # self.timeout is a deadline for the whole request. requests' own timeout
         # only bounds each read, and while DeepSeek queues a request it keeps the
@@ -95,7 +101,9 @@ class DeepSeekService(LLMService):
             prompt = format_prompt(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
             if correction:
                 prompt = {**prompt, "user": prompt["user"] + correction}
-            return self._parse_examples(self._make_deepseek_request(prompt), cefr_level, prompt_version)
+            return self._parse_examples(
+                self._make_deepseek_request(prompt, json_output=True), cefr_level, prompt_version
+            )
 
         return generate_in_language(
             generate, source_lang, example_sentence_fields, f"examples for '{word}'"

@@ -14,6 +14,31 @@ from zeeguu.logging import log
 from zeeguu.core.llm_services import claude
 
 
+# Constrained decoding for example generation: without it Sonnet 5.5 sometimes
+# writes a JSON block, notices a mistake, and appends a corrected second block,
+# which fails to parse and sends the request to the DeepSeek fallback (4 of 48
+# calls in an Oct 2026 A/B).
+EXAMPLES_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "examples": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "sentence": {"type": "string"},
+                    "translation": {"type": "string"},
+                },
+                "required": ["sentence", "translation"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["examples"],
+    "additionalProperties": False,
+}
+
+
 class AnthropicService(LLMService):
     """Service for Anthropic's Claude API"""
     
@@ -36,17 +61,27 @@ class AnthropicService(LLMService):
         except ImportError:
             raise ImportError("anthropic package not installed. Run: pip install anthropic")
     
-    def _make_api_request(self, prompt: Dict, max_tokens: int = 1000) -> str:
+    def _make_api_request(self, prompt: Dict, max_tokens: int = 1000, schema: Optional[Dict] = None) -> str:
         """Make single API request - fail fast, no retries.
 
         No temperature: SDK 1.x dropped it, and newer models reject it at the
         API, so `generate_text` accepts one only for the shared LLMService
         interface (DeepSeek still uses it).
+
+        With `schema`, the reply is constrained to JSON matching it.
         """
+        options = claude.request_options(self.model)
+        if schema:
+            # Merged, not passed separately: request_options may carry its own
+            # output_config (Haiku 5.5's effort), and a second one is a TypeError
+            options["output_config"] = {
+                **options.get("output_config", {}),
+                "format": {"type": "json_schema", "schema": schema},
+            }
         try:
             response = self.client.messages.create(
                 model=self.model,
-                **claude.request_options(self.model),
+                **options,
                 max_tokens=models.output_tokens(self.model, max_tokens),
                 system=prompt["system"],
                 messages=[
@@ -73,7 +108,9 @@ class AnthropicService(LLMService):
             prompt = format_prompt(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
             if correction:
                 prompt = {**prompt, "user": prompt["user"] + correction}
-            return self._parse_examples(self._make_api_request(prompt), cefr_level, prompt_version)
+            return self._parse_examples(
+                self._make_api_request(prompt, schema=EXAMPLES_SCHEMA), cefr_level, prompt_version
+            )
 
         return generate_in_language(
             generate, source_lang, example_sentence_fields, f"examples for '{word}'"
