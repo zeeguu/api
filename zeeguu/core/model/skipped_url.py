@@ -58,6 +58,11 @@ class SkippedUrl(db.Model):
         return cls.query.filter_by(url_id=url_object.id).first()
 
     @classmethod
+    def skipped_before(cls, cutoff):
+        """Rows older than cutoff: their items have long left the feeds."""
+        return cls.query.filter(cls.skipped_at < cutoff)
+
+    @classmethod
     def simhashes_of_feed_since(cls, feed, since):
         """(simhash, reason) of the feed's recent skips."""
         return (
