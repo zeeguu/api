@@ -19,6 +19,8 @@ Run:
 from datetime import datetime, timedelta, timezone
 
 from tools.feed_delivery_health_check import (
+    assessment_coverage_lines,
+    classify_assessment_coverage,
     freshness_summary,
     classify_segment,
     is_alerting,
@@ -170,3 +172,112 @@ def test_hit_published_time_parses_iso_naive():
 
 def test_hit_published_time_unparseable_returns_none():
     assert _hit_published_time({"_source": {"published_time": ""}}) is None
+
+
+# --- Assessment coverage ------------------------------------------------------
+# The delivery checks above are a LAGGING indicator of an LLM outage: the Aug 2026
+# spend cap starved assessment for a week before anyone noticed. This one watches
+# the upstream step directly.
+#
+# Thresholds are pinned to measured production history (all languages, articles
+# eligible for assessment, per day):
+#     healthy  Aug 15-19:        97, 97, 98, 98, 98 %
+#     healthy  29 Sep - 14 Oct:  95-99 % (DeepSeek)
+#     capped   Aug 10-13:        0, 0, 15, 38 %
+#     capped   Aug 20-22:        37, 4, 4 %
+#     partial recovery Aug 14:   83 %
+
+
+def _coverage(eligible, assessed, by_language=None):
+    return classify_assessment_coverage(eligible, assessed, by_language or {})
+
+
+def test_every_measured_healthy_day_passes():
+    for pct in (97, 97, 98, 98, 98):
+        assert _coverage(1000, pct * 10).status == "OK", f"{pct}% should not alert"
+
+
+def test_the_worst_recent_deepseek_day_passes():
+    """1 Oct 2026: 1352/1417 = 95%, the lowest day since the crawl moved to
+    DeepSeek."""
+    assert _coverage(1417, 1352).status == "OK"
+
+
+def test_every_measured_capped_day_fails():
+    for pct in (0, 0, 15, 38, 37, 4, 4):
+        assert _coverage(1000, pct * 10).status == "FAILING", f"{pct}% should alert"
+
+
+def test_the_partial_recovery_day_is_not_alarmed_about():
+    """Aug 14 was 83%: the cap was raised mid-day, so the pipeline was already
+    working again. Alerting on a recovery would be noise."""
+    assert _coverage(1232, 1028).status == "OK"
+
+
+def test_a_quiet_window_reports_but_does_not_alert():
+    """A ratio over a handful of articles says nothing, and firing here would
+    train us to ignore the alert."""
+    assert _coverage(4, 0).status == "LOW_VOLUME"
+
+
+def test_the_percentage_is_reported_for_the_email_subject():
+    assert _coverage(1000, 370).pct == 37
+
+
+def test_zero_eligible_articles_does_not_divide_by_zero():
+    result = _coverage(0, 0)
+    assert result.status == "LOW_VOLUME"
+    assert result.pct == 0
+
+
+def test_a_failing_report_says_where_to_look():
+    coverage = _coverage(1000, 100, by_language={"da": (500, 50)})
+    lines = "\n".join(assessment_coverage_lines(coverage))
+    assert "deepseek.com" in lines and "Anthropic" in lines
+    assert "da: 50/500 = 10%" in lines
+
+
+def test_a_healthy_report_has_no_call_to_action():
+    coverage = _coverage(1000, 970, by_language={"da": (500, 485)})
+    lines = "\n".join(assessment_coverage_lines(coverage))
+    assert "deepseek.com" not in lines
+    assert "da: 485/500 = 97%" in lines
+
+
+# --- per language ---------------------------------------------------------------
+
+
+def test_one_language_failing_alone_alerts():
+    """Danish at 0% leaves the total at ~92%: without a per-language check this
+    is averaged away."""
+    by_language = {"da": (65, 0), "de": (400, 380), "fr": (150, 145), "en": (130, 130)}
+    eligible = sum(n for n, _ in by_language.values())
+    assessed = sum(a for _, a in by_language.values())
+    coverage = _coverage(eligible, assessed, by_language)
+    assert coverage.pct >= 80
+    assert coverage.status == "FAILING"
+    assert coverage.failing_languages == ["da"]
+
+
+def test_the_lowest_measured_healthy_languages_pass():
+    """29 Sep - 18 Oct, the lowest daily coverage of any language with 20+
+    articles: de 87% (on 267), da 86% (on 45)."""
+    by_language = {"de": (267, 232), "da": (45, 39)}
+    assert _coverage(312, 271, by_language).status == "OK"
+
+
+def test_a_small_language_is_reported_not_alerted_on():
+    """ro and bg run ~20 eligible articles a day: too few for a ratio."""
+    by_language = {"ro": (15, 0), "de": (400, 390)}
+    coverage = _coverage(415, 390, by_language)
+    assert coverage.status == "OK"
+    assert coverage.failing_languages == []
+
+
+def test_a_language_only_failure_points_at_the_language_not_the_providers():
+    by_language = {"da": (65, 0), "de": (1000, 990)}
+    coverage = _coverage(1065, 990, by_language)
+    lines = "\n".join(assessment_coverage_lines(coverage))
+    assert "da: 0/65 = 0%  ❌" in lines
+    assert "Not assessed: da" in lines and "providers are up" in lines
+    assert "deepseek.com" not in lines
