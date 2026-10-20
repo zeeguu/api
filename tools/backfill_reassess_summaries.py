@@ -156,7 +156,7 @@ def main():
     ok = skipped = failed = 0
     for i, (a, reason) in enumerate(need, 1):
         try:
-            assess_summarize_and_classify(session, a, simplification_provider=args.provider)
+            assess_summarize_and_classify(session, a, genie=args.provider)
             ok += 1
             tag = "OK"
         except Exception as e:

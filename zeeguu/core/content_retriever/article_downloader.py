@@ -330,7 +330,7 @@ def extract_article_image(np_article):
 
 
 def download_from_feed(
-    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, simplification_provider=None
+    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True
 ):
     """
 
@@ -461,12 +461,7 @@ def download_from_feed(
             signal.alarm(MAX_ARTICLE_PROCESSING_TIME_SECONDS)
         try:
             new_article = download_feed_item(
-                session,
-                feed,
-                feed_item,
-                url,
-                crawl_report,
-                simplification_provider=simplification_provider,
+                session, feed, feed_item, url, crawl_report
             )
             # The article is fetched + saved; disarm now so the alarm can't fire
             # during the ES-indexing/bookkeeping below — a timeout there would
@@ -631,7 +626,7 @@ def download_from_feed(
     return summary_stream
 
 
-def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None):
+def download_feed_item(session, feed, feed_item, url, crawl_report):
     import html
 
     title = html.unescape(feed_item["title"])
@@ -745,10 +740,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         llm_start_time = time()
         try:
             assessment = assess_and_summarize(
-                title,
-                np_article.text,
-                feed.language.code,
-                simplification_provider=simplification_provider,
+                title, np_article.text, feed.language.code
             )
             llm_duration = time() - llm_start_time
             log(f"   ✓ LLM call completed in {llm_duration:.1f}s")
