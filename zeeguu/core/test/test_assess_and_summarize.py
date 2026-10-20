@@ -31,8 +31,6 @@ class AssessAndSummarizeArticleTypeTest(TestCase):
         with patch.object(
             sac, "_api_key_for", return_value="fake-key"
         ), patch.object(
-            sac, "get_assessment_and_summary_prompt", return_value="{title}\n{content}"
-        ), patch.object(
             sac,
             "_call_simplification_llm",
             return_value=(_mock_llm_response(article_type_line), "fake-model"),
@@ -53,8 +51,6 @@ class AssessAndSummarizeArticleTypeTest(TestCase):
         # No ARTICLE_TYPE line at all -> None, not an empty/invalid string.
         with patch.object(
             sac, "_api_key_for", return_value="fake-key"
-        ), patch.object(
-            sac, "get_assessment_and_summary_prompt", return_value="{title}\n{content}"
         ), patch.object(
             sac,
             "_call_simplification_llm",
@@ -79,8 +75,6 @@ class AssessAndSummarizeRejectionTest(TestCase):
     def _assess(self, llm_response):
         with patch.object(
             sac, "_api_key_for", return_value="fake-key"
-        ), patch.object(
-            sac, "get_assessment_and_summary_prompt", return_value="{title}\n{content}"
         ), patch.object(
             sac, "_call_simplification_llm", return_value=(llm_response, "fake-model")
         ):
@@ -144,8 +138,6 @@ class StopOnRejectionTest(TestCase):
     def _assess(self, llm_response):
         with patch.object(
             sac, "_api_key_for", return_value="fake-key"
-        ), patch.object(
-            sac, "get_assessment_and_summary_prompt", return_value="{title}\n{content}"
         ), patch.object(
             sac, "_call_simplification_llm", return_value=(llm_response, "fake-model")
         ) as call:
