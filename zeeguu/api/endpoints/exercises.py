@@ -11,6 +11,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
+from zeeguu.api.utils.requested_language import requested_language
 from . import api, db_session
 from flask import request
 
@@ -53,9 +54,16 @@ def get_count_of_all_scheduled_user_words():
 @cross_domain
 @requires_session
 def get_user_words_recommended_for_practice():
-
+    """
+    Optional ?language=<code>: the client names the language it is showing,
+    so a session opened right after a language switch doesn't get the
+    previous language's words while the switch is still being saved.
+    """
     user = User.find_by_id(flask.g.user_id)
-    to_study = BasicSRSchedule.user_words_to_study(user)
+    language = requested_language(user, request.args.get("language"))
+    if language is None:
+        return json_result({"error": "Unknown language"}), 400
+    to_study = BasicSRSchedule.user_words_to_study(user, language)
     # Before a word's first exercise, a context the reader cut short gives
     # way to a generated example sentence (see example_contexts).
     replace_fragments_before_first_exercise(db_session, to_study)
@@ -72,9 +80,13 @@ def get_count_of_user_words_recommended_for_practice():
     exercises shown. Serializing word by word instead (no batch-loaded
     schedules, tokenizing on demand) took this endpoint up to 140s in
     Sep-Oct 2026 while the exercises endpoint itself stayed under 15s.
+    Takes the same optional ?language=<code>.
     """
     user = User.find_by_id(flask.g.user_id)
-    to_study = BasicSRSchedule.user_words_to_study(user)
+    language = requested_language(user, request.args.get("language"))
+    if language is None:
+        return json_result({"error": "Unknown language"}), 400
+    to_study = BasicSRSchedule.user_words_to_study(user, language)
     return json_result(len(user_words_as_dicts(to_study)))
 
 

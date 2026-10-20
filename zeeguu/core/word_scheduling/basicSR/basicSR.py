@@ -199,7 +199,7 @@ class BasicSRSchedule(db.Model):
             return unscheduled_meanings.limit(limit).all()
 
     @classmethod
-    def user_words_to_study(cls, user):
+    def user_words_to_study(cls, user, language=None):
         """
         Looks at all the bookmarks available to the user and prioritizes them
         based on the Rank of the words.
@@ -216,18 +216,22 @@ class BasicSRSchedule(db.Model):
         Note: Uses scheduled_words_due_now (not due_today) so that words
         rescheduled into the future (e.g., after wrong answers) don't appear
         until their scheduled time. This gives a clean "session complete" feeling.
+
+        In `language`, or the learned language when not given.
         """
 
         max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
 
         scheduled_candidates = cls.scheduled_words_due_now(
-            user, max_words_to_schedule
+            user, max_words_to_schedule, language
         )
 
-        scheduled_for_this_user = cls.scheduled_user_words_count(user)
+        scheduled_for_this_user = cls.scheduled_user_words_count(user, language)
         if scheduled_for_this_user < max_words_to_schedule:
             count_needed = max_words_to_schedule - scheduled_for_this_user
-            unscheduled_bookmarks = cls.user_words_not_scheduled(user, count_needed)
+            unscheduled_bookmarks = cls.user_words_not_scheduled(
+                user, count_needed, language.id if language else None
+            )
 
             scheduled_candidates = scheduled_candidates + unscheduled_bookmarks
 
@@ -313,7 +317,7 @@ class BasicSRSchedule(db.Model):
         return query.all()
 
     @classmethod
-    def scheduled_words_due_now(cls, user, limit=None):
+    def scheduled_words_due_now(cls, user, limit=None, language=None):
         """
         Returns words that are due for practice RIGHT NOW (next_practice_time <= now).
         Unlike scheduled_words_due_today which returns all words due before midnight,
@@ -322,7 +326,7 @@ class BasicSRSchedule(db.Model):
         This ensures a clean "session complete" experience - words rescheduled
         30 minutes into the future (after wrong answers) won't appear until then.
         """
-        query = cls._scheduled_user_words_query(user)
+        query = cls._scheduled_user_words_query(user, language)
         query = query.filter(cls.next_practice_time <= datetime.now())
 
         query.order_by(

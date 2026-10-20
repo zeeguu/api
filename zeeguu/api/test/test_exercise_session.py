@@ -66,3 +66,31 @@ def test_practice_count_matches_practice_list(client):
     words = client.get("/user_words_recommended_for_practice")
     count = client.get("/count_of_user_words_recommended_for_practice")
     assert count == len(words) >= 1
+
+
+def test_practice_list_follows_the_requested_language(client):
+    """Right after a language switch the saved learned_language can lag
+    behind the client; a session that names its language gets that
+    language's words, not the saved one's."""
+    from zeeguu.core.model import Language, db
+    from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
+
+    add_context_types()
+    add_source_types()
+    add_one_bookmark(client)  # a German word
+
+    user = User.find(client.email)
+    german = user.learned_language
+    user.learned_language = Language.find_or_create("fr")
+    db.session.commit()
+
+    assert BasicSRSchedule.user_words_to_study(user) == []
+    words = BasicSRSchedule.user_words_to_study(user, german)
+    assert [w.meaning.origin.content for w in words] == ["hinter"]
+
+
+def test_practice_list_rejects_an_unknown_language(client):
+    response = client.client.get(
+        client.append_session("/user_words_recommended_for_practice?language=xx")
+    )
+    assert response.status_code == 400
