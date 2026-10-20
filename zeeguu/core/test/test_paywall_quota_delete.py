@@ -239,3 +239,18 @@ class PaywallQuotaDeleteTest(ModelTestMixIn, TestCase):
         assert article.cefr_level == "B1"
         assert article.summary == "What the LLM wrote."
         assert not article.broken
+
+    def test_only_old_skipped_urls_are_pruned(self):
+        feed = FeedRule().feed
+        self._crawl_over_quota_paywall(feed)
+        old_url = "https://example.com/kultur/a-month-old-paywall"
+        SkippedUrl.record(session, old_url, feed, None, SkippedUrl.PAYWALL_OVER_SAMPLE_QUOTA)
+        SkippedUrl.find(old_url).skipped_at = datetime.now() - timedelta(days=31)
+        session.commit()
+
+        SkippedUrl.skipped_before(datetime.now() - timedelta(days=30)).delete(
+            synchronize_session=False
+        )
+
+        assert SkippedUrl.find(old_url) is None
+        assert SkippedUrl.query.count() == 1
