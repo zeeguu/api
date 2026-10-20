@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import sqlalchemy.orm.exc
 from sqlalchemy.orm.exc import NoResultFound
@@ -131,11 +131,27 @@ class Feed(db.Model):
             feed_type=self.feed_type,
         )
 
+    # How far before the feed's last_crawled_time we still look at items.
+    #
+    # last_crawled_time is the newest item date seen in the feed, not the
+    # time of the crawl. An item can appear in the feed later than its own
+    # date says (written at 10:15, added to the RSS at 11:00, after a crawl
+    # that already saw a 10:30 item). Without a margin such an item would be
+    # older than last_crawled_time and skipped in every crawl from then on.
+    #
+    # Items inside the margin that were already handled cost only a DB lookup
+    # (Article.find / SkippedUrl.find in download_from_feed), so a generous
+    # margin is cheap; only items backdated by more than this are missed.
+    LATE_ITEM_MARGIN = timedelta(days=1)
+
     def feed_items(self, last_retrieval_time_from_DB=None):
         """
         :return: a dictionary with info about that feed
         extracted by feedparser
         and including: title, url, content, summary, time
+
+        Only items dated after last_retrieval_time_from_DB minus
+        LATE_ITEM_MARGIN are returned.
         """
         # Since loading this from the DB will cause the file
         # handler to be set to none, we initialize it here.
@@ -143,32 +159,31 @@ class Feed(db.Model):
 
         if not last_retrieval_time_from_DB:
             last_retrieval_time_from_DB = datetime(1980, 1, 1)
+        oldest_item_time = last_retrieval_time_from_DB - self.LATE_ITEM_MARGIN
 
         feed_candidates = self.feed_handler.get_feed_articles()
 
-        skipped_due_to_time = 0
         feed_items = []
         skipped_items = []
         for item in feed_candidates:
             this_entry_time = item["published_datetime"]
             this_entry_time = this_entry_time.replace(tzinfo=None)
-            if this_entry_time > last_retrieval_time_from_DB:
+            if this_entry_time > oldest_item_time:
                 feed_items.append(item)
             else:
-                skipped_due_to_time += 1
                 skipped_items.append(item)
 
-            sorted_skipped_items = sorted(
-                skipped_items, key=lambda x: x["published_datetime"]
-            )
-            for each in sorted_skipped_items:
-                debug(f"- skipped: {each['published_datetime']} - {each['title']}")
+        sorted_skipped_items = sorted(
+            skipped_items, key=lambda x: x["published_datetime"]
+        )
+        for each in sorted_skipped_items:
+            debug(f"- skipped: {each['published_datetime']} - {each['title']}")
 
-            for each in feed_items:
-                debug(f"- to download: {each['published_datetime']} - {each['title']}")
+        for each in feed_items:
+            debug(f"- to download: {each['published_datetime']} - {each['title']}")
 
-            log(f"*** Skipped due to time: {len(skipped_items)} ")
-            log(f"*** To download: {len(feed_items)}")
+        log(f"*** Skipped due to time: {len(skipped_items)} ")
+        log(f"*** To download: {len(feed_items)}")
 
         return feed_items
 
