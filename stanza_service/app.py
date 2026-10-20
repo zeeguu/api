@@ -53,7 +53,7 @@ STANZA_RESOURCE_DIR = os.environ.get("STANZA_RESOURCE_DIR", "/stanza_resources")
 
 # Supported languages (must match languages with downloaded models)
 SUPPORTED_LANGUAGES = [
-    "de", "es", "fr", "nl", "en", "it", "da", "pl", "sv", "ru", "no", "hu", "pt", "ro", "el"
+    "de", "es", "fr", "nl", "en", "it", "da", "pl", "sv", "ru", "no", "hu", "pt", "ro", "el", "bg"
 ]
 
 # Language code mapping for Stanza compatibility
