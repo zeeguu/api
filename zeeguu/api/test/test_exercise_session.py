@@ -66,3 +66,29 @@ def test_practice_count_matches_practice_list(client):
     words = client.get("/user_words_recommended_for_practice")
     count = client.get("/count_of_user_words_recommended_for_practice")
     assert count == len(words) >= 1
+
+
+def test_outcome_without_session_id_is_still_recorded(client):
+    """An empty session_id (the web client posts "session_id=" before it has
+    an exercise session) used to 500 and lose the answer."""
+    from zeeguu.core.model.bookmark import Bookmark
+    from zeeguu.core.model.exercise import Exercise
+
+    add_context_types()
+    add_source_types()
+    user_word_id = Bookmark.find(add_one_bookmark(client)).user_word_id
+
+    for session_id in ["", None]:
+        data = dict(
+            outcome="Correct",
+            source="Recognize_L1W_in_L2T",
+            solving_speed=100,
+            user_word_id=user_word_id,
+        )
+        if session_id is not None:
+            data["session_id"] = session_id
+        assert b"OK" == client.post("/report_exercise_outcome", data=data)
+
+    exercises = Exercise.query.filter_by(user_word_id=user_word_id).all()
+    assert len(exercises) == 2
+    assert all(e.session_id is None for e in exercises)
