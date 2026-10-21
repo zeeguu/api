@@ -298,11 +298,14 @@ def find_or_create_article():
         print(f"Exception: '{e}'")
         flask.abort(406, "Language not supported")
     except Exception as e:
-        from zeeguu.core.content_retriever.crawler_exceptions import FailedToParseWithReadabilityServer
+        from zeeguu.core.content_retriever.crawler_exceptions import (
+            FailedToParseWithReadabilityServer,
+            SkippedForLowQuality,
+        )
         from zeeguu.logging import print_and_log_to_sentry
 
         # Check if it's a parsing failure
-        if isinstance(e, FailedToParseWithReadabilityServer):
+        if isinstance(e, (FailedToParseWithReadabilityServer, SkippedForLowQuality)):
             print(f"Failed to parse article: {e}")
             flask.abort(422, "Could not parse article content")
 

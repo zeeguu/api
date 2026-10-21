@@ -28,6 +28,7 @@ def _find_upload_or_404(upload_id, user):
 def _promote_upload_or_abort(upload):
     from zeeguu.core.content_retriever.crawler_exceptions import (
         FailedToParseWithReadabilityServer,
+        SkippedForLowQuality,
     )
 
     try:
@@ -43,7 +44,7 @@ def _promote_upload_or_abort(upload):
         )
     except NoResultFound:
         flask.abort(406, "Language not supported")
-    except FailedToParseWithReadabilityServer:
+    except (FailedToParseWithReadabilityServer, SkippedForLowQuality):
         flask.abort(422, "Could not parse article content")
 
 
