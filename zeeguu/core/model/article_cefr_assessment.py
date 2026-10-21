@@ -11,6 +11,7 @@ Provides display logic for showing disagreements to teachers.
 
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
@@ -80,8 +81,27 @@ class ArticleCefrAssessment(db.Model):
         """
         assessment = session.query(cls).filter_by(article_id=article_id).first()
         if not assessment:
-            assessment = cls(article_id=article_id)
-            session.add(assessment)
+            # Two requests assessing the same article (e.g. a double tap on
+            # promote_to_article) can both miss the query above: it reads the
+            # caller's REPEATABLE READ snapshot, taken before the slow LLM call,
+            # so it can't see the row the other request committed meanwhile.
+            # The article_id primary key then lets only one insert through.
+            # The savepoint undoes only the losing insert, not the caller's
+            # pending work (see UserLanguage.find_or_create).
+            try:
+                with session.begin_nested():
+                    assessment = cls(article_id=article_id)
+                    session.add(assessment)
+            except IntegrityError:
+                # A locking read: a plain SELECT would reuse this
+                # transaction's REPEATABLE READ snapshot from the query
+                # above, which predates the winner's row.
+                assessment = (
+                    session.query(cls)
+                    .filter_by(article_id=article_id)
+                    .with_for_update(read=True)
+                    .one()
+                )
             if commit:
                 session.commit()
         return assessment
