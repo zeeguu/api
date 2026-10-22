@@ -55,14 +55,14 @@ class DomainName(db.Model):
         _domain = cls.get_domain(url)
         try:
             return cls.find(_domain)
-        except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
+        except sqlalchemy.orm.exc.NoResultFound:
             # except:
             try:
                 new = cls(_domain)
                 session.add(new)
                 session.commit()
                 return new
-            except sqlalchemy.exc.IntegrityError or sqlalchemy.exc.DatabaseError:
+            except sqlalchemy.exc.IntegrityError:
                 # except:
                 for i in range(10):
                     try:

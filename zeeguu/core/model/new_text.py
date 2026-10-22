@@ -57,7 +57,7 @@ class NewText(db.Model):
         clean_text = text.strip()
         try:
             return cls.query.filter(cls.content_hash == long_hash(clean_text)).one()
-        except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
+        except sqlalchemy.orm.exc.NoResultFound:
             try:
                 new = cls(
                     clean_text,
@@ -66,7 +66,7 @@ class NewText(db.Model):
                 if commit:
                     session.commit()
                 return new
-            except sqlalchemy.exc.IntegrityError or sqlalchemy.exc.DatabaseError:
+            except sqlalchemy.exc.IntegrityError:
                 for i in range(10):
                     try:
                         session.rollback()

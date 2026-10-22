@@ -193,7 +193,7 @@ class Text(db.Model):
                 .filter(cls.article == article)
                 .one()
             )
-        except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
+        except sqlalchemy.orm.exc.NoResultFound:
             try:
                 new = cls(
                     clean_text,
@@ -210,7 +210,7 @@ class Text(db.Model):
                 session.add(new)
                 session.commit()
                 return new
-            except sqlalchemy.exc.IntegrityError or sqlalchemy.exc.DatabaseError:
+            except sqlalchemy.exc.IntegrityError:
                 for i in range(10):
                     try:
                         session.rollback()

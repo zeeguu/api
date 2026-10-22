@@ -171,7 +171,7 @@ class BookmarkContext(db.Model):
                 .filter(cls.language == language)
                 .one()
             )
-        except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
+        except sqlalchemy.orm.exc.NoResultFound:
             try:
                 new = cls(
                     text_row,

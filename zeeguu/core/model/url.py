@@ -102,13 +102,13 @@ class Url(db.Model):
 
         try:
             return cls.query.filter(cls.path == path).filter(cls.domain == domain).one()
-        except sqlalchemy.orm.exc.NoResultFound or sqlalchemy.exc.InterfaceError:
+        except sqlalchemy.orm.exc.NoResultFound:
             try:
                 new = cls(_url, title, domain)
                 session.add(new)
                 session.commit()
                 return new
-            except sqlalchemy.exc.IntegrityError or sqlalchemy.exc.DatabaseError:
+            except sqlalchemy.exc.IntegrityError:
                 for i in range(10):
                     try:
                         print("doing a rollback")
