@@ -62,6 +62,12 @@ class ValidatorFixRetiresOldWordTest(ModelTestMixIn, TestCase):
         self.assertIsNotNone(old)
         self.assertFalse(old.fit_for_study)
 
+        # and it stays out when something recomputes the flag, even if the
+        # quality checks pass
+        with patch("zeeguu.core.bookmark_quality.fit_for_study.quality_meaning", lambda uw: True):
+            old.update_fit_for_study(session)
+        self.assertFalse(old.fit_for_study)
+
     def test_an_orphaned_old_word_is_still_deleted(self):
         old_id = self.user_word.id
         self._fix()

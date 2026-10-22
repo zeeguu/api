@@ -272,6 +272,7 @@ class UserWordValidationService:
         from zeeguu.core.model import Meaning, UserWord
         from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
         from zeeguu.core.model.translation_service import TranslationService
+        from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
         from zeeguu.core.model.validation_log import ValidationLog
         from zeeguu.core.bookmark_operations.update_bookmark import (
             transfer_learning_progress,
@@ -384,11 +385,14 @@ class UserWordValidationService:
             # Not orphaned when other bookmarks hold it, e.g. generated
             # examples placed for the wrong pair. Still fit, it was served
             # again and "fixed" again at every exercise: 108 words, 389
-            # validator calls in Sep-Oct 2026, one word 35 times. Its schedule
-            # went to new_user_word with transfer_learning_progress.
+            # validator calls in Sep-Oct 2026, one word 35 times. Kept, since
+            # the learner's look-ups stay anchored in what they read, but
+            # excluded for good: a plain fit_for_study = False is undone by
+            # the next update_fit_for_study. Its schedule went to
+            # new_user_word with transfer_learning_progress.
             if old_user_word not in db_session.deleted:
-                old_user_word.fit_for_study = False
-                db_session.add(old_user_word)
+                old_user_word.user_preference = UserWordExPreference.BAD_TRANSLATION
+                old_user_word.set_unfit_for_study(db_session)
 
             db_session.commit()
             log(f"[VALIDATION] Fixed and moved to new UserWord {new_user_word.id}")
