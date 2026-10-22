@@ -1,6 +1,7 @@
 from zeeguu.core.model.db import db
 import sqlalchemy
 from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.race_safe import find_or_create
 
 
 class VideoCaptionContext(db.Model):
@@ -56,34 +57,13 @@ class VideoCaptionContext(db.Model):
         caption,
         commit=True,
     ):
-        existing = cls.query.filter(
-            cls.bookmark == bookmark,
-            cls.caption == caption,
-        ).one_or_none()
-        if existing:
-            return existing
-
-        # Insert inside a SAVEPOINT so that if a concurrent request created the
-        # same (bookmark, caption) between our SELECT and INSERT, the unique
-        # constraint fires and we roll back just this insert (not the caller's
-        # whole transaction, which may still be uncommitted when commit=False) and
-        # return the row the other request created.
-        new = cls(
-            bookmark,
-            caption,
+        return find_or_create(
+            session,
+            cls,
+            dict(bookmark=bookmark, caption=caption),
+            lambda: cls(bookmark, caption),
+            commit=commit,
         )
-        try:
-            with session.begin_nested():
-                session.add(new)
-        except sqlalchemy.exc.IntegrityError:
-            return cls.query.filter(
-                cls.bookmark == bookmark,
-                cls.caption == caption,
-            ).one()
-
-        if commit:
-            session.commit()
-        return new
 
     @classmethod
     def get_all_user_bookmarks_for_caption(
