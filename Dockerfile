@@ -16,7 +16,7 @@ RUN apt-get update && \
 
 # uv installs the same requirements as pip, much faster. Pinned, so an uv
 # release can't change a build under us.
-COPY --from=ghcr.io/astral-sh/uv:0.8.0 /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.13.4 /uv /uvx /bin/
 # The cache is a mount, a different filesystem from site-packages: copy, don't
 # try to hardlink. Compile bytecode at build time instead of at first import.
 ENV UV_LINK_MODE=copy UV_COMPILE_BYTECODE=1

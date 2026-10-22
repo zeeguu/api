@@ -13,7 +13,9 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# pip vendors its own CA bundle; 26.2.2+ drops the distrusted emSign root
+RUN pip install --no-cache-dir "pip>=26.2.2" && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY app.py gunicorn.conf.py install_models.py docker-entrypoint.sh ./
