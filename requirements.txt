@@ -59,6 +59,8 @@ regex
 # HTTP & APIs
 requests
 requests_mock
+# emSign root removed after the eMudhra intermediate incident (Oct 2026)
+certifi>=2026.10.19
 anthropic>=1,<2
 deepl>=1.18.0
 
