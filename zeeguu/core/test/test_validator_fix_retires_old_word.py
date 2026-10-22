@@ -1,14 +1,13 @@
-"""After a validator FIX the old user word is deleted, together with the other
-bookmarks that would keep it alive. On 2026-10-22 'Waymo' -> 'op Waymo' kept
-generated example bookmarks, stayed fit, and was served and "fixed" again five
-times in a minute."""
+"""After a validator FIX the old user word goes out of study, even when other
+bookmarks keep it alive. On 2026-10-22 'Waymo' -> 'op Waymo' kept generated
+example bookmarks, stayed fit, and was served and "fixed" again five times
+in a minute."""
 from unittest import TestCase
 from unittest.mock import patch
 
 import zeeguu.core
 from zeeguu.core.llm_services.translation_validator import ValidationResult
 from zeeguu.core.llm_services.validation_service import UserWordValidationService
-from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
@@ -26,7 +25,7 @@ class FakeValidator:
         return self.result
 
 
-class ValidatorFixDeletesOldWordTest(ModelTestMixIn, TestCase):
+class ValidatorFixRetiresOldWordTest(ModelTestMixIn, TestCase):
     def setUp(self):
         super().setUp()
         user = UserRule().user
@@ -47,21 +46,21 @@ class ValidatorFixDeletesOldWordTest(ModelTestMixIn, TestCase):
         ):
             return UserWordValidationService.validate_and_fix(session, self.user_word)
 
-    def test_an_old_word_held_by_another_bookmark_is_deleted_with_it(self):
+    def test_an_old_word_held_by_another_bookmark_leaves_study(self):
         # A second bookmark on the old pair, like a generated example placed for it
         other = BookmarkRule(self.user_word.user).bookmark
         other.user_word_id = self.user_word.id
         session.add(other)
         session.commit()
         old_id = self.user_word.id
-        other_id = other.id
 
         new_user_word = self._fix()
         session.expire_all()
 
         self.assertNotEqual(new_user_word.id, old_id)
-        self.assertIsNone(session.get(UserWord, old_id))
-        self.assertIsNone(session.get(Bookmark, other_id))
+        old = session.get(UserWord, old_id)
+        self.assertIsNotNone(old)
+        self.assertFalse(old.fit_for_study)
 
     def test_an_orphaned_old_word_is_still_deleted(self):
         old_id = self.user_word.id
