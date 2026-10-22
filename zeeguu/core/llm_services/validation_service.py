@@ -381,6 +381,15 @@ class UserWordValidationService:
             # Cleanup old user_word if orphaned
             cleanup_old_user_word(db_session, old_user_word, bookmark)
 
+            # Not orphaned when other bookmarks hold it, e.g. generated
+            # examples placed for the wrong pair. Still fit, it was served
+            # again and "fixed" again at every exercise: 108 words, 389
+            # validator calls in Sep-Oct 2026, one word 35 times. Its schedule
+            # went to new_user_word with transfer_learning_progress.
+            if old_user_word not in db_session.deleted:
+                old_user_word.fit_for_study = False
+                db_session.add(old_user_word)
+
             db_session.commit()
             log(f"[VALIDATION] Fixed and moved to new UserWord {new_user_word.id}")
             return new_user_word
