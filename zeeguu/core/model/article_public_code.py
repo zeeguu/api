@@ -5,6 +5,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.race_safe import find_or_create
 
 
 class ArticlePublicCode(db.Model):
@@ -39,18 +40,17 @@ class ArticlePublicCode(db.Model):
 
     @classmethod
     def for_article(cls, session, article_id):
-        existing = cls.query.filter_by(article_id=article_id).first()
-        if existing:
-            return existing
-        row = cls(article_id=article_id, code="".join(secrets.choice(cls.ALPHABET) for _ in range(cls.CODE_LENGTH)))
         # Two readers opening a never-linked article at once race the primary
-        # key; the savepoint keeps the outer transaction usable, winner's code wins.
-        try:
-            with session.begin_nested():
-                session.add(row)
-            return row
-        except Exception:
-            return cls.query.filter_by(article_id=article_id).one()
+        # key; the winner's code wins.
+        return find_or_create(
+            session,
+            cls,
+            dict(article_id=article_id),
+            lambda: cls(
+                article_id=article_id,
+                code="".join(secrets.choice(cls.ALPHABET) for _ in range(cls.CODE_LENGTH)),
+            ),
+        )
 
     @classmethod
     def find_article(cls, code):
