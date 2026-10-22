@@ -2,6 +2,7 @@ from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.db import db
 from zeeguu.core.model.example_sentence import ExampleSentence
 import sqlalchemy
+from zeeguu.core.model.race_safe import find_or_create
 
 
 class ExampleSentenceContext(db.Model):
@@ -56,31 +57,13 @@ class ExampleSentenceContext(db.Model):
         example_sentence,
         commit=True,
     ):
-        existing = cls.query.filter(
-            cls.bookmark == bookmark,
-            cls.example_sentence == example_sentence,
-        ).one_or_none()
-        if existing:
-            return existing
-
-        # Insert inside a SAVEPOINT so that if a concurrent request created the
-        # same (bookmark, example sentence) between our SELECT and INSERT, the
-        # unique constraint fires and we roll back just this insert (not the
-        # caller's whole transaction, which may still be uncommitted when
-        # commit=False) and return the row the other request created.
-        new = cls(bookmark, example_sentence)
-        try:
-            with session.begin_nested():
-                session.add(new)
-        except sqlalchemy.exc.IntegrityError:
-            return cls.query.filter(
-                cls.bookmark == bookmark,
-                cls.example_sentence == example_sentence,
-            ).one()
-
-        if commit:
-            session.commit()
-        return new
+        return find_or_create(
+            session,
+            cls,
+            dict(bookmark=bookmark, example_sentence=example_sentence),
+            lambda: cls(bookmark, example_sentence),
+            commit=commit,
+        )
 
     @classmethod
     def get_all_user_bookmarks_for_example(

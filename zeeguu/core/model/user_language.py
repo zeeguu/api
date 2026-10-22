@@ -1,6 +1,5 @@
 import datetime
 
-import sqlalchemy
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 
@@ -10,6 +9,7 @@ from zeeguu.core.util.time import user_local_today, to_user_local_date, server_n
 import zeeguu.core
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.race_safe import find_or_create
 
 
 class UserLanguage(db.Model):
@@ -177,33 +177,12 @@ class UserLanguage(db.Model):
 
     @classmethod
     def find_or_create(cls, session, user, language):
-        try:
-            return (
-                cls.query.filter(cls.user == user)
-                .filter(cls.language == language)
-                .one()
-            )
-        except sqlalchemy.orm.exc.NoResultFound:
-            # Two requests that both miss the query above both insert, and the
-            # UNIQUE (user_id, language_id) lets exactly one of them through.
-            #
-            # The savepoint is what makes losing survivable. A failed flush leaves
-            # the whole session needing a rollback before it can be used again --
-            # so recovering without one raises PendingRollbackError, and
-            # recovering with one throws away whatever the caller had pending,
-            # answering 200 over changes that were never written. Rolling back to
-            # a savepoint undoes this insert and nothing else.
-            try:
-                with session.begin_nested():
-                    new = cls(user, language)
-                    session.add(new)
-                return new
-            except sqlalchemy.exc.IntegrityError:
-                return (
-                    cls.query.filter(cls.user == user)
-                    .filter(cls.language == language)
-                    .one()
-                )
+        return find_or_create(
+            session,
+            cls,
+            dict(user=user, language=language),
+            lambda: cls(user, language),
+        )
 
     @classmethod
     def with_language_id(cls, i, user):
