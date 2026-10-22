@@ -246,7 +246,7 @@ def preserve_learning_progress(db_session, old_user_word, new_user_word):
     print(f"[UPDATE_BOOKMARK] Preserving level {old_level} from old UserWord")
     new_user_word.level = old_level
 
-    if int(old_user_preference or 0) == UserWordExPreference.USE_IN_EXERCISES:
+    if UserWordExPreference.of(old_user_preference) == UserWordExPreference.USE_IN_EXERCISES:
         print(f"[UPDATE_BOOKMARK] Carrying over the learner's opt-in to exercises")
         new_user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
         new_user_word.update_fit_for_study(db_session)
