@@ -269,7 +269,7 @@ class UserWordValidationService:
 
         Returns the new user_word to use, or None if unfixable.
         """
-        from zeeguu.core.model import Meaning, UserWord
+        from zeeguu.core.model import Bookmark, Meaning, UserWord
         from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
         from zeeguu.core.model.translation_service import TranslationService
         from zeeguu.core.model.validation_log import ValidationLog
@@ -378,17 +378,19 @@ class UserWordValidationService:
             new_user_word.preferred_bookmark_id = bookmark.id
             db_session.add(new_user_word)
 
-            # Cleanup old user_word if orphaned
-            cleanup_old_user_word(db_session, old_user_word, bookmark)
+            # The old pair is wrong, so it goes with every bookmark still on
+            # it, e.g. generated examples placed for the wrong pair. Kept, it
+            # was served again and "fixed" again at every exercise: 108 words,
+            # 389 validator calls in Sep-Oct 2026, one word 35 times. Its
+            # schedule and exercises went to new_user_word above.
+            old_user_word.preferred_bookmark_id = None
+            db_session.flush()
+            for leftover in Bookmark.query.filter_by(user_word_id=old_user_word.id):
+                db_session.delete(leftover)
+            db_session.flush()
 
-            # Not orphaned when other bookmarks hold it, e.g. generated
-            # examples placed for the wrong pair. Still fit, it was served
-            # again and "fixed" again at every exercise: 108 words, 389
-            # validator calls in Sep-Oct 2026, one word 35 times. Its schedule
-            # went to new_user_word with transfer_learning_progress.
-            if old_user_word not in db_session.deleted:
-                old_user_word.fit_for_study = False
-                db_session.add(old_user_word)
+            # Now orphaned, so this deletes it
+            cleanup_old_user_word(db_session, old_user_word, bookmark)
 
             db_session.commit()
             log(f"[VALIDATION] Fixed and moved to new UserWord {new_user_word.id}")
