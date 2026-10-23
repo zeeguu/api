@@ -1,3 +1,4 @@
+import json
 import traceback
 import flask
 from sqlalchemy.exc import NoResultFound
@@ -199,6 +200,7 @@ def report_exercise_outcome():
     :param exercise_solving_speed: in milliseconds
     :param user_word_id: the user_word for which the data is reported
     :param session_id: assuming that the exercise submitter knows which session is this exercise part of
+    :param wrong_answers: optional JSON list of what the learner typed or picked in each wrong attempt, in order
     :return:
     """
 
@@ -208,6 +210,7 @@ def report_exercise_outcome():
     user_word_id = request.form.get("user_word_id")
     other_feedback = request.form.get("other_feedback")
     session_id = int(request.form.get("session_id"))
+    wrong_answers = _parse_wrong_answers(request.form.get("wrong_answers"))
 
     if not solving_speed.isdigit():
         solving_speed = 0
@@ -226,6 +229,7 @@ def report_exercise_outcome():
             solving_speed,
             session_id,
             other_feedback,
+            wrong_answers=wrong_answers,
         )
 
         return "OK"
@@ -233,6 +237,20 @@ def report_exercise_outcome():
         traceback.print_exc()
         print(f"Error reporting exercise outcome for UserWord {user_word_id}: {e}")
         return "FAIL"
+
+
+def _parse_wrong_answers(raw):
+    """A JSON list of strings, or nothing. Anything else is dropped rather than
+    refused: losing the wrong answers is better than losing the outcome."""
+    if not raw:
+        return None
+    try:
+        answers = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(answers, list):
+        return None
+    return [a for a in answers if isinstance(a, str)]
 
 
 @api.route("/similar_words/<bookmark_id>", methods=["GET"])

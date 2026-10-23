@@ -66,3 +66,53 @@ def test_practice_count_matches_practice_list(client):
     words = client.get("/user_words_recommended_for_practice")
     count = client.get("/count_of_user_words_recommended_for_practice")
     assert count == len(words) >= 1
+
+
+def _report(client, **extra):
+    add_context_types()
+    add_source_types()
+    bookmark_id = add_one_bookmark(client)
+    from zeeguu.core.model.bookmark import Bookmark
+
+    data = dict(
+        outcome="WWC",
+        source=1,
+        solving_speed=100,
+        user_word_id=Bookmark.find(bookmark_id).user_word_id,
+        session_id=client.post("/exercise_session_start")["id"],
+        **extra,
+    )
+    return client.post("/report_exercise_outcome", data=data)
+
+
+def test_wrong_answers_are_stored_in_order(client):
+    from zeeguu.core.model import Exercise
+
+    result = _report(client, wrong_answers=json.dumps(["feel sad", "  ", " unhappy "]))
+
+    assert result == b"OK"
+    exercise = Exercise.query.one()
+    assert [(w.attempt_i, w.answer) for w in exercise.wrong_answers] == [
+        (0, "feel sad"),
+        (1, "unhappy"),
+    ]
+
+
+def test_malformed_wrong_answers_still_record_the_outcome(client):
+    from zeeguu.core.model import Exercise, ExerciseWrongAnswer
+
+    result = _report(client, wrong_answers="feel sad")
+
+    assert result == b"OK"
+    assert Exercise.query.count() == 1
+    assert ExerciseWrongAnswer.query.count() == 0
+
+
+def test_wrong_answers_are_capped(client):
+    from zeeguu.core.model import ExerciseWrongAnswer
+
+    _report(client, wrong_answers=json.dumps(["x" * 300] * 30))
+
+    answers = ExerciseWrongAnswer.query.all()
+    assert len(answers) == ExerciseWrongAnswer.MAX_PER_EXERCISE
+    assert all(len(a.answer) == ExerciseWrongAnswer.MAX_LENGTH for a in answers)
