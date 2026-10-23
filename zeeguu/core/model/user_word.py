@@ -380,7 +380,10 @@ class UserWord(db.Model):
         session_id,
         other_feedback,
         time: datetime = None,
+        wrong_answers=None,
     ):
+        """wrong_answers: what the learner typed or picked in each wrong
+        attempt, in order (see ExerciseWrongAnswer)."""
         from zeeguu.core.model import ExerciseSource, ExerciseOutcome
 
         source = ExerciseSource.find_or_create(db_session, exercise_source)
@@ -412,6 +415,9 @@ class UserWord(db.Model):
             other_feedback,
         )
         db_session.add(exercise)
+        if wrong_answers:
+            from zeeguu.core.model import ExerciseWrongAnswer
+            ExerciseWrongAnswer.add_all(db_session, exercise, wrong_answers)
 
         if source.source != "DAILY_AUDIO_LESSON" and exercise.is_correct():
             from zeeguu.core import events
