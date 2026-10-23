@@ -3,8 +3,7 @@ from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 
 
 def fit_for_study(user_word):
-    # Convert user_preference to int for comparison (handles string/int type mismatch from DB)
-    preference = int(user_word.user_preference or 0)
+    preference = UserWordExPreference.of(user_word.user_preference)
 
     # Separated MWEs (multi-word expressions with words between parts) are not fit for study
     # because fill-in-the-blank exercises don't work well with non-adjacent words

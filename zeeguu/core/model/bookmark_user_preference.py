@@ -7,13 +7,18 @@ class UserWordExPreference(object):
     USE_IN_EXERCISES = 1  # user explicitly opted in (overrides quality checks)
 
     @classmethod
+    def of(cls, preference):
+        """
+        The preference as an int. user_word.user_preference is TEXT in prod
+        (the model says Integer), so it can come back as "1", and "1" != 1.
+        """
+        try:
+            return int(preference or cls.NO_PREFERENCE)
+        except (ValueError, TypeError):
+            return cls.NO_PREFERENCE
+
+    @classmethod
     def is_declared_known(cls, preference):
         """Declared known uses even negative values: -6, -4, -2"""
-        if preference is None:
-            return False
-        # Handle string values from database (legacy data)
-        try:
-            pref = int(preference)
-        except (ValueError, TypeError):
-            return False
+        pref = cls.of(preference)
         return pref <= -2 and pref >= -6 and pref % 2 == 0
