@@ -134,31 +134,25 @@ def user_article_stream():
 @requires_session
 def user_article_summary():
     """
-    DEPRECATED: This endpoint is now redundant. The /user_articles/recommended endpoint
-    includes tokenized summary/title data directly (via the interactiveSummary and
-    interactiveTitle fields).
+    Tokenized summary and title for one article, with the user's current
+    bookmarks. Much lighter than user_article as it doesn't tokenize the full
+    content.
 
-    This endpoint is maintained for backwards compatibility with forks/extensions.
-
-    Returns tokenized summary (and optionally title) for an article with user bookmarks.
-    Much lighter than user_article as it doesn't tokenize the full content.
+    The feed bundles the same payload per card (interactiveSummary /
+    interactiveTitle, built by the same user_article_summary_info), so this is
+    not for listing. The web app calls it when the bundle can't be trusted:
+    the preview overlay always fetches fresh, and (web#1349) a feed card refetches here
+    after the learner changed a bookmark on it, since the bundle in the cached
+    feed response still carries the old ones.
 
     :param article_id: article identifier
     :return: json with tokenized summary/title and user bookmarks
     """
-    from zeeguu.logging import log
-
     article_id = request.args.get("article_id", "")
     if not article_id:
         flask.abort(400)
 
     article_id = int(article_id)
-
-    # Log deprecation warning (but not too frequently to avoid log spam)
-    import random
-    if random.random() < 0.1:  # Log ~10% of calls
-        log(f"[DEPRECATION] /user_article_summary called for article {article_id}. "
-            "This endpoint is deprecated - use /user_articles/recommended which includes summary data.")
 
     article = Article.query.filter_by(id=article_id).one()
     user = User.find_by_id(flask.g.user_id)
