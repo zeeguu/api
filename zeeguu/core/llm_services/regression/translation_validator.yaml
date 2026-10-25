@@ -23,7 +23,7 @@ cases:
     translation: mean
     context: Jeg lærte, hvad det vil sige at gå, da jeg så evnen forsvinde
     expect: FIX
-    card: vil sige = means
+    card: [vil sige = means, hvad det vil sige = what it means]
     note: '"what it mean to walk" is wrong English; shown in an exercise on 23 Oct'
   - word: vil sige
     translation: will say
@@ -69,7 +69,7 @@ cases:
     translation: to look up
     context: Du kan prøve at slå op i ordbogen
     expect: [VALID, FIX]
-    card: slå op = look up
+    card: [slå op = look up, at slå op = to look up]
 
   # --- prod fixes (validation_log, Danish -> English, random sample 25 Oct) ---
   - word: Provencesanger
