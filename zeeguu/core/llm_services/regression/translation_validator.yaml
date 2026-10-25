@@ -298,7 +298,7 @@ cases:
     translation: more about
     context: Måske gør algoritmerne på de sociale medier mere ved os, end vi lige går og tror.
     expect: FIX
-    card: [gøre ved = do to, gør mere ved = do more to, mere = more, mere ved = more to]
+    card: [gør ved = do to, gør mere ved = do more to, mere = more]
     validator_did: mere ved = more to
     note: '"mere ved" is a fragment; the unit is "gøre ... ved"'
   - word: synes ikke
