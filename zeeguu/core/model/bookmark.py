@@ -638,7 +638,8 @@ class Bookmark(db.Model):
 
             # Erode "declared known" confidence on re-translation
             if UserWordExPreference.is_declared_known(user_word.user_preference):
-                user_word.user_preference += 2
+                # of(): the column is TEXT in prod, and "-6" + 2 raises
+                user_word.user_preference = UserWordExPreference.of(user_word.user_preference) + 2
                 if user_word.user_preference >= UserWordExPreference.NO_PREFERENCE:
                     user_word.user_preference = UserWordExPreference.NO_PREFERENCE
                     user_word.update_fit_for_study(session)
