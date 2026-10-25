@@ -1,0 +1,25 @@
+name: Prompt versions
+
+# A prompt whose text changes must get a new version name: stored LLM outputs
+# are stamped with the version, and an edit in place makes the stamp name two
+# different texts. See tools/check_prompt_versions.py.
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Standard library only: no install step.
+      - run: python -m tools.check_prompt_versions
