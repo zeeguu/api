@@ -40,10 +40,8 @@ def normalized(card):
 def verdict_of(result):
     if result is None:
         return "NO_VERDICT", None
-    if getattr(result, "is_unresolved", False):
-        return "UNRESOLVED", None
-    if result.is_valid:
-        return "VALID", None
+    if result.verdict != "FIX":
+        return result.verdict, None
     return "FIX", (result.corrected_word, result.corrected_translation)
 
 

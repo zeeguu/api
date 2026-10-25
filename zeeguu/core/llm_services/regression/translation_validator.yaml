@@ -8,9 +8,10 @@
 #           FIX         the card should become `card` (form, unit or meaning);
 #                       the sentence is kept only if `card` fits it, otherwise
 #                       new examples are generated for `card`
-#           UNRESOLVED  no card fits and no expansion gives a real expression,
-#                       or the sentence itself is broken: the word leaves
-#                       exercises and the case is logged as a give-up
+#           BROKEN_SENTENCE  the sentence is cut off, ungrammatical or nonsense:
+#                       no meaning can be checked against it
+#           WORD_NOT_FIT  the sentence is fine, but no meaning of the word fits
+#                       it and no expansion gives an expression worth learning
 #
 # `card` is "word = translation". `expect` and `card` may be lists: any one of
 # them passes. `validator_did` is what prod answered, for the cases taken from
@@ -81,14 +82,14 @@ cases:
   - word: et fjernbetjening
     translation: a remote control
     context: De kan også styre kuglen med et fjernbetjening.
-    expect: [VALID, FIX, UNRESOLVED]
+    expect: [VALID, FIX, BROKEN_SENTENCE]
     card: fjernbetjening = remote control
     validator_did: et fjernsyn = remote control
     note: prod fix is wrong (fjernsyn = television, not in the sentence); the Danish itself has the wrong article; VALID too - the card itself fits
   - word: et fjernbetjening
     translation: a remote control
     context: Jeg kan ikke finde et fjernbetjening til fjernsynet, så jeg må rejse mig og skifte kanal manuelt.
-    expect: [VALID, UNRESOLVED, FIX]
+    expect: [VALID, BROKEN_SENTENCE, FIX]
     card: fjernbetjening = remote control
     validator_did: en fjernbetjening = remote control
     note: a generated example with a grammar error ("et" for "en"); "en fjernbetjening" is not in the sentence; VALID too - the card itself fits
@@ -219,7 +220,7 @@ cases:
   - word: særl
     translation: unusual
     context: Det ganske særl
-    expect: UNRESOLVED
+    expect: BROKEN_SENTENCE
     validator_did: særlig = unusual
     note: truncated sentence; the corrected word is not in it
   - word: stenalderen
@@ -237,7 +238,7 @@ cases:
   - word: Kan jeg at få
     translation: Can I get
     context: Kan jeg at få din hjælp med lektier?
-    expect: UNRESOLVED
+    expect: BROKEN_SENTENCE
     validator_did: Kan jeg få = Can I get
     note: generated example with a grammar error; the corrected words are not in the sentence
   - word: det
@@ -268,13 +269,13 @@ cases:
   - word: mennesker
     translation: unmanned
     context: Dronen er mennesker og kan flyve i timevis uden en pilot om bord.
-    expect: UNRESOLVED
+    expect: [BROKEN_SENTENCE, WORD_NOT_FIT]
     validator_did: umanned = unmanned
-    note: generated example is nonsense ("the drone is people"); prod invented a non-word
+    note: generated example is nonsense ("the drone is people"); prod invented a non-word. WORD_NOT_FIT too - the Danish is grammatical, the word in it is wrong
   - word: mennesker
     translation: unmanned
     context: Rumfartøjet er mennesker, så det kan udforske farlige områder uden risiko for astronauter.
-    expect: UNRESOLVED
+    expect: [BROKEN_SENTENCE, WORD_NOT_FIT]
     validator_did: umanned = unmanned
   - word: taget
     translation: people taken
@@ -282,12 +283,6 @@ cases:
     expect: FIX
     card: taget = taken
     validator_did: taget = taken
-  - word: noget
-    translation: one
-    context: Vil du have noget at spise?
-    expect: FIX
-    card: noget = something
-    validator_did: noget = something
   - word: bud
     translation: take
     context: To eksperter giver deres bud

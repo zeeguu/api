@@ -199,9 +199,30 @@ class UserWordValidationService:
 
         if result.is_valid:
             return cls._apply_valid_result(db_session, user_word, meaning, result, context)
+        elif result.gave_up:
+            return cls._give_up(db_session, user_word, meaning, result, context)
         else:
             log(f"[VALIDATION] Translation needs fixing: {result.reason}")
             return cls._fix_bookmark(db_session, user_word, bookmark, result, context)
+
+    @classmethod
+    def _give_up(cls, db_session, user_word, meaning, result, context=None):
+        """The validator gave up on the meaning in this sentence: the sentence
+        is broken (BROKEN_SENTENCE), or no meaning of the word fits it
+        (WORD_NOT_FIT). Neither says the meaning is wrong for other learners,
+        whose words on it are judged in their own sentences, so the meaning is
+        left as it is - and is not logged in validation_log, which records
+        what happened to meanings - and only this learner's word leaves study.
+        Not for good, and not through user_preference, which is the learner's
+        choice: when the learner does something with the word again (looks it
+        up in a new sentence, stars it), fit_for_study is recomputed and the
+        word is judged again, which after a broken sentence is what it needs.
+        Commits. Returns None."""
+        log(f"[VALIDATION] Gave up on user_word {user_word.id} in {context!r}: "
+            f"[{result.gave_up.lower()}] {result.reason}")
+        user_word.set_unfit_for_study(db_session)
+        db_session.commit()
+        return None
 
     @classmethod
     def _apply_valid_result(cls, db_session, user_word, meaning, result, context=None):
@@ -255,7 +276,7 @@ class UserWordValidationService:
         validator verdict. Commits. Returns the user word to use, or None.
         """
         # The verdict was reached in this bookmark's sentence: no sentence, no
-        # verdict (script_generator._pair_verdict)
+        # verdict (script_generator._meaning_confirmed_wrong)
         bookmark = user_word.preferred_bookmark
         if not bookmark:
             log(f"[VALIDATION] No preferred bookmark for user_word {user_word.id}, cannot apply the fix")
