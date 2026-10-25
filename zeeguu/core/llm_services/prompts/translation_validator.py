@@ -89,12 +89,12 @@ Fill in these fields (the reply is constrained to this shape):
 - reason: one short sentence, written first: why the pair holds, or what is wrong with it
 - verdict: VALID, FIX or UNRESOLVED
 - corrected_word, corrected_translation: the corrected pair when the verdict is FIX, empty when
-  VALID or UNRESOLVED.
+  VALID or UNRESOLVED. corrected_translation is in {target_lang}.
 - correction_in_sentence: for a FIX, the {target_lang} sentence again, now with
   corrected_translation written exactly as it is in place of corrected_word, the rest natural
   {target_lang} as above. Empty when VALID or UNRESOLVED.
 - correction_reads_right: true only if correction_in_sentence is correct, natural {target_lang}.
-  If false, your correction is wrong too: change corrected_translation. False when not a FIX. corrected_translation is in {target_lang}.
+  If false, your correction is wrong too: change corrected_translation. False when not a FIX.
 - frequency, cefr, phrase_type: for the valid or corrected word (STEP 2)
 - explanation: OPTIONAL usage notes, register (formal/informal). Empty if not needed.
 - literal_meaning: ONLY for idioms - SHORT word-by-word translation (e.g., "kick into touch").

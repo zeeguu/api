@@ -199,9 +199,34 @@ class UserWordValidationService:
 
         if result.is_valid:
             return cls._apply_valid_result(db_session, user_word, meaning, result, context)
+        elif result.is_unresolved:
+            return cls._give_up(db_session, user_word, meaning, result, context)
         else:
             log(f"[VALIDATION] Translation needs fixing: {result.reason}")
             return cls._fix_bookmark(db_session, user_word, bookmark, result, context)
+
+    @classmethod
+    def _give_up(cls, db_session, user_word, meaning, result, context=None):
+        """The validator could not check this card in this sentence (UNRESOLVED):
+        usually the sentence is broken, or nothing worth learning fits it. That
+        says nothing about the pair, so the meaning is left as it is - other
+        learners' words on it are judged in their own sentences - and only this
+        learner's word leaves study. Commits. Returns None."""
+        from zeeguu.core.model.validation_log import ValidationLog
+
+        log(f"[VALIDATION] Gave up on user_word {user_word.id}: {result.reason}")
+        user_word.fit_for_study = False
+        db_session.add(user_word)
+        ValidationLog.log_invalid(
+            db_session,
+            meaning=meaning,
+            user_word_id=user_word.id,
+            reason=f"[unresolved] {result.reason or ''}".strip(),
+            context=context,
+            translation_service_id=_engine_of(user_word),
+        )
+        db_session.commit()
+        return None
 
     @classmethod
     def _apply_valid_result(cls, db_session, user_word, meaning, result, context=None):

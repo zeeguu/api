@@ -99,9 +99,11 @@ WITHOUT_CONTEXT = "The sentence the word was looked up in is not available."
 # Anthropic the API enforces the shape, here we have to ask for it.
 PAIR_JSON_REMINDER = """
 
-Reply with only a JSON object with exactly these keys: reason, verdict,
-corrected_word, corrected_translation, frequency, cefr, phrase_type,
-explanation, literal_meaning. Use an empty string for a field that does not apply."""
+Reply with only a JSON object with exactly these keys: card_in_sentence,
+card_reads_right, reason, verdict, corrected_word, corrected_translation,
+correction_in_sentence, correction_reads_right, frequency, cefr, phrase_type,
+explanation, literal_meaning. card_reads_right and correction_reads_right are
+true or false; use an empty string for any other field that does not apply."""
 
 
 def checker_id(model: str) -> str:
@@ -279,16 +281,26 @@ def judge_pair(service, lesson: LessonToCheck):
     )
     # Without the schema nothing holds the reply to strings: "valid" would
     # read as FIX, and a number or list where the parser expects text raises.
-    reply = {k: v if isinstance(v, str) else ("" if v is None else str(v)) for k, v in reply.items()}
+    # The two booleans stay booleans: the string "False" would read as true.
+    reply = {
+        k: v if isinstance(v, (str, bool)) else ("" if v is None else str(v))
+        for k, v in reply.items()
+    }
+    for flag in ("card_reads_right", "correction_reads_right"):
+        if not isinstance(reply.get(flag), bool):
+            reply.pop(flag, None)
     reply["verdict"] = reply.get("verdict", "").strip().upper()
-    if reply["verdict"] == "UNRESOLVED":
-        # The validator gave up on the pair in this sentence, usually because
-        # the sentence is broken. That says nothing about the pair itself, so
-        # it must not mark the meaning INVALID for everyone: not confirmed.
-        raise ValueError(f"validator gave up on the pair: {reply.get('reason', '')[:200]}")
-    if reply["verdict"] not in ("VALID", "FIX"):
-        raise ValueError(f"no VALID/FIX verdict in reply: {str(reply)[:200]}")
+    if reply["verdict"] not in ("VALID", "FIX", "UNRESOLVED"):
+        raise ValueError(f"no VALID/FIX/UNRESOLVED verdict in reply: {str(reply)[:200]}")
     verdict = TranslationValidator._parse_response(json.dumps(reply))
+    # The validator's own check that the card fits the sentence, without its
+    # retry: a card the reply itself says does not fit confirms nothing.
+    if TranslationValidator._misfit(verdict, lesson.translation):
+        from dataclasses import replace
+
+        return replace(verdict, is_valid=False, is_unresolved=True, corrected_word=None, corrected_translation=None)
+    if verdict.is_unresolved:
+        return verdict
     # As the validator does with its own replies: a correction may become a
     # flashcard, which takes one translation, not "which must/which should"
     if TranslationValidator._lists_options(verdict, lesson.word, lesson.translation):
@@ -332,9 +344,9 @@ def check(service, lesson: LessonToCheck) -> dict:
     if (lesson.validated != 1 or complains_about_pair) and lesson.context:
         try:
             pair = judge_pair(service, lesson)
-            row["pair_verdict"] = "VALID" if pair.is_valid else "FIX"
+            row["pair_verdict"] = "VALID" if pair.is_valid else "UNRESOLVED" if pair.is_unresolved else "FIX"
             row["pair_reason"] = pair.reason
-            if not pair.is_valid:
+            if row["pair_verdict"] == "FIX":
                 row["pair_corrected_word"] = pair.corrected_word
                 row["pair_correction"] = (
                     f"{pair.corrected_word or lesson.word} → "

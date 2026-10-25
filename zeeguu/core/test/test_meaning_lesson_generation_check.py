@@ -36,6 +36,7 @@ def run(verdicts, context="Sådan bruger en ekspert mindre tid på sin telefon",
 
         class Verdict:
             is_valid = not pair_is_wrong
+            is_unresolved = False
             reason = "test"
 
         return Verdict()

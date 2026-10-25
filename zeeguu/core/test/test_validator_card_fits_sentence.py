@@ -55,6 +55,8 @@ def validator_replying(*replies):
 
     def ask(prompt, schema):
         asked.append(prompt)
+        if len(asked) > len(replies):
+            raise TimeoutError("overloaded")
         return TranslationValidator._parse_response(json.dumps(replies[len(asked) - 1]))
 
     v._ask = ask
@@ -109,3 +111,63 @@ def test_a_card_that_still_does_not_fit_is_given_up_on():
     assert len(asked) == 2
     assert r.is_unresolved and not r.is_valid
     assert r.corrected_translation is None
+
+
+def test_a_failed_retry_is_no_verdict_not_a_give_up():
+    v, asked = validator_replying(MEAN_THAT_DOES_NOT_FIT)  # the second call raises
+
+    assert v.validate_and_classify("vil sige", "will say", SENTENCE, "da", "en") is None
+
+
+def test_words_of_a_correction_may_be_split_by_the_sentence():
+    from zeeguu.core.llm_services.translation_validator import words_in_order
+
+    assert words_in_order("put up for sale", "homeowners who put their homes up for sale")
+    assert words_in_order("don't think", "The critics don’t think the film is good")
+    assert not words_in_order("mean", "I learned what it means to walk")
+
+
+def test_unresolved_is_not_asked_again_about_options():
+    # "by (doing something)" lists options; a give-up must not be re-asked into a FIX
+    v, asked = validator_replying(reply(verdict="UNRESOLVED", reason="the sentence is cut off"))
+
+    r = v.validate_and_classify("ved at", "by (doing something)", "Det ganske særl", "da", "en")
+
+    assert len(asked) == 1 and r.is_unresolved
+
+
+def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatch):
+    from types import SimpleNamespace
+    from zeeguu.core.llm_services import translation_validator, validation_service
+    from zeeguu.core.llm_services.validation_service import UserWordValidationService
+    from zeeguu.core.model.meaning import Meaning
+
+    unresolved = TranslationValidator._parse_response(json.dumps(reply(verdict="UNRESOLVED", reason="broken")))
+    monkeypatch.setattr(
+        translation_validator,
+        "TranslationValidator",
+        lambda: SimpleNamespace(validate_translation=lambda **kw: unresolved),
+    )
+    logged = []
+    monkeypatch.setattr(
+        "zeeguu.core.model.validation_log.ValidationLog.log_invalid",
+        lambda db_session, **kw: logged.append(kw),
+    )
+    monkeypatch.setattr(validation_service, "_engine_of", lambda user_word: None)
+
+    phrase = lambda text, code: SimpleNamespace(content=text, language=SimpleNamespace(code=code))
+    meaning = SimpleNamespace(
+        validated=Meaning.NOT_VALIDATED, origin=phrase("mennesker", "da"), translation=phrase("unmanned", "en")
+    )
+    user_word = SimpleNamespace(
+        id=1,
+        meaning=meaning,
+        fit_for_study=True,
+        preferred_bookmark=SimpleNamespace(get_context=lambda: "Dronen er mennesker og kan flyve"),
+    )
+    db_session = SimpleNamespace(add=lambda x: None, commit=lambda: None)
+
+    assert UserWordValidationService.validate_and_fix(db_session, user_word) is None
+    assert meaning.validated == Meaning.NOT_VALIDATED
+    assert user_word.fit_for_study is False
+    assert logged[0]["reason"].startswith("[unresolved]")

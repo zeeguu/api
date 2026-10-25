@@ -74,6 +74,19 @@ class ValidationResult:
     correction_reads_right: Optional[bool] = None
 
 
+def _words(text):
+    # Curly and straight apostrophes are the same letter here: "don’t" = "don't"
+    return re.findall(r"[\w']+", text.lower().replace("\u2019", "'"))
+
+
+def words_in_order(phrase, sentence):
+    """Are the words of `phrase` in `sentence`, in order, other words allowed
+    between them? "put up for sale" is in "put their homes up for sale"; "mean"
+    is not in "what it means to walk"."""
+    remaining = iter(_words(sentence))
+    return all(word in remaining for word in _words(phrase))
+
+
 class TranslationValidator:
     """Validates and classifies translations before they enter exercises."""
 
@@ -154,12 +167,15 @@ class TranslationValidator:
                     VALIDATION_SCHEMA,
                 )
             except Exception as e:
+                # As for the first call: no answer is no verdict, not a give-up
                 log(f"Translation validation retry failed: {e}")
-            if self._misfit(result, translation):
+                return None
+            misfit = self._misfit(result, translation)
+            if misfit:
                 from dataclasses import replace
 
-                log(f"[VALIDATION] '{word}' = '{card}' still does not fit its sentence; unresolved")
-                result = replace(
+                log(f"[VALIDATION] '{word}' = '{misfit[0]}' still does not fit its sentence; unresolved")
+                return replace(
                     result,
                     is_valid=False,
                     is_unresolved=True,
@@ -167,6 +183,9 @@ class TranslationValidator:
                     corrected_translation=None,
                     reason=(result.reason or "") + " [card still did not fit its sentence]",
                 )
+
+        if result.is_unresolved:
+            return result
 
         if self._lists_options(result, word, translation):
             # The prompt already forbids "/" alternatives and glosses in
@@ -217,7 +236,7 @@ class TranslationValidator:
             return None
         if result.correction_reads_right is False:
             return corrected, sentence, "You judged that this does not read right."
-        if not re.search(rf"(?<!\w){re.escape(corrected.strip().lower())}(?!\w)", sentence.lower()):
+        if not words_in_order(corrected, sentence):
             return corrected, sentence, f'"{corrected}" is not what that sentence says.'
         return None
 
