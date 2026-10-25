@@ -51,10 +51,8 @@ POLICIES = {
     ("daily_audio_lesson", "user_id"): MOVE,
     ("daily_audio_subscription", "user_id"): MOVE,
     ("example_sentence", "user_id"): MOVE,
-    ("exercise_report", "user_id"): MOVE,
     # A cloze verdict kept for this learner only (not yet shared).
     ("meaning_alternative", "user_id"): MOVE,
-    ("meaning_report", "user_id"): MOVE,
     ("onboarding_funnel_event", "user_id"): MOVE,
     ("personal_copy", "user_id"): MOVE,
     ("search_filter", "user_id"): MOVE,
@@ -87,6 +85,7 @@ POLICIES = {
     ("user_reading_session", "user_id"): MOVE,
     ("user_video", "user_id"): MOVE,
     ("user_watching_session", "user_id"): MOVE,
+    ("word_report", "user_id"): MOVE,
     ("user_cohort_map", "user_id"): MOVE_DEDUP,
     ("teacher", "user_id"): MOVE_DEDUP,
     ("teacher_cohort_map", "user_id"): MOVE_DEDUP,
@@ -121,6 +120,7 @@ USER_WORD_REFERENCES = [
     ("user_word_interaction_history", "user_word_id"),
     ("validation_log", "user_word_id"),
     ("basic_sr_schedule", "user_word_id"),
+    ("word_report", "user_word_id"),
 ]
 
 MERGED_EMAIL_DOMAIN = "merged.zeeguu.invalid"

@@ -14,7 +14,6 @@ from .text import Text
 from .phrase import Phrase
 from .user import User
 from .meaning import Meaning
-from .meaning_report import MeaningReport
 from .meaning_alternative import MeaningAlternative
 from .translation_service import TranslationService
 from .user_word import UserWord
@@ -60,7 +59,7 @@ from .search_subscription import SearchSubscription
 from .exercise import Exercise
 from .exercise_outcome import ExerciseOutcome
 from .exercise_source import ExerciseSource
-from .exercise_report import ExerciseReport
+from .word_report import WordReport
 from .exercise_wrong_answer import ExerciseWrongAnswer
 
 # user logging

@@ -9,6 +9,7 @@ from werkzeug.exceptions import NotFound
 from zeeguu.core.model import User, Article, Bookmark
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.study_choice import StudyChoice, UnfitReason
+from zeeguu.core.model.word_report import WordReport
 from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
@@ -325,7 +326,14 @@ def set_user_word_exercise_dislike(bookmark_id):
             UserWordInteractionHistory.DECLARED_KNOWN,
         )
     elif reason == "bad_translation":
-        # Until reports exist (roadmap 0b): kept out like any skip
+        # Out for this learner, as asked; the report is for everyone
+        WordReport.for_bookmark(
+            db_session,
+            User.find_by_id(flask.g.user_id),
+            bookmark,
+            WordReport.WRONG_TRANSLATION,
+            WordReport.WORD_LIST,
+        )
         user_word.choose(db_session, StudyChoice.SKIP)
         UserWordInteractionHistory.log(
             db_session, user_word,

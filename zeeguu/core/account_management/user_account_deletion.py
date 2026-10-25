@@ -52,11 +52,10 @@ from zeeguu.core.model.user_language import UserLanguage
 from zeeguu.core.model.user_video import UserVideo
 from zeeguu.core.model.user_browsing_session import UserBrowsingSession
 from zeeguu.core.model.user_notification import UserNotification
-from zeeguu.core.model.meaning_report import MeaningReport
 from zeeguu.core.model.user_onboarding_message import UserOnboardingMessage
 from zeeguu.core.model.user_mwe_override import UserMweOverride
 from zeeguu.core.model.topic_subscription import TopicSubscription
-from zeeguu.core.model.exercise_report import ExerciseReport
+from zeeguu.core.model.word_report import WordReport
 from zeeguu.core.model.topic_filter import TopicFilter
 from zeeguu.core.model.user_listening_session import UserListeningSession
 from zeeguu.core.model.article_upload import ArticleUpload
@@ -77,7 +76,6 @@ bookmark_context_tables = [
     ArticleTitleContext,
     VideoCaptionContext,
     VideoTitleContext,
-    ExerciseReport,
 ]
 
 tables_to_modify = [
@@ -88,11 +86,10 @@ tables_to_modify = [
     UserVideo,
     UserBrowsingSession,
     UserNotification,
-    MeaningReport,
+    WordReport,
     UserOnboardingMessage,
     UserMweOverride,
     TopicSubscription,
-    ExerciseReport,
     TopicFilter,
     UserListeningSession,
     ArticleUpload,

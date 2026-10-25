@@ -12,7 +12,7 @@ from zeeguu.core.exercises.example_contexts import anchorable_examples, bookmark
 from zeeguu.core.llm_services import get_llm_service
 from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
-from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport, TranslationService
+from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, TranslationService, WordReport
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.study_choice import StudyChoice
 from zeeguu.core.model.context_identifier import ContextIdentifier
@@ -807,8 +807,21 @@ def report_meaning():
     meaning = Meaning.find_or_create(db_session, word, from_lang, translation, to_lang)
     db_session.commit()
 
+    kind = {
+        "bad_examples": WordReport.BAD_EXAMPLE,
+        "wrong_meaning": WordReport.WRONG_TRANSLATION,
+    }.get(reason, reason)
+
     try:
-        report = MeaningReport.create(db_session, meaning, user, reason, comment)
+        report = WordReport.create(
+            db_session,
+            user,
+            meaning,
+            kind,
+            WordReport.READER,
+            user_word=UserWord.query.filter_by(user=user, meaning=meaning).first(),
+            comment=comment,
+        )
         log(f"User {user.id} reported meaning {meaning.id} for: {reason}")
 
         return json_result({
