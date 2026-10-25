@@ -41,6 +41,7 @@ from sqlalchemy import text
 
 from zeeguu.core.llm_services import claude
 from zeeguu.core.llm_services.prompts.translation_validator import (
+    PROMPT_VERSION,
     VALIDATION_SCHEMA,
     create_combined_validation_prompt,
 )
@@ -204,7 +205,7 @@ def main():
                           fix["word"], fix["translation"], fix["fixed_from"], verdict, card, reason,
                           fix["context"]])
 
-    print(f"{disagreements} of {len(rows)} fixes judged differently today, {no_verdict} without a verdict; "
+    print(f"{disagreements} of {len(rows)} fixes judged differently by {PROMPT_VERSION}, {no_verdict} without a verdict; "
           f"written to {args.out}, most active words first")
 
 
