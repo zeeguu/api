@@ -2,17 +2,15 @@ import re
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
-import sqlalchemy.orm
 from requests import Request
 from sqlalchemy import UniqueConstraint
 
 import zeeguu.core
-import time
-import random
 
 from zeeguu.core.model.db import db
 
 from zeeguu.core.model.domain_name import DomainName
+from zeeguu.core.model.race_safe import find_or_create
 from zeeguu.core.util.url import remove_tracking_query_params
 
 
@@ -100,42 +98,17 @@ class Url(db.Model):
             print(f"Path was too long. Was: {len(path)}, max: 255.")
             return None
 
-        try:
-            return cls.query.filter(cls.path == path).filter(cls.domain == domain).one()
-        except sqlalchemy.orm.exc.NoResultFound:
-            try:
-                new = cls(_url, title, domain)
-                session.add(new)
-                session.commit()
-                return new
-            except sqlalchemy.exc.IntegrityError:
-                for i in range(10):
-                    try:
-                        print("doing a rollback")
-                        session.rollback()
-                        domain = DomainName.find_or_create(session, _url)
-                        path = Url.get_path(_url)
-                        print(
-                            f"after rollback trying to find again: {domain.domain_name} + {path}"
-                        )
-                        u = (
-                            cls.query.filter(cls.path == path)
-                            .filter(cls.domain == domain)
-                            .first()
-                        )
-                        print("Found url after recovering from race")
-                        return u
-                    except Exception as e:
-                        print("Exception of second degree in url..." + str(i) + str(e))
-                        time.sleep(random.randrange(1, 10) * 0.1)
-                        from sentry_sdk import capture_message
-
-                        capture_message(
-                            "Exception of second degree in url..." + str(i) + str(e)
-                        )
-
-                        continue
-                    break
+        # Two requests saving the same url (e.g. two articles that share an
+        # image) can race here; the (path, domain_name_id) unique key lets one
+        # insert through and race_safe.find_or_create recovers the other.
+        # Commits a row it creates, as callers expect.
+        return find_or_create(
+            session,
+            cls,
+            {"path": path, "domain": domain},
+            lambda: cls(_url, title, domain),
+            commit=True,
+        )
 
     @classmethod
     def find(cls, url, title=""):

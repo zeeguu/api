@@ -19,6 +19,8 @@ class SourceTextRule(BaseRule):
         if content is None:
             content = self.faker.text(max_nb_chars=length)
 
-        source_text = SourceText(content)
+        # find_or_create, not SourceText(content): content_hash is unique, so a
+        # second rule for the same text must reuse the existing row.
+        source_text = SourceText.find_or_create(self.db.session, content)
 
         return source_text
