@@ -143,7 +143,7 @@ def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatc
     from zeeguu.core.llm_services.validation_service import UserWordValidationService
     from zeeguu.core.model.meaning import Meaning
 
-    unresolved = TranslationValidator._parse_response(json.dumps(reply(verdict="BROKEN_SENTENCE", reason="broken")))
+    unresolved = TranslationValidator._parse_response(json.dumps(reply(verdict="WORD_NOT_FIT", reason="nothing fits")))
     monkeypatch.setattr(
         translation_validator,
         "TranslationValidator",
@@ -165,7 +165,9 @@ def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatc
         fit_for_study=True,
         user_preference=None,
         set_unfit_for_study=lambda session: setattr(user_word, "fit_for_study", False),
-        preferred_bookmark=SimpleNamespace(get_context=lambda: "Dronen er mennesker og kan flyve"),
+        preferred_bookmark=SimpleNamespace(
+            get_context=lambda: "Dronen er mennesker og kan flyve", translation_source="reading"
+        ),
     )
     db_session = SimpleNamespace(add=lambda x: None, commit=lambda: None)
 
