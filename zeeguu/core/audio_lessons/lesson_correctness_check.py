@@ -113,12 +113,13 @@ def checker_id(model: str) -> str:
     2026-08-18 note in tools/audit_audio_lesson_script_languages.py for what
     happens when a run acts on a report from a different configuration.
     """
-    from zeeguu.core.llm_services.prompts.translation_validator import COMBINED_VALIDATION_PROMPT
+    from zeeguu.core.llm_services.prompts.translation_validator import COMBINED_VALIDATION_PROMPT, PROMPT_VERSION
 
-    # The pair-only verdict too: --deprecate marks meanings INVALID on it
+    # The pair-only verdict too: --deprecate marks meanings INVALID on it. The
+    # version too: the verdict logic around the prompt changes with it.
     text = (
         LESSON_SYSTEM + LESSON_PROMPT + WITH_CONTEXT + WITHOUT_CONTEXT
-        + COMBINED_VALIDATION_PROMPT + PAIR_JSON_REMINDER
+        + COMBINED_VALIDATION_PROMPT + PAIR_JSON_REMINDER + PROMPT_VERSION
     )
     return f"{model}:{hashlib.sha1(text.encode()).hexdigest()[:8]}"
 

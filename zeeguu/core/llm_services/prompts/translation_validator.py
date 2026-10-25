@@ -5,6 +5,14 @@ This validates that a translation is correct for the specific word,
 and classifies its frequency and phrase type - all in a single LLM call.
 """
 
+# Bump on every change to the prompt, and run the regression set with --save
+# (tools/run_validator_regression.py); the results are kept per version in
+# zeeguu/core/llm_services/regression/results/translation_validator/.
+#   v1  25 Oct 2026  the card must fit the sentence it is shown in (api#900)
+# v2-v4 (25 Oct, form rules around the translation's own grammar) were tried
+# and not shipped: their runs are kept in the results folder.
+PROMPT_VERSION = "translation-validator-v1"
+
 COMBINED_VALIDATION_PROMPT = """You are validating and classifying a language learning translation.
 
 A learner highlighted "{word}" in this {source_lang} sentence:

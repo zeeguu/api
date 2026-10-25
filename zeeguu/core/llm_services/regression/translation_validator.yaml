@@ -314,3 +314,70 @@ cases:
     expect: FIX
     card: højere = higher
     validator_did: højere = higher
+
+  # --- form follows the word, not the translation's grammar (re-check of past
+  # fixes, 25 Oct 2026). The learner sees the original sentence: an ending or
+  # word that only the translation's grammar needs is not part of the card ---
+  - word: suédois
+    translation: Zweeds
+    context: Savez-vous que la toute première simulation d'interaction de galaxies de l'histoire a été réalisée en 1941 par l'astronome suédois Erik Holmberg ?
+    source: fr
+    target: nl
+    expect: VALID
+    note: Dutch writes "de Zweedse astronoom"; the -e comes from Dutch, not from "suédois"
+  - word: profond
+    translation: diep
+    context: Pour un nettoyage plus profond, le bloc des lames est souvent démontable.
+    source: fr
+    target: nl
+    expect: VALID
+  - word: municipales
+    translation: gemeentelijk
+    context: Les indemnités des maires pour les élections municipales de 2026
+    source: fr
+    target: nl
+    expect: VALID
+  - word: accéder
+    translation: toegang krijgen
+    context: Quel plaisir de vous retrouver, avant d'accéder à L'Équipe, merci d'accepter les cookies.
+    source: fr
+    target: nl
+    expect: VALID
+    note: Dutch needs "toegang krijgen tot"; "à" is not part of the word
+  - word: poursuivre
+    translation: nastreven
+    context: Épuisée par la pression constante que demande cette discipline, elle quitte l'English National Ballet School en 2020 pour poursuivre le chant.
+    source: fr
+    target: nl
+    expect: VALID
+    note: Dutch word order would write "na te streven"
+  - word: nombreuses
+    translation: talrijk
+    context: Ils font écho aux voix de plus en plus nombreuses qui dénoncent la violence de la police lors de la mobilisation lycéenne.
+    source: fr
+    target: nl
+    expect: VALID
+  - word: Nutzer
+    translation: gebruiker
+    context: Nach dem Update beschweren sich Nutzer noch heute über die vielen Fehler im System.
+    source: de
+    target: nl
+    expect: FIX
+    card: Nutzer = gebruikers
+    note: plural in the German word itself
+  - word: bloquer
+    translation: blokkeren
+    context: Le technicien est venu réparer mon ordinateur hier après avoir bloqué tous les virus qui empêchaient le système de démarrer.
+    source: fr
+    target: nl
+    expect: FIX
+    card: [bloqué = geblokkeerd, avoir bloqué = geblokkeerd hebben]
+    note: the sentence has the participle "bloqué", not "bloquer"
+  - word: moins
+    translation: minder
+    context: Le WEF constate d'ailleurs que les pays les mieux classés tendent aussi à être les moins compétitifs sur les prix.
+    source: fr
+    target: nl
+    expect: FIX
+    card: [moins = minst, les moins = het minst, les moins = minst]
+    note: '"les moins" is the superlative'
