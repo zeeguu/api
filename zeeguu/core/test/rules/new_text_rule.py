@@ -19,6 +19,8 @@ class NewTextRule(BaseRule):
         if content is None:
             content = self.faker.text(max_nb_chars=length)
 
-        text = NewText(content)
+        # find_or_create, not NewText(content): content_hash is unique, so a
+        # second rule for the same text must reuse the existing row.
+        text = NewText.find_or_create(self.db.session, content)
 
         return text

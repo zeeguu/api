@@ -127,3 +127,15 @@ class LegacyFindOrCreateRaceTest(ModelTestMixIn):
         assert loser.id == winner_id
         self._assert_pending_work_survived()
         assert SourceText.query.filter_by(content=content).count() == 1
+
+    def test_text_rules_reuse_the_row_for_the_same_content(self):
+        # content_hash is unique, so building a second row for the same text
+        # would fail; the rules go through find_or_create instead.
+        from zeeguu.core.test.rules.new_text_rule import NewTextRule
+        from zeeguu.core.test.rules.source_text_rule import SourceTextRule
+
+        assert NewTextRule("same text").text.id == NewTextRule("same text").text.id
+        assert (
+            SourceTextRule("same text").source_text.id
+            == SourceTextRule("same text").source_text.id
+        )
