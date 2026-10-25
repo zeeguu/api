@@ -13,6 +13,11 @@ the fix was made in.
     python -m tools.recheck_validator_fixes [--days 30] [--limit 50]
     python -m tools.recheck_validator_fixes --batch-id msgbatch_...   # resume
 
+Every fix that got a verdict is added to --checked (a file of validation_log
+ids) and skipped on the next run, so a run of the top 300 now and the rest
+next month don't pay twice. Keep that file between runs: in the container,
+copy it out with the CSV and back in before the next run.
+
 The first question about each fix goes through the Batch API (half price).
 The validator's own retries (a reply that lists options or doesn't fit its
 sentence) are asked live afterwards, through the same validate_and_classify
@@ -72,9 +77,17 @@ ORDER BY active_words DESC, log_id
 """
 
 
-def fixes(days, limit):
-    rows = db.session.execute(text(FIXES), {"days": days}).mappings().all()
+def fixes(days, limit, checked):
+    rows = [r for r in db.session.execute(text(FIXES), {"days": days}).mappings().all()
+            if r["log_id"] not in checked]
     return rows[:limit] if limit else rows
+
+
+def read_checked(path):
+    if not os.path.exists(path):
+        return set()
+    with open(path) as f:
+        return {int(line) for line in f if line.strip()}
 
 
 def prompt_for(fix):
@@ -149,9 +162,14 @@ def main():
     parser.add_argument("--batch-id", help="resume: read this batch's answers instead of submitting")
     parser.add_argument("--dry-run", action="store_true", help="count and estimate, ask nothing")
     parser.add_argument("--out", default="validator_fix_recheck.csv")
+    parser.add_argument("--checked", default="validator_fix_rechecked.txt",
+                        help="ids of fixes already judged: skipped, and this run's are added")
     args = parser.parse_args()
 
-    rows = fixes(args.days, args.limit)
+    checked = read_checked(args.checked)
+    rows = fixes(args.days, args.limit, checked)
+    if checked:
+        print(f"Skipping {len(checked)} fixes judged in earlier runs ({args.checked})")
     cost = len(rows) * (INPUT_TOKENS * BATCH_INPUT_PRICE + OUTPUT_TOKENS * BATCH_OUTPUT_PRICE) / 1e6
     print(f"{len(rows)} fixes (meaning + sentence) to re-judge, "
           f"{sum(r['active_words'] for r in rows)} active words on them; about ${cost:.0f} in the batch")
@@ -164,7 +182,7 @@ def main():
     answers = first_answers(live.client, batch_id)
 
     disagreements = no_verdict = 0
-    with open(args.out, "w", newline="") as f:
+    with open(args.out, "w", newline="") as f, open(args.checked, "a") as judged:
         out = csv.writer(f)
         out.writerow(["log_id", "fixed_at", "meaning_id", "active_words", "word", "fixed_to", "fixed_from",
                       "verdict_now", "card_now", "reason_now", "context"])
@@ -172,16 +190,16 @@ def main():
             first = answers.get(f"fix-{fix['log_id']}")
             result = judge(live, fix, first) if first else None
             if result is None:
-                no_verdict += 1
+                no_verdict += 1  # not marked checked: asked again next run
                 verdict, card, reason = "NO_VERDICT", "", ""
-            elif result.is_valid:
-                continue
             else:
-                verdict = result.verdict
+                judged.write(f"{fix['log_id']}\n")
+                if result.is_valid:
+                    continue
+                disagreements += 1
+                verdict, reason = result.verdict, result.reason or ""
                 card = (f"{result.corrected_word or fix['word']} = {result.corrected_translation}"
-                        if result.verdict == "FIX" else "")
-                reason = result.reason or ""
-            disagreements += verdict != "NO_VERDICT"
+                        if verdict == "FIX" else "")
             out.writerow([fix["log_id"], fix["fixed_at"], fix["new_meaning_id"], fix["active_words"],
                           fix["word"], fix["translation"], fix["fixed_from"], verdict, card, reason,
                           fix["context"]])
