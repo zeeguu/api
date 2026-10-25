@@ -108,6 +108,7 @@ def alternative_sentences(user_word_id):
             ExampleSentence.cefr_level == cefr_level,
             not_misfit,
         )
+        .order_by(ExampleSentence.id.desc())  # newest: newer prompts and models
         .limit(MAX_EXAMPLES_ALTERNATIVE)
         .all()
     )
@@ -119,6 +120,7 @@ def alternative_sentences(user_word_id):
                 ExampleSentence.meaning_id == user_word.meaning_id,
                 not_misfit,
             )
+            .order_by(ExampleSentence.id.desc())
             .limit(MAX_EXAMPLES_ALTERNATIVE)
             .all()
         )
