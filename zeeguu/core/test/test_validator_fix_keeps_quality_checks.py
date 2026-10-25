@@ -8,7 +8,7 @@ from unittest.mock import patch
 import zeeguu.core
 from zeeguu.core.llm_services.translation_validator import ValidationResult
 from zeeguu.core.llm_services.validation_service import UserWordValidationService
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+from zeeguu.core.model.study_choice import StudyChoice
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
@@ -51,12 +51,12 @@ class ValidatorFixKeepsQualityChecksTest(ModelTestMixIn, TestCase):
         new_user_word = self._fix_to_the_word_itself()
         self.assertNotEqual(new_user_word.id, self.user_word.id)
         self.assertFalse(new_user_word.fit_for_study)
-        self.assertEqual(int(new_user_word.user_preference or 0), UserWordExPreference.NO_PREFERENCE)
+        self.assertIsNone(new_user_word.study_choice)
 
     def test_the_learners_own_opt_in_carries_over(self):
-        self.user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
+        self.user_word.study_choice = StudyChoice.STUDY
         session.add(self.user_word)
         session.commit()
         new_user_word = self._fix_to_the_word_itself()
         self.assertTrue(new_user_word.fit_for_study)
-        self.assertEqual(new_user_word.user_preference, UserWordExPreference.USE_IN_EXERCISES)
+        self.assertEqual(new_user_word.study_choice, StudyChoice.STUDY)

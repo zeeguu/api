@@ -10,6 +10,7 @@ from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.db import db
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.source import Source
+from zeeguu.core.model.study_choice import UnfitReason
 from zeeguu.core.model.text import Text
 from zeeguu.core.model.user_word import UserWord
 
@@ -434,7 +435,7 @@ class Bookmark(db.Model):
                     f"{self.id} -> {replacement.id}"
                 )
             else:
-                self.user_word.set_unfit_for_study(db.session)
+                self.user_word.set_unfit_for_study(db.session, UnfitReason.NO_USABLE_CONTEXT)
                 db.session.commit()
                 log(
                     f"[BOOKMARK-ANCHOR] Unscheduled user_word "

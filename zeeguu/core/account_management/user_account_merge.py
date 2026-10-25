@@ -311,7 +311,7 @@ def _user_word_rows(user_id):
         row.meaning_id: row
         for row in _exec(
             """
-            SELECT uw.id, uw.meaning_id, uw.fit_for_study, uw.user_preference,
+            SELECT uw.id, uw.meaning_id, uw.fit_for_study, uw.study_choice, uw.unfit_reason,
                    uw.learned_time, uw.level, uw.is_user_added,
                    uw.preferred_bookmark_id,
                    (SELECT COUNT(*) FROM bookmark b WHERE b.user_word_id = uw.id)
@@ -357,14 +357,16 @@ def _merge_user_word_pair(keep, drop):
         """
         UPDATE user_word SET
             fit_for_study = COALESCE(fit_for_study, :fit),
-            user_preference = COALESCE(user_preference, :pref),
+            study_choice = COALESCE(study_choice, :choice),
+            unfit_reason = COALESCE(unfit_reason, :reason),
             learned_time = COALESCE(learned_time, :learned),
             is_user_added = CASE WHEN :added = 1 THEN 1 ELSE is_user_added END,
             preferred_bookmark_id = COALESCE(preferred_bookmark_id, :bm)
         WHERE id = :keep
         """,
         fit=drop.fit_for_study,
-        pref=drop.user_preference,
+        choice=drop.study_choice,
+        reason=drop.unfit_reason,
         learned=drop.learned_time,
         added=1 if drop.is_user_added else 0,
         bm=drop.preferred_bookmark_id,

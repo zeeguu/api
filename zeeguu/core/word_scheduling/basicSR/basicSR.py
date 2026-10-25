@@ -110,7 +110,7 @@ class BasicSRSchedule(db.Model):
             time = datetime.now()
 
         if outcome == ExerciseOutcome.OTHER_FEEDBACK:
-            from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+            from zeeguu.core.model.study_choice import StudyChoice
 
             schedule = cls.find(user_word)
             if schedule:
@@ -119,8 +119,8 @@ class BasicSRSchedule(db.Model):
             user_word.fit_for_study = 0
 
             # Since the user has explicitly given feedback, this should
-            # be recorded as a user preference.
-            user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+            # be recorded as their choice.
+            user_word.study_choice = StudyChoice.SKIP
             db_session.add(user_word)
 
             return

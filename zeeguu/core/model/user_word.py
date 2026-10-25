@@ -5,9 +5,9 @@ from sqlalchemy.exc import NoResultFound
 
 from wordstats import Word
 
-from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
+from zeeguu.core.bookmark_quality.fit_for_study import fit_given, unfit_reason
 from zeeguu.core.model import User, Meaning
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+from zeeguu.core.model.study_choice import StudyChoice, UnfitReason
 from zeeguu.logging import log
 
 from zeeguu.core.model.db import db
@@ -33,7 +33,10 @@ class UserWord(db.Model):
 
     fit_for_study = db.Column(db.Boolean)
 
-    user_preference = db.Column(db.Integer)
+    # What the learner chose, and why the system keeps the word out; see
+    # study_choice.py. fit_for_study is worked out from the two.
+    study_choice = db.Column(db.Enum(*StudyChoice.ALL))
+    unfit_reason = db.Column(db.Enum(*UnfitReason.ALL))
 
     learned_time = db.Column(db.DateTime)
 
@@ -57,8 +60,8 @@ class UserWord(db.Model):
         self.level = level
         self.user = user
         self.meaning = meaning
-        self.fit_for_study = fit_for_study(self)
-        self.user_preference = UserWordExPreference.NO_PREFERENCE
+        self.unfit_reason = unfit_reason(self)
+        self.fit_for_study = fit_given(None, self.unfit_reason)
         self.learned_time = None
         self.level = level
         self.is_user_added = is_user_added
@@ -86,9 +89,16 @@ class UserWord(db.Model):
     def should_be_studied(self):
         return self.fit_for_study and not self.is_learned()
 
-    def set_unfit_for_study(self, session=None):
+    def choose(self, session, study_choice):
+        """The learner chose to study, skip, or declared the word known."""
+        self.study_choice = study_choice
+        self.update_fit_for_study(session)
+
+    def set_unfit_for_study(self, session, reason):
+        """Out of study for a reason the system decided (UnfitReason)."""
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
+        self.unfit_reason = reason
         self.fit_for_study = False
         BasicSRSchedule.clear_user_word_schedule(session, self)
         if session:
@@ -107,7 +117,8 @@ class UserWord(db.Model):
         :return:
         """
         old_fit_for_study = self.fit_for_study
-        self.fit_for_study = fit_for_study(self)
+        self.unfit_reason = unfit_reason(self)
+        self.fit_for_study = fit_given(self.study_choice, self.unfit_reason)
 
         # If the word became unfit for study, clear its schedule
         if old_fit_for_study and not self.fit_for_study:

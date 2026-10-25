@@ -1,6 +1,4 @@
-"""user_word.user_preference is TEXT in prod (the model says Integer), so it
-comes back as "-6" or "0". Code that does arithmetic or compares it as an int
-must go through UserWordExPreference.of()."""
+"""After a validator fix, the corrected word gets judged by the quality checks."""
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -15,29 +13,6 @@ from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.user_rule import UserRule
 
 session = zeeguu.core.model.db.session
-
-
-class UserPreferenceAsTextTest(ModelTestMixIn, TestCase):
-    def setUp(self):
-        super().setUp()
-        self.user = UserRule().user
-        self.bookmark = BookmarkRule(self.user).bookmark
-        self.user_word = self.bookmark.user_word
-        self.meaning = self.user_word.meaning
-
-    def test_an_audio_lesson_adds_a_word_whose_preference_is_a_text_zero(self):
-        from zeeguu.core.bookmark_operations.add_word_to_study import add_word_to_study
-
-        self.user_word.user_preference = "0"  # no preference, as prod returns it
-        session.add(self.user_word)
-
-        added, _, _ = add_word_to_study(
-            session, self.user, self.meaning.origin.content, self.meaning.translation.content,
-            self.meaning.origin.language.code, self.meaning.translation.language.code,
-            f"Det er {self.meaning.origin.content} her.", from_audio_lesson=True,
-        )
-
-        self.assertIsNotNone(added)  # added, not left alone
 
 
 class ValidatorFixRecomputesFitTest(ModelTestMixIn, TestCase):

@@ -26,6 +26,7 @@ Usage:
 
 from dataclasses import replace
 from typing import Optional
+from zeeguu.core.model.study_choice import UnfitReason
 from zeeguu.logging import log
 from zeeguu.core.llm_services.translation_validator import BROKEN_SENTENCE, WORD_NOT_FIT
 
@@ -136,6 +137,7 @@ class UserWordValidationService:
                     f"is equivalent to UserWord {other_uw.id} (-> '{other_translation}'). "
                     f"Marking as unfit for study."
                 )
+                user_word.unfit_reason = UnfitReason.DUPLICATE_MEANING
                 user_word.fit_for_study = False
                 db_session.add(user_word)
                 db_session.commit()
@@ -286,14 +288,14 @@ class UserWordValidationService:
         whose words on it are judged in their own sentences, so the meaning is
         left as it is - and is not logged in validation_log, which records
         what happened to meanings - and only this learner's word leaves study.
-        Not for good, and not through user_preference, which is the learner's
+        Not for good, and not through study_choice, which is the learner's
         choice: when the learner does something with the word again (looks it
         up in a new sentence, stars it), fit_for_study is recomputed and the
         word is judged again, which after a broken sentence is what it needs.
         Commits. Returns None."""
         log(f"[VALIDATION] Gave up on user_word {user_word.id} in {context!r}: "
             f"[{result.gave_up.lower()}] {result.reason}")
-        user_word.set_unfit_for_study(db_session)
+        user_word.set_unfit_for_study(db_session, UnfitReason.VALIDATOR_GAVE_UP)
         db_session.commit()
         return None
 
@@ -366,7 +368,6 @@ class UserWordValidationService:
         from zeeguu.core.model import Meaning, UserWord
         from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
         from zeeguu.core.model.translation_service import TranslationService
-        from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
         from zeeguu.core.model.validation_log import ValidationLog
         from zeeguu.core.bookmark_operations.update_bookmark import (
             transfer_learning_progress,
@@ -383,6 +384,7 @@ class UserWordValidationService:
         if new_word == old_meaning.origin.content and new_translation == old_meaning.translation.content:
             log(f"[VALIDATION] No correction provided, marking as invalid")
             old_meaning.validated = Meaning.INVALID
+            user_word.unfit_reason = UnfitReason.VALIDATOR_INVALID
             user_word.fit_for_study = False
             db_session.add_all([old_meaning, user_word])
 
@@ -487,12 +489,10 @@ class UserWordValidationService:
             # again and "fixed" again at every exercise: 108 words, 389
             # validator calls in Sep-Oct 2026, one word 35 times. Kept, since
             # the learner's look-ups stay anchored in what they read, but
-            # excluded for good: a plain fit_for_study = False is undone by
-            # the next update_fit_for_study. Its schedule went to
-            # new_user_word with transfer_learning_progress.
+            # excluded for good: REPLACED_BY_FIX is sticky. Its schedule
+            # went to new_user_word with transfer_learning_progress.
             if old_user_word not in db_session.deleted:
-                old_user_word.user_preference = UserWordExPreference.BAD_TRANSLATION
-                old_user_word.set_unfit_for_study(db_session)
+                old_user_word.set_unfit_for_study(db_session, UnfitReason.REPLACED_BY_FIX)
 
             db_session.commit()
             log(f"[VALIDATION] Fixed and moved to new UserWord {new_user_word.id}")
