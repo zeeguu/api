@@ -14,7 +14,8 @@
 #
 # `card` is "word = translation". `expect` and `card` may be lists: any one of
 # them passes. `validator_did` is what prod answered, for the cases taken from
-# validation_log.
+# validation_log. `source` and `target` are language codes, Danish -> English
+# when left out.
 
 cases:
   # --- the case behind this set (bookmark 812839, 13 Aug 2026) ---

@@ -72,7 +72,11 @@ def main():
 
     def ask(case):
         return validator.validate_and_classify(
-            case["word"], case["translation"], case["context"], "da", "en"
+            case["word"],
+            case["translation"],
+            case["context"],
+            case.get("source", "da"),
+            case.get("target", "en"),
         )
 
     with ThreadPoolExecutor(max_workers=8) as pool:
