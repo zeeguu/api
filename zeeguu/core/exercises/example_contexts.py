@@ -91,14 +91,16 @@ def is_fragment(bookmark):
 
 
 def usable_examples(meaning_id):
-    """The meaning's generated examples, oldest first, without those the
-    validator would not pass the card in (ExampleSentenceMisfit)."""
+    """The meaning's generated examples, newest first, without those the
+    validator would not pass the meaning in (ExampleSentenceMisfit). Newest
+    first because newer examples come from newer prompts and models (the v4
+    example prompt, the 19 Oct cleanup), so they are the likeliest to be right."""
     return (
         ExampleSentence.query.filter(
             ExampleSentence.meaning_id == meaning_id,
             ~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()),
         )
-        .order_by(ExampleSentence.id)
+        .order_by(ExampleSentence.id.desc())
         .all()
     )
 
