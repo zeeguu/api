@@ -146,7 +146,6 @@ class TranslationValidator:
         """
         from .prompts.translation_validator import (
             create_combined_validation_prompt,
-            SINGLE_TRANSLATION_REMINDER,
             CARD_DOES_NOT_FIT_REMINDER,
             VALIDATION_SCHEMA,
         )
