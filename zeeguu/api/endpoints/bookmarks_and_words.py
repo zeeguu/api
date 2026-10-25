@@ -341,28 +341,6 @@ def set_user_word_exercise_dislike(bookmark_id):
     return "OK"
 
 
-@api.route("/is_fit_for_study/<bookmark_id>", methods=["POST"])
-@cross_domain
-@requires_session
-def set_is_fit_for_study(bookmark_id):
-    bookmark = get_bookmark_if_owned(bookmark_id)
-    bookmark.fit_for_study = True
-    db_session.commit()
-    return "OK"
-
-
-@api.route("/not_fit_for_study/<bookmark_id>", methods=["POST"])
-@cross_domain
-@requires_session
-def set_not_fit_for_study(bookmark_id):
-    bookmark = get_bookmark_if_owned(bookmark_id)
-    bookmark.fit_for_study = False
-
-    BasicSRSchedule.clear_user_word_schedule(db_session, bookmark)
-    db_session.commit()
-    return "OK"
-
-
 @api.route("/star_bookmark/<bookmark_id>", methods=["POST"])
 @cross_domain
 @requires_session

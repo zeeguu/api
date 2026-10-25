@@ -268,7 +268,6 @@ class UserWord(db.Model):
             is_about_to_be_learned=is_about_to_be_learned,
             fast_track=fast_track,
             can_update_schedule=can_update_schedule,
-            user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
             context_in_content=self.preferred_bookmark.text.in_content,
             left_ellipsis=self.preferred_bookmark.context.left_ellipsis,
