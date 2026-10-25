@@ -30,7 +30,7 @@ class BookmarkValidationError(Exception):
             "word": self.word,
             "context": self.context,
         }
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+from zeeguu.core.model.study_choice import StudyChoice
 from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 
@@ -221,7 +221,13 @@ def preserve_learning_progress(db_session, old_user_word, new_user_word):
 
     Transfers:
     - Level (spaced repetition level 0-3)
-    - User preferences (if was studying, continue studying)
+    - The learner's own "use in exercises" opt-in, if they made one
+
+    Being fit for study is not an opt-in: fit_for_study is computed from the
+    pair, and the new pair gets its own. Treating it as one forced the
+    validator's 'Waymo' -> 'Waymo' into study on 2026-10-22, because the
+    machine's 'Waymo' -> 'op Waymo' had been fit; 574 fixed words in prod
+    carried such a forced opt-in.
 
     Args:
         db_session: SQLAlchemy session
@@ -229,7 +235,6 @@ def preserve_learning_progress(db_session, old_user_word, new_user_word):
         new_user_word: New UserWord
     """
     old_fit_for_study = old_user_word.fit_for_study
-    old_user_preference = old_user_word.user_preference
     old_level = old_user_word.level
 
     if not old_fit_for_study:
@@ -240,11 +245,9 @@ def preserve_learning_progress(db_session, old_user_word, new_user_word):
     print(f"[UPDATE_BOOKMARK] Preserving level {old_level} from old UserWord")
     new_user_word.level = old_level
 
-    # If new word is unfit but user was studying old word, override with preference
-    if not new_user_word.fit_for_study and old_user_preference != UserWordExPreference.DONT_USE_IN_EXERCISES:
-        print(f"[UPDATE_BOOKMARK] Overriding fit_for_study with user preference (user was studying this)")
-        new_user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
-        new_user_word.update_fit_for_study(db_session)
+    if old_user_word.study_choice == StudyChoice.STUDY:
+        print(f"[UPDATE_BOOKMARK] Carrying over the learner's opt-in to exercises")
+        new_user_word.choose(db_session, StudyChoice.STUDY)
 
 
 def transfer_learning_progress(db_session, old_user_word, new_user_word, bookmark):

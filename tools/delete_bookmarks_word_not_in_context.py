@@ -24,6 +24,7 @@ app = create_app_for_scripts()
 app.app_context().push()
 
 from zeeguu.core.model.bookmark import Bookmark
+from zeeguu.core.model.study_choice import UnfitReason
 import unicodedata
 
 
@@ -180,7 +181,7 @@ def delete_bookmarks(bookmark_ids, dry_run=True):
                 else:
                     # No other bookmarks exist - mark as unfit for study AND clear schedule
                     # (Keep UserWord for historical data)
-                    user_word.set_unfit_for_study(db.session)
+                    user_word.set_unfit_for_study(db.session, UnfitReason.NO_USABLE_CONTEXT)
                     userwords_updated += 1
 
             # Delete the bookmark

@@ -24,7 +24,7 @@ from zeeguu.core.semantic_search import (
 )
 from zeeguu.core.content_quality.quality_filter import sufficient_quality
 from zeeguu.core.content_cleaning import cleanup_text_w_crawl_report
-from zeeguu.core.model import Url, Feed, UrlKeyword, Topic
+from zeeguu.core.model import Url, Feed, UrlKeyword, Topic, SkippedUrl
 from zeeguu.core.model.article_topic_map import TopicOriginType
 from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.model.source import Source
@@ -40,8 +40,8 @@ from zeeguu.core.content_retriever import (
     readability_download_and_parse,
 )
 from zeeguu.core.llm_services.simplification_and_classification import (
-    simplify_and_classify,
-    assess_summarize_and_classify,
+    assess_and_summarize,
+    save_assessment,
 )
 from zeeguu.core.content_quality.advertorial_detection import is_advertorial
 from zeeguu.core.content_quality.disturbing_content_detection import (
@@ -51,15 +51,10 @@ from zeeguu.core.model.article_broken_code_map import LowQualityTypes
 
 TIMEOUT_SECONDS = 10
 MAX_WORD_FOR_BROKEN_ARTICLE = 10000
-# On-demand simplification: at crawl time we only assess + summarize + classify;
-# full simplification to each CEFR level happens lazily when a learner opens an
-# article (POST /simplify_article/<id>). Set SIMPLIFY_AT_CRAWL=true to restore the
-# legacy behavior of pre-generating every sub-level at crawl time.
-SIMPLIFY_AT_CRAWL = os.environ.get("SIMPLIFY_AT_CRAWL", "false").strip().lower() in (
-    "1",
-    "true",
-    "yes",
-)
+# At crawl time we only assess + summarize + classify; simplification to each
+# CEFR level happens when a learner opens an article (POST /simplify_article/<id>).
+# Shorter articles are saved without that LLM pass.
+MIN_WORDS_TO_ASSESS = 100
 # Max time per feed (safety valve for sequential crawls) - configurable via env var
 MAX_FEED_PROCESSING_TIME_SECONDS = int(os.environ.get("MAX_FEED_PROCESSING_TIME_SECONDS", "300"))
 
@@ -253,6 +248,22 @@ def is_duplicate_by_simhash(content, feed, session):
     return False, None
 
 
+def skipped_before_by_simhash(content, feed):
+    """
+    Near-duplicate of a feed item skipped recently without saving an article:
+    the same text under a new url, as when an outlet renames the slug.
+    Returns the reason it was skipped, or None.
+    """
+    new_simhash = compute_simhash(content)
+    if new_simhash is None:
+        return None
+    cutoff = datetime.now() - timedelta(days=SIMHASH_LOOKBACK_DAYS)
+    for skipped, reason in SkippedUrl.simhashes_of_feed_since(feed, cutoff):
+        if Simhash(new_simhash).distance(Simhash(skipped)) <= SIMHASH_DUPLICATE_DISTANCE_THRESHOLD:
+            return reason
+    return None
+
+
 def _url_after_redirects(url):
     # solve redirects and save the clean url
     # Some sites block requests without User-Agent (e.g. atlasmag.dk)
@@ -319,7 +330,7 @@ def extract_article_image(np_article):
 
 
 def download_from_feed(
-    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, simplification_provider=None, topic_simplification_counts=None
+    feed: Feed, session, crawl_report, limit=1000, save_in_elastic=True, simplification_provider=None
 ):
     """
 
@@ -429,6 +440,10 @@ def download_from_feed(
                 skipped_already_in_db += 1
                 log(" - Already in DB")
                 continue
+            if SkippedUrl.find(url):
+                skipped_already_in_db += 1
+                log(" - Skipped before")
+                continue
 
         except requests.exceptions.TooManyRedirects:
             raise Exception(f"- Too many redirects")
@@ -452,7 +467,6 @@ def download_from_feed(
                 url,
                 crawl_report,
                 simplification_provider=simplification_provider,
-                topic_simplification_counts=topic_simplification_counts,
             )
             # The article is fetched + saved; disarm now so the alarm can't fire
             # during the ES-indexing/bookkeeping below — a timeout there would
@@ -617,54 +631,7 @@ def download_from_feed(
     return summary_stream
 
 
-# Cap simplifications per topic per language per day
-# Popular languages (high user activity) get higher caps
-POPULAR_LANGUAGES = {"da", "fr", "de"}  # Danish, French, German
-MAX_SIMPLIFIED_POPULAR = 50  # For popular languages
-MAX_SIMPLIFIED_DEFAULT = 20  # For other languages
-
-
-def get_max_simplified_for_language(language_code):
-    """Get the daily topic simplification cap for a given language."""
-    if language_code.lower() in POPULAR_LANGUAGES:
-        return MAX_SIMPLIFIED_POPULAR
-    return MAX_SIMPLIFIED_DEFAULT
-
-
-def get_todays_simplified_counts_by_language_topic(session, language_id):
-    """Get count of simplified articles per topic created today for a given language.
-
-    Simplified articles are stored in the Article table with parent_article_id set.
-    Topics are on the parent article, so we join: SimplifiedArticle -> ParentArticle -> ArticleTopicMap
-
-    Returns dict of {topic_id: count} for this specific language.
-    """
-    from datetime import datetime
-    from zeeguu.core.model import ArticleTopicMap
-    from sqlalchemy import func
-    from sqlalchemy.orm import aliased
-
-    today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-
-    # Simplified articles have parent_article_id set
-    # Topics are associated with the parent article
-    ParentArticle = aliased(model.Article)
-
-    results = (
-        session.query(ArticleTopicMap.topic_id, func.count(model.Article.id))
-        .join(ParentArticle, model.Article.parent_article_id == ParentArticle.id)
-        .join(ArticleTopicMap, ArticleTopicMap.article_id == ParentArticle.id)
-        .filter(ParentArticle.language_id == language_id)
-        .filter(model.Article.published_time >= today_start)
-        .filter(model.Article.parent_article_id != None)
-        .group_by(ArticleTopicMap.topic_id)
-        .all()
-    )
-
-    return {topic_id: count for topic_id, count in results}
-
-
-def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None, topic_simplification_counts=None):
+def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None):
     import html
 
     title = html.unescape(feed_item["title"])
@@ -699,6 +666,11 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         if is_dup:
             log(f" - Near-duplicate content detected (similar to article {dup_id})")
             raise SkippedAlreadyInDB()
+        skipped_reason = skipped_before_by_simhash(np_article.text, feed)
+        if skipped_reason:
+            log(f" - Near-duplicate of a url skipped before ({skipped_reason})")
+            _remember_skipped(session, url, feed, np_article, skipped_reason)
+            raise SkippedAlreadyInDB()
 
     is_quality_article, reason, code = sufficient_quality(
         np_article, feed.language.code
@@ -722,7 +694,105 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     if len(summary) < 10:
         summary = np_article.text[:MAX_CHAR_COUNT_IN_SUMMARY]
 
-    # Create the Source
+    def new_article():
+        return _create_article(
+            session, feed, url, title, np_article, summary, published_datetime
+        )
+
+    if not is_quality_article:
+        crawl_report.add_non_quality_reason(feed, code, str(url))
+        new_article().set_as_broken(session, code)
+        print(f"Article was skipped, reason: '{reason}'")
+        raise SkippedForLowQuality(reason)
+
+    # Check for advertorial content before expensive simplification
+    log(f"   Checking for advertorial content...")
+    is_advert, advert_reason = is_advertorial(
+        url=url, title=title, content=np_article.text
+    )
+    if is_advert:
+        log(
+            f"   ⚠ Advertorial detected ({advert_reason}), skipping simplification"
+        )
+        article = new_article()
+        _add_image_and_topics(article, np_article, feed, session)
+        article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_PATTERN)
+        return article
+
+    # Check for disturbing content (keyword-based detection). Saved below, as
+    # soon as the article exists, decoupled from the LLM classification, which
+    # can be skipped (short article) or fail. The always-on keyword gate must
+    # set is_disturbing regardless, or the feed filter can't work.
+    is_disturbing_keyword, disturbing_reason = is_disturbing_content_based_on_keywords(
+        title=title, content=np_article.text, language=feed.language.code
+    )
+    if is_disturbing_keyword:
+        log(
+            f"   ⚠ Disturbing content detected ({disturbing_reason})"
+        )
+
+    # Ask the LLM before anything is written. Most of what it rejects is still
+    # saved, as a broken article, but a paywall over the daily sample quota is
+    # not, and must leave nothing behind: deleting it again afterwards is what
+    # dropped the rest of the feed from August to October 2026 (api#856), and
+    # still left its source and source_text rows.
+    assessment = llm_error = None
+    word_count = len(np_article.text.split())
+    if word_count < MIN_WORDS_TO_ASSESS:
+        log(f"   Too short to assess ({word_count} words), saving without LLM pass")
+    else:
+        log(f"   Calling LLM for assessment and summary...")
+        llm_start_time = time()
+        try:
+            assessment = assess_and_summarize(
+                title,
+                np_article.text,
+                feed.language.code,
+                simplification_provider=simplification_provider,
+            )
+            llm_duration = time() - llm_start_time
+            log(f"   ✓ LLM call completed in {llm_duration:.1f}s")
+        except Exception as e:
+            llm_error, llm_duration = e, time() - llm_start_time
+            if _is_paywall(e) and not _should_save_paywall_sample(session, feed.language):
+                log(
+                    f"   ✗ LLM detected paywall after {llm_duration:.1f}s - skipping (daily quota of {MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE} samples reached)"
+                )
+                # Remember it, or the next crawl asks the LLM again while
+                # the item stays in the feed.
+                _remember_skipped(session, url, feed, np_article, SkippedUrl.PAYWALL_OVER_SAMPLE_QUOTA)
+                raise SkippedForLowQuality("LLM-detected paywall, sample quota reached")
+
+    article = new_article()
+    _add_image_and_topics(article, np_article, feed, session)
+
+    # Fragments and the tokenization cache are built only once the article has
+    # survived every rejection below (see _prepare_for_reading).
+
+    if is_disturbing_keyword:
+        _save_classifications(session, article, [("DISTURBING", "KEYWORD")])
+
+    if assessment:
+        try:
+            _save_classifications(session, article, save_assessment(session, article, assessment))
+        except Exception as e:
+            llm_error = e
+
+    if llm_error:
+        _mark_llm_rejection(session, article, llm_error, llm_duration)
+
+    if not article.broken:
+        _prepare_for_reading(article, session)
+
+    return article
+
+
+def _remember_skipped(session, url, feed, np_article, reason):
+    SkippedUrl.record(session, url, feed, compute_simhash(np_article.text), reason)
+    session.commit()
+
+
+def _create_article(session, feed, url, title, np_article, summary, published_datetime):
     new_source = Source.find_or_create(
         session,
         np_article.text,
@@ -731,7 +801,6 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
         0,
         commit=False,
     )
-    # Create new article and save it to DB
     new_article = zeeguu.core.model.Article(
         Url.find_or_create(session, url),
         title,
@@ -748,14 +817,10 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     new_article.content_simhash = compute_simhash(np_article.text)
 
     session.add(new_article)
+    return new_article
 
-    if not is_quality_article:
-        crawl_report.add_non_quality_reason(feed, code, str(url))
-        new_article.set_as_broken(session, code)
-        session.add(new_article)
-        print(f"Article was skipped, reason: '{reason}'")
-        raise SkippedForLowQuality(reason)
 
+def _add_image_and_topics(new_article, np_article, feed, session):
     main_img_url = extract_article_image(np_article)
     if main_img_url:
         new_article.img_url = Url.find_or_create(session, main_img_url)
@@ -767,155 +832,45 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
     log(f"   ✓ Topics assigned: {topics}")
     session.add(new_article)
 
-    # IMPORTANT: Capture topic data NOW before any potential session rollback.
-    # _cache_article_tokenization can rollback on failure, which would delete
-    # the ArticleTopicMap entries from the session. Store the data we need.
-    # Fixes ZEEGUU-API-X1: ObjectDeletedError when accessing topics after rollback.
-    article_topic_ids = [t.topic_id for t in new_article.topics]
-    article_topic_names = [t.topic.title for t in new_article.topics]
 
-    # Fragments and the tokenization cache are built only once the article has
-    # survived every rejection below (see _prepare_for_reading).
+def _is_paywall(llm_error):
+    return "paywall" in str(llm_error).lower()
 
-    # Check for advertorial content before expensive simplification
-    log(f"   Checking for advertorial content...")
-    is_advert, advert_reason = is_advertorial(
-        url=url, title=title, content=np_article.text
-    )
-    if is_advert:
-        log(
-            f"   ⚠ Advertorial detected ({advert_reason}), skipping simplification"
-        )
-        new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_PATTERN)
-        return new_article
 
-    # Check for disturbing content (keyword-based detection).
-    # Persist this flag NOW, decoupled from simplification: the LLM classification
-    # only runs if the article gets simplified, but simplification can be skipped
-    # (daily cap below, on-demand simplification, or an LLM error). The always-on
-    # keyword gate must set is_disturbing regardless, or the feed filter can't work.
-    is_disturbing_keyword, disturbing_reason = is_disturbing_content_based_on_keywords(
-        title=title, content=np_article.text, language=feed.language.code
-    )
-    if is_disturbing_keyword:
-        log(
-            f"   ⚠ Disturbing content detected ({disturbing_reason})"
-        )
-        _save_classifications(session, new_article, [("DISTURBING", "KEYWORD")])
+def _mark_llm_rejection(session, new_article, e, llm_duration):
+    """The LLM pass raised: say why on the article."""
+    error_msg = str(e).lower()
 
-    # The per-(language, topic) daily simplification cap only exists to bound the
-    # cost of pre-generating simplified versions at crawl time. In on-demand mode
-    # no simplified children are created here, so the cap does not apply — every
-    # article still gets the cheap assess+summarize+classify pass.
-    if SIMPLIFY_AT_CRAWL:
-        # topic_simplification_counts is keyed by (language_id, topic_id) tuple
-        # Note: article_topic_ids/names were captured earlier before potential rollback
-        language_id = feed.language_id
-        lang_code = feed.language.code
-        max_for_lang = get_max_simplified_for_language(lang_code)
-
-        if topic_simplification_counts is not None and article_topic_ids:
-            # Check if ANY topic still needs simplified articles today for this language
-            needs_simplification = False
-            for topic_id in article_topic_ids:
-                key = (language_id, topic_id)
-                current_count = topic_simplification_counts.get(key, 0)
-                if current_count < max_for_lang:
-                    needs_simplification = True
-                    break
-
-            if not needs_simplification:
-                log(f"   ⏭ Skipping simplification - daily cap ({max_for_lang}/topic) reached for: {article_topic_names}")
-                _prepare_for_reading(new_article, session)
-                return new_article
-
-    # On-demand mode: assess + summarize + classify only (no simplified children).
-    # Legacy mode: also pre-generate simplified versions for every sub-level.
-    if SIMPLIFY_AT_CRAWL:
-        log(f"   Calling LLM for simplification and classification...")
+    # Check if LLM detected advertorial - always save for pattern analysis
+    if "advertorial" in error_msg:
+        log(f"   ✗ LLM detected advertorial content after {llm_duration:.1f}s, marking article as broken")
+        new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_LLM)
+    # Check if LLM detected paywall - sample to avoid DB bloat
+    elif _is_paywall(e):
+        # Over the daily quota never gets here: download_feed_item skips
+        # those before the article exists.
+        log(f"   ✗ LLM detected paywall after {llm_duration:.1f}s - saving as sample for pattern analysis")
+        new_article.set_as_broken(session, LowQualityTypes.LLM_PAYWALL_PATTERN)
     else:
-        log(f"   Calling LLM for assessment and summary (on-demand simplification)...")
-    llm_start_time = time()
-    try:
-        classify_fn = (
-            simplify_and_classify if SIMPLIFY_AT_CRAWL else assess_summarize_and_classify
+        # Don't fail the entire crawl if simplification fails for other reasons
+        log(
+            f"   ✗ LLM failed after {llm_duration:.1f}s for article {new_article.id}: {str(e)}"
         )
-        simplified_articles, llm_classifications = classify_fn(
-            session, new_article, simplification_provider=simplification_provider
-        )
-        llm_duration = time() - llm_start_time
-        log(f"   ✓ LLM call completed in {llm_duration:.1f}s")
-        if simplified_articles:
-            log(
-                f"   Created {len(simplified_articles)} simplified versions"
-            )
-            # Pre-tokenize each simplified child's title/summary too. These are what
-            # the recommended feed renders as tappable preview cards; caching them
-            # here keeps that off the request path (mirrors the original above).
-            for simplified in simplified_articles:
-                _cache_article_tokenization(simplified, session)
-            # Update topic simplification counts after successful simplification
-            # Key is (language_id, topic_id) to track per language
-            if topic_simplification_counts is not None:
-                for topic_id in article_topic_ids:
-                    key = (language_id, topic_id)
-                    topic_simplification_counts[key] = topic_simplification_counts.get(key, 0) + 1
-        else:
-            log(
-                f"   No simplified versions created"
-            )
-
-        # Save LLM-based classifications. The keyword-based DISTURBING flag was
-        # already persisted above, right after keyword detection, so it survives
-        # even when simplification is skipped or errors out.
-        _save_classifications(session, new_article, llm_classifications)
-    except Exception as e:
-        llm_duration = time() - llm_start_time
-        error_msg = str(e).lower()
-
-        # Check if LLM detected advertorial - always save for pattern analysis
-        if "advertorial" in error_msg:
-            log(f"   ✗ LLM detected advertorial content after {llm_duration:.1f}s, marking article as broken")
-            new_article.set_as_broken(session, LowQualityTypes.ADVERTORIAL_LLM)
-        # Check if LLM detected paywall - sample to avoid DB bloat
-        elif "paywall" in error_msg:
-            should_save = _should_save_paywall_sample(session, new_article.language)
-            if should_save:
-                log(f"   ✗ LLM detected paywall after {llm_duration:.1f}s - saving as sample for pattern analysis")
-                new_article.set_as_broken(session, LowQualityTypes.LLM_PAYWALL_PATTERN)
-            else:
-                log(
-                    f"   ✗ LLM detected paywall after {llm_duration:.1f}s - skipping (daily quota of {MAX_PAYWALL_SAMPLES_PER_DAY_PER_LANGUAGE} samples reached)"
-                )
-                # Don't save the article - delete it
-                session.delete(new_article)
-                session.commit()
-                raise SkippedForLowQuality("LLM-detected paywall, sample quota reached")
-        else:
-            # Don't fail the entire crawl if simplification fails for other reasons
-            log(
-                f"   ✗ LLM failed after {llm_duration:.1f}s for article {new_article.id}: {str(e)}"
-            )
-            capture_to_sentry(e)
-            # ... but do say so on the article. Without this it is committed with
-            # a summary and fragments and no assessment, which means no CEFR
-            # level, no classifications, no simplified versions, and no ES
-            # document -- so it is never recommended and never seen, while
-            # looking healthy in the database (broken = 0).
-            #
-            # That silence cost real time: such articles look like "tokenization
-            # cache is missing for healthy articles" when you count rows, and
-            # the only way to tell them apart was to ask Elasticsearch one id at
-            # a time. Marking them makes the half-failure countable, keeps the
-            # row as the URL tombstone the crawler needs (Article.find(url)
-            # skips it), and lets a future sweep strip the content it will never
-            # serve.
-            new_article.set_as_broken(session, LowQualityTypes.LLM_PASS_FAILED)
-
-    if not new_article.broken:
-        _prepare_for_reading(new_article, session)
-
-    return new_article
+        capture_to_sentry(e)
+        # ... but do say so on the article. Without this it is committed with
+        # a summary and fragments and no assessment, which means no CEFR
+        # level, no classifications, no simplified versions, and no ES
+        # document -- so it is never recommended and never seen, while
+        # looking healthy in the database (broken = 0).
+        #
+        # That silence cost real time: such articles look like "tokenization
+        # cache is missing for healthy articles" when you count rows, and
+        # the only way to tell them apart was to ask Elasticsearch one id at
+        # a time. Marking them makes the half-failure countable, keeps the
+        # row as the URL tombstone the crawler needs (Article.find(url)
+        # skips it), and lets a future sweep strip the content it will never
+        # serve.
+        new_article.set_as_broken(session, LowQualityTypes.LLM_PASS_FAILED)
 
 
 def _prepare_for_reading(new_article, session):

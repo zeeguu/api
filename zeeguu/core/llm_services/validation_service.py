@@ -24,19 +24,11 @@ Usage:
     user_word = UserWordValidationService.validate_and_fix(db_session, user_word)
 """
 
+from dataclasses import replace
 from typing import Optional
+from zeeguu.core.model.study_choice import UnfitReason
 from zeeguu.logging import log
-
-
-def word_changed(old_meaning, new_meaning):
-    """Did a fix change the word itself, not just its translation?"""
-    return changes_the_word(old_meaning.origin.content, new_meaning.origin.content)
-
-
-def changes_the_word(old_word, corrected_word):
-    """corrected_word empty means the word was kept."""
-    corrected = (corrected_word or "").strip().lower()
-    return bool(corrected) and corrected != old_word.strip().lower()
+from zeeguu.core.llm_services.translation_validator import BROKEN_SENTENCE, WORD_NOT_FIT
 
 
 def _engine_of(user_word):
@@ -59,6 +51,11 @@ def _engine_of(user_word):
         .first()
     )
     return first.translation_service_id if first else None
+
+
+# A meaning judged in this many sentences without passing in one is given up
+# on, so a word whose sentences are all bad costs a bounded number of calls.
+MAX_SENTENCES_TRIED = 2
 
 
 class UserWordValidationService:
@@ -140,6 +137,7 @@ class UserWordValidationService:
                     f"is equivalent to UserWord {other_uw.id} (-> '{other_translation}'). "
                     f"Marking as unfit for study."
                 )
+                user_word.unfit_reason = UnfitReason.DUPLICATE_MEANING
                 user_word.fit_for_study = False
                 db_session.add(user_word)
                 db_session.commit()
@@ -148,7 +146,9 @@ class UserWordValidationService:
         return False
 
     @classmethod
-    def validate_and_fix(cls, db_session, user_word) -> Optional["UserWord"]:
+    def validate_and_fix(
+        cls, db_session, user_word, sentences_tried=(), bookmark=None, recheck=False
+    ) -> Optional["UserWord"]:
         """
         Validate translation and fix if needed before exercises/examples.
 
@@ -159,6 +159,8 @@ class UserWordValidationService:
         Args:
             db_session: Database session to use
             user_word: UserWord to validate
+            bookmark: the sentence to judge in; the preferred bookmark if None
+            recheck: judge a meaning already VALID too (a learner reported it)
 
         Returns:
             UserWord to use (may be different if fixed), or None if unfixable/should skip
@@ -166,7 +168,7 @@ class UserWordValidationService:
         from zeeguu.core.model.meaning import Meaning
 
         # Skip if already validated as correct
-        if user_word.meaning.validated == Meaning.VALID:
+        if user_word.meaning.validated == Meaning.VALID and not recheck:
             return user_word
 
         # Get validator (fail gracefully if not available)
@@ -178,7 +180,7 @@ class UserWordValidationService:
             return user_word
 
         # Get context from preferred bookmark
-        bookmark = user_word.preferred_bookmark
+        bookmark = bookmark or user_word.preferred_bookmark
         if not bookmark:
             log(f"[VALIDATION] No preferred bookmark for user_word {user_word.id}, skipping")
             return user_word
@@ -210,9 +212,96 @@ class UserWordValidationService:
 
         if result.is_valid:
             return cls._apply_valid_result(db_session, user_word, meaning, result, context)
+        elif bookmark.translation_source == "generated_example" or result.gave_up == BROKEN_SENTENCE:
+            return cls._try_another_sentence(db_session, user_word, bookmark, result, sentences_tried, recheck)
+        elif result.gave_up:
+            return cls._give_up(db_session, user_word, meaning, result, context)
         else:
             log(f"[VALIDATION] Translation needs fixing: {result.reason}")
             return cls._fix_bookmark(db_session, user_word, bookmark, result, context)
+
+    @classmethod
+    def _try_another_sentence(cls, db_session, user_word, bookmark, result, sentences_tried, recheck=False):
+        """The meaning did not pass in this sentence, and the sentence is what
+        is wrong: a generated example (anything but VALID), or a sentence the
+        validator calls broken (BROKEN_SENTENCE).
+
+        A generated example was generated for the meaning, so a FIX there must
+        not change what the learner studies ("selv" = "even" must not become
+        "selv om" because one example used "selv om"); the example is recorded
+        and not used again. A broken sentence says nothing about the word,
+        which may fit any other sentence. Either way the meaning is judged
+        again in another sentence: a whole sentence of the learner's own
+        (never a reader fragment, which is context for the meaning, not for
+        study), or else the next unused example. When the learner's own
+        sentence was the broken one, examples only. With no sentence left, or
+        after MAX_SENTENCES_TRIED, the word is given up on. Returns what validate_and_fix returns for the
+        sentence the meaning is finally judged in.
+        """
+        from zeeguu.core.exercises.example_contexts import is_fragment, next_unused_example_bookmark
+        from zeeguu.core.model.example_sentence import ExampleSentence
+        from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
+        from zeeguu.core.model.example_sentence_misfit import ExampleSentenceMisfit
+
+        log(f"[VALIDATION] Meaning of user_word {user_word.id} not judged in bookmark {bookmark.id} "
+            f"({result.verdict}: {result.reason}); trying another sentence")
+        if bookmark.translation_source == "generated_example":
+            # .first(), not find_by_bookmark's .one(): a bookmark can carry
+            # more than one example link
+            example_context = ExampleSentenceContext.query.filter(
+                ExampleSentenceContext.bookmark_id == bookmark.id
+            ).first()
+            example = example_context.example_sentence if example_context else ExampleSentence.query.filter(
+                ExampleSentence.meaning_id == user_word.meaning_id,
+                ExampleSentence.sentence == bookmark.get_context(),
+            ).first()
+            if example:
+                ExampleSentenceMisfit.mark(db_session, example, f"{result.verdict}: {result.reason or ''}".strip())
+
+        tried = sentences_tried + (bookmark.id,)
+        next_sentence = None
+        own_sentence_broken = (
+            result.gave_up == BROKEN_SENTENCE and bookmark.translation_source != "generated_example"
+        )
+        if len(tried) < MAX_SENTENCES_TRIED:
+            own = [] if own_sentence_broken else [
+                b for b in user_word.bookmarks()
+                if b.id not in tried
+                and b.translation_source != "generated_example"
+                and b.get_context()
+                and not is_fragment(b)
+            ]
+            next_sentence = own[0] if own else next_unused_example_bookmark(db_session, user_word, skip_ids=tried)
+        if not next_sentence:
+            db_session.commit()
+            # No sentence left that the meaning passes in: a FIX in an example
+            # gives up as WORD_NOT_FIT, a broken sentence as itself
+            gave_up = replace(result, is_valid=False, gave_up=result.gave_up or WORD_NOT_FIT)
+            return cls._give_up(db_session, user_word, user_word.meaning, gave_up, bookmark.get_context())
+
+        user_word.preferred_bookmark = next_sentence
+        db_session.add(user_word)
+        db_session.commit()
+        return cls.validate_and_fix(db_session, user_word, tried, recheck=recheck)
+
+    @classmethod
+    def _give_up(cls, db_session, user_word, meaning, result, context=None):
+        """The validator gave up on the meaning in this sentence: the sentence
+        is broken (BROKEN_SENTENCE), or no meaning of the word fits it
+        (WORD_NOT_FIT). Neither says the meaning is wrong for other learners,
+        whose words on it are judged in their own sentences, so the meaning is
+        left as it is - and is not logged in validation_log, which records
+        what happened to meanings - and only this learner's word leaves study.
+        Not for good, and not through study_choice, which is the learner's
+        choice: when the learner does something with the word again (looks it
+        up in a new sentence, stars it), fit_for_study is recomputed and the
+        word is judged again, which after a broken sentence is what it needs.
+        Commits. Returns None."""
+        log(f"[VALIDATION] Gave up on user_word {user_word.id} in {context!r}: "
+            f"[{result.gave_up.lower()}] {result.reason}")
+        user_word.set_unfit_for_study(db_session, UnfitReason.VALIDATOR_GAVE_UP)
+        db_session.commit()
+        return None
 
     @classmethod
     def _apply_valid_result(cls, db_session, user_word, meaning, result, context=None):
@@ -266,7 +355,7 @@ class UserWordValidationService:
         validator verdict. Commits. Returns the user word to use, or None.
         """
         # The verdict was reached in this bookmark's sentence: no sentence, no
-        # verdict (script_generator._pair_verdict)
+        # verdict (script_generator._meaning_confirmed_wrong)
         bookmark = user_word.preferred_bookmark
         if not bookmark:
             log(f"[VALIDATION] No preferred bookmark for user_word {user_word.id}, cannot apply the fix")
@@ -299,6 +388,7 @@ class UserWordValidationService:
         if new_word == old_meaning.origin.content and new_translation == old_meaning.translation.content:
             log(f"[VALIDATION] No correction provided, marking as invalid")
             old_meaning.validated = Meaning.INVALID
+            user_word.unfit_reason = UnfitReason.VALIDATOR_INVALID
             user_word.fit_for_study = False
             db_session.add_all([old_meaning, user_word])
 
@@ -348,14 +438,14 @@ class UserWordValidationService:
 
         # If meaning actually changed, update user's data
         if new_meaning.id != old_meaning.id:
-            # Mark old meaning as invalid (only if it's a different meaning!),
-            # and only when its translation was wrong. A fix that changes the
-            # word ('ud' in 'ud af' → 'ud af' = 'out of') says this learner
-            # selected too little, not that 'ud' = 'out' is wrong; marked
-            # INVALID, it lost its audio lessons for everyone (2026-10-19).
-            if not word_changed(old_meaning, new_meaning):
-                old_meaning.validated = Meaning.INVALID
-                db_session.add(old_meaning)
+            # Mark old meaning as invalid (only if it's a different meaning!).
+            # Also when the fix changed the word: on 2026-10-19 most of the 871
+            # meanings marked by such fixes were broken pairs themselves
+            # ('bruger den' → 'are using it', 'tenu' → 'tenuous'), and only
+            # about a third were a fine word inside a bigger expression ('ud'
+            # in 'ud af'), which then lose only their audio lessons.
+            old_meaning.validated = Meaning.INVALID
+            db_session.add(old_meaning)
 
             # Log the fix
             ValidationLog.log_fixed(
@@ -388,9 +478,25 @@ class UserWordValidationService:
 
             new_user_word.preferred_bookmark_id = bookmark.id
             db_session.add(new_user_word)
+            db_session.flush()
+            # Judged with its sentence attached now: fit_for_study was worked
+            # out when the word was created, or long before if it existed.
+            # Expired so preferred_bookmark is reloaded from the id set above.
+            db_session.expire(new_user_word, ["preferred_bookmark"])
+            new_user_word.update_fit_for_study(db_session)
 
             # Cleanup old user_word if orphaned
             cleanup_old_user_word(db_session, old_user_word, bookmark)
+
+            # Not orphaned when other bookmarks hold it, e.g. generated
+            # examples placed for the wrong pair. Still fit, it was served
+            # again and "fixed" again at every exercise: 108 words, 389
+            # validator calls in Sep-Oct 2026, one word 35 times. Kept, since
+            # the learner's look-ups stay anchored in what they read, but
+            # excluded for good: REPLACED_BY_FIX is sticky. Its schedule
+            # went to new_user_word with transfer_learning_progress.
+            if old_user_word not in db_session.deleted:
+                old_user_word.set_unfit_for_study(db_session, UnfitReason.REPLACED_BY_FIX)
 
             db_session.commit()
             log(f"[VALIDATION] Fixed and moved to new UserWord {new_user_word.id}")

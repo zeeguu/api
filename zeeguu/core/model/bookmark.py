@@ -10,6 +10,7 @@ from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.db import db
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.source import Source
+from zeeguu.core.model.study_choice import UnfitReason
 from zeeguu.core.model.text import Text
 from zeeguu.core.model.user_word import UserWord
 
@@ -434,7 +435,7 @@ class Bookmark(db.Model):
                     f"{self.id} -> {replacement.id}"
                 )
             else:
-                self.user_word.set_unfit_for_study(db.session)
+                self.user_word.set_unfit_for_study(db.session, UnfitReason.NO_USABLE_CONTEXT)
                 db.session.commit()
                 log(
                     f"[BOOKMARK-ANCHOR] Unscheduled user_word "
@@ -629,20 +630,11 @@ class Bookmark(db.Model):
             log(f"[BOOKMARK-TIMING] UserWord.find_or_create took {time.time() - uw_start:.3f}s")
 
             # Log every translation
-            from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
             from zeeguu.core.model.user_word_interaction_history import UserWordInteractionHistory
 
             UserWordInteractionHistory.log(
                 session, user_word, UserWordInteractionHistory.TRANSLATED
             )
-
-            # Erode "declared known" confidence on re-translation
-            if UserWordExPreference.is_declared_known(user_word.user_preference):
-                user_word.user_preference += 2
-                if user_word.user_preference >= UserWordExPreference.NO_PREFERENCE:
-                    user_word.user_preference = UserWordExPreference.NO_PREFERENCE
-                    user_word.update_fit_for_study(session)
-                session.add(user_word)
 
         log(f"[BOOKMARK-TIMING] Getting Source")
         source = Source.find_by_id(source_id)

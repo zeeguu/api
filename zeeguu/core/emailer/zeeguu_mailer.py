@@ -48,18 +48,24 @@ class ZeeguuMailer(object):
         return message.as_string()
 
     @classmethod
-    def send_feedback(cls, subject, context, message, user, url=None):
-
-        print("sending feedback...")
+    def send_feedback(cls, subject, component, message, user, url=None, origin=None):
+        where = " · ".join(escape(x) for x in [component, origin, url] if x)
+        body = (
+            f"{escape(message)}\n\n"
+            + "—\n"
+            + f"{escape(user.name)} ({user.id}) · {escape(user.email)}\n"
+            + f"{where}\n"
+            + _learner_line(user)
+            + _recent_activity(user)
+        )
         mailer = ZeeguuMailer(
             subject,
-            f"Dear Zeeguu Team,\n\nWrt. **{escape(context)}** I'd like to report that: \n\n"
-            + f"{escape(message)}"
-            + f"\n@url ({escape(url)})"
-            + "\n\n"
-            + "Cheers,\n"
-            + f"{escape(user.name)} ({user.id}, {escape(user.email)})",
-            zeeguu.core.app.config.get("SMTP_EMAIL"),
+            body,
+            # Gmail files mail it sends to itself under Sent only, never the
+            # Inbox, so feedback goes to an address someone actually reads.
+            zeeguu.core.app.config.get(
+                "FEEDBACK_EMAIL", zeeguu.core.app.config.get("SMTP_EMAIL")
+            ),
         )
         mailer.send()
 
@@ -83,6 +89,17 @@ class ZeeguuMailer(object):
                 content,
                 handle + prefix + "tu" + ".d" + "k",
             ).send()
+
+    @classmethod
+    def send_alert(cls, subject, content_lines):
+        """Something is broken and someone should look now (crawler stalled,
+        feeds failing). Goes to ALERTS_EMAIL (an address or a list): mail to
+        SMTP_EMAIL, the team Gmail, lands in its Sent folder only."""
+        body = "\r\n".join(content_lines)
+        to = zeeguu.core.app.config.get(
+            "ALERTS_EMAIL", zeeguu.core.app.config.get("SMTP_EMAIL")
+        )
+        ZeeguuMailer(subject, body, to).send()
 
     @classmethod
     def send_mail(cls, subject, content_lines):
@@ -126,83 +143,54 @@ class ZeeguuMailer(object):
         )
         mailer.send()
 
-    @classmethod
-    def notify_article_completion(cls, user, article, completion_percentage):
-        """
-        Send email notification when a user completes reading an article.
-        
-        Args:
-            user: The User who completed the article
-            article: The Article that was completed
-            completion_percentage: The reading completion percentage
-        """
-        try:
-            from zeeguu.core.model.user_article import UserArticle
-            from zeeguu.core.model.bookmark import Bookmark
-            from flask import current_app
-            
-            # Get user-article info for additional context
-            user_article = UserArticle.find(user, article)
-            
-            # Get all translations/bookmarks for this user and article
-            bookmarks = Bookmark.find_all_for_user_and_article(user, article)
-            translation_count = len(bookmarks)
-            
-            # Create list of translations
-            translations_text = ""
-            if translation_count > 0:
-                translations_text = "\nTranslations Made:\n"
-                for i, bookmark in enumerate(bookmarks, 1):
-                    origin_word = bookmark.user_word.meaning.origin.content
-                    translation_word = bookmark.user_word.meaning.translation.content
-                    translations_text += f"{i:2d}. {origin_word} → {translation_word}\n"
-            else:
-                translations_text = "\nNo translations were made during this reading session.\n"
-            
-            # Create email content
-            subject = f"📖 Article Completed - {user.name} ({translation_count} translations)"
-            
-            body = f"""User Completed Article Reading
 
-User: {user.name} ({user.email})
-User ID: {user.id}
-Article ID: {article.id}
-Article Title: {article.title}
-Article URL: {article.url.as_string()}
-Language: {article.language.name}
-Word Count: {article.word_count}
-Completion: {completion_percentage*100:.1f}%
-Difficulty: {article.fk_difficulty}
-Number of Translations: {translation_count}
+def _learner_line(user):
+    try:
+        line = f"Learning: {user.learned_language.code} (from {user.native_language.code})"
+        classes = [m.cohort.name for m in user.cohorts]
+        if classes:
+            line += " · Class: " + ", ".join(classes)
+        return escape(line) + "\n"
+    except Exception as e:
+        log(f"feedback mail: no learner line: {e}")
+        return ""
 
-Article Info:
-- Published: {article.published_time.strftime('%Y-%m-%d') if article.published_time else 'Unknown'}
-- Topics: {article.topics_as_string()}
 
-User Interaction:
-- Article opened: {'Yes' if user_article and user_article.opened else 'No'}
-- Article starred: {'Yes' if user_article and user_article.starred else 'No'}  
-- Article liked: {user_article.liked if user_article and user_article.liked is not None else 'Not rated'}
-{translations_text}
-View article: https://www.zeeguu.org/read/article?id={article.id}
+# Read aloud on every click; drowns out the events that say what happened
+_NOISY_EVENTS = {"SPEAK TEXT"}
 
----
-Generated by Zeeguu Article Tracking System
-"""
-            
-            # Send email to configured recipient
-            to_email = current_app.config.get(
-                "ARTICLE_COMPLETION_EMAIL", 
-                current_app.config.get("SMTP_EMAIL")
-            )
-            
-            if to_email:
-                mailer = cls(subject, body, to_email)
-                mailer.send()
-                log(f"[article_completion] Sent completion notification for article {article.id} by user {user.id} with {translation_count} translations")
-            
-        except Exception as e:
-            # Don't fail if email fails
-            log(f"[article_completion] Failed to send article completion notification: {str(e)}")
-            from sentry_sdk import capture_exception
-            capture_exception(e)
+
+def _recent_activity(user, minutes=15, max_lines=12):
+    """What the user did right before sending feedback, oldest first,
+    with consecutive repeats of an event collapsed into one line."""
+    from datetime import datetime, timedelta
+    from zeeguu.core.model.user_activitiy_data import UserActivityData
+
+    try:
+        events = (
+            UserActivityData.query.filter(UserActivityData.user_id == user.id)
+            .filter(UserActivityData.time > datetime.utcnow() - timedelta(minutes=minutes))
+            .filter(UserActivityData.event.notin_(_NOISY_EVENTS))
+            .order_by(UserActivityData.time)
+            .all()
+        )
+    except Exception as e:
+        log(f"feedback mail: no recent activity: {e}")
+        return ""
+
+    lines = []
+    for e in events:
+        if lines and lines[-1]["event"] == e.event:
+            lines[-1]["count"] += 1
+            lines[-1]["value"] = e.value
+            continue
+        lines.append(dict(time=e.time, event=e.event, value=e.value, count=1))
+    if not lines:
+        return ""
+
+    out = f"\nBefore (last {minutes} min, UTC):\n"
+    for l in lines[-max_lines:]:
+        count = f" ×{l['count']}" if l["count"] > 1 else ""
+        value = f": {l['value'][:60]}" if l["value"] else ""
+        out += f"{l['time']:%H:%M} {l['event'].lower()}{count}{value}\n"
+    return escape(out)

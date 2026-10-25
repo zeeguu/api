@@ -2,7 +2,6 @@ from markupsafe import escape
 
 from zeeguu.core.model import User
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-from zeeguu.core.model.user_activitiy_data import UserActivityData
 import human_readable
 import datetime
 
@@ -48,54 +47,3 @@ def send_user_finished_exercise_session(exercise_session):
         f"{user.name}: {duration_str}, {unique_words}words",
         [main_body, cheers_your_server],
     )
-
-
-def send_notification_article_feedback(
-    feedback, user: User, article_title, article_url, article_id
-):
-    from datetime import datetime as dt
-
-    def detailed_article_info(stream, user, article_id):
-
-        bookmarks = user.bookmarks_for_article(
-            article_id, with_title=True, json=False
-        )
-
-        stream.append(f"\n\n{len(bookmarks)} Translations:\n")
-
-        for each in bookmarks:
-            stream.append(
-                f"- {escape(each.user_word.meaning.origin.content)} => {escape(each.user_word.meaning.translation.content)}"
-            )
-
-        # user activity data
-        stream.append("\n\nUser Interactions:\n")
-        events = UserActivityData.find(article_id=article_id)
-        prev_short_time = ""
-        for event in events:
-            short_time = dt.strftime(event.time, "%H:%M")
-            event_name = event.event.replace("UMR - ", "")
-            event_name = event_name.lower()
-            event_name = event_name.replace("translate text", "tr: ")
-            event_name = event_name.replace("speak text", "s: ")
-            event_name = event_name.replace("send suggestion", "suggest: ")
-            if short_time != prev_short_time:
-                stream.append(f"  {short_time}")
-            stream.append(f"       {escape(event_name)} {escape(event.value)}")
-
-            if event_name == "ARTICLE LOST FOCUS":
-                stream.append("")
-
-            prev_short_time = short_time
-
-        stream.append("\n\n")
-
-    content_lines = [escape(feedback)]
-    detailed_article_info(content_lines, user, article_id)
-
-    content_lines.append(
-        f"\n\nDetailed User Translations: https://www.zeeguu.org/bookmarks_for_article/{article_id}/{user.id}"
-    )
-    content_lines.append(cheers_your_server)
-
-    ZeeguuMailer.send_mail(f"{user.name} - {article_title}", content_lines)

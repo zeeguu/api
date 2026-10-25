@@ -14,7 +14,6 @@ from .text import Text
 from .phrase import Phrase
 from .user import User
 from .meaning import Meaning
-from .meaning_report import MeaningReport
 from .meaning_alternative import MeaningAlternative
 from .translation_service import TranslationService
 from .user_word import UserWord
@@ -39,6 +38,7 @@ from .level_adapted_article_summary_context import LevelAdaptedArticleSummaryCon
 from .level_adapted_article_title_context import LevelAdaptedArticleTitleContext
 from .example_sentence import ExampleSentence
 from .example_sentence_context import ExampleSentenceContext
+from .example_sentence_misfit import ExampleSentenceMisfit
 
 
 from .cohort import Cohort
@@ -59,7 +59,8 @@ from .search_subscription import SearchSubscription
 from .exercise import Exercise
 from .exercise_outcome import ExerciseOutcome
 from .exercise_source import ExerciseSource
-from .exercise_report import ExerciseReport
+from .word_report import WordReport
+from .exercise_wrong_answer import ExerciseWrongAnswer
 
 # user logging
 from .user_activitiy_data import UserActivityData
@@ -146,3 +147,5 @@ from .article_public_code import ArticlePublicCode
 
 from .onboarding_funnel_event import OnboardingFunnelEvent
 
+
+from .skipped_url import SkippedUrl

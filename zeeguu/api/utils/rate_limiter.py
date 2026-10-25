@@ -125,14 +125,17 @@ RATE_LIMITS = {
 
     # Class invite codes. Teachers choose them, so they are often words, and
     # either endpoint tells a caller whether a guess names a class. Charged
-    # only for codes that don't, so a class typing its code in costs nothing,
-    # and a few typos each from thirty students on one NAT stay well under it.
+    # only for codes that don't, so a class typing its code in costs nothing.
+    # Typos do cost, and a whole class makes them at once: on 19 Oct 2026 two
+    # classes behind one NAT made ~125 wrong attempts in 20 minutes and were
+    # locked out at 30 a minute. So the per-IP ceiling allows a few typos each
+    # from a class of 40.
     # join_cohort needs a session, but anonymous sessions are free to make, so
     # the per-account limit comes with the same per-IP one.
-    "endpoints.validate_invite_code": Limit("30 per minute;200 per hour", count="failures"),
+    "endpoints.validate_invite_code": Limit("120 per minute;1000 per hour", count="failures"),
     "endpoints.join_cohort_api": (
         Limit("10 per hour", key="user", count="failures"),
-        Limit("30 per minute;200 per hour", count="failures"),
+        Limit("120 per minute;1000 per hour", count="failures"),
     ),
 
     # Changing one's own email. Requesting mails a code to an address of the

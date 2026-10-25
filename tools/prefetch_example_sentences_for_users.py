@@ -425,6 +425,13 @@ def batch_generate_examples(
         total_in_db = ExampleSentence.query.count()
         log(f"Total ExampleSentence records in database: {total_in_db}")
 
+    from zeeguu.operations.task_status import set_summary
+
+    set_summary(
+        f"{stats['processed']}/{stats['total_words']} words, "
+        f"{stats['examples_created']} examples, {stats['errors']} errors"
+    )
+
     # Send completion notification email
     send_completion_notification(stats, user, send_email)
 

@@ -3,6 +3,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import flask
 import sqlalchemy
+from sentry_sdk import capture_exception
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
@@ -432,28 +433,36 @@ def send_feedback():
 
     # Get component name from frontend
     component_name = flask.request.form.get("feedbackComponentName", "")
+    # Where the feedback was sent from (Sidebar, Loading, an audio lesson…)
+    origin = flask.request.form.get("origin", None)
 
     from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
     user = User.find_by_id(flask.g.user_id)
 
-    # Use component name or default
-    feedback_component = FeedbackComponent.find_or_create(
-        session, component_name or "General Feedback"
-    )
+    component_name = component_name or "General Feedback"
 
-    if url is not None:
-        url = Url.find_or_create(session, url)
-
-    user_feedback = UserFeedback.create(session, user, feedback_component, message, url)
-    session.commit()
+    # Mail first: if the DB write fails (e.g. a charset error) the
+    # feedback still reaches us instead of being lost with the rollback.
     ZeeguuMailer.send_feedback(
-        f"Feedback from {user.id}",
-        feedback_component.component_type,
+        f"💬 Feedback from {user.name} ({user.id}) · {component_name}",
+        component_name,
         message,
         user,
-        str(url) if url else None,
+        url,
+        origin,
     )
+
+    try:
+        feedback_component = FeedbackComponent.find_or_create(session, component_name)
+        url_obj = Url.find_or_create(session, url) if url is not None else None
+        stored = f"{origin} - {message}" if origin else message
+        UserFeedback.create(session, user, feedback_component, stored, url_obj)
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        capture_exception(e)
+
     return "OK"
 
 

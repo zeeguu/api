@@ -14,6 +14,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.race_safe import find_or_create
 
 
 class ArticleCefrAssessment(db.Model):
@@ -78,13 +79,16 @@ class ArticleCefrAssessment(db.Model):
         Returns:
             ArticleCefrAssessment instance
         """
-        assessment = session.query(cls).filter_by(article_id=article_id).first()
-        if not assessment:
-            assessment = cls(article_id=article_id)
-            session.add(assessment)
-            if commit:
-                session.commit()
-        return assessment
+        # Two requests assessing the same article (e.g. a double tap on
+        # promote_to_article) can race here; the article_id primary key lets
+        # one insert through and race_safe.find_or_create recovers the other.
+        return find_or_create(
+            session,
+            cls,
+            {"article_id": article_id},
+            lambda: cls(article_id=article_id),
+            commit=commit,
+        )
 
     def set_llm_assessment(self, level, method):
         """

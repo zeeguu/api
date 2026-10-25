@@ -80,7 +80,10 @@ class LessonCheckMarksPairTest(ModelTestMixIn, TestCase):
         from zeeguu.core.model import Bookmark
 
         bookmark_id = Bookmark.query.filter_by(user_word_id=self.user_word.id).first().id
-        meaning = self._generate_refused_with(WRONG_PAIR, pair_verdict=FIXABLE)
+        # The fix recomputes fit_for_study; the test's random word would fail
+        # the quality checks (rare for a beginner), and lose its schedule
+        with patch("zeeguu.core.bookmark_quality.fit_for_study.bad_quality_reason", lambda user_word: None):
+            meaning = self._generate_refused_with(WRONG_PAIR, pair_verdict=FIXABLE)
         self.assertEqual(meaning.validated, Meaning.INVALID)
 
         moved_to = session.get(Bookmark, bookmark_id).user_word

@@ -99,9 +99,11 @@ WITHOUT_CONTEXT = "The sentence the word was looked up in is not available."
 # Anthropic the API enforces the shape, here we have to ask for it.
 PAIR_JSON_REMINDER = """
 
-Reply with only a JSON object with exactly these keys: reason, verdict,
-corrected_word, corrected_translation, frequency, cefr, phrase_type,
-explanation, literal_meaning. Use an empty string for a field that does not apply."""
+Reply with only a JSON object with exactly these keys: card_in_sentence,
+card_reads_right, reason, verdict, corrected_word, corrected_translation,
+correction_in_sentence, correction_reads_right, frequency, cefr, phrase_type,
+explanation, literal_meaning. card_reads_right and correction_reads_right are
+true or false; use an empty string for any other field that does not apply."""
 
 
 def checker_id(model: str) -> str:
@@ -111,12 +113,13 @@ def checker_id(model: str) -> str:
     2026-08-18 note in tools/audit_audio_lesson_script_languages.py for what
     happens when a run acts on a report from a different configuration.
     """
-    from zeeguu.core.llm_services.prompts.translation_validator import COMBINED_VALIDATION_PROMPT
+    from zeeguu.core.llm_services.prompts.translation_validator import COMBINED_VALIDATION_PROMPT, PROMPT_VERSION
 
-    # The pair-only verdict too: --deprecate marks meanings INVALID on it
+    # The pair-only verdict too: --deprecate marks meanings INVALID on it. The
+    # version too: the verdict logic around the prompt changes with it.
     text = (
         LESSON_SYSTEM + LESSON_PROMPT + WITH_CONTEXT + WITHOUT_CONTEXT
-        + COMBINED_VALIDATION_PROMPT + PAIR_JSON_REMINDER
+        + COMBINED_VALIDATION_PROMPT + PAIR_JSON_REMINDER + PROMPT_VERSION
     )
     return f"{model}:{hashlib.sha1(text.encode()).hexdigest()[:8]}"
 
@@ -259,35 +262,51 @@ def _line_number(value) -> Optional[int]:
     return int(match.group()) if match else None
 
 
-def judge_pair(service, lesson: LessonToCheck):
+def second_opinion_on_meaning(service, lesson: LessonToCheck):
     """The translation validator's verdict on the pair in its sentence, asked
-    of DeepSeek. Its parser expects the reply shape it gets from Anthropic."""
-    from zeeguu.core.llm_services.prompts.translation_validator import (
-        create_combined_validation_prompt,
+    of DeepSeek, without the validator's retries: a second opinion, not worth
+    more calls. Raises when there is no verdict."""
+    from zeeguu.core.llm_services.translation_validator import (
+        TranslationValidator,
+        BROKEN_SENTENCE,
+        WORD_NOT_FIT,
     )
-    from zeeguu.core.llm_services.translation_validator import TranslationValidator
 
-    prompt = create_combined_validation_prompt(
-        word=lesson.word,
-        translation=lesson.translation,
-        context=lesson.context,
-        source_lang=Language.LANGUAGE_NAMES.get(lesson.learned_language),
-        target_lang=Language.LANGUAGE_NAMES.get(lesson.translation_language),
+    def ask_deepseek(prompt, schema):
+        # The validator's parser expects the reply shape it gets from
+        # Anthropic, where the schema holds it; here we ask for it in words.
+        reply = json_object(
+            service.generate_text(prompt + PAIR_JSON_REMINDER, max_tokens=1000, temperature=0)
+        )
+        # Without the schema nothing holds the reply to strings: "valid" would
+        # read as FIX, and a number or list where the parser expects text raises.
+        # The two flags stay booleans: str(False) is "False", which reads as
+        # true. "true"/"false" written as strings count as the booleans;
+        # anything else is not given.
+        flags = {}
+        for flag in ("card_reads_right", "correction_reads_right"):
+            value = reply.pop(flag, None)
+            if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+                value = value.strip().lower() == "true"
+            if isinstance(value, bool):
+                flags[flag] = value
+        reply = {k: v if isinstance(v, str) else ("" if v is None else str(v)) for k, v in reply.items()}
+        reply.update(flags)
+        reply["verdict"] = reply.get("verdict", "").strip().upper()
+        if reply["verdict"] not in ("VALID", "FIX", BROKEN_SENTENCE, WORD_NOT_FIT):
+            raise ValueError(f"no validator verdict in reply: {str(reply)[:200]}")
+        return TranslationValidator._parse_response(json.dumps(reply))
+
+    verdict = TranslationValidator(ask=ask_deepseek).validate_and_classify(
+        lesson.word,
+        lesson.translation,
+        lesson.context,
+        lesson.learned_language,
+        lesson.translation_language,
+        retry=False,
     )
-    reply = json_object(
-        service.generate_text(prompt + PAIR_JSON_REMINDER, max_tokens=1000, temperature=0)
-    )
-    # Without the schema nothing holds the reply to strings: "valid" would
-    # read as FIX, and a number or list where the parser expects text raises.
-    reply = {k: v if isinstance(v, str) else ("" if v is None else str(v)) for k, v in reply.items()}
-    reply["verdict"] = reply.get("verdict", "").strip().upper()
-    if reply["verdict"] not in ("VALID", "FIX"):
-        raise ValueError(f"no VALID/FIX verdict in reply: {str(reply)[:200]}")
-    verdict = TranslationValidator._parse_response(json.dumps(reply))
-    # As the validator does with its own replies: a correction may become a
-    # flashcard, which takes one translation, not "which must/which should"
-    if TranslationValidator._lists_options(verdict, lesson.word, lesson.translation):
-        verdict = TranslationValidator._with_one_option(verdict, lesson.word, lesson.translation)
+    if verdict is None:
+        raise ValueError(f"no verdict on the pair '{lesson.word}' = '{lesson.translation}'")
     return verdict
 
 
@@ -326,10 +345,10 @@ def check(service, lesson: LessonToCheck) -> dict:
     complains_about_pair = any(p["kind"] in ABOUT_THE_DATA for p in row["problems"])
     if (lesson.validated != 1 or complains_about_pair) and lesson.context:
         try:
-            pair = judge_pair(service, lesson)
-            row["pair_verdict"] = "VALID" if pair.is_valid else "FIX"
+            pair = second_opinion_on_meaning(service, lesson)
+            row["pair_verdict"] = pair.verdict
             row["pair_reason"] = pair.reason
-            if not pair.is_valid:
+            if row["pair_verdict"] == "FIX":
                 row["pair_corrected_word"] = pair.corrected_word
                 row["pair_correction"] = (
                     f"{pair.corrected_word or lesson.word} → "

@@ -29,7 +29,7 @@ def _mock_llm_response(article_type_line):
 class AssessAndSummarizeArticleTypeTest(TestCase):
     def _run(self, article_type_line):
         with patch.object(
-            sac, "_select_provider_and_key", return_value=("anthropic", "fake-key")
+            sac, "_api_key_for", return_value="fake-key"
         ), patch.object(
             sac, "get_assessment_and_summary_prompt", return_value="{title}\n{content}"
         ), patch.object(
@@ -52,7 +52,7 @@ class AssessAndSummarizeArticleTypeTest(TestCase):
     def test_missing_article_type_is_none(self):
         # No ARTICLE_TYPE line at all -> None, not an empty/invalid string.
         with patch.object(
-            sac, "_select_provider_and_key", return_value=("anthropic", "fake-key")
+            sac, "_api_key_for", return_value="fake-key"
         ), patch.object(
             sac, "get_assessment_and_summary_prompt", return_value="{title}\n{content}"
         ), patch.object(
@@ -78,7 +78,7 @@ class AssessAndSummarizeRejectionTest(TestCase):
 
     def _assess(self, llm_response):
         with patch.object(
-            sac, "_select_provider_and_key", return_value=("anthropic", "fake-key")
+            sac, "_api_key_for", return_value="fake-key"
         ), patch.object(
             sac, "get_assessment_and_summary_prompt", return_value="{title}\n{content}"
         ), patch.object(
@@ -143,7 +143,7 @@ class StopOnRejectionTest(TestCase):
 
     def _assess(self, llm_response):
         with patch.object(
-            sac, "_select_provider_and_key", return_value=("anthropic", "fake-key")
+            sac, "_api_key_for", return_value="fake-key"
         ), patch.object(
             sac, "get_assessment_and_summary_prompt", return_value="{title}\n{content}"
         ), patch.object(

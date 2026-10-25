@@ -20,6 +20,7 @@ from zeeguu.core.constants import (
     EVENT_USER_FEEDBACK,
     EVENT_USER_SCROLL,
     EVENT_USER_CLICKED_ARTICLE,
+    EVENT_USER_CLICKED_VIDEO,
 )
 from zeeguu.core.behavioral_modeling import (
     find_last_reading_percentage,
@@ -30,9 +31,15 @@ import zeeguu
 
 from zeeguu.core.model.db import db
 
+# A click on a feed card sends, as extra_data, the source ids of every card
+# above it. Someone 80 pages deep sends ~1600 ids, which overflows the 4096-char
+# column and 500s the upload. Only the cards just above the click say anything
+# about what the user passed over (get_sources_ignored_by_user), so keep those.
+MAX_SEEN_SOURCE_IDS = 100
+
 
 class UserActivityData(db.Model):
-    __table_args__ = dict(mysql_collate="utf8_bin")
+    __table_args__ = dict(mysql_charset="utf8mb4", mysql_collate="utf8mb4_bin")
     __tablename__ = "user_activity_data"
 
     id = Column(Integer, primary_key=True)
@@ -482,6 +489,8 @@ class UserActivityData(db.Model):
         # 255-char `value` column and 500 the whole activity upload.
         value = remove_tracking_query_params(value)[:255]
         extra_data = data.get("extra_data", "")
+        if event in (EVENT_USER_CLICKED_ARTICLE, EVENT_USER_CLICKED_VIDEO):
+            extra_data = _keep_last_seen_source_ids(extra_data)
         source_id = data.get("source_id", "")
         platform = data.get("platform", None)
 
@@ -522,3 +531,13 @@ class UserActivityData(db.Model):
             return last_event.time
 
         return None
+
+
+def _keep_last_seen_source_ids(extra_data):
+    try:
+        seen = json.loads(extra_data)
+    except (json.JSONDecodeError, TypeError):
+        return extra_data
+    if not isinstance(seen, list) or len(seen) <= MAX_SEEN_SOURCE_IDS:
+        return extra_data
+    return json.dumps(seen[-MAX_SEEN_SOURCE_IDS:], separators=(",", ":"))

@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timezone, timedelta
 from zeeguu.core.util.time import normalize_to_server_time
 
@@ -11,6 +12,11 @@ class FeedHandler:
         self.image_url_string = ""
 
     def get_server_time(self, article_date) -> datetime:
+        # feedparser gives its *_parsed dates as a UTC struct_time, not a
+        # datetime. Without this every RSS item was dated now(), which also
+        # turned off the feed's last_crawled_time filter (Jan 2024 – Oct 2026).
+        if isinstance(article_date, time.struct_time):
+            article_date = datetime(*article_date[:6], tzinfo=timezone.utc)
         if type(article_date) is datetime:
             return normalize_to_server_time(article_date)
         return datetime.now()

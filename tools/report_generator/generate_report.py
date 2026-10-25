@@ -515,16 +515,9 @@ def generate_top_opened_articles(
     )
 
 
-def email_report_digest(article_df, feed_df, report_filename):
-    """Email a short, scannable digest via the app's own SMTP (ZeeguuMailer).
-
-    The HTML report is generated daily but never pushed, so it gets forgotten;
-    this brings the headline to the inbox. Per-language new-article counts come
-    straight from the report's own data, and any active language sitting at 0
-    gets a ⚠ — the one-glance "something's off" signal.
-    """
-    from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
-
+def new_articles_per_language(article_df, feed_df):
+    """'de 120 · da 0 ⚠ · …' over the active languages (a ⚠ marks one that
+    got nothing), the total, and the languages."""
     counts = article_df["Language"].value_counts().to_dict()
     active_langs = set(
         feed_df[feed_df["deactivated"] == 0]["Language"].dropna().unique()
@@ -536,6 +529,20 @@ def email_report_digest(article_df, feed_df, report_filename):
         f"{l} {int(counts.get(l, 0))}{' ⚠' if counts.get(l, 0) == 0 else ''}"
         for l in langs
     )
+    return per_lang, total, langs
+
+
+def email_report_digest(article_df, feed_df, report_filename):
+    """Email a short, scannable digest via the app's own SMTP (ZeeguuMailer).
+
+    The HTML report is generated daily but never pushed, so it gets forgotten;
+    this brings the headline to the inbox. Per-language new-article counts come
+    straight from the report's own data, and any active language sitting at 0
+    gets a ⚠ — the one-glance "something's off" signal.
+    """
+    from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+
+    per_lang, total, langs = new_articles_per_language(article_df, feed_df)
     report_url = f"https://zeeguu.org/reports/{report_filename}"
     lines = [
         f"Crawl digest — last {DAYS_FOR_REPORT} day(s)",
@@ -740,6 +747,13 @@ def generate_html_page():
         f.write(result)
 
     print(f"File written to '{output_filepath}'.")
+    try:
+        from zeeguu.operations.task_status import set_summary
+
+        per_lang, total, _ = new_articles_per_language(article_df, feed_df)
+        set_summary(f"{total} new articles ({DAYS_FOR_REPORT}d): {per_lang}")
+    except Exception as e:
+        print(f"Failed to summarize the report: {e}")
     if SEND_EMAIL:
         # A digest failure must never break report generation — the HTML is the
         # primary artifact; the email is a courtesy push on top.

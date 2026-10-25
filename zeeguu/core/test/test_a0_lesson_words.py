@@ -234,7 +234,7 @@ class LessonWordsTest(ModelTestMixIn):
 
     def test_a_learned_word_or_a_choice_of_the_learner_is_left_alone(self):
         from datetime import datetime
-        from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+        from zeeguu.core.model.study_choice import StudyChoice
         from zeeguu.core.model.meaning import Meaning
 
         learned = UserWord.find_or_create(
@@ -244,14 +244,14 @@ class LessonWordsTest(ModelTestMixIn):
         excluded = UserWord.find_or_create(
             db.session, self.user, Meaning.find_or_create(db.session, "tak", "da", "thank you", "en", user=self.user)
         )
-        excluded.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+        excluded.study_choice = StudyChoice.SKIP
         db.session.commit()
 
         self._taught([("kaffe", "coffee", "En kaffe, tak."), ("tak", "thank you", "En kaffe, tak.")])
         assert lesson_words.schedule_words_from_lesson(db.session, self.user, self.dialogue) == 0
         words = self._user_words()
         assert words["kaffe"].is_learned()
-        assert words["tak"].user_preference == UserWordExPreference.DONT_USE_IN_EXERCISES
+        assert words["tak"].study_choice == StudyChoice.SKIP
 
     def test_at_the_learners_limit_a_word_is_added_but_not_scheduled(self):
         from zeeguu.core.model.user_preference import UserPreference

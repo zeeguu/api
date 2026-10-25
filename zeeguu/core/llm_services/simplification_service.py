@@ -643,7 +643,7 @@ TOPIC: [topic]"""
                     if level in result.upper():
                         cefr_level = level
                         break
-                if not cefr_level:
+                if cefr_level not in valid_levels:
                     # Can't parse response - return None
                     log(f"Could not extract valid CEFR level from DeepSeek response: {result}")
                     return (None, None)

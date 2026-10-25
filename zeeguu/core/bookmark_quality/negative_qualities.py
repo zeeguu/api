@@ -1,4 +1,5 @@
 from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
+from zeeguu.core.model.study_choice import UnfitReason
 
 
 def bad_quality_bookmark(bookmark):
@@ -27,16 +28,26 @@ def uncommon_word_for_beginner_user(user_word):
     return False
 
 
-def bad_quality_meaning(user_word):
+def bad_quality_reason(user_word):
+    """The first quality check the word fails, as an UnfitReason, or None."""
+    if uncommon_word_for_beginner_user(user_word):
+        return UnfitReason.RARE_FOR_BEGINNER
+    if arbitrary_multi_word_translation(user_word):
+        return UnfitReason.ARBITRARY_MULTI_WORD
+    if origin_same_as_translation(user_word):
+        return UnfitReason.SAME_AS_TRANSLATION
+    if origin_has_too_many_words(user_word):
+        return UnfitReason.TOO_MANY_WORDS
+    if origin_is_a_very_short_word(user_word):
+        return UnfitReason.TOO_SHORT
     bookmarks = user_word.bookmarks()
-    return (
-        uncommon_word_for_beginner_user(user_word)
-        or arbitrary_multi_word_translation(user_word)
-        or origin_same_as_translation(user_word)
-        or origin_has_too_many_words(user_word)
-        or origin_is_a_very_short_word(user_word)
-        or (bookmarks and all([bad_quality_bookmark(b) for b in bookmarks]))
-    )
+    if bookmarks and all(bad_quality_bookmark(b) for b in bookmarks):
+        return UnfitReason.BAD_CONTEXTS
+    return None
+
+
+def bad_quality_meaning(user_word):
+    return bad_quality_reason(user_word) is not None
 
 
 def arbitrary_multi_word_translation(user_word):
@@ -54,8 +65,17 @@ def origin_is_a_very_short_word(user_word):
 
 
 def origin_has_too_many_words(user_word):
-    words_in_origin = user_word.meaning.origin.content.split(" ")
-    return len(words_in_origin) > 2
+    """Up to three words is a word or an expression worth learning (de son
+    côté, Ligue des champions); longer is a stretch of text, unless the
+    validator found it a set phrase (tomber dans les pommes)."""
+    words_in_origin = user_word.meaning.origin.content.split()
+    if len(words_in_origin) <= 3:
+        return False
+    return user_word.meaning.phrase_type not in (
+        PhraseType.COLLOCATION,
+        PhraseType.IDIOM,
+        PhraseType.EXPRESSION,
+    )
 
 
 def origin_is_subsumed_in_other_bookmark(bookmark):

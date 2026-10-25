@@ -26,7 +26,7 @@ _DEFAULT_USER_UPLOADS_LIMIT = 100
 
 class ArticleUpload(db.Model):
     __tablename__ = "article_upload"
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __table_args__ = {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_bin"}
 
     id = Column(Integer, primary_key=True)
 

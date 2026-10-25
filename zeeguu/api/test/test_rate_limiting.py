@@ -381,10 +381,23 @@ def test_invite_code_guessing_is_capped(client, limiting_enabled, monkeypatch):
         "zeeguu.core.account_management.user_account_creation.valid_invite_code",
         lambda code: False,
     )
-    codes = [client.get(f"/validate_invite_code/guess{i}").status_code for i in range(40)]
+    codes = [client.get(f"/validate_invite_code/guess{i}").status_code for i in range(130)]
 
     assert 400 in codes
-    assert 429 in codes, "40 wrong invite codes from one host went uncapped"
+    assert 429 in codes, "130 wrong invite codes from one host went uncapped"
+
+
+def test_a_class_mistyping_its_invite_code_is_not_throttled(client, limiting_enabled, monkeypatch):
+    monkeypatch.setattr(
+        "zeeguu.core.account_management.user_account_creation.valid_invite_code",
+        lambda code: False,
+    )
+    codes = [
+        client.get(f"/validate_invite_code/typo{i}", headers=SCHOOL_NAT).status_code
+        for i in range(40 * 2)
+    ]
+
+    assert 429 not in codes, "a class of 40 with two typos each was locked out"
 
 
 def test_a_class_checking_its_invite_code_is_not_throttled(client, limiting_enabled):

@@ -44,6 +44,13 @@ per-user history, so an empty/stale inventory is the trustworthy alarm; the
 per-user run is reported alongside as corroboration and as a reality check on
 the flags.
 
+Plus one upstream signal
+------------------------
+ASSESSMENT COVERAGE: of the articles crawled in the last 24h, what share got a
+CEFR level, in total and per language? An LLM outage shows up here hours before
+it empties any segment (see ASSESSMENT_MIN_PCT for the calibration). Besides the
+daily full run, cron runs this part alone every six hours (--coverage-only).
+
 Alerting mirrors the other monitors: on failure we email a per-segment summary
 via ZeeguuMailer (the app's own SMTP — cron stdout goes to an unread log), log a
 structured summary, and exit non-zero so cron surfaces it.
@@ -55,7 +62,7 @@ Usage:
     python -m tools.feed_delivery_health_check [--verbose] [--dry-run]
         [--active-days N] [--fresh-days N] [--min-articles K]
         [--min-fresh K] [--stale-days N] [--count N]
-        [--languages da,de,...]
+        [--assessment-window-hours N] [--coverage-only] [--languages da,de,...]
 """
 
 import argparse
@@ -66,6 +73,7 @@ from datetime import datetime, timedelta
 
 from zeeguu.core.model import User, Language
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+from zeeguu.operations.task_status import set_summary
 
 # NOTE: the Flask app + app context are created inside main(), NOT at module
 # import time. The DB-touching functions below need an app context at CALL time,
@@ -112,6 +120,40 @@ STALE_DAYS = _env_int("FEED_HEALTH_STALE_DAYS", 1)
 ALERT_LEVELS = _env_level_set("FEED_HEALTH_ALERT_LEVELS", "A1,A2,B1,B2")
 # How many items to request from the recommender / inventory query.
 COUNT = _env_int("FEED_HEALTH_COUNT", 10)
+
+# --- Assessment coverage ------------------------------------------------------
+# The segment checks above watch DELIVERY. This one watches the step that feeds
+# them: of the articles crawled recently, how many actually got a CEFR assessment
+# (and therefore a summary and per-level text)?
+#
+# It exists because delivery checks are a LAGGING indicator of an LLM outage. The
+# Aug 2026 Anthropic spend cap starved assessment for a week before anyone
+# noticed, and moving the crawl to DeepSeek moved that risk rather than removing
+# it: running out of DeepSeek credit looks identical from the outside. Provider
+# failover degrades two providers to one, but if BOTH are unavailable this is
+# what says so, within hours instead of days.
+#
+# Thresholds from measured history (all languages, articles eligible to be
+# assessed, per day):
+#     healthy   Aug 15-19:        97, 97, 98, 98, 98 %
+#     healthy   29 Sep - 14 Oct:  95-99 % (DeepSeek, field-based assess prompt)
+#     capped    Aug 10-13:        0, 0, 15, 38 %
+#     capped    Aug 20-22:        37, 4, 4 %
+#     partial recovery Aug 14:    83 % (cap raised mid-day; must not alert)
+# (Re-measured 19 Oct with assessment_coverage's own query; a later backfill can
+# only have raised the capped days, so they were at most this bad.)
+ASSESSMENT_WINDOW_HOURS = _env_int("FEED_HEALTH_ASSESSMENT_WINDOW_HOURS", 24)
+ASSESSMENT_MIN_PCT = _env_int("FEED_HEALTH_ASSESSMENT_MIN_PCT", 80)
+# Below this many eligible articles the ratio is noise (a quiet window, a crawl
+# that has not run yet), so the check reports and does not alert. "Almost nothing
+# was crawled" is crawler_liveness_check's job.
+ASSESSMENT_MIN_VOLUME = _env_int("FEED_HEALTH_ASSESSMENT_MIN_VOLUME", 50)
+# The same threshold applies per language, so a failure in ONE language is not
+# averaged away: Danish (~65 a day) at 0% leaves the total at ~92%. Over 20
+# healthy days (29 Sep - 18 Oct) no language with 20+ eligible articles in a day
+# went below 80% (lowest: de 87%, da 86%). Below this many eligible articles a
+# language is reported, not alerted on (ro and bg run ~20 a day).
+ASSESSMENT_LANGUAGE_MIN_VOLUME = _env_int("FEED_HEALTH_ASSESSMENT_LANGUAGE_MIN_VOLUME", 30)
 
 
 # --- Pure classification logic (unit-tested) ----------------------------------
@@ -431,6 +473,148 @@ def evaluate_segment(segment, users, count, now, thresholds):
     )
 
 
+AssessmentCoverage = namedtuple(
+    "AssessmentCoverage",
+    ["eligible", "assessed", "pct", "by_language", "status", "failing_languages"],
+)
+
+
+def _pct(assessed, eligible):
+    return round(100 * assessed / eligible) if eligible else 0
+
+
+def classify_assessment_coverage(
+    eligible, assessed, by_language, min_pct=ASSESSMENT_MIN_PCT,
+    min_volume=ASSESSMENT_MIN_VOLUME,
+    language_min_volume=ASSESSMENT_LANGUAGE_MIN_VOLUME,
+):
+    """
+    Pure classification, so the thresholds can be tested without a database.
+
+    FAILING when the total, or any language with enough articles, is below
+    min_pct. LOW_VOLUME (too few articles in total) is reported and never
+    alerts: a ratio over a handful of articles says nothing, and firing on a
+    quiet window would train us to ignore this.
+    """
+    pct = _pct(assessed, eligible)
+    failing_languages = sorted(
+        code
+        for code, (n_eligible, n_assessed) in by_language.items()
+        if n_eligible >= language_min_volume
+        and _pct(n_assessed, n_eligible) < min_pct
+    )
+    if eligible < min_volume:
+        status = "LOW_VOLUME"
+    elif pct < min_pct or failing_languages:
+        status = "FAILING"
+    else:
+        status = "OK"
+    return AssessmentCoverage(
+        eligible, assessed, pct, by_language, status, failing_languages
+    )
+
+
+def assessment_coverage(window_hours=ASSESSMENT_WINDOW_HOURS, language_codes=None):
+    """
+    What fraction of recently crawled articles actually got assessed?
+
+    Counts only articles the pipeline WOULD assess: crawled from a feed (not
+    uploaded), originals (a simplified child is never assessed separately), and
+    not broken for a reason found BEFORE assessment. No word minimum of its own:
+    the crawler assesses whatever passes the quality filter, and what does not
+    is broken (TOO_SHORT) or never saved.
+
+    Articles whose assessment failed are themselves marked broken, with
+    LLM_PASS_FAILED (see article_downloader), so they are counted back in
+    explicitly. Filtering on broken == 0 alone would drop exactly the articles
+    an outage produces, and the ratio would stay healthy while nothing is
+    assessed.
+    """
+    from zeeguu.core.model.article import Article
+    from zeeguu.core.model.article_broken_code_map import (
+        ArticleBrokenMap,
+        LowQualityTypes,
+    )
+    from zeeguu.core.model.db import db
+
+    since = datetime.now() - timedelta(hours=window_hours)
+    assessment_failed = (
+        db.session.query(ArticleBrokenMap.article_id)
+        .filter(ArticleBrokenMap.article_id == Article.id)
+        .filter(ArticleBrokenMap.broken_code == LowQualityTypes.LLM_PASS_FAILED)
+        .exists()
+    )
+    query = (
+        db.session.query(
+            Language.code,
+            db.func.count(Article.id),
+            db.func.sum(db.case((Article.cefr_level.isnot(None), 1), else_=0)),
+        )
+        .join(Language, Language.id == Article.language_id)
+        .filter(Article.feed_id.isnot(None))
+        .filter(Article.parent_article_id.is_(None))
+        .filter(db.or_(Article.broken == 0, assessment_failed))
+        # crawled_at is the window; it is not indexed, so published_time (which
+        # is) bounds the scan of a large table. An article published more than
+        # two days before it was crawled would fall outside: 0 of 20,788 did, in
+        # the 14 days to 19 Oct 2026.
+        .filter(Article.published_time >= since - timedelta(days=2))
+        .filter(Article.crawled_at >= since)
+        .group_by(Language.code)
+    )
+    if language_codes:
+        query = query.filter(Language.code.in_(language_codes))
+
+    by_language = {}
+    eligible = assessed = 0
+    for code, n_eligible, n_assessed in query.all():
+        n_assessed = int(n_assessed or 0)
+        by_language[code] = (n_eligible, n_assessed)
+        eligible += n_eligible
+        assessed += n_assessed
+
+    return classify_assessment_coverage(eligible, assessed, by_language)
+
+
+def assessment_coverage_lines(coverage, window_hours=ASSESSMENT_WINDOW_HOURS):
+    icon = {"OK": "✅", "FAILING": "❌", "LOW_VOLUME": "•"}[coverage.status]
+    lines = [
+        "",
+        f"{icon} ASSESSMENT COVERAGE (last {window_hours}h): "
+        f"{coverage.assessed}/{coverage.eligible} = {coverage.pct}% "
+        f"(alert below {ASSESSMENT_MIN_PCT}%)",
+    ]
+    if coverage.status == "LOW_VOLUME":
+        lines.append(
+            f"    fewer than {ASSESSMENT_MIN_VOLUME} eligible articles: reported, not alerting"
+        )
+    for code, (n_eligible, n_assessed) in sorted(coverage.by_language.items()):
+        mark = "  ❌" if code in coverage.failing_languages else ""
+        lines.append(
+            f"    {code}: {n_assessed}/{n_eligible} = {_pct(n_assessed, n_eligible)}%{mark}"
+        )
+    if coverage.status == "FAILING" and coverage.pct >= ASSESSMENT_MIN_PCT:
+        lines += [
+            "",
+            f"    Not assessed: {', '.join(coverage.failing_languages)}.",
+            "    The other languages are fine, so the providers are up. Look for",
+            "    what is specific to the language: wrong-language rejections or",
+            "    LLM_PASS_FAILED errors for it in /var/log/zeeguu/crawler/.",
+        ]
+    elif coverage.status == "FAILING":
+        lines += [
+            "",
+            "    Articles are being crawled but not assessed: no CEFR level, no",
+            "    summary, no per-level text, and no search index entry.",
+            "    Most likely BOTH LLM providers are unavailable (provider failover",
+            "    covers one being down). Check, in order:",
+            "      - DeepSeek balance    https://platform.deepseek.com/usage",
+            "      - Anthropic spend cap (Console -> Billing/Limits)",
+            "      - /var/log/zeeguu/crawler/ for the actual API error",
+        ]
+    return lines
+
+
 def build_report(results, alert_levels=ALERT_LEVELS):
     """Human-readable, structured per-segment summary lines."""
     lines = []
@@ -494,6 +678,16 @@ def main():
     parser.add_argument("--stale-days", type=int, default=STALE_DAYS)
     parser.add_argument("--count", type=int, default=COUNT)
     parser.add_argument(
+        "--assessment-window-hours", type=int, default=ASSESSMENT_WINDOW_HOURS
+    )
+    parser.add_argument(
+        "--coverage-only",
+        action="store_true",
+        help="Only the assessment-coverage check, not the delivery sweep. Cron "
+        "runs this every few hours, so an LLM outage is caught within hours "
+        "rather than at the next daily full run.",
+    )
+    parser.add_argument(
         "--alert-levels",
         type=str,
         default=",".join(sorted(ALERT_LEVELS)),
@@ -529,10 +723,47 @@ def main():
     thresholds = (args.min_articles, args.min_fresh, args.stale_days, args.fresh_days)
     now = datetime.now()
 
+    # Runs before the segment sweep and independently of it: if assessment has
+    # stopped, that is the cause and the segment results are the symptom. It also
+    # still reports when there are no active users to sweep, which is exactly the
+    # situation where nobody would notice the pipeline dying.
+    coverage = assessment_coverage(args.assessment_window_hours, language_codes)
+    coverage_report = assessment_coverage_lines(coverage, args.assessment_window_hours)
+    coverage_failing = coverage.status == "FAILING"
+    coverage_summary = (
+        f"assessment {coverage.assessed}/{coverage.eligible} = {coverage.pct}%"
+    )
+    if coverage.failing_languages:
+        coverage_summary += f" (failing: {', '.join(coverage.failing_languages)})"
+    if coverage.pct < ASSESSMENT_MIN_PCT:
+        coverage_subject = (
+            f"⚠️ Zeeguu: only {coverage.pct}% of crawled articles assessed "
+            f"(last {args.assessment_window_hours}h)"
+        )
+    else:
+        coverage_subject = (
+            f"⚠️ Zeeguu: {', '.join(coverage.failing_languages)} articles not being "
+            f"assessed (last {args.assessment_window_hours}h)"
+        )
+
+    def coverage_only():
+        print("\n".join(coverage_report))
+        set_summary(coverage_summary)
+        if not coverage_failing:
+            return 0
+        if args.dry_run:
+            print(f"\n[dry-run] would email: {coverage_subject}")
+        else:
+            ZeeguuMailer.send_alert(coverage_subject, coverage_report)
+        return 1
+
+    if args.coverage_only:
+        return coverage_only()
+
     segments = active_users_by_segment(args.active_days, language_codes)
     if not segments:
-        print("No active users found in any segment — nothing to check.")
-        return 0
+        print("No active users found in any segment — no delivery check to run.")
+        return coverage_only()
 
     results = []
     for segment in sorted(segments, key=lambda s: (s.language_code, s.cefr_level)):
@@ -546,7 +777,7 @@ def main():
     alert_levels = {
         t.strip().upper() for t in args.alert_levels.split(",") if t.strip()
     }
-    report = build_report(results, alert_levels)
+    report = build_report(results, alert_levels) + coverage_report
     print("\n".join(report))
 
     alerting_failures = [r for r in results if is_alerting(r, alert_levels)]
@@ -555,22 +786,35 @@ def main():
         for r in results
         if r.status in FAILING_STATUSES and not is_alerting(r, alert_levels)
     ]
-    if not alerting_failures:
+    if not alerting_failures and not coverage_failing:
         note = (
             f" ({len(report_only_failures)} report-only issue(s) shown above)"
             if report_only_failures
             else ""
         )
         print(f"\nOK: no alerting segment failures.{note}")
+        set_summary(f"all {len(results)} segments ok{note}; {coverage_summary}")
         return 0
 
-    subject = (
-        f"⚠️ Zeeguu feed delivery: {len(alerting_failures)} segment(s) failing (empty/stale/error)"
+    # Assessment coverage leads the subject when it is failing: it is upstream of
+    # the segment results, so it is the thing to go and fix.
+    segments_summary = (
+        f"{len(alerting_failures)} of {len(results)} segments failing (empty/stale/error)"
     )
+    if coverage_failing:
+        subject = coverage_subject
+        if alerting_failures:
+            subject += f" — {len(alerting_failures)} segment(s) also failing"
+        set_summary(f"{coverage_summary}; {segments_summary}")
+    else:
+        subject = (
+            f"⚠️ Zeeguu feed delivery: {len(alerting_failures)} segment(s) failing (empty/stale/error)"
+        )
+        set_summary(f"{segments_summary}; {coverage_summary}")
     if args.dry_run:
         print(f"\n[dry-run] would email: {subject}")
     else:
-        ZeeguuMailer.send_mail(subject, report)
+        ZeeguuMailer.send_alert(subject, report)
 
     return 1
 

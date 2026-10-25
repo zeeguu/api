@@ -28,6 +28,7 @@ def _find_upload_or_404(upload_id, user):
 def _promote_upload_or_abort(upload):
     from zeeguu.core.content_retriever.crawler_exceptions import (
         FailedToParseWithReadabilityServer,
+        SkippedForLowQuality,
     )
 
     try:
@@ -43,7 +44,7 @@ def _promote_upload_or_abort(upload):
         )
     except NoResultFound:
         flask.abort(406, "Language not supported")
-    except FailedToParseWithReadabilityServer:
+    except (FailedToParseWithReadabilityServer, SkippedForLowQuality):
         flask.abort(422, "Could not parse article content")
 
 
@@ -197,6 +198,9 @@ def article_upload_translate_and_adapt(upload_id):
     from zeeguu.core.model.url import Url
     from zeeguu.core.model.source import Source
     from zeeguu.core.model.source_type import SourceType
+    from zeeguu.api.endpoints.helpers.translated_article import (
+        save_translated_article,
+    )
     from datetime import datetime
 
     user = User.find_by_id(flask.g.user_id)
@@ -259,29 +263,29 @@ def article_upload_translate_and_adapt(upload_id):
     )
 
     clean_summary = result.get("summary") or (result["content"][:200] + "...")
+    img_url = Url.find_or_create(db_session, upload.image_url) if upload.image_url else None
 
-    translated_article = Article(
-        translated_url,
-        result["title"],
-        None,
-        source_obj,
-        clean_summary,
-        datetime.now(),
-        None,
-        target_lang_obj,
-        result["content"],
-        None,
+    def make_translated_article():
+        article = Article(
+            translated_url,
+            result["title"],
+            None,
+            source_obj,
+            clean_summary,
+            datetime.now(),
+            None,
+            target_lang_obj,
+            result["content"],
+            None,
+        )
+        article.cefr_level = user_level
+        article.source_upload_id = upload.id
+        article.img_url = img_url
+        return article
+
+    translated_article = save_translated_article(
+        db_session, translated_url, make_translated_article
     )
-    translated_article.cefr_level = user_level
-    translated_article.source_upload_id = upload.id
-    if upload.image_url:
-        translated_article.img_url = Url.find_or_create(db_session, upload.image_url)
-
-    db_session.add(translated_article)
-    db_session.commit()
-
-    translated_article.create_article_fragments(db_session)
-    db_session.commit()
 
     _ensure_personal_copy(user, translated_article)
 

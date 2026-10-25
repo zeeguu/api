@@ -5,16 +5,22 @@ from sqlalchemy.exc import NoResultFound
 
 from wordstats import Word
 
-from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
+from zeeguu.core.bookmark_quality.fit_for_study import fit_given, unfit_reason
 from zeeguu.core.model import User, Meaning
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+from zeeguu.core.model.study_choice import StudyChoice, UnfitReason
 from zeeguu.logging import log
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.race_safe import find_or_create
 
 
 class UserWord(db.Model):
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __table_args__ = (
+        # Declared so create_all (the test DB) has it too; prod's comes from
+        # tools/migrations/25-05-24--adding_the_user_word_table.sql
+        db.UniqueConstraint("user_id", "meaning_id", name="unique_user_word"),
+        {"mysql_collate": "utf8_bin"},
+    )
     __tablename__ = "user_word"  # Explicitly set table name for migration
 
     id = db.Column(db.Integer, primary_key=True)
@@ -27,7 +33,10 @@ class UserWord(db.Model):
 
     fit_for_study = db.Column(db.Boolean)
 
-    user_preference = db.Column(db.Integer)
+    # What the learner chose, and why the system keeps the word out; see
+    # study_choice.py. fit_for_study is worked out from the two.
+    study_choice = db.Column(db.Enum(*StudyChoice.ALL))
+    unfit_reason = db.Column(db.Enum(*UnfitReason.ALL))
 
     learned_time = db.Column(db.DateTime)
 
@@ -51,8 +60,8 @@ class UserWord(db.Model):
         self.level = level
         self.user = user
         self.meaning = meaning
-        self.fit_for_study = fit_for_study(self)
-        self.user_preference = UserWordExPreference.NO_PREFERENCE
+        self.unfit_reason = unfit_reason(self)
+        self.fit_for_study = fit_given(None, self.unfit_reason)
         self.learned_time = None
         self.level = level
         self.is_user_added = is_user_added
@@ -80,9 +89,16 @@ class UserWord(db.Model):
     def should_be_studied(self):
         return self.fit_for_study and not self.is_learned()
 
-    def set_unfit_for_study(self, session=None):
+    def choose(self, session, study_choice):
+        """The learner chose to study, skip, or declared the word known."""
+        self.study_choice = study_choice
+        self.update_fit_for_study(session)
+
+    def set_unfit_for_study(self, session, reason):
+        """Out of study for a reason the system decided (UnfitReason)."""
         from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
+        self.unfit_reason = reason
         self.fit_for_study = False
         BasicSRSchedule.clear_user_word_schedule(session, self)
         if session:
@@ -101,7 +117,8 @@ class UserWord(db.Model):
         :return:
         """
         old_fit_for_study = self.fit_for_study
-        self.fit_for_study = fit_for_study(self)
+        self.unfit_reason = unfit_reason(self)
+        self.fit_for_study = fit_given(self.study_choice, self.unfit_reason)
 
         # If the word became unfit for study, clear its schedule
         if old_fit_for_study and not self.fit_for_study:
@@ -262,7 +279,6 @@ class UserWord(db.Model):
             is_about_to_be_learned=is_about_to_be_learned,
             fast_track=fast_track,
             can_update_schedule=can_update_schedule,
-            user_preference=self.user_preference,
             consecutive_correct_answers=consecutive_correct_answers,
             context_in_content=self.preferred_bookmark.text.in_content,
             left_ellipsis=self.preferred_bookmark.context.left_ellipsis,
@@ -375,7 +391,10 @@ class UserWord(db.Model):
         session_id,
         other_feedback,
         time: datetime = None,
+        wrong_answers=None,
     ):
+        """wrong_answers: what the learner typed or picked in each wrong
+        attempt, in order (see ExerciseWrongAnswer)."""
         from zeeguu.core.model import ExerciseSource, ExerciseOutcome
 
         source = ExerciseSource.find_or_create(db_session, exercise_source)
@@ -407,6 +426,9 @@ class UserWord(db.Model):
             other_feedback,
         )
         db_session.add(exercise)
+        if wrong_answers:
+            from zeeguu.core.model import ExerciseWrongAnswer
+            ExerciseWrongAnswer.add_all(db_session, exercise, wrong_answers)
 
         if source.source != "DAILY_AUDIO_LESSON" and exercise.is_correct():
             from zeeguu.core import events
@@ -444,15 +466,19 @@ class UserWord(db.Model):
         Since Meaning.find_or_create() already handles semantic deduplication,
         we can trust that each meaning is unique and canonical.
         """
-        try:
-            user_word = cls.query.filter_by(user=user, meaning=meaning).one()
-            # If it exists but we're marking it as user_added, update the flag
-            if is_user_added and not user_word.is_user_added:
-                user_word.is_user_added = True
-                session.add(user_word)
-                session.commit()
-        except NoResultFound:
-            user_word = cls(user, meaning, is_user_added=is_user_added)
+        # A double tap sends two translate_word requests for the same word;
+        # unique_user_word lets one insert through and the other gets its row.
+        user_word = find_or_create(
+            session,
+            cls,
+            dict(user=user, meaning=meaning),
+            lambda: cls(user, meaning, is_user_added=is_user_added),
+            commit=True,
+        )
+
+        # If it exists but we're marking it as user_added, update the flag
+        if is_user_added and not user_word.is_user_added:
+            user_word.is_user_added = True
             session.add(user_word)
             session.commit()
 

@@ -70,3 +70,22 @@ def test_an_unknown_code_is_a_client_error(client, _mock_web):
     student = LoggedInClient(client, email="student@zeeguu.test")
 
     assert _join(student, "no-such-class").status_code == 400
+
+
+def test_joining_a_class_twice_is_ok(client, _mock_web):
+    student = LoggedInClient(client, email="student@zeeguu.test")
+    cohort_id = _cohort("twice", 30)
+
+    assert _join(student, "twice").status_code == 200
+    rv = _join(student, "twice")
+
+    assert rv.status_code == 200 and rv.data == b"OK"
+    assert _is_member("student@zeeguu.test", cohort_id)
+
+
+def test_a_member_of_a_full_class_can_rejoin_it(client, _mock_web):
+    student = LoggedInClient(client, email="student@zeeguu.test")
+    _cohort("full-once-in", -9)
+
+    assert _join(student, "full-once-in").status_code == 200
+    assert _join(student, "full-once-in").status_code == 200

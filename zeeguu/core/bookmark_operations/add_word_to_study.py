@@ -11,7 +11,7 @@ can be undone afterwards: everything that can refuse a word is checked before
 anything is created.
 """
 
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+from zeeguu.core.model.study_choice import StudyChoice
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.word_scheduling import BasicSRSchedule
@@ -85,8 +85,7 @@ def add_word_to_study(
         if existing is not None and (
             BasicSRSchedule.find(existing)
             or existing.is_learned()
-            or (existing.user_preference or UserWordExPreference.NO_PREFERENCE)
-            != UserWordExPreference.NO_PREFERENCE
+            or existing.study_choice is not None
         ):
             return None, existing, None
 
@@ -133,8 +132,7 @@ def add_word_to_study(
     # checks that hide looked-up words ("too short", ...) do not apply. Set
     # only now, with the bookmark in place: a word left half-made by a failure
     # above keeps no preference, and the next lesson tries it again.
-    user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
-    user_word.update_fit_for_study(db_session)
+    user_word.choose(db_session, StudyChoice.STUDY)
 
     if from_audio_lesson and (
         BasicSRSchedule.scheduled_user_words_count(user, from_lang)

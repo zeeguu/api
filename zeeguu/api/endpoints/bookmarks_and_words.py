@@ -8,7 +8,8 @@ from werkzeug.exceptions import NotFound
 
 from zeeguu.core.model import User, Article, Bookmark
 from zeeguu.core.model.context_identifier import ContextIdentifier
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+from zeeguu.core.model.study_choice import StudyChoice, UnfitReason
+from zeeguu.core.model.word_report import WordReport
 from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
@@ -268,10 +269,10 @@ def delete_bookmark(bookmark_id):
                 else:
                     # preserve UserWord but mark it as not fit for study
                     # in the future we can generate an example for this user word with the help of the robots!
-                    user_word.set_unfit_for_study(db_session)
+                    user_word.set_unfit_for_study(db_session, UnfitReason.NO_USABLE_CONTEXT)
             else:
                 # No other bookmarks exist - ALWAYS keep the user_word for historical data
-                user_word.set_unfit_for_study(db_session)
+                user_word.set_unfit_for_study(db_session, UnfitReason.NO_USABLE_CONTEXT)
 
         # Delete any ExampleSentenceContext records that reference this bookmark
         ExampleSentenceContext.query.filter(
@@ -297,9 +298,7 @@ def set_user_word_exercise_preference(bookmark_id):
     bookmark = get_bookmark_if_owned(bookmark_id)
     user_word = bookmark.user_word
 
-    # Fix: set preference on UserWord, not Bookmark
-    user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
-    user_word.update_fit_for_study(db_session)
+    user_word.choose(db_session, StudyChoice.STUDY)
 
     # Ensure a schedule exists for this UserWord
     if user_word.fit_for_study:
@@ -321,44 +320,29 @@ def set_user_word_exercise_dislike(bookmark_id):
     reason = request.form.get("reason", "")
 
     if reason == "declared_known":
-        user_word.user_preference = UserWordExPreference.DECLARED_KNOWN
+        user_word.choose(db_session, StudyChoice.KNOWN)
         UserWordInteractionHistory.log(
             db_session, user_word,
             UserWordInteractionHistory.DECLARED_KNOWN,
         )
     elif reason == "bad_translation":
-        user_word.user_preference = UserWordExPreference.BAD_TRANSLATION
+        # Out for this learner, as asked; the report is for everyone
+        WordReport.for_bookmark(
+            db_session,
+            User.find_by_id(flask.g.user_id),
+            bookmark,
+            WordReport.WRONG_TRANSLATION,
+            WordReport.WORD_LIST,
+        )
+        user_word.choose(db_session, StudyChoice.SKIP)
         UserWordInteractionHistory.log(
             db_session, user_word,
             UserWordInteractionHistory.BAD_TRANSLATION,
         )
     else:
-        user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
+        user_word.choose(db_session, StudyChoice.SKIP)
 
-    user_word.update_fit_for_study(db_session)
     BasicSRSchedule.clear_user_word_schedule(db_session, user_word)
-    db_session.commit()
-    return "OK"
-
-
-@api.route("/is_fit_for_study/<bookmark_id>", methods=["POST"])
-@cross_domain
-@requires_session
-def set_is_fit_for_study(bookmark_id):
-    bookmark = get_bookmark_if_owned(bookmark_id)
-    bookmark.fit_for_study = True
-    db_session.commit()
-    return "OK"
-
-
-@api.route("/not_fit_for_study/<bookmark_id>", methods=["POST"])
-@cross_domain
-@requires_session
-def set_not_fit_for_study(bookmark_id):
-    bookmark = get_bookmark_if_owned(bookmark_id)
-    bookmark.fit_for_study = False
-
-    BasicSRSchedule.clear_user_word_schedule(db_session, bookmark)
     db_session.commit()
     return "OK"
 

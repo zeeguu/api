@@ -11,6 +11,9 @@ Retention windows (days):
   perennial  →  None (don't age-prune; only deleted via the existing
                       anonymize_users.py unreferenced sweep)
 
+Also deletes skipped_url rows older than SKIPPED_URL_RETENTION_DAYS: by then
+the feed items they stand for have left the feeds.
+
 Articles with no feed_id are treated as 'unknown'. An article is deleted if it
 is older than its class's retention window AND not in the reference pre-filter.
 
@@ -36,6 +39,7 @@ from datetime import datetime, timedelta
 import zeeguu.core
 from sqlalchemy import text
 from zeeguu.api.app import create_app_for_scripts
+from zeeguu.core.model.skipped_url import SkippedUrl
 from zeeguu.core.article_pruning import (
     referenced_article_ids,
     delete_articles_in_batches,
@@ -46,6 +50,8 @@ RETENTION_DAYS = {
     "unknown": 540,
     "perennial": None,
 }
+
+SKIPPED_URL_RETENTION_DAYS = 30
 
 apply_mode = "--apply" in sys.argv
 skip_binlog = "--skip-binlog" in sys.argv  # big one-off purge on a no-replica box only
@@ -96,8 +102,19 @@ def candidates_for_class(retention_class, days, referenced):
     return unreferenced
 
 
+def prune_skipped_urls():
+    cutoff = datetime.utcnow() - timedelta(days=SKIPPED_URL_RETENTION_DAYS)
+    old = SkippedUrl.skipped_before(cutoff)
+    print(f"\nskipped_url: {old.count()} rows older than {cutoff:%Y-%m-%d}")
+    if apply_mode:
+        old.delete(synchronize_session=False)
+        db_session.commit()
+
+
 def main():
     print(f"=== prune_old_articles ({'APPLY' if apply_mode else 'DRY-RUN'}) ===")
+
+    prune_skipped_urls()
 
     referenced = referenced_article_ids(db_session)
 

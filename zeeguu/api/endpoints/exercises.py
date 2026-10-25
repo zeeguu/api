@@ -1,3 +1,4 @@
+import json
 import traceback
 import flask
 from sqlalchemy.exc import NoResultFound
@@ -199,6 +200,7 @@ def report_exercise_outcome():
     :param exercise_solving_speed: in milliseconds
     :param user_word_id: the user_word for which the data is reported
     :param session_id: assuming that the exercise submitter knows which session is this exercise part of
+    :param wrong_answers: optional JSON list of what the learner typed or picked in each wrong attempt, in order
     :return:
     """
 
@@ -207,7 +209,12 @@ def report_exercise_outcome():
     solving_speed = request.form.get("solving_speed")
     user_word_id = request.form.get("user_word_id")
     other_feedback = request.form.get("other_feedback")
-    session_id = int(request.form.get("session_id"))
+    # A client that has no exercise session id yet posts "session_id=" (qs
+    # serializes null as an empty value). The outcome must still be recorded;
+    # exercise.session_id is nullable. type=int yields None for a missing,
+    # empty or non-numeric value instead of raising.
+    session_id = request.form.get("session_id", type=int)
+    wrong_answers = _parse_wrong_answers(request.form.get("wrong_answers"))
 
     if not solving_speed.isdigit():
         solving_speed = 0
@@ -226,6 +233,7 @@ def report_exercise_outcome():
             solving_speed,
             session_id,
             other_feedback,
+            wrong_answers=wrong_answers,
         )
 
         return "OK"
@@ -233,6 +241,20 @@ def report_exercise_outcome():
         traceback.print_exc()
         print(f"Error reporting exercise outcome for UserWord {user_word_id}: {e}")
         return "FAIL"
+
+
+def _parse_wrong_answers(raw):
+    """A JSON list of strings, or nothing. Anything else is dropped rather than
+    refused: losing the wrong answers is better than losing the outcome."""
+    if not raw:
+        return None
+    try:
+        answers = json.loads(raw)
+    except ValueError:
+        return None
+    if not isinstance(answers, list):
+        return None
+    return [a for a in answers if isinstance(a, str)]
 
 
 @api.route("/similar_words/<bookmark_id>", methods=["GET"])
@@ -442,7 +464,7 @@ def report_exercise_issue():
     }
     """
     from zeeguu.logging import log
-    from zeeguu.core.model import ExerciseReport, ExerciseSource
+    from zeeguu.core.model import ExerciseSource, WordReport
 
     user = User.find_by_id(flask.g.user_id)
     data = request.get_json()
@@ -462,6 +484,8 @@ def report_exercise_issue():
     valid_reasons = ["word_not_shown", "wrong_highlighting", "context_confusing", "wrong_translation", "context_wrong", "audio_broken", "other"]
     if reason not in valid_reasons:
         return json_result({"error": f"reason must be one of: {valid_reasons}"}), 400
+    # context_wrong: the sentence is wrong for the word
+    kind = WordReport.BAD_EXAMPLE if reason == "context_wrong" else reason
 
     # Find the bookmark; one of another user counts as not found
     bookmark = Bookmark.query.get(bookmark_id)
@@ -472,9 +496,7 @@ def report_exercise_issue():
     exercise_source = ExerciseSource.find_or_create(db_session, exercise_source_name)
 
     # Check if already reported
-    existing = ExerciseReport.find_by_user_bookmark_source(
-        user.id, bookmark.id, exercise_source.id
-    )
+    existing = WordReport.find_exercise_report(user, bookmark, exercise_source)
     if existing:
         return json_result({
             "success": True,
@@ -484,8 +506,15 @@ def report_exercise_issue():
         })
 
     try:
-        report = ExerciseReport.create(
-            db_session, user, bookmark, exercise_source, reason, comment, context_used
+        report = WordReport.for_bookmark(
+            db_session,
+            user,
+            bookmark,
+            kind,
+            WordReport.EXERCISE,
+            sentence=context_used,
+            exercise_source=exercise_source,
+            comment=comment,
         )
         log(f"User {user.id} reported exercise issue for bookmark {bookmark.id}: {reason}")
 

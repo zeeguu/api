@@ -53,7 +53,7 @@ def _llm_returning(response, prompt_function):
     — which is how "it retried once" is observed.
     """
     with patch.object(
-        sac, "_select_provider_and_key", return_value=("anthropic", "fake-key")
+        sac, "_api_key_for", return_value="fake-key"
     ), patch.object(
         sac, prompt_function, return_value="{title}\n{content}"
     ), patch.object(
