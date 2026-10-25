@@ -1,6 +1,6 @@
 """
-A learner's "wrong translation" report runs the validator on the word in the
-sentence they saw it in, even when the meaning was already judged VALID: a
+A learner's "wrong translation" report runs the validator (nightly, from
+tools/judge_word_reports.py) on the word in the sentence they saw it in, even when the meaning was already judged VALID: a
 VALID meaning is otherwise never looked at again. What the validator does
 then is what it does anywhere else (a FIX moves the learner to the corrected
 meaning and retires the old one for everyone), and its verdict goes on the
@@ -9,15 +9,9 @@ report.
 from datetime import datetime
 
 from zeeguu.core.llm_services.validation_service import UserWordValidationService
-from zeeguu.core.model import db
 from zeeguu.core.model.validation_log import ValidationLog
 from zeeguu.core.model.word_report import WordReport
 from zeeguu.logging import log
-
-
-def judge_by_id(report_id):
-    """For run_in_background, which has its own session."""
-    judge(db.session, WordReport.query.get(report_id))
 
 
 def judge(session, report):

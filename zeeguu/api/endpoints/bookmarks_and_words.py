@@ -10,7 +10,6 @@ from zeeguu.core.model import User, Article, Bookmark
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.study_choice import StudyChoice, UnfitReason
 from zeeguu.core.model.word_report import WordReport
-from zeeguu.api.utils.word_report_judging import judge_in_background
 from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
 from . import api, db_session
 from zeeguu.api.utils.json_result import json_result
@@ -328,7 +327,7 @@ def set_user_word_exercise_dislike(bookmark_id):
         )
     elif reason == "bad_translation":
         # Out for this learner, as asked; the report is for everyone
-        report = WordReport.for_bookmark(
+        WordReport.for_bookmark(
             db_session,
             User.find_by_id(flask.g.user_id),
             bookmark,
@@ -345,9 +344,6 @@ def set_user_word_exercise_dislike(bookmark_id):
 
     BasicSRSchedule.clear_user_word_schedule(db_session, user_word)
     db_session.commit()
-    if reason == "bad_translation":
-        # After the skip, so that a FIX moves the learner on from a word they left
-        judge_in_background(report)
     return "OK"
 
 

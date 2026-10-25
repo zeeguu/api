@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
 Runs the validator on the wrong_translation reports that have no verdict yet:
-the ones from before reports were judged (26 Oct 2026), and the ones the
-validator didn't answer. Lists them; pass --apply to judge them (LLM calls,
-and a FIX or INVALID changes the meaning for every learner).
+the new ones, and the ones the validator didn't answer last time. Runs nightly
+from the ops crontab with --apply; without it, only lists them. (LLM calls,
+and a FIX or INVALID changes the meaning for every learner.)
 """
 import sys
 import os

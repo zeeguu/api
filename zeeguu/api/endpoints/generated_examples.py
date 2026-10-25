@@ -14,7 +14,6 @@ from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
 from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, TranslationService, WordReport
 from zeeguu.core.model.ai_generator import AIGenerator
-from zeeguu.api.utils.word_report_judging import judge_in_background
 from zeeguu.core.model.study_choice import StudyChoice
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
@@ -824,7 +823,6 @@ def report_meaning():
             comment=comment,
         )
         log(f"User {user.id} reported meaning {meaning.id} for: {reason}")
-        judge_in_background(report)
 
         return json_result({
             "success": True,
