@@ -238,9 +238,9 @@ def _pair_verdict(lesson):
         return None
     log(f"[lesson check] pair '{lesson.word}' → '{lesson.translation}': "
         f"{verdict.verdict} ({verdict.reason})")
-    # UNRESOLVED (a broken sentence, or a card the reply says does not fit)
-    # says nothing against the pair: not confirmed
-    return None if verdict.is_valid or verdict.is_unresolved else verdict
+    # A give-up (a broken sentence, or no meaning that fits) says nothing
+    # against the pair: not confirmed
+    return None if verdict.is_valid or verdict.gave_up else verdict
 
 
 def _context_paragraph(origin_word, translation_word, context):

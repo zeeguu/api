@@ -21,7 +21,7 @@ This pair becomes a FLASHCARD. Exercises show THIS sentence with "{word}" highli
 
 STEP 1 - VALIDATION:
 1. Is the sentence usable? If it is cut off, ungrammatical, or does not make sense, no card
-   can be checked against it: the verdict is UNRESOLVED.
+   can be checked against it: the verdict is BROKEN_SENTENCE.
 2. Does "{translation}" fit THIS sentence? Read the sentence with "{translation}" in place of
    "{word}": it must say what the sentence says, in correct {target_lang}. The form must be
    the one the sentence needs - tense, number, person ("sov" in "hun sov længe" = "slept", not
@@ -37,7 +37,7 @@ STEP 1 - VALIDATION:
    ...) is translated without "to": "verstehen" = "understand", NOT "to understand". With the
    marker, keep it: "at slå op" = "to look up".
 5. If no translation fits the sentence and no expansion gives an expression worth learning,
-   the verdict is UNRESOLVED. Say why in the reason.
+   the verdict is WORD_NOT_FIT. Say why in the reason.
 
 A corrected word must appear in the sentence exactly as written there: every one of its words,
 in the sentence's own spelling. Never correct the sentence's grammar into the word.
@@ -88,12 +88,12 @@ Fill in these fields (the reply is constrained to this shape):
   what the sentence says. A wrong verb form ("what it mean") is false. If false, the verdict
   cannot be VALID.
 - reason: one short sentence, written first: why the pair holds, or what is wrong with it
-- verdict: VALID, FIX or UNRESOLVED
+- verdict: VALID, FIX, BROKEN_SENTENCE or WORD_NOT_FIT
 - corrected_word, corrected_translation: the corrected pair when the verdict is FIX, empty when
-  VALID or UNRESOLVED. corrected_translation is in {target_lang}.
+  not a FIX. corrected_translation is in {target_lang}.
 - correction_in_sentence: for a FIX, the {target_lang} sentence again, now with
   corrected_translation written exactly as it is in place of corrected_word, the rest natural
-  {target_lang} as above. Empty when VALID or UNRESOLVED.
+  {target_lang} as above. Empty when not a FIX.
 - correction_reads_right: true only if correction_in_sentence is correct, natural {target_lang}.
   If false, your correction is wrong too: change corrected_translation. False when not a FIX.
 - frequency, cefr, phrase_type: for the valid or corrected word (STEP 2)
@@ -156,7 +156,7 @@ VALIDATION_SCHEMA = {
         "card_in_sentence": {"type": "string"},
         "card_reads_right": {"type": "boolean"},
         "reason": {"type": "string"},
-        "verdict": {"type": "string", "enum": ["VALID", "FIX", "UNRESOLVED"]},
+        "verdict": {"type": "string", "enum": ["VALID", "FIX", "BROKEN_SENTENCE", "WORD_NOT_FIT"]},
         "corrected_word": {"type": "string"},
         "corrected_translation": {"type": "string"},
         "correction_in_sentence": {"type": "string"},
@@ -218,5 +218,5 @@ CARD_DOES_NOT_FIT_REMINDER = """
 
 In a previous answer you proposed "{card}"{wrote}.
 {problem} Reply again. The card must be exactly the form that makes the sentence read right;
-if no form of a worthwhile word or expression does, the verdict is UNRESOLVED.
+if no form of a worthwhile word or expression does, the verdict is WORD_NOT_FIT.
 """

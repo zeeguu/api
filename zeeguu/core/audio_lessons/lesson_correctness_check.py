@@ -267,7 +267,7 @@ def judge_pair(service, lesson: LessonToCheck):
     from zeeguu.core.llm_services.prompts.translation_validator import (
         create_combined_validation_prompt,
     )
-    from zeeguu.core.llm_services.translation_validator import TranslationValidator
+    from zeeguu.core.llm_services.translation_validator import TranslationValidator, BROKEN_SENTENCE, WORD_NOT_FIT
 
     prompt = create_combined_validation_prompt(
         word=lesson.word,
@@ -286,15 +286,15 @@ def judge_pair(service, lesson: LessonToCheck):
     reply = {k: v if isinstance(v, str) else ("" if v is None else str(v)) for k, v in reply.items()}
     reply.update(flags)
     reply["verdict"] = reply.get("verdict", "").strip().upper()
-    if reply["verdict"] not in ("VALID", "FIX", "UNRESOLVED"):
-        raise ValueError(f"no VALID/FIX/UNRESOLVED verdict in reply: {str(reply)[:200]}")
+    if reply["verdict"] not in ("VALID", "FIX", BROKEN_SENTENCE, WORD_NOT_FIT):
+        raise ValueError(f"no validator verdict in reply: {str(reply)[:200]}")
     verdict = TranslationValidator._parse_response(json.dumps(reply))
     # The validator's own check that the card fits the sentence, without its
     # retry: a card the reply itself says does not fit confirms nothing.
     misfit = TranslationValidator._misfit(verdict, lesson.word, lesson.translation, lesson.context)
     if misfit and misfit.certain:
-        return replace(verdict, is_valid=False, is_unresolved=True, corrected_word=None, corrected_translation=None)
-    if verdict.is_unresolved:
+        return replace(verdict, is_valid=False, gave_up=WORD_NOT_FIT, corrected_word=None, corrected_translation=None)
+    if verdict.gave_up:
         return verdict
     # As the validator does with its own replies: a correction may become a
     # flashcard, which takes one translation, not "which must/which should"

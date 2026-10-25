@@ -50,8 +50,10 @@ class ValidationResult:
     """Result of combined translation validation and classification."""
 
     is_valid: bool
-    # No card can be checked or fixed: broken sentence, or nothing fits
-    is_unresolved: bool = False
+    # The validator gave up: BROKEN_SENTENCE (the sentence is cut off,
+    # ungrammatical or nonsense) or WORD_NOT_FIT (no meaning of the word fits
+    # it, as given or after a fix). None when it is VALID or a FIX.
+    gave_up: Optional[str] = None
     corrected_word: Optional[str] = None  # If word should change
     corrected_translation: Optional[str] = None  # If translation is wrong
     frequency: Optional[str] = None  # unique/common/uncommon/rare
@@ -75,7 +77,7 @@ class ValidationResult:
 
     @property
     def verdict(self) -> str:
-        return "VALID" if self.is_valid else "UNRESOLVED" if self.is_unresolved else "FIX"
+        return "VALID" if self.is_valid else self.gave_up or "FIX"
 
 
 def _words(text):
@@ -89,6 +91,11 @@ def words_in_order(phrase, sentence):
     is not in "what it means to walk"."""
     remaining = iter(_words(sentence))
     return all(word in remaining for word in _words(phrase))
+
+
+# The two verdicts with which the validator gives up on a pair in a sentence
+BROKEN_SENTENCE = "BROKEN_SENTENCE"
+WORD_NOT_FIT = "WORD_NOT_FIT"
 
 
 @dataclass
@@ -169,7 +176,7 @@ class TranslationValidator:
             sentry_sdk.capture_exception(e)
             return None
 
-        if result.is_unresolved:
+        if result.gave_up:
             return result
         result = self._one_option(prompt, result, word, translation, ask_again=True)
 
@@ -194,7 +201,7 @@ class TranslationValidator:
                 import sentry_sdk
                 sentry_sdk.capture_exception(e)
                 return None
-            if retried.is_unresolved:
+            if retried.gave_up:
                 return retried
             retried = self._one_option(prompt, retried, word, translation, ask_again=False)
 
@@ -202,11 +209,11 @@ class TranslationValidator:
             if still and still.certain:
                 # A card it still says does not fit, or a word that is not in
                 # the sentence, is not a card: the word is given up on.
-                log(f"[VALIDATION] '{word}' = '{still.card}' still does not fit its sentence; unresolved")
+                log(f"[VALIDATION] '{word}' = '{still.card}' still does not fit its sentence; giving up")
                 return replace(
                     retried,
                     is_valid=False,
-                    is_unresolved=True,
+                    gave_up=WORD_NOT_FIT,
                     corrected_word=None,
                     corrected_translation=None,
                     reason=(retried.reason or "") + " [card still did not fit its sentence]",
@@ -234,7 +241,7 @@ class TranslationValidator:
                     prompt + SINGLE_TRANSLATION_REMINDER.format(translation=offending),
                     VALIDATION_SCHEMA,
                 )
-                if not retried.is_unresolved:
+                if not retried.gave_up:
                     result = retried
             except Exception as e:
                 # Keep the first reply and its classification; the fallback
@@ -265,7 +272,7 @@ class TranslationValidator:
         "særl"). Not certain: the card's words are not in the sentence the
         reply wrote ("means" in the sentence, "mean" on the card), which a
         separable verb also does."""
-        if result.is_unresolved:
+        if result.gave_up:
             return None
         if result.is_valid:
             card, sentence, reads_right = translation, result.card_in_sentence, result.card_reads_right
@@ -331,7 +338,7 @@ class TranslationValidator:
         fixed = reply["verdict"] == "FIX"
         return ValidationResult(
             is_valid=reply["verdict"] == "VALID",
-            is_unresolved=reply["verdict"] == "UNRESOLVED",
+            gave_up=reply["verdict"] if reply["verdict"] in (BROKEN_SENTENCE, WORD_NOT_FIT) else None,
             corrected_word=field("corrected_word") if fixed else None,
             corrected_translation=field("corrected_translation") if fixed else None,
             frequency=field("frequency"),
