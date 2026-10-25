@@ -13,7 +13,7 @@ matplotlib
 seaborn
 
 # Database
-mysqlclient
+mysqlclient==2.2.8
 pymysql
 SQLAlchemy>=2.0
 
