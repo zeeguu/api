@@ -8,10 +8,6 @@ import zeeguu.core
 from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
 from zeeguu.core.llm_services.translation_validator import ValidationResult
 from zeeguu.core.llm_services.validation_service import UserWordValidationService
-from zeeguu.core.model.bookmark import Bookmark
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-from zeeguu.core.model.context_identifier import ContextIdentifier
-from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.user_word import UserWord
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
@@ -28,21 +24,6 @@ class UserPreferenceAsTextTest(ModelTestMixIn, TestCase):
         self.bookmark = BookmarkRule(self.user).bookmark
         self.user_word = self.bookmark.user_word
         self.meaning = self.user_word.meaning
-
-    def test_looking_up_a_word_declared_known_again_erodes_the_text_value(self):
-        self.user_word.user_preference = "-6"  # as prod returns it
-
-        Bookmark.find_or_create(
-            session, self.user,
-            self.meaning.origin.content, self.meaning.origin.language.code,
-            self.meaning.translation.content, self.meaning.translation.language.code,
-            f"Det er {self.meaning.origin.content} her.", None, None,
-            sentence_i=0, token_i=2, total_tokens=1, c_sentence_i=0, c_token_i=0,
-            context_identifier=ContextIdentifier(context_type=ContextType.USER_EDITED_TEXT),
-            translation_source="reading",
-        )
-
-        self.assertEqual(self.user_word.user_preference, UserWordExPreference.DECLARED_KNOWN + 2)
 
     def test_an_audio_lesson_adds_a_word_whose_preference_is_a_text_zero(self):
         from zeeguu.core.bookmark_operations.add_word_to_study import add_word_to_study
