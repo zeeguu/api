@@ -65,8 +65,17 @@ def origin_is_a_very_short_word(user_word):
 
 
 def origin_has_too_many_words(user_word):
-    words_in_origin = user_word.meaning.origin.content.split(" ")
-    return len(words_in_origin) > 2
+    """Up to three words is a word or an expression worth learning (de son
+    côté, Ligue des champions); longer is a stretch of text, unless the
+    validator found it a set phrase (tomber dans les pommes)."""
+    words_in_origin = user_word.meaning.origin.content.split()
+    if len(words_in_origin) <= 3:
+        return False
+    return user_word.meaning.phrase_type not in (
+        PhraseType.COLLOCATION,
+        PhraseType.IDIOM,
+        PhraseType.EXPRESSION,
+    )
 
 
 def origin_is_subsumed_in_other_bookmark(bookmark):
