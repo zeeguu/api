@@ -465,6 +465,7 @@ def report_exercise_issue():
     """
     from zeeguu.logging import log
     from zeeguu.core.model import ExerciseSource, WordReport
+    from zeeguu.api.utils.word_report_judging import judge_in_background
 
     user = User.find_by_id(flask.g.user_id)
     data = request.get_json()
@@ -517,6 +518,7 @@ def report_exercise_issue():
             comment=comment,
         )
         log(f"User {user.id} reported exercise issue for bookmark {bookmark.id}: {reason}")
+        judge_in_background(report)
 
         return json_result({
             "success": True,
