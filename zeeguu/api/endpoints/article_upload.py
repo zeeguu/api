@@ -281,12 +281,20 @@ def article_upload_translate_and_adapt(upload_id):
         article.img_url = img_url
         return article
 
-    # A second request for the same upload (double tap, retry) can miss the
-    # Article.find above while the first one waits on the LLM. Both then
-    # insert at this url; the loser gets the winner's article back.
-    translated_article, created = find_or_create_and_report(
-        db_session, Article, dict(url=translated_url), make_translated_article
-    )
+    if translated_url is None:
+        # Url.find_or_create gives None when the path is over 255 chars, and
+        # the "#translated-from-..." suffix can push an upload's url over.
+        # With no url to key on, the helper would look up `url_id IS NULL`
+        # and find unrelated articles; insert directly, as before.
+        translated_article, created = make_translated_article(), True
+        db_session.add(translated_article)
+    else:
+        # A second request for the same upload (double tap, retry) can miss
+        # the Article.find above while the first one waits on the LLM. Both
+        # then insert at this url; the loser gets the winner's article back.
+        translated_article, created = find_or_create_and_report(
+            db_session, Article, dict(url=translated_url), make_translated_article
+        )
     # Fragments only for an article this request created: the loser must not
     # add a second set to the winner's. One commit for article and fragments,
     # so whoever sees the article sees its fragments too. For the loser the

@@ -1,5 +1,8 @@
 from unittest import mock
 
+import pytest
+
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Query
 
 from zeeguu.core.model.article_summary_context import ArticleSummaryContext
@@ -128,3 +131,22 @@ class RaceSafeFindOrCreateTest(ModelTestMixIn):
 
         assert row.id == winner.id
         assert not created
+
+    def test_collision_on_another_unique_key_raises_the_integrity_error(self):
+        # The row make() builds collides on (bookmark, article), but the
+        # filters don't cover that key, so there is no winner to return.
+        existing = self._make()
+        session.add(existing)
+        session.commit()
+
+        self.article.title = "changed by the caller"
+
+        with pytest.raises(IntegrityError):
+            find_or_create(
+                session, ArticleSummaryContext, dict(id=existing.id + 1000), self._make
+            )
+        session.commit()
+
+        assert self._count() == 1
+        session.refresh(self.article)
+        assert self.article.title == "changed by the caller"

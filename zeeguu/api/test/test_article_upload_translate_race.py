@@ -38,10 +38,10 @@ def _llm_output():
     return translate_and_adapt, calls
 
 
-def _create_upload(client):
+def _create_upload(client, url=UPLOAD_URL):
     upload = client.post(
         "/article_upload/create",
-        data=dict(url=UPLOAD_URL, text_content=TEXT, title="Triumphbogen"),
+        data=dict(url=url, text_content=TEXT, title="Triumphbogen"),
     )
     return upload["id"]
 
@@ -111,3 +111,39 @@ def test_losing_the_insert_race_returns_the_winners_article(logged_in_client):
             assert _fragment_count(winner_id) == winner_fragments
         finally:
             _cleanup(upload_id)
+
+
+def test_an_upload_whose_translated_url_is_too_long_gets_its_own_article(
+    logged_in_client,
+):
+    # Url.find_or_create gives None for a path over 255 chars. These paths
+    # fit, but not with the "#translated-from-de-to-de-A2" suffix, so both
+    # translated articles get no url. Each must still get its own article,
+    # not the other one (an `url_id IS NULL` lookup would find it).
+    def long_url(n):
+        path = f"/race/{n}-" + "x" * 240
+        assert len(path) <= 255
+        return "https://example.com" + path
+
+    upload_ids = [_create_upload(logged_in_client, long_url(n)) for n in (1, 2)]
+    translate_and_adapt, llm_calls = _llm_output()
+
+    with mock.patch(
+        "zeeguu.core.llm_services.simplification_service."
+        "SimplificationService.translate_and_adapt",
+        translate_and_adapt,
+    ):
+        try:
+            responses = [_translate(logged_in_client, u) for u in upload_ids]
+
+            assert [r.status_code for r in responses] == [200, 200]
+            first, second = [r.get_json() for r in responses]
+            assert first["id"] != second["id"]
+            assert second["title"] == "Triumphbogen 2"
+            for upload_id in upload_ids:
+                [article] = _articles_from(upload_id)
+                assert article.url is None
+                assert _fragment_count(article.id) > 0
+        finally:
+            for upload_id in upload_ids:
+                _cleanup(upload_id)
