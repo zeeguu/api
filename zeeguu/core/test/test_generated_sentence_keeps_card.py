@@ -95,6 +95,20 @@ class GeneratedSentenceKeepsCardTest(ModelTestMixIn, TestCase):
         self.assertIsNotNone(session.get(ExampleSentenceMisfit, self.example.id))
         self.assertNotIn(self.example, usable_examples(self.meaning.id))
 
+    def test_after_a_bad_example_a_reader_fragment_of_the_learners_own_is_skipped(self):
+        # a fragment is context for the meaning, not for study
+        self.own.context.left_ellipsis = True
+        session.add(self.own.context)
+        session.commit()
+        example = self.example.sentence
+
+        with patch("zeeguu.core.exercises.example_contexts.next_unused_example_bookmark", return_value=None):
+            result = self._validate(lambda context: EXPANDED if context == example else VALID)
+
+        self.assertIsNone(result)  # no whole sentence and no other example: given up
+        self.assertNotEqual(self.user_word.preferred_bookmark_id, self.own.id)
+        self.assertEqual(self.user_word.meaning_id, self.meaning.id)
+
     def test_no_sentence_left_gives_up_without_touching_the_card(self):
         # Only generated sentences, and the card fits none of them
         self.own.translation_source = "generated_example"
@@ -151,15 +165,39 @@ class BrokenOwnSentenceTest(ModelTestMixIn, TestCase):
         session.add_all([self.broken, self.user_word, self.meaning])
         session.commit()
 
-    def test_a_broken_own_sentence_is_swapped_for_another_not_the_word(self):
-        broken = self.broken.get_context()
-        with patch.object(
-            translation_validator, "TranslationValidator",
-            validator_judging(lambda context: BROKEN if context == broken else VALID),
-        ):
+    def _validate(self, verdict_for, example_bookmark=None):
+        with patch.object(translation_validator, "TranslationValidator", validator_judging(verdict_for)), \
+                patch("zeeguu.core.exercises.example_contexts.next_unused_example_bookmark",
+                      return_value=example_bookmark) as next_example:
             result = UserWordValidationService.validate_and_fix(session, self.user_word)
+        return result, next_example
+
+    def _example_bookmark(self):
+        example = ExampleSentence(f"Vi så {self.meaning.origin.content} i går.", self.user.learned_language, self.meaning)
+        session.add(example)
+        session.commit()
+        return Bookmark.find_or_create(
+            session, self.user, self.meaning.origin.content, self.user.learned_language.code,
+            self.meaning.translation.content, self.user.native_language.code, example.sentence, None, None,
+            sentence_i=0, token_i=2, total_tokens=1, c_sentence_i=0, c_token_i=0,
+            context_identifier=ContextIdentifier(context_type=ContextType.EXAMPLE_SENTENCE, example_sentence_id=example.id),
+            translation_source="generated_example", user_word=self.user_word,
+        )
+
+    def test_a_broken_own_sentence_goes_to_examples_not_to_another_own_sentence(self):
+        broken = self.broken.get_context()
+        example_bookmark = self._example_bookmark()
+
+        result, _ = self._validate(lambda context: BROKEN if context == broken else VALID, example_bookmark)
 
         self.assertIs(result, self.user_word)
         self.assertTrue(self.user_word.fit_for_study)
-        self.assertEqual(self.user_word.preferred_bookmark_id, self.other.id)
+        self.assertEqual(self.user_word.preferred_bookmark_id, example_bookmark.id)  # not self.other
         self.assertEqual(self.meaning.validated, Meaning.VALID)
+
+    def test_a_broken_own_sentence_with_no_example_gives_up_without_touching_the_meaning(self):
+        result, _ = self._validate(lambda context: BROKEN)
+
+        self.assertIsNone(result)
+        self.assertFalse(self.user_word.fit_for_study)
+        self.assertEqual(self.meaning.validated, Meaning.NOT_VALIDATED)

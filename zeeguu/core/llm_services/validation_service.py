@@ -54,7 +54,7 @@ def _engine_of(user_word):
 
 # A meaning judged in this many sentences without passing in one is given up
 # on, so a word whose sentences are all bad costs a bounded number of calls.
-MAX_SENTENCES_TRIED = 3
+MAX_SENTENCES_TRIED = 2
 
 
 class UserWordValidationService:
@@ -225,12 +225,14 @@ class UserWordValidationService:
         "selv om" because one example used "selv om"); the example is recorded
         and not used again. A broken sentence says nothing about the word,
         which may fit any other sentence. Either way the meaning is judged
-        again in another of the learner's own sentences, or else in the next
-        unused example. With no sentence left, or after MAX_SENTENCES_TRIED,
-        the word is given up on. Returns what validate_and_fix returns for the
+        again in another sentence: a whole sentence of the learner's own
+        (never a reader fragment, which is context for the meaning, not for
+        study), or else the next unused example. When the learner's own
+        sentence was the broken one, examples only. With no sentence left, or
+        after MAX_SENTENCES_TRIED, the word is given up on. Returns what validate_and_fix returns for the
         sentence the meaning is finally judged in.
         """
-        from zeeguu.core.exercises.example_contexts import next_unused_example_bookmark
+        from zeeguu.core.exercises.example_contexts import is_fragment, next_unused_example_bookmark
         from zeeguu.core.model.example_sentence import ExampleSentence
         from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
         from zeeguu.core.model.example_sentence_misfit import ExampleSentenceMisfit
@@ -248,10 +250,16 @@ class UserWordValidationService:
 
         tried = sentences_tried + (bookmark.id,)
         next_sentence = None
+        own_sentence_broken = (
+            result.gave_up == BROKEN_SENTENCE and bookmark.translation_source != "generated_example"
+        )
         if len(tried) < MAX_SENTENCES_TRIED:
-            own = [
+            own = [] if own_sentence_broken else [
                 b for b in user_word.bookmarks()
-                if b.id not in tried and b.translation_source != "generated_example" and b.get_context()
+                if b.id not in tried
+                and b.translation_source != "generated_example"
+                and b.get_context()
+                and not is_fragment(b)
             ]
             next_sentence = own[0] if own else next_unused_example_bookmark(db_session, user_word, skip_ids=tried)
         if not next_sentence:
