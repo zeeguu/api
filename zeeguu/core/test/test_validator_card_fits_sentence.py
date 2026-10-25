@@ -139,7 +139,7 @@ def test_a_give_up_is_not_asked_again_about_options():
 
 def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatch):
     from types import SimpleNamespace
-    from zeeguu.core.llm_services import translation_validator, validation_service
+    from zeeguu.core.llm_services import translation_validator
     from zeeguu.core.llm_services.validation_service import UserWordValidationService
     from zeeguu.core.model.meaning import Meaning
 
@@ -151,10 +151,9 @@ def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatc
     )
     logged = []
     monkeypatch.setattr(
-        "zeeguu.core.model.validation_log.ValidationLog.log_gave_up",
+        "zeeguu.core.model.validation_log.ValidationLog.log_invalid",
         lambda db_session, **kw: logged.append(kw),
     )
-    monkeypatch.setattr(validation_service, "_engine_of", lambda user_word: None)
 
     phrase = lambda text, code: SimpleNamespace(content=text, language=SimpleNamespace(code=code))
     meaning = SimpleNamespace(
@@ -172,7 +171,7 @@ def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatc
     assert UserWordValidationService.validate_and_fix(db_session, user_word) is None
     assert meaning.validated == Meaning.NOT_VALIDATED
     assert user_word.fit_for_study is False
-    assert logged[0]["reason"].startswith("[broken_sentence]")
+    assert logged == []  # validation_log records what happened to meanings; nothing did
 
 
 def test_a_valid_card_its_own_sentence_does_not_say_is_a_misfit():

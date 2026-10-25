@@ -211,20 +211,12 @@ class UserWordValidationService:
         is broken (BROKEN_SENTENCE), or no meaning of the word fits it
         (WORD_NOT_FIT). Neither says the meaning is wrong for other learners,
         whose words on it are judged in their own sentences, so the meaning is
-        left as it is and only this learner's word leaves study. Commits.
-        Returns None."""
-        from zeeguu.core.model.validation_log import ValidationLog
-
-        log(f"[VALIDATION] Gave up on user_word {user_word.id}: {result.reason}")
+        left as it is - and is not logged in validation_log, which records
+        what happened to meanings - and only this learner's word leaves study.
+        Commits. Returns None."""
+        log(f"[VALIDATION] Gave up on user_word {user_word.id} in {context!r}: "
+            f"[{result.gave_up.lower()}] {result.reason}")
         user_word.set_unfit_for_study(db_session)
-        ValidationLog.log_gave_up(
-            db_session,
-            meaning=meaning,
-            user_word_id=user_word.id,
-            reason=f"[{result.gave_up.lower()}] {result.reason or ''}".strip(),
-            context=context,
-            translation_service_id=_engine_of(user_word),
-        )
         db_session.commit()
         return None
 
