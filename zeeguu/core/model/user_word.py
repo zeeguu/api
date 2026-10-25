@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import sqlalchemy
-from sqlalchemy.exc import IntegrityError, NoResultFound
+from sqlalchemy.exc import NoResultFound
 
 from wordstats import Word
 
@@ -11,6 +11,7 @@ from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.logging import log
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.race_safe import find_or_create
 
 
 class UserWord(db.Model):
@@ -455,28 +456,15 @@ class UserWord(db.Model):
         Since Meaning.find_or_create() already handles semantic deduplication,
         we can trust that each meaning is unique and canonical.
         """
-        try:
-            user_word = cls.query.filter_by(user=user, meaning=meaning).one()
-        except NoResultFound:
-            # A double tap sends two translate_word requests that both miss
-            # the query above, and unique_user_word lets one insert through.
-            # The savepoint undoes only the losing insert, not the caller's
-            # pending work (see UserLanguage.find_or_create).
-            try:
-                with session.begin_nested():
-                    user_word = cls(user, meaning, is_user_added=is_user_added)
-                    session.add(user_word)
-                session.commit()
-                return user_word
-            except IntegrityError:
-                # A locking read: a plain SELECT would reuse this
-                # transaction's REPEATABLE READ snapshot from the query
-                # above, which predates the winner's row.
-                user_word = (
-                    cls.query.filter_by(user=user, meaning=meaning)
-                    .with_for_update(read=True)
-                    .one()
-                )
+        # A double tap sends two translate_word requests for the same word;
+        # unique_user_word lets one insert through and the other gets its row.
+        user_word = find_or_create(
+            session,
+            cls,
+            dict(user=user, meaning=meaning),
+            lambda: cls(user, meaning, is_user_added=is_user_added),
+            commit=True,
+        )
 
         # If it exists but we're marking it as user_added, update the flag
         if is_user_added and not user_word.is_user_added:
