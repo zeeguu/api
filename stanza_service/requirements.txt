@@ -17,6 +17,10 @@ psutil==7.2.2
 # newer stanza.
 stanza==1.11.0
 
+# emSign root removed after the eMudhra intermediate incident (Oct 2026);
+# stanza downloads its models over HTTPS through requests/certifi.
+certifi>=2026.10.19
+
 # Stanza's own dependencies that matter: torch runs the models; numpy and
 # protobuf changed major versions under us before.
 torch==2.14.0+cpu
