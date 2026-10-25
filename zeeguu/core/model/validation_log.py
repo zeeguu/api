@@ -45,8 +45,12 @@ class ValidationLog(db.Model):
 
     user_word_id = db.Column(db.Integer, nullable=True)
 
+    # The column holds the values ('fixed'), as the migration created it, not
+    # the names ('FIXED') SQLAlchemy maps by default. Writes passed either way
+    # (MySQL compares enum values case-insensitively); reading a row back
+    # raised LookupError until 25 Oct 2026.
     action = db.Column(
-        db.Enum(ValidationAction),
+        db.Enum(ValidationAction, values_callable=lambda actions: [a.value for a in actions]),
         nullable=False
     )
 
