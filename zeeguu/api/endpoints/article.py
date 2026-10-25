@@ -626,6 +626,9 @@ def translate_and_adapt_article():
         from zeeguu.core.model.user_article import UserArticle
         from zeeguu.core.model.source import Source
         from zeeguu.core.model.source_type import SourceType
+        from zeeguu.api.endpoints.helpers.translated_article import (
+            save_translated_article,
+        )
         from datetime import datetime
 
         # Create URL and language objects with unique translated URL
@@ -656,25 +659,11 @@ def translate_and_adapt_article():
                 else clean_content
             )
 
-        # Create article with proper source (like find_or_create does)
-        article = Article(
-            translated_url,  # url (unique for translation)
-            result["title"],  # title
-            None,  # authors
-            source,  # source (this is the key!)
-            result.get("summary", clean_summary),  # summary (clean text)
-            datetime.now(),  # published_time
-            None,  # feed
-            target_lang_obj,  # language
-            result["content"],  # htmlContent (keep HTML for parsing)
-            None,  # uploader
-        )
-
-        # Set the CEFR level to match the user's level for display
-        article.cefr_level = user_level
-
         # Carry over the main image: extract it from a freshly downloaded
         # article, or reuse the stored article's image on the article_id path.
+        # Resolved before saving: Url.find_or_create commits, and must not run
+        # inside save_translated_article's savepoint.
+        img_url = None
         if downloaded is not None:
             from zeeguu.core.content_retriever.article_downloader import (
                 extract_article_image,
@@ -682,17 +671,33 @@ def translate_and_adapt_article():
 
             main_img_url = extract_article_image(downloaded)
             if main_img_url and main_img_url != "":
-                article.img_url = Url.find_or_create(db_session, main_img_url)
+                img_url = Url.find_or_create(db_session, main_img_url)
         elif source_article and source_article.img_url:
-            article.img_url = source_article.img_url
+            img_url = source_article.img_url
 
-        # Save to DB for caching
-        db_session.add(article)
-        db_session.commit()  # Need to commit to get article.id for fragments
+        def make_translated_article():
+            # Create article with proper source (like find_or_create does)
+            article = Article(
+                translated_url,  # url (unique for translation)
+                result["title"],  # title
+                None,  # authors
+                source,  # source (this is the key!)
+                result.get("summary", clean_summary),  # summary (clean text)
+                datetime.now(),  # published_time
+                None,  # feed
+                target_lang_obj,  # language
+                result["content"],  # htmlContent (keep HTML for parsing)
+                None,  # uploader
+            )
+            # Set the CEFR level to match the user's level for display
+            article.cefr_level = user_level
+            article.img_url = img_url
+            return article
 
-        # Create article fragments (this is what was missing!)
-        article.create_article_fragments(db_session)
-        db_session.commit()
+        # Save to DB for caching, with its fragments
+        article = save_translated_article(
+            db_session, translated_url, make_translated_article
+        )
 
         # Use the same user_article_info flow as find_or_create_article
         uai = UserArticle.user_article_info(user, article, with_content=True)
