@@ -22,7 +22,7 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, replace
 from typing import Optional
 
 from zeeguu.core.audio_lessons.script_parser import join_continuation_lines
@@ -281,23 +281,18 @@ def judge_pair(service, lesson: LessonToCheck):
     )
     # Without the schema nothing holds the reply to strings: "valid" would
     # read as FIX, and a number or list where the parser expects text raises.
-    # The two booleans stay booleans: the string "False" would read as true.
-    reply = {
-        k: v if isinstance(v, (str, bool)) else ("" if v is None else str(v))
-        for k, v in reply.items()
-    }
-    for flag in ("card_reads_right", "correction_reads_right"):
-        if not isinstance(reply.get(flag), bool):
-            reply.pop(flag, None)
+    # The two flags stay booleans: the string "False" would read as true.
+    flags = {k: reply.pop(k) for k in ("card_reads_right", "correction_reads_right") if isinstance(reply.get(k), bool)}
+    reply = {k: v if isinstance(v, str) else ("" if v is None else str(v)) for k, v in reply.items()}
+    reply.update(flags)
     reply["verdict"] = reply.get("verdict", "").strip().upper()
     if reply["verdict"] not in ("VALID", "FIX", "UNRESOLVED"):
         raise ValueError(f"no VALID/FIX/UNRESOLVED verdict in reply: {str(reply)[:200]}")
     verdict = TranslationValidator._parse_response(json.dumps(reply))
     # The validator's own check that the card fits the sentence, without its
     # retry: a card the reply itself says does not fit confirms nothing.
-    if TranslationValidator._misfit(verdict, lesson.translation):
-        from dataclasses import replace
-
+    misfit = TranslationValidator._misfit(verdict, lesson.word, lesson.translation, lesson.context)
+    if misfit and misfit.certain:
         return replace(verdict, is_valid=False, is_unresolved=True, corrected_word=None, corrected_translation=None)
     if verdict.is_unresolved:
         return verdict
@@ -344,7 +339,7 @@ def check(service, lesson: LessonToCheck) -> dict:
     if (lesson.validated != 1 or complains_about_pair) and lesson.context:
         try:
             pair = judge_pair(service, lesson)
-            row["pair_verdict"] = "VALID" if pair.is_valid else "UNRESOLVED" if pair.is_unresolved else "FIX"
+            row["pair_verdict"] = pair.verdict
             row["pair_reason"] = pair.reason
             if row["pair_verdict"] == "FIX":
                 row["pair_corrected_word"] = pair.corrected_word

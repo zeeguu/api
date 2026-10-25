@@ -216,7 +216,7 @@ def create_semantic_equivalence_prompt(word, translation1, translation2, source_
 # go back once later fields are written). See TranslationValidator._misfit.
 CARD_DOES_NOT_FIT_REMINDER = """
 
-In a previous answer you proposed "{card}" and wrote the sentence as "{sentence}".
+In a previous answer you proposed "{card}"{wrote}.
 {problem} Reply again. The card must be exactly the form that makes the sentence read right;
 if no form of a worthwhile word or expression does, the verdict is UNRESOLVED.
 """

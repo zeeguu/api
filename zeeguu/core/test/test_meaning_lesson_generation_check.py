@@ -34,12 +34,9 @@ def run(verdicts, context="Sådan bruger en ekspert mindre tid på sin telefon",
     def judge_pair(service, lesson):
         pair_asked.append(lesson.word)
 
-        class Verdict:
-            is_valid = not pair_is_wrong
-            is_unresolved = False
-            reason = "test"
+        from zeeguu.core.llm_services.translation_validator import ValidationResult
 
-        return Verdict()
+        return ValidationResult(is_valid=not pair_is_wrong, reason="test")
 
     with patch(
         "zeeguu.core.audio_lessons.lesson_correctness_check.judge_pair", judge_pair

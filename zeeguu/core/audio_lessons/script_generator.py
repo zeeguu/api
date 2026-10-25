@@ -237,7 +237,7 @@ def _pair_verdict(lesson):
         log(f"[lesson check] could not confirm the pair '{lesson.word}': {e}")
         return None
     log(f"[lesson check] pair '{lesson.word}' → '{lesson.translation}': "
-        f"{'VALID' if verdict.is_valid else 'UNRESOLVED' if verdict.is_unresolved else 'FIX'} ({verdict.reason})")
+        f"{verdict.verdict} ({verdict.reason})")
     # UNRESOLVED (a broken sentence, or a card the reply says does not fit)
     # says nothing against the pair: not confirmed
     return None if verdict.is_valid or verdict.is_unresolved else verdict

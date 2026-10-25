@@ -28,7 +28,7 @@ import json
 import os
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Optional
 
 from zeeguu.logging import log
@@ -73,6 +73,10 @@ class ValidationResult:
     card_reads_right: Optional[bool] = None
     correction_reads_right: Optional[bool] = None
 
+    @property
+    def verdict(self) -> str:
+        return "VALID" if self.is_valid else "UNRESOLVED" if self.is_unresolved else "FIX"
+
 
 def _words(text):
     # Curly and straight apostrophes are the same letter here: "don’t" = "don't"
@@ -85,6 +89,16 @@ def words_in_order(phrase, sentence):
     is not in "what it means to walk"."""
     remaining = iter(_words(sentence))
     return all(word in remaining for word in _words(phrase))
+
+
+@dataclass
+class Misfit:
+    """Why a reply's card does not fit its sentence; see TranslationValidator._misfit."""
+
+    card: str
+    sentence: Optional[str]
+    problem: str
+    certain: bool
 
 
 class TranslationValidator:
@@ -155,48 +169,73 @@ class TranslationValidator:
             sentry_sdk.capture_exception(e)
             return None
 
-        misfit = self._misfit(result, translation)
+        if result.is_unresolved:
+            return result
+        result = self._one_option(prompt, result, word, translation, ask_again=True)
+
+        misfit = self._misfit(result, word, translation, context)
         if misfit:
             # The reply's own check says the card does not fit the sentence.
-            # Ask once more with its own sentence in front of it; a card it
-            # still cannot fit is not a card, so the word is given up on.
-            card, sentence, problem = misfit
+            # Ask once more with its own sentence in front of it.
             try:
-                result = self._ask(
-                    prompt + CARD_DOES_NOT_FIT_REMINDER.format(card=card, sentence=sentence, problem=problem),
+                retried = self._ask(
+                    prompt
+                    + CARD_DOES_NOT_FIT_REMINDER.format(
+                        card=misfit.card,
+                        wrote=f' and wrote the sentence as "{misfit.sentence}"' if misfit.sentence else "",
+                        problem=misfit.problem,
+                    ),
                     VALIDATION_SCHEMA,
                 )
             except Exception as e:
                 # As for the first call: no answer is no verdict, not a give-up
                 log(f"Translation validation retry failed: {e}")
+                logger.error(f"Translation validation retry failed: {e}")
+                import sentry_sdk
+                sentry_sdk.capture_exception(e)
                 return None
-            misfit = self._misfit(result, translation)
-            if misfit:
-                from dataclasses import replace
+            if retried.is_unresolved:
+                return retried
+            retried = self._one_option(prompt, retried, word, translation, ask_again=False)
 
-                log(f"[VALIDATION] '{word}' = '{misfit[0]}' still does not fit its sentence; unresolved")
+            still = self._misfit(retried, word, translation, context)
+            if still and still.certain:
+                # A card it still says does not fit, or a word that is not in
+                # the sentence, is not a card: the word is given up on.
+                log(f"[VALIDATION] '{word}' = '{still.card}' still does not fit its sentence; unresolved")
                 return replace(
-                    result,
+                    retried,
                     is_valid=False,
                     is_unresolved=True,
                     corrected_word=None,
                     corrected_translation=None,
-                    reason=(result.reason or "") + " [card still did not fit its sentence]",
+                    reason=(retried.reason or "") + " [card still did not fit its sentence]",
                 )
+            if still:
+                # Only the card's words were missing from its sentence, twice.
+                # Separable and inflected verbs do that legitimately ("anrufen"
+                # in "Ich rufe dich an"), so this alone is not a give-up.
+                log(f"[VALIDATION] '{still.card}' not word for word in '{still.sentence}'; kept")
+            result = retried
+        return result
 
-        if result.is_unresolved:
-            return result
+    def _one_option(self, prompt, result, word, translation, ask_again):
+        """The result with a translation the learner can type: one option, no
+        "(gloss)". The prompt already forbids "/" alternatives and glosses in
+        parentheses; when `ask_again`, ask once more about this very
+        translation, so the model, which sees the sentence, picks the option
+        that fits; when it still lists options, keep the first one ourselves."""
+        from .prompts.translation_validator import SINGLE_TRANSLATION_REMINDER, VALIDATION_SCHEMA
 
-        if self._lists_options(result, word, translation):
-            # The prompt already forbids "/" alternatives and glosses in
-            # parentheses; ask once more about this very translation, so the
-            # model, which sees the sentence, picks the option that fits.
+        if ask_again and self._lists_options(result, word, translation):
             offending = result.corrected_translation or translation
             try:
-                result = self._ask(
+                retried = self._ask(
                     prompt + SINGLE_TRANSLATION_REMINDER.format(translation=offending),
                     VALIDATION_SCHEMA,
                 )
+                if not retried.is_unresolved:
+                    result = retried
             except Exception as e:
                 # Keep the first reply and its classification; the fallback
                 # below still reduces it to one option.
@@ -219,28 +258,29 @@ class TranslationValidator:
         return self._parse_response(claude.response_text(response).strip())
 
     @staticmethod
-    def _misfit(result, translation):
-        """(card, sentence, problem) when the reply's own sentence check fails,
-        else None: a card (the VALID one, or a FIX's correction) that the reply
-        says does not read right in the sentence, or that is not even what the
-        sentence it wrote says ("means" in the sentence, "mean" on the card)."""
+    def _misfit(result, word, translation, context):
+        """A Misfit when the card does not fit the sentence by the reply's own
+        check, else None. Certain: the reply says its sentence does not read
+        right, or a corrected word is not in the sentence ("særlig" for
+        "særl"). Not certain: the card's words are not in the sentence the
+        reply wrote ("means" in the sentence, "mean" on the card), which a
+        separable verb also does."""
         if result.is_unresolved:
             return None
         if result.is_valid:
-            if result.card_reads_right is False:
-                return translation, result.card_in_sentence, "You judged that this does not read right."
-            # "what it means to walk" judged right, for the card "mean"
-            if result.card_in_sentence and not words_in_order(translation, result.card_in_sentence):
-                return translation, result.card_in_sentence, f'"{translation}" is not what that sentence says.'
-            return None
-        corrected = result.corrected_translation
-        sentence = result.correction_in_sentence
-        if not corrected or not sentence:
-            return None
-        if result.correction_reads_right is False:
-            return corrected, sentence, "You judged that this does not read right."
-        if not words_in_order(corrected, sentence):
-            return corrected, sentence, f'"{corrected}" is not what that sentence says.'
+            card, sentence, reads_right = translation, result.card_in_sentence, result.card_reads_right
+        else:
+            if result.corrected_word and not words_in_order(result.corrected_word, context):
+                return Misfit(
+                    result.corrected_word, None,
+                    f'"{result.corrected_word}" is not in the sentence as written.', certain=True,
+                )
+            card = result.corrected_translation or translation
+            sentence, reads_right = result.correction_in_sentence, result.correction_reads_right
+        if reads_right is False:
+            return Misfit(card, sentence, "You judged that this does not read right.", certain=True)
+        if sentence and not words_in_order(card, sentence):
+            return Misfit(card, sentence, f'"{card}" is not what that sentence says.', certain=False)
         return None
 
     @staticmethod
@@ -259,8 +299,6 @@ class TranslationValidator:
     def _with_one_option(result, word, translation):
         """Last resort when the model keeps listing options: keep the first
         one ourselves. A VALID becomes a FIX so the meaning gets replaced."""
-        from dataclasses import replace
-
         source = translation if result.is_valid else (result.corrected_translation or translation)
         one = pick_one(source, result.corrected_word or word)
         if one == source:
