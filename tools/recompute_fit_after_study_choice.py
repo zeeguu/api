@@ -18,6 +18,7 @@ app.app_context().push()
 
 from sqlalchemy import text
 
+from zeeguu.core.bookmark_quality.fit_for_study import fit_given, unfit_reason
 from zeeguu.core.model.user_word import UserWord
 
 apply = "--apply" in sys.argv
@@ -31,18 +32,26 @@ ids = [
 ]
 print(f"{len(ids)} words lost a forced opt-in")
 
-leaving = 0
+leaving = failed = 0
 for user_word_id in ids:
-    user_word = db.session.get(UserWord, user_word_id)
-    was_fit = user_word.fit_for_study
-    user_word.update_fit_for_study(db.session)
-    if was_fit and not user_word.fit_for_study:
-        leaving += 1
-        print(f"  {user_word.id} {user_word.meaning.origin.content!r} -> "
-              f"{user_word.meaning.translation.content!r}: {user_word.unfit_reason}")
-    if apply:
-        db.session.commit()
-    else:
+    try:
+        user_word = db.session.get(UserWord, user_word_id)
+        was_fit = user_word.fit_for_study
+        if apply:
+            user_word.update_fit_for_study(db.session)
+            reason, now_fit = user_word.unfit_reason, user_word.fit_for_study
+            db.session.commit()
+        else:
+            # Worked out without update_fit_for_study: clearing a schedule commits
+            reason = unfit_reason(user_word)
+            now_fit = fit_given(user_word.study_choice, reason)
+        if was_fit and not now_fit:
+            leaving += 1
+            print(f"  {user_word.id} {user_word.meaning.origin.content!r} -> "
+                  f"{user_word.meaning.translation.content!r}: {reason}", flush=True)
+    except Exception as e:
         db.session.rollback()
+        failed += 1
+        print(f"  {user_word_id} skipped: {e}", flush=True)
 
-print(f"{leaving} leave study{'' if apply else ' (dry run; --apply to write)'}")
+print(f"{leaving} leave study, {failed} skipped{'' if apply else ' (dry run; --apply to write)'}")
