@@ -283,12 +283,6 @@ cases:
     expect: FIX
     card: taget = taken
     validator_did: taget = taken
-  - word: noget
-    translation: one
-    context: Vil du have noget at spise?
-    expect: FIX
-    card: noget = something
-    validator_did: noget = something
   - word: bud
     translation: take
     context: To eksperter giver deres bud

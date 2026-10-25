@@ -28,11 +28,13 @@ STEP 1 - VALIDATION:
    "sleep"; "biler" in "to biler" = "cars"). {target_lang} may add words around it that
    {source_lang} does not need ("does", "not", an article): "Hvad betyder det?" = "What does it
    mean?", so "betyder" = "mean" fits there.
-3. Is it the meaning of "{word}" itself, not of the surrounding phrase? It should still hold
-   when the learner meets "{word}" in an ordinary sentence. If it only works because of the
-   surrounding phrase, expand "{word}" to the smallest expression in the sentence that carries
-   the meaning ("holde øje med" = "keep an eye on"), as long as that expression is worth learning on its
-   own. Never expand to an arbitrary fragment like "bruger den" = "are using it".
+3. Is it what "{word}" itself means, not what the phrase around it means? Test: in another
+   ordinary sentence with "{word}", would the same translation (in that sentence's form)
+   still be right? "noget" = "one", saved from "noget af det mest ekstreme", fails: in "Vil du
+   have noget at spise?" it is "something" - "one" belongs to "noget af". Then expand
+   "{word}" to the smallest expression in the sentence that carries the meaning ("noget af" =
+   "one of"), as long as that expression is worth learning on its own; never to an arbitrary
+   fragment like "bruger den" = "are using it".
 4. The learner types exactly what the translation says. A verb without its infinitive marker
    (Danish "at", German "zu", Dutch "te", Swedish "att", ...) is translated without "to":
    "verstehen" = "understand", NOT "to understand". With the marker, keep it: "at slå op" =
