@@ -280,7 +280,7 @@ class UserWordValidationService:
         validator verdict. Commits. Returns the user word to use, or None.
         """
         # The verdict was reached in this bookmark's sentence: no sentence, no
-        # verdict (script_generator._pair_verdict)
+        # verdict (script_generator._meaning_confirmed_wrong)
         bookmark = user_word.preferred_bookmark
         if not bookmark:
             log(f"[VALIDATION] No preferred bookmark for user_word {user_word.id}, cannot apply the fix")

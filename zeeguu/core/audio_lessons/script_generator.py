@@ -199,7 +199,7 @@ class LessonNotCorrect(Exception):
     """
     The script still teaches the word wrong after a rewrite, or the
     word/translation pair itself is wrong (`about_the_data`, which only a
-    confirmed pair verdict sets; see _pair_verdict). Like NotAScript, the
+    confirmed pair verdict sets; see _meaning_confirmed_wrong). Like NotAScript, the
     model's findings travel with the exception.
     """
 
@@ -215,7 +215,7 @@ class LessonNotCorrect(Exception):
         return self.pair_verdict is not None
 
 
-def _pair_verdict(lesson):
+def _meaning_confirmed_wrong(lesson):
     """
     A second, pair-only opinion before we act on the script check's word or
     translation complaint: acting marks the meaning INVALID and takes it out of
@@ -226,13 +226,13 @@ def _pair_verdict(lesson):
     Any failure to get an answer counts as not confirmed. Returns the verdict
     (a ValidationResult) when it says the pair is wrong, else None.
     """
-    from zeeguu.core.audio_lessons.lesson_correctness_check import judge_pair
+    from zeeguu.core.audio_lessons.lesson_correctness_check import second_opinion_on_meaning
     from zeeguu.core.llm_services.deepseek_service import DeepSeekService
 
     if not lesson.context:
         return None
     try:
-        verdict = judge_pair(DeepSeekService(), lesson)
+        verdict = second_opinion_on_meaning(DeepSeekService(), lesson)
     except Exception as e:
         log(f"[lesson check] could not confirm the pair '{lesson.word}': {e}")
         return None
@@ -358,7 +358,7 @@ def generate_lesson_script(
         log(f"[lesson check] '{origin_word}' attempt {attempt}/{CORRECTNESS_ATTEMPTS}: {found}")
         if any(p["kind"] in ABOUT_THE_DATA for p in problems):
             if not pair_asked:
-                pair_verdict, pair_asked = _pair_verdict(lesson), True
+                pair_verdict, pair_asked = _meaning_confirmed_wrong(lesson), True
             if pair_verdict:
                 break
         # Unconfirmed pair complaints go into the rewrite like any other problem

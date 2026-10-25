@@ -22,7 +22,7 @@ import re
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, asdict, replace
+from dataclasses import dataclass, asdict
 from typing import Optional
 
 from zeeguu.core.audio_lessons.script_parser import join_continuation_lines
@@ -261,45 +261,48 @@ def _line_number(value) -> Optional[int]:
     return int(match.group()) if match else None
 
 
-def judge_pair(service, lesson: LessonToCheck):
+def second_opinion_on_meaning(service, lesson: LessonToCheck):
     """The translation validator's verdict on the pair in its sentence, asked
-    of DeepSeek. Its parser expects the reply shape it gets from Anthropic."""
-    from zeeguu.core.llm_services.prompts.translation_validator import (
-        create_combined_validation_prompt,
+    of DeepSeek, without the validator's retries: a second opinion, not worth
+    more calls. Raises when there is no verdict."""
+    from zeeguu.core.llm_services.translation_validator import (
+        TranslationValidator,
+        BROKEN_SENTENCE,
+        WORD_NOT_FIT,
     )
-    from zeeguu.core.llm_services.translation_validator import TranslationValidator, BROKEN_SENTENCE, WORD_NOT_FIT
 
-    prompt = create_combined_validation_prompt(
-        word=lesson.word,
-        translation=lesson.translation,
-        context=lesson.context,
-        source_lang=Language.LANGUAGE_NAMES.get(lesson.learned_language),
-        target_lang=Language.LANGUAGE_NAMES.get(lesson.translation_language),
+    def ask_deepseek(prompt, schema):
+        # The validator's parser expects the reply shape it gets from
+        # Anthropic, where the schema holds it; here we ask for it in words.
+        reply = json_object(
+            service.generate_text(prompt + PAIR_JSON_REMINDER, max_tokens=1000, temperature=0)
+        )
+        # Without the schema nothing holds the reply to strings: "valid" would
+        # read as FIX, and a number or list where the parser expects text raises.
+        # The two flags stay booleans, and only booleans count: the string
+        # "false" would read as true, so it is dropped (not given).
+        flags = {}
+        for flag in ("card_reads_right", "correction_reads_right"):
+            value = reply.pop(flag, None)
+            if isinstance(value, bool):
+                flags[flag] = value
+        reply = {k: v if isinstance(v, str) else ("" if v is None else str(v)) for k, v in reply.items()}
+        reply.update(flags)
+        reply["verdict"] = reply.get("verdict", "").strip().upper()
+        if reply["verdict"] not in ("VALID", "FIX", BROKEN_SENTENCE, WORD_NOT_FIT):
+            raise ValueError(f"no validator verdict in reply: {str(reply)[:200]}")
+        return TranslationValidator._parse_response(json.dumps(reply))
+
+    verdict = TranslationValidator(ask=ask_deepseek).validate_and_classify(
+        lesson.word,
+        lesson.translation,
+        lesson.context,
+        lesson.learned_language,
+        lesson.translation_language,
+        retry=False,
     )
-    reply = json_object(
-        service.generate_text(prompt + PAIR_JSON_REMINDER, max_tokens=1000, temperature=0)
-    )
-    # Without the schema nothing holds the reply to strings: "valid" would
-    # read as FIX, and a number or list where the parser expects text raises.
-    # The two flags stay booleans: the string "False" would read as true.
-    flags = {k: reply.pop(k) for k in ("card_reads_right", "correction_reads_right") if isinstance(reply.get(k), bool)}
-    reply = {k: v if isinstance(v, str) else ("" if v is None else str(v)) for k, v in reply.items()}
-    reply.update(flags)
-    reply["verdict"] = reply.get("verdict", "").strip().upper()
-    if reply["verdict"] not in ("VALID", "FIX", BROKEN_SENTENCE, WORD_NOT_FIT):
-        raise ValueError(f"no validator verdict in reply: {str(reply)[:200]}")
-    verdict = TranslationValidator._parse_response(json.dumps(reply))
-    # The validator's own check that the card fits the sentence, without its
-    # retry: a card the reply itself says does not fit confirms nothing.
-    misfit = TranslationValidator._misfit(verdict, lesson.word, lesson.translation, lesson.context)
-    if misfit and misfit.certain:
-        return replace(verdict, is_valid=False, gave_up=WORD_NOT_FIT, corrected_word=None, corrected_translation=None)
-    if verdict.gave_up:
-        return verdict
-    # As the validator does with its own replies: a correction may become a
-    # flashcard, which takes one translation, not "which must/which should"
-    if TranslationValidator._lists_options(verdict, lesson.word, lesson.translation):
-        verdict = TranslationValidator._with_one_option(verdict, lesson.word, lesson.translation)
+    if verdict is None:
+        raise ValueError(f"no verdict on the pair '{lesson.word}' = '{lesson.translation}'")
     return verdict
 
 
@@ -338,7 +341,7 @@ def check(service, lesson: LessonToCheck) -> dict:
     complains_about_pair = any(p["kind"] in ABOUT_THE_DATA for p in row["problems"])
     if (lesson.validated != 1 or complains_about_pair) and lesson.context:
         try:
-            pair = judge_pair(service, lesson)
+            pair = second_opinion_on_meaning(service, lesson)
             row["pair_verdict"] = pair.verdict
             row["pair_reason"] = pair.reason
             if row["pair_verdict"] == "FIX":

@@ -31,7 +31,7 @@ def run(verdicts, context="Sådan bruger en ekspert mindre tid på sin telefon",
 
     pair_asked = []
 
-    def judge_pair(service, lesson):
+    def second_opinion_on_meaning(service, lesson):
         pair_asked.append(lesson.word)
 
         from zeeguu.core.llm_services.translation_validator import ValidationResult
@@ -39,7 +39,7 @@ def run(verdicts, context="Sådan bruger en ekspert mindre tid på sin telefon",
         return ValidationResult(is_valid=not pair_is_wrong, reason="test")
 
     with patch(
-        "zeeguu.core.audio_lessons.lesson_correctness_check.judge_pair", judge_pair
+        "zeeguu.core.audio_lessons.lesson_correctness_check.second_opinion_on_meaning", second_opinion_on_meaning
     ), patch.object(script_generator, "generate_script_in_languages", generate), patch(
         "zeeguu.core.audio_lessons.lesson_correctness_check.judge_lesson", judge
     ), patch("zeeguu.core.llm_services.deepseek_service.DeepSeekService", lambda: None):

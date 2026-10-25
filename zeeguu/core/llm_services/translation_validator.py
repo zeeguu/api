@@ -113,8 +113,13 @@ class TranslationValidator:
 
     MODEL_NAME = models.TRANSLATION_VALIDATION
 
-    def __init__(self):
-        """Initialize with Anthropic client."""
+    def __init__(self, ask=None):
+        """Ask Sonnet through the Anthropic client, or `ask(prompt, schema)`,
+        which returns a parsed ValidationResult: the audio lesson pair check
+        asks DeepSeek the same question (see lesson_correctness_check)."""
+        if ask:
+            self._ask = ask
+            return
         import anthropic
 
         api_key = os.environ.get("ANTHROPIC_API_KEY")
@@ -129,9 +134,14 @@ class TranslationValidator:
         context: str,
         source_lang: str,
         target_lang: str,
+        retry: bool = True,
     ) -> Optional[ValidationResult]:
         """
         Validate a translation and classify its frequency/phrase_type in one call.
+
+        With `retry`, a reply that lists options, or whose card does not fit
+        its sentence, is asked about once more; without, options are cut
+        ourselves and a card that certainly does not fit is WORD_NOT_FIT.
 
         Args:
             word: The word that was translated
@@ -177,14 +187,14 @@ class TranslationValidator:
 
         if result.gave_up:
             return result
-        result = self._one_option(prompt, result, word, translation, ask_again=True)
+        result = self._one_option(prompt, result, word, translation, ask_again=retry)
 
         misfit = self._misfit(result, word, translation, context)
-        if misfit:
+        if misfit and retry:
             # The reply's own check says the card does not fit the sentence.
             # Ask once more with its own sentence in front of it.
             try:
-                retried = self._ask(
+                result = self._ask(
                     prompt
                     + CARD_DOES_NOT_FIT_REMINDER.format(
                         card=misfit.card,
@@ -200,29 +210,28 @@ class TranslationValidator:
                 import sentry_sdk
                 sentry_sdk.capture_exception(e)
                 return None
-            if retried.gave_up:
-                return retried
-            retried = self._one_option(prompt, retried, word, translation, ask_again=False)
+            if result.gave_up:
+                return result
+            result = self._one_option(prompt, result, word, translation, ask_again=False)
+            misfit = self._misfit(result, word, translation, context)
 
-            still = self._misfit(retried, word, translation, context)
-            if still and still.certain:
-                # A card it still says does not fit, or a word that is not in
-                # the sentence, is not a card: the word is given up on.
-                log(f"[VALIDATION] '{word}' = '{still.card}' still does not fit its sentence; giving up")
-                return replace(
-                    retried,
-                    is_valid=False,
-                    gave_up=WORD_NOT_FIT,
-                    corrected_word=None,
-                    corrected_translation=None,
-                    reason=(retried.reason or "") + " [card still did not fit its sentence]",
-                )
-            if still:
-                # Only the card's words were missing from its sentence, twice.
-                # Separable and inflected verbs do that legitimately ("anrufen"
-                # in "Ich rufe dich an"), so this alone is not a give-up.
-                log(f"[VALIDATION] '{still.card}' not word for word in '{still.sentence}'; kept")
-            result = retried
+        if misfit and misfit.certain:
+            # A card it says does not fit, or a word that is not in the
+            # sentence, is not a card: the word is given up on.
+            log(f"[VALIDATION] '{word}' = '{misfit.card}' does not fit its sentence; giving up")
+            return replace(
+                result,
+                is_valid=False,
+                gave_up=WORD_NOT_FIT,
+                corrected_word=None,
+                corrected_translation=None,
+                reason=(result.reason or "") + " [card did not fit its sentence]",
+            )
+        if misfit:
+            # Only the card's words were missing from its sentence. Separable
+            # and inflected verbs do that legitimately ("anrufen" in "Ich rufe
+            # dich an"), so this alone is not a give-up.
+            log(f"[VALIDATION] '{misfit.card}' not word for word in '{misfit.sentence}'; kept")
         return result
 
     def _one_option(self, prompt, result, word, translation, ask_again):

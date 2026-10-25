@@ -148,7 +148,7 @@ def test_only_current_checker_verdicts_count_as_done():
 
 
 def test_a_pair_reply_with_numbers_and_lists_is_still_read():
-    from zeeguu.core.audio_lessons.lesson_correctness_check import judge_pair
+    from zeeguu.core.audio_lessons.lesson_correctness_check import second_opinion_on_meaning
 
     class Replies:
         model = "fake"
@@ -159,13 +159,13 @@ def test_a_pair_reply_with_numbers_and_lists_is_still_read():
                    '"phrase_type": "single_word", "explanation": ["formal"], "literal_meaning": null}'
 
     lesson = LessonToCheck(1, "fr", "en", "en", "connu", "experienced", 1, "Ce restaurant est connu.", "")
-    verdict = judge_pair(Replies(), lesson)
+    verdict = second_opinion_on_meaning(Replies(), lesson)
     assert not verdict.is_valid
     assert verdict.corrected_translation == "known"
 
 
 def test_a_pair_correction_listing_options_is_cut_to_one():
-    from zeeguu.core.audio_lessons.lesson_correctness_check import judge_pair
+    from zeeguu.core.audio_lessons.lesson_correctness_check import second_opinion_on_meaning
 
     class Replies:
         model = "fake"
@@ -176,4 +176,48 @@ def test_a_pair_correction_listing_options_is_cut_to_one():
                    '"cefr": "B1", "phrase_type": "single_word", "explanation": "", "literal_meaning": ""}'
 
     lesson = LessonToCheck(1, "da", "en", "en", "som skal", "who", 1, "Den som skal gå.", "")
-    assert judge_pair(Replies(), lesson).corrected_translation == "which must"
+    assert second_opinion_on_meaning(Replies(), lesson).corrected_translation == "which must"
+
+
+def _deepseek_replying(text):
+    class Replies:
+        model = "fake"
+
+        def generate_text(self, *args, **kwargs):
+            return text
+
+    return Replies()
+
+
+def test_a_pair_correction_the_reply_says_does_not_fit_confirms_nothing():
+    # The 13 Aug case, asked of DeepSeek: it writes "what it mean to walk",
+    # judges it wrong, and still corrects to "mean"
+    from zeeguu.core.audio_lessons.lesson_correctness_check import second_opinion_on_meaning
+
+    reply = _deepseek_replying(
+        '{"card_in_sentence": "", "card_reads_right": false, "reason": "r", "verdict": "FIX", '
+        '"corrected_word": "vil sige", "corrected_translation": "mean", '
+        '"correction_in_sentence": "I learned what it mean to walk", "correction_reads_right": false, '
+        '"frequency": "common", "cefr": "A2", "phrase_type": "collocation", "explanation": "", "literal_meaning": ""}'
+    )
+    lesson = LessonToCheck(1, "da", "en", "en", "vil sige", "will say", 0,
+                           "Jeg lærte, hvad det vil sige at gå", "")
+    verdict = second_opinion_on_meaning(reply, lesson)
+    assert verdict.gave_up == "WORD_NOT_FIT"
+    assert verdict.corrected_translation is None
+
+
+def test_a_pair_give_up_is_a_verdict_not_an_error():
+    from zeeguu.core.audio_lessons.lesson_correctness_check import second_opinion_on_meaning
+
+    reply = _deepseek_replying(
+        '{"card_in_sentence": "", "card_reads_right": "false", "reason": "cut off", "verdict": "broken_sentence", '
+        '"corrected_word": "særlig", "corrected_translation": "special", "correction_in_sentence": "", '
+        '"correction_reads_right": "", "frequency": "common", "cefr": "B1", "phrase_type": "single_word", '
+        '"explanation": "", "literal_meaning": ""}'
+    )
+    lesson = LessonToCheck(1, "da", "en", "en", "særl", "unusual", 0, "Det ganske særl", "")
+    verdict = second_opinion_on_meaning(reply, lesson)
+    assert verdict.verdict == "BROKEN_SENTENCE"
+    assert verdict.corrected_word is None  # a give-up never moves the learner
+    assert verdict.card_reads_right is None  # the string "false" is not a boolean
