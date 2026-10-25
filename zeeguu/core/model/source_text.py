@@ -11,7 +11,12 @@ TWO_MB = 2 * 10**6
 
 
 class SourceText(db.Model):
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __table_args__ = (
+        # Declared so create_all (the test DB) has it too; prod's comes from
+        # tools/migrations/25-02-28--01-new-content-tables copy.sql
+        db.UniqueConstraint("content_hash", name="HASH_INDEX"),
+        {"mysql_collate": "utf8_bin"},
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     # this mapes to TEXT in the mysql which can hold about 15K words
