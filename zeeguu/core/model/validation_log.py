@@ -8,6 +8,9 @@ class ValidationAction(Enum):
     VALID = "valid"
     FIXED = "fixed"
     INVALID = "invalid"
+    # BROKEN_SENTENCE or WORD_NOT_FIT, named in the reason: the meaning is
+    # left as it is, only this learner's word leaves study
+    GAVE_UP = "gave_up"
 
 
 class ValidationLog(db.Model):
@@ -122,6 +125,21 @@ class ValidationLog(db.Model):
         log_entry = cls(
             meaning=meaning,
             action=ValidationAction.INVALID,
+            user_word_id=user_word_id,
+            reason=reason,
+            context=context,
+            translation_service_id=translation_service_id,
+        )
+        db_session.add(log_entry)
+        return log_entry
+
+    @classmethod
+    def log_gave_up(cls, db_session, meaning, user_word_id=None, reason=None, context=None,
+                    translation_service_id=None):
+        """Log a give-up: the meaning could not be judged in this sentence."""
+        log_entry = cls(
+            meaning=meaning,
+            action=ValidationAction.GAVE_UP,
             user_word_id=user_word_id,
             reason=reason,
             context=context,

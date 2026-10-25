@@ -217,7 +217,7 @@ class UserWordValidationService:
 
         log(f"[VALIDATION] Gave up on user_word {user_word.id}: {result.reason}")
         user_word.set_unfit_for_study(db_session)
-        ValidationLog.log_invalid(
+        ValidationLog.log_gave_up(
             db_session,
             meaning=meaning,
             user_word_id=user_word.id,

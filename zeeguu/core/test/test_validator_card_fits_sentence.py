@@ -151,7 +151,7 @@ def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatc
     )
     logged = []
     monkeypatch.setattr(
-        "zeeguu.core.model.validation_log.ValidationLog.log_invalid",
+        "zeeguu.core.model.validation_log.ValidationLog.log_gave_up",
         lambda db_session, **kw: logged.append(kw),
     )
     monkeypatch.setattr(validation_service, "_engine_of", lambda user_word: None)
