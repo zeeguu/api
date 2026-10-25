@@ -18,6 +18,7 @@ from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
+from zeeguu.core.model.example_sentence_misfit import ExampleSentenceMisfit
 from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
@@ -99,10 +100,13 @@ def alternative_sentences(user_word_id):
 
     # First, try to get pre-generated examples from database
     # Try exact CEFR level match first
+    # Examples the validator would not pass the card in are not offered
+    not_misfit = ~ExampleSentence.id.in_(ExampleSentenceMisfit.ids())
     db_examples = (
         ExampleSentence.query.filter(
             ExampleSentence.meaning_id == user_word.meaning_id,
             ExampleSentence.cefr_level == cefr_level,
+            not_misfit,
         )
         .limit(MAX_EXAMPLES_ALTERNATIVE)
         .all()
@@ -112,7 +116,8 @@ def alternative_sentences(user_word_id):
     if not db_examples:
         db_examples = (
             ExampleSentence.query.filter(
-                ExampleSentence.meaning_id == user_word.meaning_id
+                ExampleSentence.meaning_id == user_word.meaning_id,
+                not_misfit,
             )
             .limit(MAX_EXAMPLES_ALTERNATIVE)
             .all()

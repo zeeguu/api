@@ -13,6 +13,7 @@ from zeeguu.core.model import Bookmark
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
+from zeeguu.core.model.example_sentence_misfit import ExampleSentenceMisfit
 from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.tokenization.word_position_finder import find_first_occurrence, find_word_positions_in_text
 from zeeguu.logging import log
@@ -89,6 +90,34 @@ def is_fragment(bookmark):
     return bool(context and (context.left_ellipsis or context.right_ellipsis))
 
 
+def usable_examples(meaning_id):
+    """The meaning's generated examples, oldest first, without those the
+    validator would not pass the card in (ExampleSentenceMisfit)."""
+    return (
+        ExampleSentence.query.filter(
+            ExampleSentence.meaning_id == meaning_id,
+            ~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()),
+        )
+        .order_by(ExampleSentence.id)
+        .all()
+    )
+
+
+def next_unused_example_bookmark(session, user_word, skip_ids=()):
+    """The bookmark of the first usable example that anchors the word and is
+    neither the word's preferred context nor one of `skip_ids`, or None."""
+    for example in usable_examples(user_word.meaning_id):
+        bookmark = bookmark_for_example(session, user_word.user, user_word, example)
+        if not bookmark or bookmark.id == user_word.preferred_bookmark_id or bookmark.id in skip_ids:
+            continue
+        # The tokenizer can disagree with find_first_occurrence (#618); only
+        # an example the exercise can blank out is worth switching to.
+        if bookmark.as_dictionary(with_context=True, with_context_tokenized=True).get("_unanchorable"):
+            continue
+        return bookmark
+    return None
+
+
 def replace_fragment_with_example(session, user_word):
     """
     Make one of the word's generated examples its preferred context, if the
@@ -98,19 +127,8 @@ def replace_fragment_with_example(session, user_word):
     if not user_word.preferred_bookmark or not is_fragment(user_word.preferred_bookmark):
         return False
 
-    examples = (
-        ExampleSentence.query.filter(ExampleSentence.meaning_id == user_word.meaning_id)
-        .order_by(ExampleSentence.id)
-        .all()
-    )
-    for example in examples:
-        bookmark = bookmark_for_example(session, user_word.user, user_word, example)
-        if not bookmark:
-            continue
-        # The tokenizer can disagree with find_first_occurrence (#618); only
-        # an example the exercise can blank out is worth switching to.
-        if bookmark.as_dictionary(with_context=True, with_context_tokenized=True).get("_unanchorable"):
-            continue
+    bookmark = next_unused_example_bookmark(session, user_word)
+    if bookmark:
         log(
             f"[FRAGMENT-CONTEXT] user_word {user_word.id}: bookmark "
             f"{user_word.preferred_bookmark.id} -> example bookmark {bookmark.id}"

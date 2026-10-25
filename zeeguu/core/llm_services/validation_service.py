@@ -24,8 +24,10 @@ Usage:
     user_word = UserWordValidationService.validate_and_fix(db_session, user_word)
 """
 
+from dataclasses import replace
 from typing import Optional
 from zeeguu.logging import log
+from zeeguu.core.llm_services.translation_validator import BROKEN_SENTENCE, WORD_NOT_FIT
 
 
 def _engine_of(user_word):
@@ -48,6 +50,11 @@ def _engine_of(user_word):
         .first()
     )
     return first.translation_service_id if first else None
+
+
+# A meaning judged in this many sentences without passing in one is given up
+# on, so a word whose sentences are all bad costs a bounded number of calls.
+MAX_SENTENCES_TRIED = 3
 
 
 class UserWordValidationService:
@@ -137,7 +144,7 @@ class UserWordValidationService:
         return False
 
     @classmethod
-    def validate_and_fix(cls, db_session, user_word) -> Optional["UserWord"]:
+    def validate_and_fix(cls, db_session, user_word, sentences_tried=()) -> Optional["UserWord"]:
         """
         Validate translation and fix if needed before exercises/examples.
 
@@ -199,11 +206,65 @@ class UserWordValidationService:
 
         if result.is_valid:
             return cls._apply_valid_result(db_session, user_word, meaning, result, context)
+        elif bookmark.translation_source == "generated_example" or result.gave_up == BROKEN_SENTENCE:
+            return cls._try_another_sentence(db_session, user_word, bookmark, result, sentences_tried)
         elif result.gave_up:
             return cls._give_up(db_session, user_word, meaning, result, context)
         else:
             log(f"[VALIDATION] Translation needs fixing: {result.reason}")
             return cls._fix_bookmark(db_session, user_word, bookmark, result, context)
+
+    @classmethod
+    def _try_another_sentence(cls, db_session, user_word, bookmark, result, sentences_tried):
+        """The meaning did not pass in this sentence, and the sentence is what
+        is wrong: a generated example (anything but VALID), or a sentence the
+        validator calls broken (BROKEN_SENTENCE).
+
+        A generated example was generated for the meaning, so a FIX there must
+        not change what the learner studies ("selv" = "even" must not become
+        "selv om" because one example used "selv om"); the example is recorded
+        and not used again. A broken sentence says nothing about the word,
+        which may fit any other sentence. Either way the meaning is judged
+        again in another of the learner's own sentences, or else in the next
+        unused example. With no sentence left, or after MAX_SENTENCES_TRIED,
+        the word is given up on. Returns what validate_and_fix returns for the
+        sentence the meaning is finally judged in.
+        """
+        from zeeguu.core.exercises.example_contexts import next_unused_example_bookmark
+        from zeeguu.core.model.example_sentence import ExampleSentence
+        from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
+        from zeeguu.core.model.example_sentence_misfit import ExampleSentenceMisfit
+
+        log(f"[VALIDATION] Meaning of user_word {user_word.id} not judged in bookmark {bookmark.id} "
+            f"({result.verdict}: {result.reason}); trying another sentence")
+        if bookmark.translation_source == "generated_example":
+            example_context = ExampleSentenceContext.find_by_bookmark(bookmark)
+            example = example_context.example_sentence if example_context else ExampleSentence.query.filter(
+                ExampleSentence.meaning_id == user_word.meaning_id,
+                ExampleSentence.sentence == bookmark.get_context(),
+            ).first()
+            if example:
+                ExampleSentenceMisfit.mark(db_session, example, f"{result.verdict}: {result.reason or ''}".strip())
+
+        tried = sentences_tried + (bookmark.id,)
+        next_sentence = None
+        if len(tried) < MAX_SENTENCES_TRIED:
+            own = [
+                b for b in user_word.bookmarks()
+                if b.id not in tried and b.translation_source != "generated_example" and b.get_context()
+            ]
+            next_sentence = own[0] if own else next_unused_example_bookmark(db_session, user_word, skip_ids=tried)
+        if not next_sentence:
+            db_session.commit()
+            # No sentence left that the meaning passes in: a FIX in an example
+            # gives up as WORD_NOT_FIT, a broken sentence as itself
+            gave_up = replace(result, is_valid=False, gave_up=result.gave_up or WORD_NOT_FIT)
+            return cls._give_up(db_session, user_word, user_word.meaning, gave_up, bookmark.get_context())
+
+        user_word.preferred_bookmark = next_sentence
+        db_session.add(user_word)
+        db_session.commit()
+        return cls.validate_and_fix(db_session, user_word, tried)
 
     @classmethod
     def _give_up(cls, db_session, user_word, meaning, result, context=None):

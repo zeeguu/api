@@ -39,6 +39,7 @@ from .level_adapted_article_summary_context import LevelAdaptedArticleSummaryCon
 from .level_adapted_article_title_context import LevelAdaptedArticleTitleContext
 from .example_sentence import ExampleSentence
 from .example_sentence_context import ExampleSentenceContext
+from .example_sentence_misfit import ExampleSentenceMisfit
 
 
 from .cohort import Cohort
