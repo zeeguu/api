@@ -3,9 +3,11 @@
 # Applied with tools/correct_rechecked_fixes.py: only the learner's bookmark in
 # `log_id`'s sentence moves to `card`; the fixed meaning stays as it is for
 # everyone else (e.g. "côté = kant" is right in general, just not in "De son côté").
+# Cards are in dictionary case ("de son côté"); placing them in the sentence
+# ignores case.
 # Left out: continuer (log 19809), judged in a generated example: roadmap item 1.
 corrections:
-  - {log_id: 6517,  card: "De son côté = van zijn kant"}
+  - {log_id: 6517,  card: "de son côté = van zijn kant"}
   - {log_id: 7851,  card: "chape de plomb = loden last"}
   - {log_id: 7962,  card: "peu importe = maakt niet uit"}
   - {log_id: 8900,  card: "dénoncé = aan de kaak gesteld"}
@@ -23,8 +25,8 @@ corrections:
   - {log_id: 19211, card: "de proximité = in de buurt"}
   - {log_id: 19243, card: "mène une reconversion = maakt een carrièreswitch"}
   - {log_id: 19322, card: "champions du monde = wereldkampioenen"}
-  - {log_id: 19454, card: "Pour cela = daarvoor"}
+  - {log_id: 19454, card: "pour cela = daarvoor"}
   - {log_id: 19464, card: "selon = afhankelijk van"}
   - {log_id: 19606, card: "d’entre = van"}
-  - {log_id: 20357, card: "Bald darauf = kort daarna"}
-  - {log_id: 20400, card: "Mit 15 Jahren = op 15-jarige leeftijd"}
+  - {log_id: 20357, card: "bald darauf = kort daarna"}
+  - {log_id: 20400, card: "mit 15 Jahren = op 15-jarige leeftijd"}

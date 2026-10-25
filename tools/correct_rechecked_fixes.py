@@ -26,10 +26,8 @@ app.app_context().push()
 
 import yaml
 
-from zeeguu.core.bookmark_operations.correct_past_fix import learners_bookmarks, move
-from zeeguu.core.bookmark_operations.update_bookmark import BookmarkValidationError
+from zeeguu.core.bookmark_operations.correct_past_fix import learners_bookmarks, move, why_not
 from zeeguu.core.model.validation_log import ValidationLog
-from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
 
 session = db.session
 
@@ -48,33 +46,24 @@ def main():
         card = correction["card"]
         word, translation = (part.strip() for part in card.split("=", 1))
         fix = session.get(ValidationLog, correction["log_id"])
-        shown = f"{fix.new_meaning.origin.content} = {fix.new_meaning.translation.content} -> {card}"
-        bookmarks = learners_bookmarks(fix)
-        place = validate_single_occurrence(word, fix.context, fix.new_meaning.origin.language)
-        if not bookmarks or not place["valid"]:
-            why = "no bookmark left in the sentence" if not bookmarks else f"'{word}' {place['error_type']}"
-            print(f"SKIP  log {fix.id}: {shown} ({why})")
+        reason = why_not(fix, word, translation)
+        bookmarks = [] if reason else learners_bookmarks(fix)
+        if not reason and not bookmarks:
+            reason = "no bookmark of the fix left in the sentence"
+        if reason:
+            print(f"SKIP   log {correction['log_id']}: {card} ({reason})")
             skipped += 1
             continue
+        shown = f"{fix.new_meaning.origin.content} = {fix.new_meaning.translation.content} -> {card}"
         for bookmark in bookmarks:
-            user_word = bookmark.user_word
-            print(f"{'MOVE' if args.apply else 'WOULD'}  log {fix.id}: bookmark {bookmark.id} of user "
-                  f"{user_word.user_id}: {shown}"
-                  f"{'' if len(user_word.bookmarks()) == 1 else ' (the word keeps its other sentences)'}")
-            if not args.apply:
-                continue
-            savepoint = session.begin_nested()
-            try:
+            print(f"{'MOVE' if args.apply else 'WOULD'}  log {fix.id}: bookmark {bookmark.id} "
+                  f"of user {bookmark.user_word.user_id}: {shown}")
+            if args.apply:
                 move(session, bookmark, fix, word, translation, card)
-                savepoint.commit()
                 session.commit()
-                moved += 1
-            except BookmarkValidationError as e:
-                savepoint.rollback()
-                print(f"SKIP  log {fix.id}: {e}")
-                skipped += 1
+            moved += 1
 
-    print(f"\n{moved} moved, {skipped} skipped" if args.apply else f"\nDry run; {skipped} would be skipped")
+    print(f"\n{moved} {'moved' if args.apply else 'would move'}, {skipped} skipped")
 
 
 if __name__ == "__main__":
