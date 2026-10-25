@@ -163,8 +163,8 @@ def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatc
         id=1,
         meaning=meaning,
         fit_for_study=True,
-        user_preference=None,
-        set_unfit_for_study=lambda session: setattr(user_word, "fit_for_study", False),
+        study_choice=None,
+        set_unfit_for_study=lambda session, reason: setattr(user_word, "fit_for_study", False),
         preferred_bookmark=SimpleNamespace(
             get_context=lambda: "Dronen er mennesker og kan flyve", translation_source="reading"
         ),
@@ -175,7 +175,7 @@ def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatc
     assert meaning.validated == Meaning.NOT_VALIDATED
     assert user_word.fit_for_study is False
     assert logged == []  # validation_log records what happened to meanings; nothing did
-    assert user_word.user_preference is None  # the learner's choice, not the validator's
+    assert user_word.study_choice is None  # the learner's choice, not the validator's
 
 
 def test_a_valid_card_its_own_sentence_does_not_say_is_a_misfit():

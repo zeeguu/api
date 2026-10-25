@@ -14,7 +14,7 @@ from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
 from zeeguu.core.model import UserWord, User, Bookmark, Language, Meaning, MeaningReport, TranslationService
 from zeeguu.core.model.ai_generator import AIGenerator
-from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+from zeeguu.core.model.study_choice import StudyChoice
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
@@ -576,8 +576,7 @@ def add_word_to_learning():
             db_session, user, meaning, is_user_added=True
         )
 
-        user_word.user_preference = UserWordExPreference.USE_IN_EXERCISES
-        user_word.update_fit_for_study(db_session)
+        user_word.choose(db_session, StudyChoice.STUDY)
 
         # Validate word position in example
         validation_result = validate_single_occurrence(final_word, final_example, origin_lang)

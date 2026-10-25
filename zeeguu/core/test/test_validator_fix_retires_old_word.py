@@ -64,7 +64,7 @@ class ValidatorFixRetiresOldWordTest(ModelTestMixIn, TestCase):
 
         # and it stays out when something recomputes the flag, even if the
         # quality checks pass
-        with patch("zeeguu.core.bookmark_quality.fit_for_study.quality_meaning", lambda uw: True):
+        with patch("zeeguu.core.bookmark_quality.fit_for_study.bad_quality_reason", lambda uw: None):
             old.update_fit_for_study(session)
         self.assertFalse(old.fit_for_study)
 

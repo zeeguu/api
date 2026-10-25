@@ -1,2 +1,2 @@
 from .positive_qualities import quality_meaning
-from .negative_qualities import bad_quality_meaning
+from .negative_qualities import bad_quality_meaning, bad_quality_reason
