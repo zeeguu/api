@@ -12,9 +12,20 @@ def find_or_create(session, cls, filters: dict, make, commit=False):
     Commits only when it created the row and `commit` is set; a found or
     recovered row is returned without committing, as the per-model copies did.
     """
+    row, _ = find_or_create_and_report(session, cls, filters, make, commit)
+    return row
+
+
+def find_or_create_and_report(session, cls, filters: dict, make, commit=False):
+    """
+    As find_or_create, but returns `(row, created)`: `created` is True only
+    when this call inserted the row, and False when it found it or lost the
+    race to another request. For callers that must do follow-up work (e.g.
+    child rows) only for a row they created.
+    """
     existing = session.query(cls).filter_by(**filters).one_or_none()
     if existing:
-        return existing
+        return existing, False
 
     # Two requests that both miss the query above both insert, and the unique
     # key lets exactly one of them through.
@@ -33,15 +44,22 @@ def find_or_create(session, cls, filters: dict, make, commit=False):
         # A locking read (SELECT ... LOCK IN SHARE MODE). Under REPEATABLE
         # READ a plain SELECT would reuse this transaction's snapshot, taken
         # at its first read, before the winner committed: it would find
-        # nothing and .one() would raise NoResultFound. A locking read sees
-        # the latest committed row. (SQLite ignores it; tests don't race.)
-        return (
+        # nothing. A locking read sees the latest committed row. (SQLite
+        # ignores it; tests don't race.)
+        winner = (
             session.query(cls)
             .filter_by(**filters)
             .with_for_update(read=True)
-            .one()
+            .one_or_none()
         )
+        if winner is None:
+            # No row matches `filters`, so the insert collided on some other
+            # unique key: there is no winner to return. Re-raise the
+            # IntegrityError, which names that key, rather than hide it
+            # behind a NoResultFound.
+            raise
+        return winner, False
 
     if commit:
         session.commit()
-    return new
+    return new, True

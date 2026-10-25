@@ -1,10 +1,13 @@
 from unittest import mock
 
+import pytest
+
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Query
 
 from zeeguu.core.model.article_summary_context import ArticleSummaryContext
 from zeeguu.core.model.db import db
-from zeeguu.core.model.race_safe import find_or_create
+from zeeguu.core.model.race_safe import find_or_create, find_or_create_and_report
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.article_rule import ArticleRule
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
@@ -91,6 +94,59 @@ class RaceSafeFindOrCreateTest(ModelTestMixIn):
         session.commit()
 
         assert loser.id == winner_id
+        assert self._count() == 1
+        session.refresh(self.article)
+        assert self.article.title == "changed by the caller"
+
+    def test_report_says_whether_this_call_created_the_row(self):
+        created_row, created = find_or_create_and_report(
+            session, ArticleSummaryContext, self.filters, self._make
+        )
+        assert created
+
+        found_row, created = find_or_create_and_report(
+            session, ArticleSummaryContext, self.filters, self._make
+        )
+        assert found_row is created_row
+        assert not created
+
+    def test_report_says_not_created_when_losing_the_race(self):
+        winner = self._make()
+        session.add(winner)
+        session.commit()
+
+        real_one_or_none = Query.one_or_none
+        lookups = []
+
+        def first_lookup_misses(query):
+            lookups.append(query)
+            if len(lookups) == 1:
+                return None
+            return real_one_or_none(query)
+
+        with mock.patch.object(Query, "one_or_none", first_lookup_misses):
+            row, created = find_or_create_and_report(
+                session, ArticleSummaryContext, self.filters, self._make
+            )
+
+        assert row.id == winner.id
+        assert not created
+
+    def test_collision_on_another_unique_key_raises_the_integrity_error(self):
+        # The row make() builds collides on (bookmark, article), but the
+        # filters don't cover that key, so there is no winner to return.
+        existing = self._make()
+        session.add(existing)
+        session.commit()
+
+        self.article.title = "changed by the caller"
+
+        with pytest.raises(IntegrityError):
+            find_or_create(
+                session, ArticleSummaryContext, dict(id=existing.id + 1000), self._make
+            )
+        session.commit()
+
         assert self._count() == 1
         session.refresh(self.article)
         assert self.article.title == "changed by the caller"
