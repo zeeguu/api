@@ -188,6 +188,8 @@ class TranslationValidator:
         if result.gave_up:
             return result
         result = self._one_option(prompt, result, word, translation, ask_again=retry)
+        if result.gave_up:
+            return result
 
         misfit = self._misfit(result, word, translation, context)
         if misfit and retry:
@@ -204,12 +206,13 @@ class TranslationValidator:
                     VALIDATION_SCHEMA,
                 )
             except Exception as e:
-                # As for the first call: no answer is no verdict, not a give-up
                 log(f"Translation validation retry failed: {e}")
                 logger.error(f"Translation validation retry failed: {e}")
                 import sentry_sdk
                 sentry_sdk.capture_exception(e)
-                return None
+                # An uncertain misfit would have been kept anyway; otherwise,
+                # as for the first call, no answer is no verdict, not a give-up
+                return result if not misfit.certain else None
             if result.gave_up:
                 return result
             result = self._one_option(prompt, result, word, translation, ask_again=False)
@@ -245,18 +248,17 @@ class TranslationValidator:
         if ask_again and self._lists_options(result, word, translation):
             offending = result.corrected_translation or translation
             try:
-                retried = self._ask(
+                # A give-up here wins, as on the first call: it moves nobody
+                result = self._ask(
                     prompt + SINGLE_TRANSLATION_REMINDER.format(translation=offending),
                     VALIDATION_SCHEMA,
                 )
-                if not retried.gave_up:
-                    result = retried
             except Exception as e:
                 # Keep the first reply and its classification; the fallback
                 # below still reduces it to one option.
                 log(f"Translation validation retry failed: {e}")
 
-        if self._lists_options(result, word, translation):
+        if not result.gave_up and self._lists_options(result, word, translation):
             result = self._with_one_option(result, word, translation)
         return result
 
@@ -322,11 +324,20 @@ class TranslationValidator:
             log(f"[VALIDATION] '{source}' lists options but can't be reduced; leaving it")
             return result
         log(f"[VALIDATION] '{source}' lists options; keeping '{one}'")
+        carried = {}
+        if result.is_valid:
+            # The VALID card becomes the correction: its sentence and the
+            # reply's judgement of it go with it, for _misfit to read
+            carried = dict(
+                correction_in_sentence=result.card_in_sentence,
+                correction_reads_right=result.card_reads_right,
+            )
         return replace(
             result,
             is_valid=False,
             corrected_translation=one,
             reason=(result.reason or "") + f" [kept one option of '{source}']",
+            **carried,
         )
 
     @staticmethod

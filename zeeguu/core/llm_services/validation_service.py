@@ -212,10 +212,14 @@ class UserWordValidationService:
         (WORD_NOT_FIT). Neither says the meaning is wrong for other learners,
         whose words on it are judged in their own sentences, so the meaning is
         left as it is - and is not logged in validation_log, which records
-        what happened to meanings - and only this learner's word leaves study.
-        Commits. Returns None."""
+        what happened to meanings - and only this learner's word leaves study,
+        for good: fit_for_study is recomputed on later events, and only a
+        negative user_preference survives that. Commits. Returns None."""
+        from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
+
         log(f"[VALIDATION] Gave up on user_word {user_word.id} in {context!r}: "
             f"[{result.gave_up.lower()}] {result.reason}")
+        user_word.user_preference = UserWordExPreference.DONT_USE_IN_EXERCISES
         user_word.set_unfit_for_study(db_session)
         db_session.commit()
         return None

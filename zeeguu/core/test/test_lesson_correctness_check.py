@@ -220,4 +220,18 @@ def test_a_pair_give_up_is_a_verdict_not_an_error():
     verdict = second_opinion_on_meaning(reply, lesson)
     assert verdict.verdict == "BROKEN_SENTENCE"
     assert verdict.corrected_word is None  # a give-up never moves the learner
-    assert verdict.card_reads_right is None  # the string "false" is not a boolean
+    assert verdict.card_reads_right is False  # "false" as a string counts
+
+
+def test_a_flag_written_as_a_string_still_counts():
+    from zeeguu.core.audio_lessons.lesson_correctness_check import second_opinion_on_meaning
+
+    reply = _deepseek_replying(
+        '{"card_in_sentence": "", "card_reads_right": "", "reason": "r", "verdict": "FIX", '
+        '"corrected_word": "vil sige", "corrected_translation": "mean", '
+        '"correction_in_sentence": "I learned what it mean to walk", "correction_reads_right": "false", '
+        '"frequency": "common", "cefr": "A2", "phrase_type": "collocation", "explanation": "", "literal_meaning": ""}'
+    )
+    lesson = LessonToCheck(1, "da", "en", "en", "vil sige", "will say", 0,
+                           "Jeg lærte, hvad det vil sige at gå", "")
+    assert second_opinion_on_meaning(reply, lesson).gave_up == "WORD_NOT_FIT"

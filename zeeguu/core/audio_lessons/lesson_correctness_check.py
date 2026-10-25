@@ -279,11 +279,14 @@ def second_opinion_on_meaning(service, lesson: LessonToCheck):
         )
         # Without the schema nothing holds the reply to strings: "valid" would
         # read as FIX, and a number or list where the parser expects text raises.
-        # The two flags stay booleans, and only booleans count: the string
-        # "false" would read as true, so it is dropped (not given).
+        # The two flags stay booleans: str(False) is "False", which reads as
+        # true. "true"/"false" written as strings count as the booleans;
+        # anything else is not given.
         flags = {}
         for flag in ("card_reads_right", "correction_reads_right"):
             value = reply.pop(flag, None)
+            if isinstance(value, str) and value.strip().lower() in ("true", "false"):
+                value = value.strip().lower() == "true"
             if isinstance(value, bool):
                 flags[flag] = value
         reply = {k: v if isinstance(v, str) else ("" if v is None else str(v)) for k, v in reply.items()}
