@@ -4,16 +4,17 @@ from zeeguu.core.model.example_sentence import ExampleSentence
 
 class ExampleSentenceMisfit(db.Model):
     """
-    A generated example the translation validator would not pass the card in.
+    A generated example the translation validator would not pass the meaning in.
 
-    The example was generated for the card, so when the two disagree it is the
-    example that is wrong: the card stays as it is, and the example is not
-    used as a context again (see UserWordValidationService._reject_example).
-    A side table rather than a column, because few examples ever land here.
+    The example was generated for the meaning, so when the two disagree it is
+    the example that is wrong: the meaning stays as it is, and the example is
+    not used as a context again, for any learner (see
+    UserWordValidationService._try_another_sentence). A side table rather than
+    a column, because few examples ever land here.
     """
 
     __tablename__ = "example_sentence_misfit"
-    __table_args__ = {"mysql_collate": "utf8_bin"}
+    __table_args__ = {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_bin"}
 
     example_sentence_id = db.Column(
         db.Integer, db.ForeignKey(ExampleSentence.id, ondelete="CASCADE"), primary_key=True
