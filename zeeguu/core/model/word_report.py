@@ -57,6 +57,17 @@ class WordReport(db.Model):
     comment = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.now)
 
+    # What the validator made of a wrong_translation report (word_reports.judge).
+    # valid / fixed / invalid: as in validation_log, whose row is linked;
+    # gave_up: the validator gave up on the sentence (not logged there);
+    # not_judged: no sentence to judge in, or the word has moved on since.
+    # A report without a verdict (the validator didn't answer) has no
+    # judged_at and is judged again by tools/judge_word_reports.py.
+    OUTCOMES = ("valid", "fixed", "invalid", "gave_up", "not_judged")
+    outcome = db.Column(db.Enum(*OUTCOMES), nullable=True)
+    validation_log_id = db.Column(db.Integer, nullable=True)
+    judged_at = db.Column(db.DateTime, nullable=True)
+
     user = db.relationship("User")
     meaning = db.relationship("Meaning")
     user_word = db.relationship("UserWord")

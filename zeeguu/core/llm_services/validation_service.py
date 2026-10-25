@@ -146,7 +146,9 @@ class UserWordValidationService:
         return False
 
     @classmethod
-    def validate_and_fix(cls, db_session, user_word, sentences_tried=()) -> Optional["UserWord"]:
+    def validate_and_fix(
+        cls, db_session, user_word, sentences_tried=(), bookmark=None, recheck=False
+    ) -> Optional["UserWord"]:
         """
         Validate translation and fix if needed before exercises/examples.
 
@@ -157,6 +159,8 @@ class UserWordValidationService:
         Args:
             db_session: Database session to use
             user_word: UserWord to validate
+            bookmark: the sentence to judge in; the preferred bookmark if None
+            recheck: judge a meaning already VALID too (a learner reported it)
 
         Returns:
             UserWord to use (may be different if fixed), or None if unfixable/should skip
@@ -164,7 +168,7 @@ class UserWordValidationService:
         from zeeguu.core.model.meaning import Meaning
 
         # Skip if already validated as correct
-        if user_word.meaning.validated == Meaning.VALID:
+        if user_word.meaning.validated == Meaning.VALID and not recheck:
             return user_word
 
         # Get validator (fail gracefully if not available)
@@ -176,7 +180,7 @@ class UserWordValidationService:
             return user_word
 
         # Get context from preferred bookmark
-        bookmark = user_word.preferred_bookmark
+        bookmark = bookmark or user_word.preferred_bookmark
         if not bookmark:
             log(f"[VALIDATION] No preferred bookmark for user_word {user_word.id}, skipping")
             return user_word
@@ -209,7 +213,7 @@ class UserWordValidationService:
         if result.is_valid:
             return cls._apply_valid_result(db_session, user_word, meaning, result, context)
         elif bookmark.translation_source == "generated_example" or result.gave_up == BROKEN_SENTENCE:
-            return cls._try_another_sentence(db_session, user_word, bookmark, result, sentences_tried)
+            return cls._try_another_sentence(db_session, user_word, bookmark, result, sentences_tried, recheck)
         elif result.gave_up:
             return cls._give_up(db_session, user_word, meaning, result, context)
         else:
@@ -217,7 +221,7 @@ class UserWordValidationService:
             return cls._fix_bookmark(db_session, user_word, bookmark, result, context)
 
     @classmethod
-    def _try_another_sentence(cls, db_session, user_word, bookmark, result, sentences_tried):
+    def _try_another_sentence(cls, db_session, user_word, bookmark, result, sentences_tried, recheck=False):
         """The meaning did not pass in this sentence, and the sentence is what
         is wrong: a generated example (anything but VALID), or a sentence the
         validator calls broken (BROKEN_SENTENCE).
@@ -278,7 +282,7 @@ class UserWordValidationService:
         user_word.preferred_bookmark = next_sentence
         db_session.add(user_word)
         db_session.commit()
-        return cls.validate_and_fix(db_session, user_word, tried)
+        return cls.validate_and_fix(db_session, user_word, tried, recheck=recheck)
 
     @classmethod
     def _give_up(cls, db_session, user_word, meaning, result, context=None):
