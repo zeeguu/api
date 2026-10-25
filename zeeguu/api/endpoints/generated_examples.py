@@ -8,7 +8,7 @@ from flask import request, Response
 from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.exercises.example_contexts import anchorable_examples, bookmark_for_example
+from zeeguu.core.exercises.example_contexts import anchorable_examples, bookmark_for_example, usable_examples_query
 from zeeguu.core.llm_services import get_llm_service
 from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
@@ -18,7 +18,6 @@ from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
-from zeeguu.core.model.example_sentence_misfit import ExampleSentenceMisfit
 from zeeguu.core.tokenization.word_position_finder import validate_single_occurrence
 from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import FourLevelsPerWord
 from zeeguu.logging import log
@@ -100,30 +99,16 @@ def alternative_sentences(user_word_id):
 
     # First, try to get pre-generated examples from database
     # Try exact CEFR level match first
-    # Examples the validator would not pass the card in are not offered
-    not_misfit = ~ExampleSentence.id.in_(ExampleSentenceMisfit.ids())
     db_examples = (
-        ExampleSentence.query.filter(
-            ExampleSentence.meaning_id == user_word.meaning_id,
-            ExampleSentence.cefr_level == cefr_level,
-            not_misfit,
-        )
-        .order_by(ExampleSentence.id.desc())  # newest: newer prompts and models
+        usable_examples_query(user_word.meaning_id)
+        .filter(ExampleSentence.cefr_level == cefr_level)
         .limit(MAX_EXAMPLES_ALTERNATIVE)
         .all()
     )
 
     # If no exact match, try any CEFR level for this meaning
     if not db_examples:
-        db_examples = (
-            ExampleSentence.query.filter(
-                ExampleSentence.meaning_id == user_word.meaning_id,
-                not_misfit,
-            )
-            .order_by(ExampleSentence.id.desc())
-            .limit(MAX_EXAMPLES_ALTERNATIVE)
-            .all()
-        )
+        db_examples = usable_examples_query(user_word.meaning_id).limit(MAX_EXAMPLES_ALTERNATIVE).all()
 
     if db_examples:
         # Format database examples

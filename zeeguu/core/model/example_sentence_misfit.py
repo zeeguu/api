@@ -1,3 +1,5 @@
+import sqlalchemy
+
 from zeeguu.core.model.db import db
 from zeeguu.core.model.example_sentence import ExampleSentence
 
@@ -27,8 +29,16 @@ class ExampleSentenceMisfit(db.Model):
 
     @classmethod
     def mark(cls, session, example_sentence, reason):
-        if not session.get(cls, example_sentence.id):
-            session.add(cls(example_sentence=example_sentence, reason=reason))
+        if session.get(cls, example_sentence.id):
+            return
+        # Examples are shared across learners: another validation may mark the
+        # same one between our get and our insert. A savepoint keeps that
+        # duplicate from failing the caller's whole transaction.
+        try:
+            with session.begin_nested():
+                session.add(cls(example_sentence=example_sentence, reason=reason))
+        except sqlalchemy.exc.IntegrityError:
+            pass
 
     @classmethod
     def ids(cls):

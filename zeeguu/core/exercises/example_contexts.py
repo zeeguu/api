@@ -90,19 +90,20 @@ def is_fragment(bookmark):
     return bool(context and (context.left_ellipsis or context.right_ellipsis))
 
 
-def usable_examples(meaning_id):
+def usable_examples_query(meaning_id):
     """The meaning's generated examples, newest first, without those the
     validator would not pass the meaning in (ExampleSentenceMisfit). Newest
     first because newer examples come from newer prompts and models (the v4
-    example prompt, the 19 Oct cleanup), so they are the likeliest to be right."""
-    return (
-        ExampleSentence.query.filter(
-            ExampleSentence.meaning_id == meaning_id,
-            ~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()),
-        )
-        .order_by(ExampleSentence.id.desc())
-        .all()
-    )
+    example prompt, the 19 Oct cleanup), so they are the likeliest to be right.
+    A query, so callers can filter or limit it further."""
+    return ExampleSentence.query.filter(
+        ExampleSentence.meaning_id == meaning_id,
+        ~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()),
+    ).order_by(ExampleSentence.id.desc())
+
+
+def usable_examples(meaning_id):
+    return usable_examples_query(meaning_id).all()
 
 
 def next_unused_example_bookmark(session, user_word, skip_ids=()):

@@ -240,7 +240,11 @@ class UserWordValidationService:
         log(f"[VALIDATION] Meaning of user_word {user_word.id} not judged in bookmark {bookmark.id} "
             f"({result.verdict}: {result.reason}); trying another sentence")
         if bookmark.translation_source == "generated_example":
-            example_context = ExampleSentenceContext.find_by_bookmark(bookmark)
+            # .first(), not find_by_bookmark's .one(): a bookmark can carry
+            # more than one example link
+            example_context = ExampleSentenceContext.query.filter(
+                ExampleSentenceContext.bookmark_id == bookmark.id
+            ).first()
             example = example_context.example_sentence if example_context else ExampleSentence.query.filter(
                 ExampleSentence.meaning_id == user_word.meaning_id,
                 ExampleSentence.sentence == bookmark.get_context(),
