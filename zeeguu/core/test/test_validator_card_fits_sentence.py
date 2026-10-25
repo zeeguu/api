@@ -163,6 +163,7 @@ def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatc
         id=1,
         meaning=meaning,
         fit_for_study=True,
+        user_preference=None,
         set_unfit_for_study=lambda session: setattr(user_word, "fit_for_study", False),
         preferred_bookmark=SimpleNamespace(get_context=lambda: "Dronen er mennesker og kan flyve"),
     )
@@ -172,6 +173,7 @@ def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatc
     assert meaning.validated == Meaning.NOT_VALIDATED
     assert user_word.fit_for_study is False
     assert logged == []  # validation_log records what happened to meanings; nothing did
+    assert user_word.user_preference is None  # the learner's choice, not the validator's
 
 
 def test_a_valid_card_its_own_sentence_does_not_say_is_a_misfit():
@@ -255,31 +257,3 @@ def test_a_give_up_from_the_options_retry_wins():
 
     assert r.gave_up == "BROKEN_SENTENCE" and r.corrected_translation is None
 
-
-def test_giving_up_is_for_good(monkeypatch):
-    from types import SimpleNamespace
-    from zeeguu.core.llm_services import translation_validator
-    from zeeguu.core.llm_services.validation_service import UserWordValidationService
-    from zeeguu.core.model.bookmark_user_preference import UserWordExPreference
-    from zeeguu.core.bookmark_quality.fit_for_study import fit_for_study
-
-    gave_up = TranslationValidator._parse_response(json.dumps(reply(verdict="WORD_NOT_FIT", reason="nothing fits")))
-    monkeypatch.setattr(
-        translation_validator, "TranslationValidator",
-        lambda: SimpleNamespace(validate_translation=lambda **kw: gave_up),
-    )
-    phrase = lambda text, code: SimpleNamespace(content=text, language=SimpleNamespace(code=code))
-    user_word = SimpleNamespace(
-        id=1, fit_for_study=True, user_preference=None,
-        meaning=SimpleNamespace(validated=0, origin=phrase("x", "da"), translation=phrase("y", "en")),
-        set_unfit_for_study=lambda session: setattr(user_word, "fit_for_study", False),
-        preferred_bookmark=SimpleNamespace(get_context=lambda: "x er her", translation_source="reading",
-                                           mwe_partner_token_i=None),
-    )
-
-    UserWordValidationService.validate_and_fix(SimpleNamespace(add=lambda x: None, commit=lambda: None), user_word)
-
-    assert user_word.user_preference == UserWordExPreference.DONT_USE_IN_EXERCISES
-    # a later recompute keeps it out, even when the word passes every quality check
-    monkeypatch.setattr("zeeguu.core.bookmark_quality.fit_for_study.quality_meaning", lambda uw: True)
-    assert not fit_for_study(user_word)
