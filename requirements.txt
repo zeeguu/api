@@ -86,6 +86,7 @@ sentry-sdk[flask]
 
 # Testing
 pytest
+PyYAML  # LLM regression sets (tools/run_validator_regression.py)
 
 # Version constraints
 pydantic>=1.10.8

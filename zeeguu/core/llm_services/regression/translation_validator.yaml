@@ -1,0 +1,321 @@
+# Regression set for the translation validator (prompts/translation_validator.py).
+#
+# Each case is what the validator is given (word, translation, context) and what
+# it should answer. The rule the cases encode: an exercise shows `translation`
+# above `word` in `context`, so the card must read correctly THERE.
+#
+#   expect: VALID       the pair fits the sentence as it stands
+#           FIX         the card should become `card` (form, unit or meaning);
+#                       the sentence is kept only if `card` fits it, otherwise
+#                       new examples are generated for `card`
+#           UNRESOLVED  no card fits and no expansion gives a real expression,
+#                       or the sentence itself is broken: the word leaves
+#                       exercises and the case is logged as a give-up
+#
+# `card` is "word = translation". `expect` and `card` may be lists: any one of
+# them passes. `validator_did` is what prod answered, for the cases taken from
+# validation_log. `source` and `target` are language codes, Danish -> English
+# when left out.
+
+cases:
+  # --- the case behind this set (bookmark 812839, 13 Aug 2026) ---
+  - word: vil sige
+    translation: mean
+    context: Jeg lærte, hvad det vil sige at gå, da jeg så evnen forsvinde
+    expect: FIX
+    card: [vil sige = means, hvad det vil sige = what it means]
+    note: '"what it mean to walk" is wrong English; shown in an exercise on 23 Oct'
+  - word: vil sige
+    translation: will say
+    context: Jeg lærte, hvad det vil sige at gå, da jeg så evnen forsvinde
+    expect: FIX
+    card: [vil sige = means, hvad det vil sige = what it means]
+    validator_did: vil sige = mean   # log 13793
+
+  # --- hand-made controls for form ---
+  - word: vil sige
+    translation: mean
+    context: Hvad vil det sige?
+    expect: VALID
+    note: '"what does it mean?" - English adds "does", the verb stays bare'
+  - word: forstår
+    translation: understand
+    context: Hun forstår ikke, hvad du mener
+    expect: VALID
+    note: '"she doesn''t understand" - negation brings "does"'
+  - word: forstår
+    translation: understand
+    context: Jeg forstår ikke, hvad du mener
+    expect: VALID
+  - word: løb
+    translation: run
+    context: Han løb hjem i går
+    expect: FIX
+    card: løb = ran
+  - word: løb
+    translation: ran
+    context: Han løb hjem i går
+    expect: VALID
+  - word: løber
+    translation: run
+    context: Vi løber hver morgen i parken
+    expect: VALID
+  - word: huse
+    translation: house
+    context: Der er mange huse på vejen
+    expect: FIX
+    card: huse = houses
+  - word: at slå op
+    translation: to look up
+    context: Du kan prøve at slå op i ordbogen
+    expect: [VALID, FIX]
+    card: [slå op = look up, at slå op = to look up]
+
+  # --- prod fixes (validation_log, Danish -> English, random sample 25 Oct) ---
+  - word: Provencesanger
+    translation: Provence singer
+    context: -Nu har jeg ventet i 50 år på at se en Provencesanger i Danmark.
+    expect: FIX
+    card: provencesanger = melodious warbler
+    validator_did: Provencesanger = Melodious warbler
+  - word: et fjernbetjening
+    translation: a remote control
+    context: De kan også styre kuglen med et fjernbetjening.
+    expect: [VALID, FIX, UNRESOLVED]
+    card: fjernbetjening = remote control
+    validator_did: et fjernsyn = remote control
+    note: prod fix is wrong (fjernsyn = television, not in the sentence); the Danish itself has the wrong article; VALID too - the card itself fits
+  - word: et fjernbetjening
+    translation: a remote control
+    context: Jeg kan ikke finde et fjernbetjening til fjernsynet, så jeg må rejse mig og skifte kanal manuelt.
+    expect: [VALID, UNRESOLVED, FIX]
+    card: fjernbetjening = remote control
+    validator_did: en fjernbetjening = remote control
+    note: a generated example with a grammar error ("et" for "en"); "en fjernbetjening" is not in the sentence; VALID too - the card itself fits
+  - word: ved at
+    translation: by (doing something)
+    context: Og også Henriette Zobels førstefødte mindes sin mor ved at poste et billede, hvor han står på sin mors gravide mave - inden Nicolai blev født.
+    expect: FIX
+    card: ved at = by
+    validator_did: ved at = by
+  - word: geologer
+    translation: ', geologists'
+    context: Ved hjælp af en ny metode har geologer observeret en hemmelighed under en række vulkaner, hvor nogle har sovet i flere tusinde år.
+    expect: FIX
+    card: geologer = geologists
+    validator_did: geologer = geologists
+  - word: øjnene
+    translation: reality.
+    context: Klimaprofessor Sebastian Mernild mener, vi skal se virkeligheden i øjnene.
+    expect: FIX
+    card: [se i øjnene = face, se virkeligheden i øjnene = face reality]
+    validator_did: øjnene = eyes
+    note: '"eyes" over øjnene hides the idiom "se noget i øjnene" (face something)'
+  - word: i øjnene
+    translation: in the face
+    context: Klimaprofessor Sebastian Mernild mener, vi skal se virkeligheden i øjnene.
+    expect: FIX
+    card: [se i øjnene = face, se virkeligheden i øjnene = face reality]
+    validator_did: se i øjnene = face
+  - word: smilebåndet
+    translation: smile .
+    context: Fotografen bad hende om at vise smilebåndet, så billedet blev mere naturligt og venligt.
+    expect: FIX
+    card: [smilebåndet = smile, smilebåndet = a smile, smilebåndet = the smile]
+    validator_did: smilebåndet = the smile
+  - word: smilebåndet
+    translation: smile .
+    context: Et tegn med en lillefinger eller et træk på smilebåndet.
+    expect: FIX
+    card: [et træk på smilebåndet = a smile, et træk på smilebåndet = a hint of a smile, træk på smilebåndet = smile]
+    validator_did: smilebåndet = the smile
+  - word: smilebåndet
+    translation: smile .
+    context: Smilebåndet forsvandt fra hans ansigt, da han hørte de dårlige nyheder om projektet.
+    expect: FIX
+    card: [smilebåndet = the smile, smilebåndet = smile]
+    validator_did: smilebåndet = the smile
+  - word: del
+    translation: the Levant
+    context: I mere end en million år brugte tidlige mennesker i Levanten-regionen ved den østlige del af Middelhavet en række tunge stenværktøjer som håndøkser og stenkugler.
+    expect: FIX
+    card: del = part
+    validator_did: del = part
+  - word: mærkes
+    translation: felt
+    context: Danskere og briter drikker mindre -men fortidens forbrug mærkes stadig
+    expect: [FIX, VALID]
+    card: mærkes = is felt
+    validator_did: mærkes = is felt
+    note: VALID too - English adds "is" around the card, as it adds "does"
+  - word: driller
+    translation: Pierce
+    context: Men hvad hjælper egentlig, når tarmen driller?
+    expect: FIX
+    card: driller = acts up
+    validator_did: driller = acts up
+  - word: skiven
+    translation: the disc
+    context: "Skal din teenager også droppe 'skiven' under overlæben:"
+    expect: [FIX, VALID]
+    card: [skiven = the snus pouch, skiven = snus pouch, droppe skiven = skip the snus pouch]
+    validator_did: droppe skiven = skip the snus pouch
+    note: VALID too - the quotes mark "the disc" as slang, and disc is what skive means
+  - word: Jo tidligere
+    translation: The earlier
+    context: Jo tidligere, jo bedre
+    expect: [VALID, FIX]
+    card: jo tidligere, jo bedre = the earlier, the better
+    note: '"the earlier" fits above "Jo tidligere" as it stands'
+    validator_did: Jo tidligere, jo bedre = the earlier, the better
+  - word: mangler
+    translation: a lack of
+    context: Der mangler grundskyld på 200.000 forskudsopgørelser, og derfor udsendes nye opgørelser til mange boligejere.
+    expect: FIX
+    card: [mangler = is missing, mangler = are missing, mangler = missing]
+    validator_did: mangler = is missing
+  - word: vil flygte
+    translation: will escape
+    context: Alle andre mennesker, der vil flygte til USA, kan næsten ikke komme ind.
+    expect: FIX
+    card: [vil flygte = want to flee, vil flygte = wish to flee]
+    validator_did: vil flygte = want to flee
+  - word: lød
+    translation: said
+    context: Hendes forklaring lød troværdig, men politiet undersøgte sagen alligevel.
+    expect: FIX
+    card: lød = sounded
+    validator_did: lød = sounded
+  - word: sætter
+    translation: puts
+    context: Det er ekstremt hurtigt, og det er godt for de husejere, der sætter til salg for hurtigt at komme videre til deres næste bolig.
+    expect: FIX
+    card: sætter til salg = put up for sale
+    validator_did: sætter til salg = put up for sale
+  - word: sjældne
+    translation: the rarer
+    context: Han var hurtigt ude med kameraet og fangede et af de mere sjældne danske vejrfænomener, som oftest ses i sensommeren.
+    expect: FIX
+    card: sjældne = rare
+    validator_did: sjældne = rare
+  - word: uvist
+    translation: to be seen
+    context: Men om det også påvirker fertiliteten, er endnu uvist
+    expect: FIX
+    card: [uvist = unknown, uvist = uncertain]
+    validator_did: uvist = unknown
+  - word: med
+    translation: in
+    context: Ruten fra Clermont-Ferrand til Béziers er markeret med grønt.
+    expect: VALID
+    validator_did: med = with
+    note: '"marked in green" is the English; the prod fix made it worse'
+  - word: med
+    translation: in
+    context: Hun kom hjem med vådt tøj efter regnen
+    expect: FIX
+    card: med = with
+    validator_did: med = with
+  - word: særl
+    translation: unusual
+    context: Det ganske særl
+    expect: UNRESOLVED
+    validator_did: særlig = unusual
+    note: truncated sentence; the corrected word is not in it
+  - word: stenalderen
+    translation: the stone
+    context: 'Ny teori: Derfor blev store stenværktøjer pludselig små i stenalderen'
+    expect: FIX
+    card: [stenalderen = the Stone Age, stenalderen = Stone Age]
+    validator_did: stenalderen = the Stone Age
+  - word: pludselig
+    translation: stone tools suddenly
+    context: 'Ny teori: Derfor blev store stenværktøjer pludselig små i stenalderen'
+    expect: FIX
+    card: pludselig = suddenly
+    validator_did: pludselig = suddenly
+  - word: Kan jeg at få
+    translation: Can I get
+    context: Kan jeg at få din hjælp med lektier?
+    expect: UNRESOLVED
+    validator_did: Kan jeg få = Can I get
+    note: generated example with a grammar error; the corrected words are not in the sentence
+  - word: det
+    translation: should feel.
+    context: Der er nye regler for, hvordan dyr skal have det.
+    expect: FIX
+    card: [have det = feel, have det = be, have det = fare, have det = be doing]
+    validator_did: have det = feel
+  - word: benene
+    translation: cross
+    context: At sidde med benene over kors er ikke dårligt for de fleste.
+    expect: FIX
+    card: [benene = legs, benene = the legs, med benene over kors = cross-legged]
+    validator_did: benene = legs
+  - word: af egyptisk
+    translation: of Egyptian
+    context: 'Aldrig set noget lignende: Forskere gør besynderligt fund på maven af egyptisk mumie'
+    expect: FIX
+    card: egyptisk = Egyptian
+    validator_did: af egyptisk = Egyptian
+    note: prod kept the fragment "af egyptisk" and dropped "of" - the card no longer fits
+  - word: egern
+    translation: Old
+    context: Gammel afføring fra egern giver ny viden
+    expect: FIX
+    card: [egern = squirrel, egern = squirrels]
+    validator_did: egern = squirrel
+  - word: mennesker
+    translation: unmanned
+    context: Dronen er mennesker og kan flyve i timevis uden en pilot om bord.
+    expect: UNRESOLVED
+    validator_did: umanned = unmanned
+    note: generated example is nonsense ("the drone is people"); prod invented a non-word
+  - word: mennesker
+    translation: unmanned
+    context: Rumfartøjet er mennesker, så det kan udforske farlige områder uden risiko for astronauter.
+    expect: UNRESOLVED
+    validator_did: umanned = unmanned
+  - word: taget
+    translation: people taken
+    context: Flere taget som gidsler ved bankrøveri i Tyskland
+    expect: FIX
+    card: taget = taken
+    validator_did: taget = taken
+  - word: noget
+    translation: one
+    context: Vil du have noget at spise?
+    expect: FIX
+    card: noget = something
+    validator_did: noget = something
+  - word: bud
+    translation: take
+    context: To eksperter giver deres bud
+    expect: VALID
+    validator_did: bud = bid
+    note: '"two experts give their take" is idiomatic; "give their bid" is not'
+  - word: mere ved
+    translation: more about
+    context: Måske gør algoritmerne på de sociale medier mere ved os, end vi lige går og tror.
+    expect: FIX
+    card: [gør ved = do to, gør mere ved = do more to, mere = more]
+    validator_did: mere ved = more to
+    note: '"mere ved" is a fragment; the unit is "gøre ... ved"'
+  - word: synes ikke
+    translation: doesn't seem
+    context: Kritikerne synes ikke, filmen er god.
+    expect: FIX
+    card: [synes ikke = don't think, synes = think]
+    validator_did: synes ikke = don't think
+  - word: Klimarådet
+    translation: The Danish
+    context: Klimarådet siger, Danmark når ikke klimamålet.
+    expect: FIX
+    card: [Klimarådet = the Climate Council, Klimarådet = Climate Council]
+    validator_did: Klimarådet = the Climate Council
+  - word: højere
+    translation: increases
+    context: En stor undersøgelse viser, at alkohol giver højere risiko for kræft.
+    expect: FIX
+    card: højere = higher
+    validator_did: højere = higher
