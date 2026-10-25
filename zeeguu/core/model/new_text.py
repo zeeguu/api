@@ -1,10 +1,8 @@
-import sqlalchemy.orm
-import time
-
 from sqlalchemy import UnicodeText
 
 from zeeguu.core.util import long_hash
 from zeeguu.core.model.db import db
+from zeeguu.core.model.race_safe import find_or_create
 
 
 class NewText(db.Model):
@@ -60,28 +58,13 @@ class NewText(db.Model):
         # and some other times don't.
         # we fix it here now
         clean_text = text.strip()
-        try:
-            return cls.query.filter(cls.content_hash == long_hash(clean_text)).one()
-        except sqlalchemy.orm.exc.NoResultFound:
-            try:
-                new = cls(
-                    clean_text,
-                )
-                session.add(new)
-                if commit:
-                    session.commit()
-                return new
-            except sqlalchemy.exc.IntegrityError:
-                for i in range(10):
-                    try:
-                        session.rollback()
-                        t = cls.query.filter(
-                            cls.content_hash == long_hash(clean_text)
-                        ).one()
-                        print("found text after recovering from race")
-                        return t
-                    except Exception as e:
-                        print(f"Exception: '{e}'")
-                        print("exception of second degree in find NewText..." + str(i))
-                        time.sleep(0.3)
-                        continue
+        # Two requests saving the same text can race here; the unique
+        # content_hash lets one insert through and race_safe.find_or_create
+        # recovers the other.
+        return find_or_create(
+            session,
+            cls,
+            {"content_hash": long_hash(clean_text)},
+            lambda: cls(clean_text),
+            commit=commit,
+        )

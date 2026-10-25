@@ -2,13 +2,10 @@ import re
 
 import sqlalchemy
 from sqlalchemy.orm.exc import NoResultFound
-import time
-
-import logging
-
 import zeeguu.core
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.race_safe import find_or_create
 
 
 class DomainName(db.Model):
@@ -53,25 +50,14 @@ class DomainName(db.Model):
     @classmethod
     def find_or_create(cls, session, url: str):
         _domain = cls.get_domain(url)
-        try:
-            return cls.find(_domain)
-        except sqlalchemy.orm.exc.NoResultFound:
-            # except:
-            try:
-                new = cls(_domain)
-                session.add(new)
-                session.commit()
-                return new
-            except sqlalchemy.exc.IntegrityError:
-                # except:
-                for i in range(10):
-                    try:
-                        session.rollback()
-                        d = cls.find(_domain)
-                        logging.info("found domain after recovering from race")
-                        return d
-                    except:
-                        logging.info("exception of second degree in domain..." + str(i))
-                        time.sleep(0.1)
-                        continue
-                    break
+        # Concurrent requests for the first url of a new domain can race here;
+        # the unique domain_name lets one insert through and
+        # race_safe.find_or_create recovers the other. Commits a row it
+        # creates, as callers expect.
+        return find_or_create(
+            session,
+            cls,
+            {"domain_name": _domain},
+            lambda: cls(_domain),
+            commit=True,
+        )
