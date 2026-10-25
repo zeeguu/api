@@ -81,7 +81,7 @@ def add_word_to_study(
         if existing is not None and (
             BasicSRSchedule.find(existing)
             or existing.is_learned()
-            or (existing.user_preference or UserWordExPreference.NO_PREFERENCE)
+            or UserWordExPreference.of(existing.user_preference)
             != UserWordExPreference.NO_PREFERENCE
         ):
             return None, existing, None

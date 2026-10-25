@@ -471,6 +471,12 @@ class UserWordValidationService:
 
             new_user_word.preferred_bookmark_id = bookmark.id
             db_session.add(new_user_word)
+            db_session.flush()
+            # Judged with its sentence attached now: fit_for_study was worked
+            # out when the word was created, or long before if it existed.
+            # Expired so preferred_bookmark is reloaded from the id set above.
+            db_session.expire(new_user_word, ["preferred_bookmark"])
+            new_user_word.update_fit_for_study(db_session)
 
             # Cleanup old user_word if orphaned
             cleanup_old_user_word(db_session, old_user_word, bookmark)
