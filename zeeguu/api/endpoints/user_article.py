@@ -277,8 +277,15 @@ def parse_url():
     url = request.form.get("url")
 
     from zeeguu.core.content_retriever import download_and_parse
+    from zeeguu.core.content_retriever.crawler_exceptions import (
+        FailedToParseWithReadabilityServer,
+        SkippedForLowQuality,
+    )
 
-    parsed = download_and_parse(url)
+    try:
+        parsed = download_and_parse(url)
+    except (FailedToParseWithReadabilityServer, SkippedForLowQuality):
+        flask.abort(422, "Could not parse article content")
 
     return json_result(
         {

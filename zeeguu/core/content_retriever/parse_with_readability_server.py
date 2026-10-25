@@ -1,4 +1,5 @@
 import json
+import re
 
 import newspaper
 from langdetect import detect
@@ -12,6 +13,19 @@ from zeeguu.core.content_retriever.crawler_exceptions import (
 READABILITY_SERVER_CLEANUP_URI = "http://readability_server:3456/cleanup?url="
 READABILITY_SERVER_CLEANUP_POST_URI = "http://readability_server:3456/cleanup"
 TIMEOUT_SECONDS = 10  # Most articles complete in 1-3s; 10s timeout for problem sites
+
+# Characters that lxml refuses to store in an element: the C0 control
+# characters except tab (\x09), newline (\x0a) and carriage return (\x0d),
+# plus the non-characters U+FFFE and U+FFFF. lxml's HTML parser lets them
+# through inside attribute values, and newspaper's parse() later writes those
+# values back with Element.set(), which raises "All strings must be XML
+# compatible". Mirrors the check in _is_valid_xml_utf8:
+# https://github.com/lxml/lxml/blob/lxml-6.0.2/src/lxml/apihelpers.pxi#L1482
+XML_INCOMPATIBLE_CHARS = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ufffe\uffff]")
+
+
+def remove_xml_incompatible_chars(html):
+    return XML_INCOMPATIBLE_CHARS.sub("", html)
 
 
 def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
@@ -50,11 +64,15 @@ def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
             raise
 
     log(f"   Parsing HTML with newspaper...")
+    # Invisible characters, but one of them in an attribute crashes parse()
+    np_article.html = remove_xml_incompatible_chars(np_article.html)
     try:
         np_article.parse()
     except ValueError as e:
         # lxml raises ValueError for content with invalid control characters
         # e.g., "All strings must be XML compatible: Unicode or ASCII, no NULL bytes or control characters"
+        # Still reachable when the page writes them as character references
+        # (e.g. class="a&#11;b"), which the cleanup above does not see.
         log(f"   ✗ Newspaper parse failed (invalid characters): {e}")
         raise SkippedForLowQuality(f"Article contains invalid characters: {e}")
     log(f"   ✓ Parsed ({len(np_article.text)} chars)")

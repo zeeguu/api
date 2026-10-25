@@ -1,4 +1,7 @@
+from unittest.mock import patch
+
 from fixtures import logged_in_client as client, add_source_types, add_context_types
+from zeeguu.core.content_retriever.crawler_exceptions import SkippedForLowQuality
 from zeeguu.core.test.mocking_the_web import URL_SPIEGEL_VENEZUELA
 
 
@@ -71,3 +74,15 @@ def test_difficulty_rating_is_sent_to_the_reader_only(client):
     listed = client.get("/user_articles/starred_or_liked")
     assert [a["id"] for a in listed] == [article_id]
     assert "relative_difficulty" not in listed[0]
+
+
+def test_parse_url_returns_422_when_article_cannot_be_parsed(client):
+    with patch(
+        "zeeguu.core.content_retriever.download_and_parse",
+        side_effect=SkippedForLowQuality("Article contains invalid characters"),
+    ):
+        response = client.response_from_post(
+            "/parse_url", data=dict(url="https://example.com/a")
+        )
+
+    assert response.status_code == 422
