@@ -209,7 +209,11 @@ def report_exercise_outcome():
     solving_speed = request.form.get("solving_speed")
     user_word_id = request.form.get("user_word_id")
     other_feedback = request.form.get("other_feedback")
-    session_id = int(request.form.get("session_id"))
+    # A client that has no exercise session id yet posts "session_id=" (qs
+    # serializes null as an empty value). The outcome must still be recorded;
+    # exercise.session_id is nullable. type=int yields None for a missing,
+    # empty or non-numeric value instead of raising.
+    session_id = request.form.get("session_id", type=int)
     wrong_answers = _parse_wrong_answers(request.form.get("wrong_answers"))
 
     if not solving_speed.isdigit():
