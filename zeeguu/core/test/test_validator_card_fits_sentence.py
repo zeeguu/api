@@ -171,3 +171,10 @@ def test_giving_up_leaves_the_meaning_and_takes_the_word_out_of_study(monkeypatc
     assert meaning.validated == Meaning.NOT_VALIDATED
     assert user_word.fit_for_study is False
     assert logged[0]["reason"].startswith("[unresolved]")
+
+
+def test_a_valid_card_its_own_sentence_does_not_say_is_a_misfit():
+    # the reply wrote "means" into the sentence and judged that, for the card "mean"
+    r = parse(card_in_sentence="I learned what it means to walk", card_reads_right=True)
+    assert TranslationValidator._misfit(r, "mean")
+    assert not TranslationValidator._misfit(r, "means")

@@ -221,14 +221,17 @@ class TranslationValidator:
     @staticmethod
     def _misfit(result, translation):
         """(card, sentence, problem) when the reply's own sentence check fails,
-        else None: a VALID whose card does not read right in the sentence, or a
-        FIX whose correction does not, or whose correction is not even what the
+        else None: a card (the VALID one, or a FIX's correction) that the reply
+        says does not read right in the sentence, or that is not even what the
         sentence it wrote says ("means" in the sentence, "mean" on the card)."""
         if result.is_unresolved:
             return None
         if result.is_valid:
             if result.card_reads_right is False:
                 return translation, result.card_in_sentence, "You judged that this does not read right."
+            # "what it means to walk" judged right, for the card "mean"
+            if result.card_in_sentence and not words_in_order(translation, result.card_in_sentence):
+                return translation, result.card_in_sentence, f'"{translation}" is not what that sentence says.'
             return None
         corrected = result.corrected_translation
         sentence = result.correction_in_sentence

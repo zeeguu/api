@@ -80,9 +80,10 @@ capitalize. Case alone never makes a pair FIX.
 
 Fill in these fields (the reply is constrained to this shape):
 - card_in_sentence: the sentence translated into natural {target_lang}, with "{translation}"
-  written exactly as it is in place of "{word}". Around it, write what {target_lang} needs
-  ("doesn't", "does", articles, word order: "Hun forstår ikke" = "She doesn't understand");
-  only "{translation}" itself must not change form to make it fit.
+  written exactly as it is in place of "{word}". Around it, and between its words, write what
+  {target_lang} needs ("doesn't", "does", articles, an object, word order: "Hun forstår ikke"
+  = "She doesn't understand", "sætter huset til salg" = "put the house up for sale"); only the
+  words of "{translation}" themselves must not change form to make it fit.
 - card_reads_right: true only if card_in_sentence is correct, natural {target_lang} that says
   what the sentence says. A wrong verb form ("what it mean") is false. If false, the verdict
   cannot be VALID.
