@@ -1,0 +1,16 @@
+{
+  "audio_lessons/prompts/a0_dialogue--natural_exchange-v1.txt": "907d6ce2c3e2cb4c19c4e9c12d701df5258d1feff9d4a1a60b0922649ceccc4b",
+  "audio_lessons/prompts/a0_dialogue_lesson--pimsleur_style_situation-v1.txt": "385ec4a24e32eb1e418d8e9d073320a2c5245edba4147c4bdb804cc12e24260c",
+  "audio_lessons/prompts/dialogue_lesson--situation-v2.txt": "12d0b98aa123fc154cea556bdefdb88bf15f8a1f0e2427c054497d56db37f292",
+  "audio_lessons/prompts/dialogue_lesson--topic-v2.txt": "309bae0421e08d3e873c03f6f6963ff63c97854641f6da959139190811161eca",
+  "audio_lessons/prompts/meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v2.txt": "959c693e648f9c22f5cb1ba55cb500ff5dc184bdd4e8423f794b029a28c19d9d",
+  "audio_lessons/prompts/meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v4.txt": "43819af4de2040405af4c5800d39fe8ea9c77f2c57900ff0ba5fd55f1d1f7d2f",
+  "audio_lessons/prompts/meaning_lesson--teacher_challenges_both_dialogue_and_beyond-v6.txt": "3a65e72d91db592f16bc54722b3053402d6e1c56f57945bcabfd6fb73475588b",
+  "cloze_alternative:cloze-alternative-v3": "af9a086a1f60f7a3dc70c2f4b7af59e71fc3c156675a74dcf819c764091952da",
+  "example_generation:v1": "d7fa4f95f5e327f891e3fc310b95f43f2bce29598a2c3888204e59ff4fa67026",
+  "example_generation:v2": "b75ea9ad843409792fba277a1cee6d0363fa90feb057b65a103e6ab31ad02fb0",
+  "example_generation:v3": "613201895fd32ba3ffb99ddf8a068dd24d807706578e3240caba196725a5a4ba",
+  "example_generation:v4": "9f31984f74f086ca0a624b0686f712b964812b8471e56e4410e1985a630b9950",
+  "translation_alternative:translation-alternative-v1": "d709f4ad22b8e0fc4e8f996dc33289ccda47dd149b8c14b15fc0ff82dde2bcb2",
+  "translation_validator:translation-validator-v1": "d48a2e6bf2abb0cd39585564cd2a9b062a32cffdf9b6dd2b3fa1c9e76cce81bf"
+}
