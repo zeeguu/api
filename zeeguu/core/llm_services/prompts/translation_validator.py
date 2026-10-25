@@ -33,9 +33,11 @@ STEP 1 - VALIDATION:
    surrounding phrase, expand "{word}" to the smallest expression in the sentence that carries
    the meaning ("holde øje med" = "keep an eye on"), as long as that expression is worth learning on its
    own. Never expand to an arbitrary fragment like "bruger den" = "are using it".
-4. A verb without its infinitive marker (Danish "at", German "zu", Dutch "te", Swedish "att",
-   ...) is translated without "to": "verstehen" = "understand", NOT "to understand". With the
-   marker, keep it: "at slå op" = "to look up".
+4. The learner types exactly what the translation says. A verb without its infinitive marker
+   (Danish "at", German "zu", Dutch "te", Swedish "att", ...) is translated without "to":
+   "verstehen" = "understand", NOT "to understand". With the marker, keep it: "at slå op" =
+   "to look up". A translation that adds "to" to a verb that has no marker is a FIX, even
+   though its meaning is right.
 5. If no translation fits the sentence and no expansion gives an expression worth learning,
    the verdict is WORD_NOT_FIT. Say why in the reason.
 
@@ -110,7 +112,6 @@ Examples:
   reason: the highlighted word has no "at", so the translation must not have "to"
 - Word with usage note: VALID, common, B1, single_word, explanation "formal register"
 - Idiom: VALID, common, B2, idiom, literal_meaning "kick into touch"
-- Wrong translation: FIX øjnene = "the eyes", common, A2, single_word; reason: literal meaning is 'the eyes'
 - Idiom fix: FIX se virkeligheden i øjnene = "face reality", common, B2, idiom, literal_meaning "see reality in the eyes"
 - Arbitrary fragment: FIX bruger = "use", common, A2, single_word; reason: 'bruger den' is an arbitrary fragment
 - Context-only gloss: FIX noget af = "one of", common, B1, collocation, literal_meaning "something of";
