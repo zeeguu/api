@@ -5,6 +5,18 @@ This validates that a translation is correct for the specific word,
 and classifies its frequency and phrase type - all in a single LLM call.
 """
 
+# Bump on every change to the prompt, and run the regression set with --save
+# (tools/run_validator_regression.py); the results are kept per version in
+# zeeguu/core/llm_services/regression/results/translation_validator/.
+#   v1  25 Oct 2026  the card must fit the sentence it is shown in (api#900)
+#   v2  25 Oct 2026  the form follows the word, not the translation's grammar
+#                    (43/58 vs v1's 46/58: too lenient, never shipped)
+#   v3  25 Oct 2026  v1, except: no adjective ending or article only the
+#                    translation's grammar needs (48/58)
+#   v4  25 Oct 2026  v3, and no small word around a verb ("tot", "te"):
+#                    46/58, lenient again; never shipped. Back to v3.
+PROMPT_VERSION = "translation-validator-v3"
+
 COMBINED_VALIDATION_PROMPT = """You are validating and classifying a language learning translation.
 
 A learner highlighted "{word}" in this {source_lang} sentence:
@@ -27,7 +39,10 @@ STEP 1 - VALIDATION:
    the one the sentence needs - tense, number, person ("sov" in "hun sov længe" = "slept", not
    "sleep"; "biler" in "to biler" = "cars"). {target_lang} may add words around it that
    {source_lang} does not need ("does", "not", an article): "Hvad betyder det?" = "What does it
-   mean?", so "betyder" = "mean" fits there.
+   mean?", so "betyder" = "mean" fits there. One exception: an adjective keeps its plain form
+   when only {target_lang} grammar asks for an ending ("véritable" in "un véritable défi" =
+   Dutch "echt", though Dutch writes "een echte uitdaging"), and an article {target_lang}
+   needs is not part of the card ("médecin" in "il est médecin" = "doctor").
 3. Is it what "{word}" itself means, not what the phrase around it means? Test: in another
    ordinary sentence with "{word}", would the same translation (in that sentence's form)
    still be right? "noget" = "one", saved from "noget af det mest ekstreme", fails: in "Vil du
@@ -89,8 +104,9 @@ Fill in these fields (the reply is constrained to this shape):
   = "She doesn't understand", "sætter huset til salg" = "put the house up for sale"); only the
   words of "{translation}" themselves must not change form to make it fit.
 - card_reads_right: true only if card_in_sentence is correct, natural {target_lang} that says
-  what the sentence says. A wrong verb form ("what it mean") is false. If false, the verdict
-  cannot be VALID.
+  what the sentence says. A wrong verb form ("what it mean") is false. Only an adjective
+  ending {target_lang} would add ("een echt uitdaging") does not make it false. If false, the
+  verdict cannot be VALID.
 - reason: one short sentence, written first: why the pair holds, or what is wrong with it
 - verdict: VALID, FIX, BROKEN_SENTENCE or WORD_NOT_FIT
 - corrected_word, corrected_translation: the corrected pair when the verdict is FIX, empty when
@@ -98,7 +114,8 @@ Fill in these fields (the reply is constrained to this shape):
 - correction_in_sentence: for a FIX, the {target_lang} sentence again, now with
   corrected_translation written exactly as it is in place of corrected_word, the rest natural
   {target_lang} as above. Empty when not a FIX.
-- correction_reads_right: true only if correction_in_sentence is correct, natural {target_lang}.
+- correction_reads_right: true only if correction_in_sentence is correct, natural {target_lang},
+  with the same exception for adjective endings.
   If false, your correction is wrong too: change corrected_translation. False when not a FIX.
 - frequency, cefr, phrase_type: for the valid or corrected word (STEP 2)
 - explanation: OPTIONAL usage notes, register (formal/informal). Empty if not needed.
@@ -220,6 +237,7 @@ def create_semantic_equivalence_prompt(word, translation1, translation2, source_
 CARD_DOES_NOT_FIT_REMINDER = """
 
 In a previous answer you proposed "{card}"{wrote}.
-{problem} Reply again. The card must be exactly the form that makes the sentence read right;
-if no form of a worthwhile word or expression does, the verdict is WORD_NOT_FIT.
+{problem} Reply again. The card must be exactly the form that makes the sentence read right
+(an adjective may keep its plain form); if no form of a worthwhile word or expression does,
+the verdict is WORD_NOT_FIT.
 """

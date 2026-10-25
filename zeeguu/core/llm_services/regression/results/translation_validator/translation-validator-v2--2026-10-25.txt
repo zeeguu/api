@@ -1,0 +1,119 @@
+translation-validator-v2, claude-sonnet-5-5, 2026-10-25, 1 run(s) per case
+vil sige = 'mean' -> want ['vil sige = means', 'hvad det vil sige = what it means']
+    ok  vil sige = means
+vil sige = 'will say' -> want ['vil sige = means', 'hvad det vil sige = what it means']
+    ok  vil sige = means
+vil sige = 'mean' -> want VALID
+    ok  VALID
+forstår = 'understand' -> want VALID
+    ok  VALID
+forstår = 'understand' -> want VALID
+    ok  VALID
+løb = 'run' -> want løb = ran
+    ok  løb = ran
+løb = 'ran' -> want VALID
+    ok  VALID
+løber = 'run' -> want VALID
+    ok  VALID
+huse = 'house' -> want huse = houses
+    ok  huse = houses
+at slå op = 'to look up' -> want ['VALID', 'FIX']
+    ok  VALID
+Provencesanger = 'Provence singer' -> want provencesanger = melodious warbler
+    BAD VALID
+et fjernbetjening = 'a remote control' -> want ['VALID', 'FIX', 'BROKEN_SENTENCE']
+    ok  VALID
+et fjernbetjening = 'a remote control' -> want ['VALID', 'BROKEN_SENTENCE', 'FIX']
+    ok  VALID
+ved at = 'by (doing something)' -> want ved at = by
+    ok  ved at = by
+geologer = ', geologists' -> want geologer = geologists
+    ok  geologer = geologists
+øjnene = 'reality.' -> want ['se i øjnene = face', 'se virkeligheden i øjnene = face reality']
+    ok  se virkeligheden i øjnene = face reality
+i øjnene = 'in the face' -> want ['se i øjnene = face', 'se virkeligheden i øjnene = face reality']
+    ok  se virkeligheden i øjnene = face reality
+smilebåndet = 'smile .' -> want ['smilebåndet = smile', 'smilebåndet = a smile', 'smilebåndet = the smile']
+    BAD smilebåndet = smile line
+smilebåndet = 'smile .' -> want ['et træk på smilebåndet = a smile', 'et træk på smilebåndet = a hint of a smile', 'træk på smilebåndet = smile']
+    BAD et træk på smilebåndet = a twitch of a smile
+smilebåndet = 'smile .' -> want ['smilebåndet = the smile', 'smilebåndet = smile']
+    ok  smilebåndet = smile
+del = 'the Levant' -> want del = part
+    ok  del = part
+mærkes = 'felt' -> want ['FIX', 'VALID']
+    ok  VALID
+driller = 'Pierce' -> want driller = acts up
+    ok  driller = acts up
+skiven = 'the disc' -> want ['FIX', 'VALID']
+    ok  VALID
+Jo tidligere = 'The earlier' -> want ['VALID', 'FIX']
+    ok  VALID
+mangler = 'a lack of' -> want ['mangler = is missing', 'mangler = are missing', 'mangler = missing']
+    ok  mangler = is missing
+vil flygte = 'will escape' -> want ['vil flygte = want to flee', 'vil flygte = wish to flee']
+    BAD VALID
+lød = 'said' -> want lød = sounded
+    ok  lød = sounded
+sætter = 'puts' -> want sætter til salg = put up for sale
+    BAD sætter = put
+sjældne = 'the rarer' -> want sjældne = rare
+    ok  sjældne = rare
+uvist = 'to be seen' -> want ['uvist = unknown', 'uvist = uncertain']
+    BAD VALID
+med = 'in' -> want VALID
+    ok  VALID
+med = 'in' -> want med = with
+    BAD VALID
+særl = 'unusual' -> want BROKEN_SENTENCE
+    ok  BROKEN_SENTENCE
+stenalderen = 'the stone' -> want ['stenalderen = the Stone Age', 'stenalderen = Stone Age']
+    ok  stenalderen = the Stone Age
+pludselig = 'stone tools suddenly' -> want pludselig = suddenly
+    ok  pludselig = suddenly
+Kan jeg at få = 'Can I get' -> want BROKEN_SENTENCE
+    BAD VALID
+det = 'should feel.' -> want ['have det = feel', 'have det = be', 'have det = fare', 'have det = be doing']
+    ok  have det = fare
+benene = 'cross' -> want ['benene = legs', 'benene = the legs', 'med benene over kors = cross-legged']
+    BAD med benene over kors = with legs crossed
+af egyptisk = 'of Egyptian' -> want egyptisk = Egyptian
+    BAD VALID
+egern = 'Old' -> want ['egern = squirrel', 'egern = squirrels']
+    ok  egern = squirrels
+mennesker = 'unmanned' -> want ['BROKEN_SENTENCE', 'WORD_NOT_FIT']
+    ok  BROKEN_SENTENCE
+mennesker = 'unmanned' -> want ['BROKEN_SENTENCE', 'WORD_NOT_FIT']
+    ok  BROKEN_SENTENCE
+taget = 'people taken' -> want taget = taken
+    ok  taget = taken
+bud = 'take' -> want VALID
+    ok  VALID
+mere ved = 'more about' -> want ['gør ved = do to', 'gør mere ved = do more to', 'mere = more']
+    BAD mere ved = know more
+synes ikke = "doesn't seem" -> want ["synes ikke = don't think", 'synes = think']
+    ok  synes ikke = don't think
+Klimarådet = 'The Danish' -> want ['Klimarådet = the Climate Council', 'Klimarådet = Climate Council']
+    ok  Klimarådet = Climate Council
+højere = 'increases' -> want højere = higher
+    ok  højere = higher
+suédois = 'Zweeds' -> want VALID
+    ok  VALID
+profond = 'diep' -> want VALID
+    ok  VALID
+municipales = 'gemeentelijk' -> want VALID
+    ok  VALID
+accéder = 'toegang krijgen' -> want VALID
+    ok  VALID
+poursuivre = 'nastreven' -> want VALID
+    BAD WORD_NOT_FIT
+nombreuses = 'talrijk' -> want VALID
+    ok  VALID
+Nutzer = 'gebruiker' -> want Nutzer = gebruikers
+    BAD VALID
+bloquer = 'blokkeren' -> want ['bloqué = geblokkeerd', 'avoir bloqué = geblokkeerd hebben']
+    BAD VALID
+moins = 'minder' -> want ['moins = minst', 'les moins = het minst', 'les moins = minst']
+    BAD VALID
+
+43/58 runs pass
