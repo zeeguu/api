@@ -2,9 +2,9 @@
 Add a word or expression to a learner's study list, with a context sentence, and
 schedule it for exercises right away.
 
-Used by /add_custom_word (a learner typing a word in) and by the A0 audio
-lessons (the words a lesson taught the learner to say). The generated-examples
-"add to learning" endpoint still has its own copy of these steps.
+Used by /add_custom_word (a learner typing a word in), /add_word_to_learning
+(a learning card the LLM prepared for a word the learner chose) and the A0
+audio lessons (the words a lesson taught the learner to say).
 
 The find_or_create helpers below commit the session themselves, so nothing here
 can be undone afterwards: everything that can refuse a word is checked before
@@ -47,6 +47,7 @@ def add_word_to_study(
     to_lang_code,
     context="",
     from_audio_lesson=False,
+    translation_service=None,
 ):
     """
     Returns (bookmark, user_word, schedule). schedule is None when scheduling
@@ -63,6 +64,9 @@ def add_word_to_study(
     word looked up once and never touched since is taken. At the learner's own
     "max words to practise" it is added but not scheduled yet; the usual
     scheduling takes it when there is room.
+
+    translation_service: who produced the translation (a TranslationService
+    name); by default the learner (MANUAL) or the audio lesson.
     """
     from zeeguu.core.model import Bookmark, Language, Meaning, TranslationService, UserPreference
     from zeeguu.core.model.user_word import UserWord
@@ -119,9 +123,8 @@ def add_word_to_study(
         # whether it was typed in or taught by an audio lesson.
         translation_source="user_added",
         user_word=user_word,
-        translation_service=(
-            TranslationService.AUDIO_LESSON if from_audio_lesson else TranslationService.MANUAL
-        ),
+        translation_service=translation_service
+        or (TranslationService.AUDIO_LESSON if from_audio_lesson else TranslationService.MANUAL),
     )
 
     user_word.preferred_bookmark = bookmark

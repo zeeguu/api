@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, Integer, JSON, ForeignKey, TIMESTAMP
+from sqlalchemy import Column, DateTime, Integer, JSON, ForeignKey, TIMESTAMP
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
@@ -50,6 +50,12 @@ class DailyAudioLesson(db.Model):
     raw_suggestion = Column(db.String(128), nullable=True)
     canonical_suggestion = Column(db.String(128), nullable=True)
     lesson_type = Column(db.String(20), nullable=True)
+
+    # A0 lessons: when the words the lesson taught were put on the learner's
+    # study list (see audio_lessons/lesson_words.py). Set when that starts, so
+    # two "complete" requests at once run it once; set back to NULL when it
+    # fails, so it is tried again. NULL for every other lesson.
+    words_scheduled_at = Column(DateTime, nullable=True)
 
     # NULL until the owner first generates a share link.
     share_uuid = Column(db.String(36), unique=True, nullable=True)

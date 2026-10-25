@@ -1173,7 +1173,8 @@ class DailyLessonGenerator:
     def _schedule_words_taught_to_say(self, lesson, user):
         """
         After a lesson built on the learner's history (A0) is heard to the end,
-        the words it taught them to say go on their study list -- in the
+        the words it taught them to say go on their study list (once per
+        lesson; see lesson_words.schedule_words_after_lesson) -- in the
         background (a model call takes seconds), and never in the way of the
         lesson being marked complete.
         """
@@ -1237,9 +1238,6 @@ class DailyLessonGenerator:
                     lesson.listened_count += 1
 
             elif action == "complete":
-                # Completed for the first time now, not again: what follows the
-                # commit below runs once per lesson, not on every repeat.
-                first_completion = not lesson.is_completed
                 # Mark lesson as completed
                 lesson.mark_completed()
 
@@ -1262,8 +1260,10 @@ class DailyLessonGenerator:
             db.session.commit()
 
             # After the commit: the words of a lesson that was not recorded as
-            # completed must not go on the study list.
-            if action == "complete" and first_completion:
+            # completed must not go on the study list. On every completion, not
+            # only the first: the job does each lesson once, and catches up on
+            # earlier ones whose run failed.
+            if action == "complete":
                 self._schedule_words_taught_to_say(lesson, user)
 
             return {
