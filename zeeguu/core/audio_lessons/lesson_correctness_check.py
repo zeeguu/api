@@ -281,6 +281,11 @@ def judge_pair(service, lesson: LessonToCheck):
     # read as FIX, and a number or list where the parser expects text raises.
     reply = {k: v if isinstance(v, str) else ("" if v is None else str(v)) for k, v in reply.items()}
     reply["verdict"] = reply.get("verdict", "").strip().upper()
+    if reply["verdict"] == "UNRESOLVED":
+        # The validator gave up on the pair in this sentence, usually because
+        # the sentence is broken. That says nothing about the pair itself, so
+        # it must not mark the meaning INVALID for everyone: not confirmed.
+        raise ValueError(f"validator gave up on the pair: {reply.get('reason', '')[:200]}")
     if reply["verdict"] not in ("VALID", "FIX"):
         raise ValueError(f"no VALID/FIX verdict in reply: {str(reply)[:200]}")
     verdict = TranslationValidator._parse_response(json.dumps(reply))

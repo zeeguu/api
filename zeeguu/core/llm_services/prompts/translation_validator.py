@@ -16,24 +16,35 @@ CRITICAL: The translation "{translation}" is in {target_lang}, NOT English!
 If {target_lang} is Dutch, German, etc., interpret the translation IN THAT LANGUAGE.
 Example: "offer" in Dutch means "victim/sacrifice" - this is VALID for "víctima" (Spanish).
 
-This pair becomes a FLASHCARD. The learner will memorize "{word}" = "{translation}"
-and be quizzed on it in vocabulary exercises, often in OTHER sentences.
+This pair becomes a FLASHCARD. Exercises show THIS sentence with "{word}" highlighted and
+"{translation}" written above it, and later quiz the pair in other sentences too.
 
 STEP 1 - VALIDATION:
-1. Is "{word}" a meaningful learning unit? (Not an arbitrary fragment like "bruger den" = "are using it")
-2. Is "{translation}" a correct translation for the WORD itself (not the surrounding phrase)?
-   Test: if the learner memorizes this pair and later meets "{word}" in an ordinary sentence,
-   does the translation still hold? If it only works because of the surrounding phrase, it is
-   NOT valid: either translate the word's own meaning, or expand the word to the phrase that
-   carries the meaning.
-3. If the word is part of an idiom, decide: should the learner study the single word or the full idiom?
-4. Does "{translation}" have the same form as "{word}"? The learner types exactly what the
-   translation says. A verb without its infinitive marker (Danish "at", German "zu", Dutch "te",
-   Swedish "att", ...) is translated without "to", whatever the verb: "verstehen" = "understand",
-   NOT "to understand". With the marker, keep it: "at slå op" = "to look up".
-   A translation that adds "to" to a verb that has no marker is a FIX, even though its meaning is right.
+1. Is the sentence usable? If it is cut off, ungrammatical, or does not make sense, no card
+   can be checked against it: the verdict is UNRESOLVED.
+2. Does "{translation}" fit THIS sentence? Read the sentence with "{translation}" in place of
+   "{word}": it must say what the sentence says, in correct {target_lang}. The form must be
+   the one the sentence needs - tense, number, person ("sov" in "hun sov længe" = "slept", not
+   "sleep"; "biler" in "to biler" = "cars"). {target_lang} may add words around it that
+   {source_lang} does not need ("does", "not", an article): "Hvad betyder det?" = "What does it
+   mean?", so "betyder" = "mean" fits there.
+3. Is it the meaning of "{word}" itself, not of the surrounding phrase? It should still hold
+   when the learner meets "{word}" in an ordinary sentence. If it only works because of the
+   surrounding phrase, expand "{word}" to the smallest expression in the sentence that carries
+   the meaning ("holde øje med" = "keep an eye on"), as long as that expression is worth learning on its
+   own. Never expand to an arbitrary fragment like "bruger den" = "are using it".
+4. A verb without its infinitive marker (Danish "at", German "zu", Dutch "te", Swedish "att",
+   ...) is translated without "to": "verstehen" = "understand", NOT "to understand". With the
+   marker, keep it: "at slå op" = "to look up".
+5. If no translation fits the sentence and no expansion gives an expression worth learning,
+   the verdict is UNRESOLVED. Say why in the reason.
 
-IMPORTANT: Only mark as FIX if the translation is WRONG (in meaning, or in form as in step 4). Do NOT "improve" correct translations.
+A corrected word must appear in the sentence exactly as written there: every one of its words,
+in the sentence's own spelling. Never correct the sentence's grammar into the word.
+
+IMPORTANT: VALID when "{translation}" fits the sentence and is the meaning of "{word}", even if
+another translation is more common: "med" in "hun kom med toget" = "by". Only FIX what is
+WRONG (in meaning, form or unit). Do NOT "improve" correct translations.
 - Keep translations SHORT and SIMPLE - learners must type them in exercises
 - NO parenthetical explanations like "by (doing something)" - just "by"
 - NO alternatives with "/" like "as/in the capacity of" - pick ONE: "as"
@@ -68,10 +79,22 @@ nationalities, the pronoun "I"). Standing at the start of the sentence is NOT a 
 capitalize. Case alone never makes a pair FIX.
 
 Fill in these fields (the reply is constrained to this shape):
+- card_in_sentence: the sentence translated into natural {target_lang}, with "{translation}"
+  written exactly as it is in place of "{word}". Around it, write what {target_lang} needs
+  ("doesn't", "does", articles, word order: "Hun forstår ikke" = "She doesn't understand");
+  only "{translation}" itself must not change form to make it fit.
+- card_reads_right: true only if card_in_sentence is correct, natural {target_lang} that says
+  what the sentence says. A wrong verb form ("what it mean") is false. If false, the verdict
+  cannot be VALID.
 - reason: one short sentence, written first: why the pair holds, or what is wrong with it
-- verdict: VALID or FIX
+- verdict: VALID, FIX or UNRESOLVED
 - corrected_word, corrected_translation: the corrected pair when the verdict is FIX, empty when
-  VALID. corrected_translation is in {target_lang}.
+  VALID or UNRESOLVED.
+- correction_in_sentence: for a FIX, the {target_lang} sentence again, now with
+  corrected_translation written exactly as it is in place of corrected_word, the rest natural
+  {target_lang} as above. Empty when VALID or UNRESOLVED.
+- correction_reads_right: true only if correction_in_sentence is correct, natural {target_lang}.
+  If false, your correction is wrong too: change corrected_translation. False when not a FIX. corrected_translation is in {target_lang}.
 - frequency, cefr, phrase_type: for the valid or corrected word (STEP 2)
 - explanation: OPTIONAL usage notes, register (formal/informal). Empty if not needed.
 - literal_meaning: ONLY for idioms - SHORT word-by-word translation (e.g., "kick into touch").
@@ -112,10 +135,14 @@ VALIDATION_SCHEMA = {
     "type": "object",
     "additionalProperties": False,
     "required": [
+        "card_in_sentence",
+        "card_reads_right",
         "reason",
         "verdict",
         "corrected_word",
         "corrected_translation",
+        "correction_in_sentence",
+        "correction_reads_right",
         "frequency",
         "cefr",
         "phrase_type",
@@ -125,10 +152,14 @@ VALIDATION_SCHEMA = {
         "dictionary_translation",
     ],
     "properties": {
+        "card_in_sentence": {"type": "string"},
+        "card_reads_right": {"type": "boolean"},
         "reason": {"type": "string"},
-        "verdict": {"type": "string", "enum": ["VALID", "FIX"]},
+        "verdict": {"type": "string", "enum": ["VALID", "FIX", "UNRESOLVED"]},
         "corrected_word": {"type": "string"},
         "corrected_translation": {"type": "string"},
+        "correction_in_sentence": {"type": "string"},
+        "correction_reads_right": {"type": "boolean"},
         "frequency": {"type": "string", "enum": ["unique", "common", "uncommon", "rare"]},
         "cefr": {"type": "string", "enum": ["A1", "A2", "B1", "B2", "C1", "C2"]},
         "phrase_type": {
@@ -177,3 +208,14 @@ def create_semantic_equivalence_prompt(word, translation1, translation2, source_
         source_lang=source_lang,
         target_lang=target_lang
     )
+
+
+# Appended when the reply's own check says its card does not fit: it wrote
+# "what it mean to walk", marked that false, and kept "mean" anyway (it cannot
+# go back once later fields are written). See TranslationValidator._misfit.
+CARD_DOES_NOT_FIT_REMINDER = """
+
+In a previous answer you proposed "{card}" and wrote the sentence as "{sentence}".
+{problem} Reply again. The card must be exactly the form that makes the sentence read right;
+if no form of a worthwhile word or expression does, the verdict is UNRESOLVED.
+"""

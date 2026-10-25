@@ -50,6 +50,8 @@ class ValidationResult:
     """Result of combined translation validation and classification."""
 
     is_valid: bool
+    # No card can be checked or fixed: broken sentence, or nothing fits
+    is_unresolved: bool = False
     corrected_word: Optional[str] = None  # If word should change
     corrected_translation: Optional[str] = None  # If translation is wrong
     frequency: Optional[str] = None  # unique/common/uncommon/rare
@@ -64,6 +66,12 @@ class ValidationResult:
     # start of a sentence comes back as "dette"
     dictionary_word: Optional[str] = None
     dictionary_translation: Optional[str] = None
+    # The reply's own sentence with the corrected card in place, for a FIX
+    correction_in_sentence: Optional[str] = None
+    # The reply's own judgement of its sentences (None when not given)
+    card_in_sentence: Optional[str] = None
+    card_reads_right: Optional[bool] = None
+    correction_reads_right: Optional[bool] = None
 
 
 class TranslationValidator:
@@ -105,6 +113,7 @@ class TranslationValidator:
         from .prompts.translation_validator import (
             create_combined_validation_prompt,
             SINGLE_TRANSLATION_REMINDER,
+            CARD_DOES_NOT_FIT_REMINDER,
             VALIDATION_SCHEMA,
         )
 
@@ -132,6 +141,32 @@ class TranslationValidator:
             import sentry_sdk
             sentry_sdk.capture_exception(e)
             return None
+
+        misfit = self._misfit(result, translation)
+        if misfit:
+            # The reply's own check says the card does not fit the sentence.
+            # Ask once more with its own sentence in front of it; a card it
+            # still cannot fit is not a card, so the word is given up on.
+            card, sentence, problem = misfit
+            try:
+                result = self._ask(
+                    prompt + CARD_DOES_NOT_FIT_REMINDER.format(card=card, sentence=sentence, problem=problem),
+                    VALIDATION_SCHEMA,
+                )
+            except Exception as e:
+                log(f"Translation validation retry failed: {e}")
+            if self._misfit(result, translation):
+                from dataclasses import replace
+
+                log(f"[VALIDATION] '{word}' = '{card}' still does not fit its sentence; unresolved")
+                result = replace(
+                    result,
+                    is_valid=False,
+                    is_unresolved=True,
+                    corrected_word=None,
+                    corrected_translation=None,
+                    reason=(result.reason or "") + " [card still did not fit its sentence]",
+                )
 
         if self._lists_options(result, word, translation):
             # The prompt already forbids "/" alternatives and glosses in
@@ -163,6 +198,28 @@ class TranslationValidator:
             messages=[{"role": "user", "content": prompt}],
         )
         return self._parse_response(claude.response_text(response).strip())
+
+    @staticmethod
+    def _misfit(result, translation):
+        """(card, sentence, problem) when the reply's own sentence check fails,
+        else None: a VALID whose card does not read right in the sentence, or a
+        FIX whose correction does not, or whose correction is not even what the
+        sentence it wrote says ("means" in the sentence, "mean" on the card)."""
+        if result.is_unresolved:
+            return None
+        if result.is_valid:
+            if result.card_reads_right is False:
+                return translation, result.card_in_sentence, "You judged that this does not read right."
+            return None
+        corrected = result.corrected_translation
+        sentence = result.correction_in_sentence
+        if not corrected or not sentence:
+            return None
+        if result.correction_reads_right is False:
+            return corrected, sentence, "You judged that this does not read right."
+        if not re.search(rf"(?<!\w){re.escape(corrected.strip().lower())}(?!\w)", sentence.lower()):
+            return corrected, sentence, f'"{corrected}" is not what that sentence says.'
+        return None
 
     @staticmethod
     def _lists_options(result, word, translation):
@@ -211,10 +268,12 @@ class TranslationValidator:
             value = LEFTOVER_UNICODE_ESCAPE.sub(lambda m: chr(int(m.group(1), 16)), value)
             return value or None
 
+        fixed = reply["verdict"] == "FIX"
         return ValidationResult(
             is_valid=reply["verdict"] == "VALID",
-            corrected_word=None if reply["verdict"] == "VALID" else field("corrected_word"),
-            corrected_translation=None if reply["verdict"] == "VALID" else field("corrected_translation"),
+            is_unresolved=reply["verdict"] == "UNRESOLVED",
+            corrected_word=field("corrected_word") if fixed else None,
+            corrected_translation=field("corrected_translation") if fixed else None,
             frequency=field("frequency"),
             cefr_level=field("cefr"),
             phrase_type=field("phrase_type"),
@@ -223,6 +282,10 @@ class TranslationValidator:
             literal_meaning=field("literal_meaning"),
             dictionary_word=field("dictionary_word"),
             dictionary_translation=field("dictionary_translation"),
+            correction_in_sentence=field("correction_in_sentence"),
+            card_in_sentence=field("card_in_sentence"),
+            card_reads_right=reply.get("card_reads_right"),
+            correction_reads_right=reply.get("correction_reads_right") if fixed else None,
         )
 
     def validate_translation(
