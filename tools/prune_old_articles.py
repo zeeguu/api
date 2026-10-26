@@ -6,7 +6,9 @@ See zeeguu/docs/future-work/article-retention-perennial-vs-ephemeral.md
 for the strategy.
 
 Retention windows (days):
-  ephemeral  →  180  (6 months)
+  ephemeral  →  per feed: roughly its last 100 articles, between 90 and 540
+                days; 180 while its pace is unmeasured
+                (zeeguu/core/feed_cadence.py)
   unknown    →  540  (18 months)
   perennial  →  None (don't age-prune; only deleted via the existing
                       anonymize_users.py unreferenced sweep)
@@ -39,14 +41,15 @@ from datetime import datetime, timedelta
 import zeeguu.core
 from sqlalchemy import text
 from zeeguu.api.app import create_app_for_scripts
+from zeeguu.core.feed_cadence import EPHEMERAL_DEFAULT_DAYS, ephemeral_retention_days
 from zeeguu.core.model.skipped_url import SkippedUrl
 from zeeguu.core.article_pruning import (
     referenced_article_ids,
     delete_articles_in_batches,
 )
 
+# Ephemeral feeds get a window per feed instead; see ephemeral_candidates.
 RETENTION_DAYS = {
-    "ephemeral": 180,
     "unknown": 540,
     "perennial": None,
 }
@@ -102,6 +105,48 @@ def candidates_for_class(retention_class, days, referenced):
     return unreferenced
 
 
+def ephemeral_candidates(referenced):
+    """Like candidates_for_class, but each ephemeral feed gets a window scaled
+    by how often it publishes: a fast news feed keeps less time, a slow blog
+    more."""
+    feeds = db_session.execute(
+        text(
+            """
+            SELECT id, title, typical_gap_hours
+            FROM feed
+            WHERE retention_class = 'ephemeral'
+            """
+        )
+    ).fetchall()
+
+    unreferenced = []
+    for feed_id, title, gap_hours in feeds:
+        days = ephemeral_retention_days(gap_hours)
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        candidate_ids = [
+            r[0]
+            for r in db_session.execute(
+                text(
+                    """
+                    SELECT id FROM article
+                    WHERE feed_id = :feed_id AND published_time < :cutoff
+                    """
+                ),
+                {"feed_id": feed_id, "cutoff": cutoff},
+            )
+        ]
+        ids = [aid for aid in candidate_ids if aid not in referenced]
+        if days != EPHEMERAL_DEFAULT_DAYS or ids:
+            print(
+                f"    {title} (id={feed_id}): {days}d (was {EPHEMERAL_DEFAULT_DAYS}d)"
+                f" — will delete {len(ids)}"
+            )
+        unreferenced.extend(ids)
+
+    print(f"    ephemeral total, unreferenced (will delete): {len(unreferenced)}")
+    return unreferenced
+
+
 def prune_skipped_urls():
     cutoff = datetime.utcnow() - timedelta(days=SKIPPED_URL_RETENTION_DAYS)
     old = SkippedUrl.skipped_before(cutoff)
@@ -118,8 +163,9 @@ def main():
 
     referenced = referenced_article_ids(db_session)
 
-    summary = {}
-    to_delete_all = []
+    print("\nephemeral: retention per feed")
+    to_delete_all = ephemeral_candidates(referenced)
+    summary = {"ephemeral": len(to_delete_all)}
     for rc, days in RETENTION_DAYS.items():
         if days is None:
             print(f"\n{rc}: skipped (no age-based pruning)")
