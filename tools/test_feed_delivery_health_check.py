@@ -2,7 +2,7 @@
 """
 Unit tests for the PURE classification logic of the feed delivery health check.
 
-The full ES + DB delivery path (segment_inventory_published_times,
+The full ES + DB delivery path (language_inventory_published_times,
 canary_published_times, active_users_by_segment) is hard to unit-test — it needs
 a live Elasticsearch index and a populated MySQL — so it's exercised manually /
 in staging, not here. What we CAN and do pin down below is the freshness +

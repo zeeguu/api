@@ -47,27 +47,6 @@ def more_like_this_query(count, article_text, language, page=0):
     return {"from": page * count, "size": count, "query": s.query.to_dict()}
 
 
-CEFR_LEVEL_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
-
-
-def get_cefr_levels_to_match(user_cefr_level):
-    """
-    Returns the list of CEFR levels that match the user's level.
-    Includes exact match and compound levels where user is the upper half.
-    E.g., A2 user matches: ["A2", "A1/A2"].
-
-    NOTE: discovery (feed, topic browsing, search) no longer filters on CEFR at
-    all — see build_elastic_recommender_query. What is left of this function
-    serves tools/feed_delivery_health_check.py, which still probes per-level
-    inventory as a canary on CEFR assessment coverage.
-    """
-    levels = [user_cefr_level]
-    i = CEFR_LEVEL_ORDER.index(user_cefr_level)
-    if i > 0:
-        levels.append(f"{CEFR_LEVEL_ORDER[i - 1]}/{user_cefr_level}")
-    return levels
-
-
 def build_elastic_recommender_query(
     count,
     user_topics,
