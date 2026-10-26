@@ -57,7 +57,7 @@ CRAWL_SCHEDULE = {
     "es": LanguageCrawl(THREE_TIMES_A_DAY, 5),
     "it": LanguageCrawl(THREE_TIMES_A_DAY, 5),
     "bg": LanguageCrawl(THREE_TIMES_A_DAY, 5),
-    "sv": LanguageCrawl(PAUSED, 5),
+    "sv": LanguageCrawl(THREE_TIMES_A_DAY, 5),
 }
 
 
