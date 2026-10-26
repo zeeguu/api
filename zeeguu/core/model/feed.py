@@ -56,6 +56,11 @@ class Feed(db.Model):
         server_default="unknown",
     )
 
+    # Average hours between this feed's articles, measured nightly by
+    # tools/update_feed_typical_gaps.py. NULL = not measured (see
+    # zeeguu/core/feed_cadence.py for what falls back to fixed thresholds).
+    typical_gap_hours = db.Column(db.Float)
+
     feed_handler = None
 
     def __init__(
