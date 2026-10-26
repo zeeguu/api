@@ -14,7 +14,6 @@ from zeeguu.core.elastic.elastic_query_builder import (
     build_elastic_recommender_query,
     build_elastic_search_query,
     build_elastic_search_query_for_videos,
-    get_cefr_levels_to_match,
 )
 
 
@@ -65,10 +64,3 @@ def test_video_query_does_not_filter_by_cefr_level():
         page=0,
     )
     assert "available_cefr_levels" not in json.dumps(query)
-
-
-def test_cefr_levels_to_match_includes_the_compound_band_below():
-    # Still used by tools/feed_delivery_health_check.py to probe per-level
-    # assessment coverage.
-    assert get_cefr_levels_to_match("A2") == ["A2", "A1/A2"]
-    assert get_cefr_levels_to_match("A1") == ["A1"]

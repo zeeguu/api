@@ -24,12 +24,11 @@ Two signals per segment
 ------------------------
 1. INVENTORY (primary alert trigger): re-run the app's OWN recommender query
    builder (build_elastic_recommender_query) for the segment's language, with NO
-   per-user seen-exclusion and NO topic narrowing, plus a CEFR clause this check
-   adds itself. This is "does fresh content that this segment COULD be shown even
-   exist in the index?", without being confounded by one user's reading history.
-   The CEFR half of it has since become a check on ASSESSMENT rather than on
-   delivery — the feed no longer filters by level (see
-   segment_inventory_published_times).
+   per-user seen-exclusion and NO topic narrowing. This is "does fresh content
+   that this segment COULD be shown even exist in the index?", without being
+   confounded by one user's reading history. The feed no longer filters by level,
+   so every level of a language shares one inventory (see
+   language_inventory_published_times).
 
 2. PER-USER CANARY (corroboration): pick a real, recently-active user in the
    segment and call the REAL feed function article_recommendations_for_user().
@@ -70,6 +69,7 @@ import os
 import sys
 from collections import defaultdict, namedtuple
 from datetime import datetime, timedelta
+from functools import lru_cache
 
 from zeeguu.core.model import User, Language
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
@@ -113,10 +113,9 @@ MIN_FRESH = _env_int("FEED_HEALTH_MIN_FRESH", 3)
 # AFTER the day's crawl so it doesn't fire on a not-yet-crawled today.
 STALE_DAYS = _env_int("FEED_HEALTH_STALE_DAYS", 1)
 # CEFR levels whose failures actually ALERT (email + non-zero exit). Other levels
-# are still evaluated and shown in the report, but don't trigger alerts. C1/C2
-# are report-only by default: we don't complexify (generate above-level content)
-# yet, so almost all crawled news sits at A1–B2 and C1/C2 are empty by design —
-# alerting on them would be pure noise. Revisit when complexification ships.
+# are still evaluated and shown in the report, but don't trigger alerts. The
+# inventory is per language now, so a failing language fails at every level; the
+# alerting levels just keep C1/C2 out of the count in the subject line.
 ALERT_LEVELS = _env_level_set("FEED_HEALTH_ALERT_LEVELS", "A1,A2,B1,B2")
 # How many items to request from the recommender / inventory query.
 COUNT = _env_int("FEED_HEALTH_COUNT", 10)
@@ -311,40 +310,40 @@ def active_users_by_segment(active_days, language_codes=None):
 
 
 # --- ES inventory (primary signal) --------------------------------------------
-def segment_inventory_published_times(segment, count):
-    """Fresh-inventory probe for a segment, independent of any one user.
+@lru_cache(maxsize=None)
+def language_inventory_published_times(language_code, count):
+    """Fresh-inventory probe for a language, independent of any one user.
 
     Reuses the app's OWN query builder (build_elastic_recommender_query) for the
-    segment's language with NO per-user filters (no seen-exclusion, no topic
-    narrowing, no disturbing filter), then adds the CEFR clause on top.
+    language with NO per-user filters (no seen-exclusion, no topic narrowing, no
+    disturbing filter).
 
-    That clause is ours now, not the feed's: the recommender stopped filtering on
+    There is no CEFR clause: the recommender stopped filtering on
     available_cefr_levels once simplification became on-demand (any article is
-    readable at any level), so nothing in the delivery path narrows by level
-    anymore. We keep probing per level because the field still tells us whether
-    CEFR ASSESSMENT is running — a segment going empty here means new articles
-    are landing unassessed (the Aug 2026 article_type bug, and the Anthropic
-    usage-cap outages, both looked exactly like this), which no longer starves
-    the feed but does starve level summaries and the level badge.
+    readable at any level), so all levels of a language see the same inventory.
+    This probe used to add a per-level clause as a proxy for "is CEFR assessment
+    running", but crawled news is rarely assessed A1/A2, so those segments looked
+    empty while their learners had full feeds. Assessment is watched directly by
+    assessment_coverage. Cached per language, as every segment of a language
+    asks the same question.
 
-    LIMITATION: this models CEFR coverage but NOT per-user feature-flag filtering
+    LIMITATION: this does NOT model per-user feature-flag filtering
     (e.g. a simplified-only feed). A flag-driven emptiness — like the ORIGINAL
     Aug 2026 incident (simplified-only feed, no simplified content) — would show
     only in the per-user canary, not here. That's acceptable because api#698 made
     feeds originals-first for everyone, removing that filter; revisit if a
     per-user filter that can starve a feed is ever reintroduced.
 
-    Returns a list of publication datetimes for the returned hits (articles AND
+    Returns a tuple of publication datetimes for the returned hits (articles AND
     videos), or raises on ES failure (caller treats that as its own alert).
     """
     from elasticsearch import Elasticsearch
     from zeeguu.core.elastic.elastic_query_builder import (
         build_elastic_recommender_query,
-        get_cefr_levels_to_match,
     )
     from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 
-    language = Language.find(segment.language_code)
+    language = Language.find(language_code)
 
     query_body = build_elastic_recommender_query(
         count,
@@ -361,20 +360,10 @@ def segment_inventory_published_times(segment, count):
         filter_disturbing=False,
         page=0,
     )
-    query_body["query"]["function_score"]["query"]["bool"]["must"].append(
-        {
-            "terms": {
-                "available_cefr_levels.keyword": get_cefr_levels_to_match(
-                    segment.cefr_level
-                )
-            }
-        }
-    )
-
     es = Elasticsearch(ES_CONN_STRING)
     res = es.search(index=ES_ZINDEX, body=query_body)
     hits = res["hits"].get("hits", [])
-    return [_hit_published_time(h) for h in hits]
+    return tuple(_hit_published_time(h) for h in hits)
 
 
 def _to_local_naive(dt):
@@ -423,7 +412,7 @@ def evaluate_segment(segment, users, count, now, thresholds):
 
     # Primary: segment inventory.
     try:
-        inv_times = segment_inventory_published_times(segment, count)
+        inv_times = language_inventory_published_times(segment.language_code, count)
         inv_summary = freshness_summary(inv_times, now, fresh_days)
         status, reason = classify_segment(
             inv_summary, min_articles, min_fresh, stale_days
