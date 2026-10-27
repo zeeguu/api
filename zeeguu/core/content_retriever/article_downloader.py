@@ -445,12 +445,14 @@ def download_from_feed(
                 log(" - Skipped before")
                 continue
 
-        except requests.exceptions.TooManyRedirects:
-            raise Exception(f"- Too many redirects")
-        except Exception:
-            raise Exception(
-                f"- Could not get url after redirects for {feed_item['url']}"
-            )
+        except Exception as e:
+            # One unresolvable item (a dead link, or a pinned app link like
+            # lespresso's paperlit://openlatestissue) must not abort the rest of
+            # the feed: raising here stopped lespresso at its first item on
+            # every crawl.
+            log(f" - Could not get url after redirects: {e}")
+            skipped_other += 1
+            continue
 
         if banned_url(url):
             log("Banned Url")
