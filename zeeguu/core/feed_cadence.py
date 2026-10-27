@@ -8,8 +8,8 @@ is 18,000 articles for the first and six for the second. So both decisions are
 scaled by feed.typical_gap_hours, the average time between a feed's articles,
 which tools/update_feed_typical_gaps.py measures nightly.
 
-A feed whose gap is unknown (NULL: new, or too few recent articles) gets the
-old fixed thresholds.
+A feed whose gap is unknown (NULL: not measured yet) gets the old fixed
+thresholds.
 """
 
 from datetime import timedelta
@@ -17,13 +17,18 @@ from datetime import timedelta
 # The gap is measured over this window. Pruning never shortens a window below
 # it (PRUNE_MIN_DAYS), so the articles it counts are never pruned away.
 GAP_WINDOW_DAYS = 90
-# Below this many articles in the window the average says too little.
+# Below this many articles in the window, the time since the oldest of them
+# says too little (one article an hour ago is not a feed posting hourly), so
+# the gap is taken over the whole window instead: it can only come out slower.
 MIN_ARTICLES_FOR_GAP = 3
 
 # A feed is stale once it has been silent for this many of its usual gaps...
 STALE_GAPS = 3
-# ...but never sooner than this, so a fast feed's quiet weekend isn't an alert.
-MIN_STALE_DAYS = 3
+# ...but never sooner than this: some feeds post in weekly bursts (a literary
+# weekly's Wednesday batch), which the average gap hides. A dead fast feed is
+# still found within a week, and an empty language feed within a day by
+# feed_delivery_health_check.
+MIN_STALE_DAYS = 7
 
 # An ephemeral feed keeps roughly its last PRUNE_KEEP_ARTICLES articles,
 # within these bounds.
@@ -38,9 +43,10 @@ def typical_gap_hours(article_count, oldest_published, now):
     """Average hours between articles, from the articles a feed published in
     the last GAP_WINDOW_DAYS. Measuring from the oldest of them rather than
     from the window start keeps a feed added last week from looking slow.
-    None when there are too few articles to say."""
+    With fewer than MIN_ARTICLES_FOR_GAP articles the feed is slow by
+    definition: the window divided by the count (no articles counts as one)."""
     if article_count < MIN_ARTICLES_FOR_GAP or oldest_published is None:
-        return None
+        return GAP_WINDOW_DAYS * 24 / max(article_count, 1)
     span_hours = (now - oldest_published).total_seconds() / 3600
     return max(span_hours, 0) / article_count
 

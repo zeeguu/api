@@ -60,7 +60,7 @@ def main():
         return
     set_summary(f"{len(stale_feeds)} feed(s) stale")
 
-    lines = ["=== STALE FEEDS (quiet for 3+ of their usual gaps, and 3+ days) ===", ""]
+    lines = ["=== STALE FEEDS (quiet for 3+ of their usual gaps, and 7+ days) ===", ""]
     for feed, days in stale_feeds:
         if days is None:
             lines.append(f"  [{feed.language.code}] {feed.title} (id={feed.id}) - NEVER CRAWLED")

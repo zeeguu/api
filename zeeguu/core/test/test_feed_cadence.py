@@ -27,17 +27,25 @@ def test_gap_is_measured_from_the_oldest_article_so_a_new_feed_is_not_slow():
     assert typical_gap_hours(14, NOW - timedelta(days=7), NOW) == 12
 
 
-def test_too_few_articles_give_no_gap():
-    assert typical_gap_hours(2, NOW - timedelta(days=30), NOW) is None
-    assert typical_gap_hours(0, None, NOW) is None
+def test_few_articles_spread_over_the_whole_window():
+    # 2 articles in 90 days: one every 45 days, however recent they are
+    assert typical_gap_hours(2, NOW - timedelta(hours=1), NOW) == 45 * 24
 
 
-def test_unknown_gap_is_stale_after_three_days():
-    assert stale_after(None) == timedelta(days=3)
+def test_no_articles_count_as_one():
+    assert typical_gap_hours(0, None, NOW) == 90 * 24
 
 
-def test_a_fast_feed_is_never_stale_before_three_days():
-    assert stale_after(1) == timedelta(days=3)
+def test_a_blog_with_two_articles_a_quarter_is_stale_after_135_days():
+    assert stale_after(typical_gap_hours(2, NOW - timedelta(days=60), NOW)) == timedelta(days=135)
+
+
+def test_unknown_gap_is_stale_after_a_week():
+    assert stale_after(None) == timedelta(days=7)
+
+
+def test_a_fast_feed_is_never_stale_before_a_week():
+    assert stale_after(1) == timedelta(days=7)
 
 
 def test_a_weekly_blog_is_stale_after_three_weeks():

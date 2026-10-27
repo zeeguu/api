@@ -44,20 +44,18 @@ def main():
         ),
         {"since": now - timedelta(days=GAP_WINDOW_DAYS), "now": now},
     )
-    gaps = {feed_id: typical_gap_hours(n, oldest, now) for feed_id, n, oldest in rows}
+    stored = {feed_id: (n, oldest) for feed_id, n, oldest in rows}
 
-    measured = 0
-    for feed in Feed.query.all():
-        gap = gaps.get(feed.id)
-        if gap is not None:
-            measured += 1
+    feeds = Feed.query.all()
+    for feed in feeds:
+        # A feed that stored nothing in the window is measured as the slowest.
+        gap = typical_gap_hours(*stored.get(feed.id, (0, None)), now)
         if args.dry_run:
-            shown = "-" if gap is None else f"{gap:.1f}h"
-            print(f"  [{feed.language.code}] {feed.title} (id={feed.id}): {shown}")
+            print(f"  [{feed.language.code}] {feed.title} (id={feed.id}): {gap:.1f}h")
         else:
             feed.typical_gap_hours = gap
 
-    summary = f"{measured} feed(s) with a measured gap"
+    summary = f"gap measured for {len(feeds)} feed(s)"
     print(summary)
     if not args.dry_run:
         db.session.commit()
