@@ -146,7 +146,7 @@ def generate_crawl_summary(crawl_reports):
     return summary
 
 
-def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None, max_articles_per_feed=1000, simplification_provider='deepseek'):
+def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None, max_articles_per_feed=1000):
     """
     Crawl feeds in round-robin fashion across languages.
 
@@ -155,7 +155,6 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
         articles_per_feed: Number of articles to process per feed before switching (default: 1)
         recent_days: Only process articles from last N days (overrides feed last_crawled_time)
         max_articles_per_feed: Maximum articles to download per feed (default: 1000)
-        simplification_provider: LLM provider for article simplification (default: 'deepseek')
 
     Returns:
         Dict of crawl reports per language
@@ -237,7 +236,6 @@ def crawl_round_robin(languages_to_crawl, articles_per_feed=1, recent_days=None,
                         db_session,
                         crawl_report,
                         limit=max_articles_per_feed,
-                        simplification_provider=simplification_provider,
                     )
 
                     feed_time = time() - feed_start_time
@@ -294,8 +292,6 @@ parser.add_argument('--recent-days', type=int, default=None,
                    help='Only process articles from last N days (overrides feed last_crawled_time)')
 parser.add_argument('--max-articles', type=int, default=1000,
                    help='Maximum articles to download per feed (default: 1000)')
-parser.add_argument('--provider', type=str, choices=['deepseek', 'anthropic'], default='deepseek',
-                   help='LLM provider for article simplification (default: deepseek)')
 
 args = parser.parse_args()
 
@@ -321,13 +317,12 @@ log(f"=== Started at: {start} ===")
 log(f"=== Max time per feed: {args.max_time}s ===")
 log(f"=== Max articles per feed: {args.max_articles} ===")
 log(f"=== Articles per feed (round-robin): {args.articles_per_feed} ===")
-log(f"=== Simplification provider: {args.provider.upper()} ===")
 if args.recent_days:
     log(f"=== Recent days filter: {args.recent_days} days ===")
 log("")
 
 try:
-    crawl_reports = crawl_round_robin(languages_to_crawl, args.articles_per_feed, args.recent_days, args.max_articles, args.provider)
+    crawl_reports = crawl_round_robin(languages_to_crawl, args.articles_per_feed, args.recent_days, args.max_articles)
 
     end = datetime.now()
     total_duration = end - start

@@ -11,16 +11,14 @@
 # Usage:
 #   ./crawl_all_in_parallel.sh                           # Crawl the languages due this hour
 #   ./crawl_all_in_parallel.sh da fr                     # Crawl only Danish and French, now
-#   ./crawl_all_in_parallel.sh --provider anthropic da   # Crawl Danish with Anthropic
-#   ./crawl_all_in_parallel.sh --provider deepseek       # Crawl what's due with Deepseek
+#
+# Which LLM assesses the articles is not chosen here: it is declared per feature
+# in zeeguu/core/llm_services/genie_tasks.py, fallbacks included.
 
 API_DIR="/home/zeeguu/ops/running/api"
 DOCKER_COMPOSE="docker compose -f $API_DIR/docker-compose.yml"
 
 SCHEDULE="$(dirname "$0")/../../core/crawl_schedule.py"
-
-# Default provider
-PROVIDER="deepseek"
 
 # Collect language arguments
 LANG_ARGS=""
@@ -29,7 +27,8 @@ LANG_ARGS=""
 while [[ $# -gt 0 ]]; do
     case $1 in
         --provider)
-            PROVIDER="$2"
+            # Ignored, kept so the ops crontab's `--provider deepseek` is not
+            # read as a language code until that line is updated. Remove after.
             shift 2
             ;;
         *)
@@ -51,7 +50,6 @@ TIMESTAMP=$(date +'%Y_%m_%d_%I_%M_%p')
 
 # Status output disabled to avoid cron emails (logs go to $LOG_FILE)
 # echo "=== Starting Parallel Crawl at $(date) ==="
-# echo "Provider: $PROVIDER"
 # echo "Plan: $PLAN"
 # echo ""
 
@@ -104,6 +102,6 @@ while read -r lang max_articles max_time_minutes; do
 
     # </dev/null: docker compose run would otherwise read the rest of $PLAN from stdin
     run_crawler_with_hard_timeout "$lang" "$max_time_seconds" "$LOG_FILE" \
-        zeeguu/operations/crawler/crawl.py "$lang" --provider "$PROVIDER" --max-articles "$max_articles" --max-time "$max_time_seconds" \
+        zeeguu/operations/crawler/crawl.py "$lang" --max-articles "$max_articles" --max-time "$max_time_seconds" \
         </dev/null
 done <<< "$PLAN"
