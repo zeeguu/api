@@ -415,6 +415,8 @@ class UserWord(db.Model):
         scheduler = self.get_scheduler()
         scheduler.update(db_session, self, exercise_outcome, time)
         practiced = self._survivor_of_validation(bookmark)
+        if exercise_outcome == ExerciseOutcome.OTHER_FEEDBACK:
+            practiced._choose_from_exercise_feedback(db_session, other_feedback)
 
         exercise = Exercise(
             outcome,
@@ -440,6 +442,29 @@ class UserWord(db.Model):
         # the BasicSRSchedule.update call.
         # self.update_fit_for_study(db_session)
         # self.update_learned_status(db_session)
+
+    # Feedback that means the learner knows the word: "i_know_this" from the
+    # exercise links, "declared_known" when an exercise's edit dialog removed
+    # it (that dialog also posts /dont_use_in_exercises, which this must agree
+    # with)
+    FEEDBACK_DECLARING_KNOWN = ("i_know_this", "declared_known")
+
+    def _choose_from_exercise_feedback(self, db_session, other_feedback):
+        """The learner took the word out of practice from an exercise."""
+        from zeeguu.core.model.user_word_interaction_history import (
+            UserWordInteractionHistory,
+        )
+
+        if other_feedback in self.FEEDBACK_DECLARING_KNOWN:
+            # Logged once, also when /dont_use_in_exercises got here first
+            if self.study_choice != StudyChoice.KNOWN:
+                UserWordInteractionHistory.log(
+                    db_session, self, UserWordInteractionHistory.DECLARED_KNOWN
+                )
+            self.study_choice = StudyChoice.KNOWN
+        else:
+            self.study_choice = StudyChoice.SKIP
+        db_session.add(self)
 
     def _survivor_of_validation(self, bookmark):
         """The UserWord the learner's answer belongs to after scheduling.
