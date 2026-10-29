@@ -110,17 +110,13 @@ class BasicSRSchedule(db.Model):
             time = datetime.now()
 
         if outcome == ExerciseOutcome.OTHER_FEEDBACK:
-            from zeeguu.core.model.study_choice import StudyChoice
-
+            # The learner took the word out of practice. Which choice that
+            # was (known or skip) is up to UserWord.report_exercise_outcome.
             schedule = cls.find(user_word)
             if schedule:
                 db_session.delete(schedule)
 
             user_word.fit_for_study = 0
-
-            # Since the user has explicitly given feedback, this should
-            # be recorded as their choice.
-            user_word.study_choice = StudyChoice.SKIP
             db_session.add(user_word)
 
             return
