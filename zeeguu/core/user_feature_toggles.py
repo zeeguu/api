@@ -42,6 +42,7 @@ def _feature_map():
         "always_open_externally": _always_open_externally,
         "gamification": _gamification,
         "fast_progression": _fast_progression,
+        "resolve_disagreements": _resolve_disagreements,
     }
 
 
@@ -208,3 +209,12 @@ def _gamification(user: User):
     the feature is now on for all users.
     """
     return True
+
+
+def _resolve_disagreements(user: User):
+    """
+    When the translators disagree on a reader lookup, an LLM settles it
+    (/resolve_translation_disagreement) instead of the alternatives menu
+    opening by itself. Dev accounts only while we watch it.
+    """
+    return bool(user.is_dev)
