@@ -32,6 +32,8 @@ from zeeguu.core.util.authors import clean_authors
 from zeeguu.logging import log
 
 MAX_CHAR_COUNT_IN_SUMMARY = 300
+# ArticleFragment.formatting of a blank line between paragraphs (no text)
+BREAK_FORMATTING = "break"
 MARKED_BROKEN_DUE_TO_LOW_QUALITY = 100
 # Tokenizations above this (json chars ≈ bytes) are not cached; see
 # _cache_tokenized_content
@@ -476,6 +478,13 @@ class Article(db.Model):
         # by one, and the first of them carries the bullet.
         bullet_carriers = set()
 
+        # In uploaded texts, blank lines between paragraphs (empty <p>s that
+        # teachers use to separate stanzas or sections) become one "break"
+        # fragment per run; leading and trailing ones are dropped. Crawled
+        # HTML is full of junk empty <p>s, so there they are always dropped.
+        keep_breaks = self.uploader_id is not None
+        pending_break = False
+
         for element in soup.find_all(block_elements):
             # Skip blockquote containers - we'll process their paragraph children instead
             if element.name == "blockquote":
@@ -518,11 +527,22 @@ class Article(db.Model):
                 text_content = element.get_text().strip()
                 tag_name = element.name
 
-            if text_content:  # Only create fragments for non-empty content
+            if not text_content:
+                if keep_breaks and tag_name == "p" and order > 0:
+                    pending_break = True
+                continue
+
+            if pending_break:
                 ArticleFragment.find_or_create(
-                    session, self, text_content, order, tag_name, commit=False
+                    session, self, "", order, BREAK_FORMATTING, commit=False
                 )
                 order += 1
+                pending_break = False
+
+            ArticleFragment.find_or_create(
+                session, self, text_content, order, tag_name, commit=False
+            )
+            order += 1
 
         # If no HTML elements found, fall back to splitting plain text
         if order == 0:
@@ -637,15 +657,23 @@ class Article(db.Model):
         fragment_tokens_list = []
         all_fragment_sentences = []
 
+        # Break fragments have no text; they get no tokens
+        to_tokenize = [
+            f for f in fragments_list if f.formatting != BREAK_FORMATTING
+        ]
+
         # Batch tokenization: process all fragments in a single call if supported
         if hasattr(tokenizer, 'tokenize_batch'):
-            texts = [f.text.content for f in fragments_list]
-            fragment_tokens_list = tokenizer.tokenize_batch(texts, flatten=False)
+            texts = [f.text.content for f in to_tokenize]
+            tokenized = tokenizer.tokenize_batch(texts, flatten=False)
         else:
             # Fallback: tokenize each fragment individually
-            for frag_idx, fragment in enumerate(fragments_list):
-                frag_tokens = tokenizer.tokenize_text(fragment.text.content, flatten=False)
-                fragment_tokens_list.append(frag_tokens)
+            tokenized = [
+                tokenizer.tokenize_text(f.text.content, flatten=False)
+                for f in to_tokenize
+            ]
+        tokens_by_fragment = dict(zip([id(f) for f in to_tokenize], tokenized))
+        fragment_tokens_list = [tokens_by_fragment.get(id(f), []) for f in fragments_list]
 
         # Collect sentences for batch MWE processing
         for frag_idx, frag_tokens in enumerate(fragment_tokens_list):
