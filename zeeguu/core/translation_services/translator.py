@@ -347,11 +347,14 @@ def _translation_key(text):
 
 
 # Preference order used both for picking a bucket's representative dict and
-# for breaking ties between equally-sized buckets: DeepL > Google > Azure.
+# for breaking ties between equally-sized buckets:
+# DeepL > Google > Google phrase > Azure.
 # DeepL is the most accurate provider for the European language pairs Zeeguu
-# teaches (see the DeepL-dissent handling in _vote_single_word_translation),
-# so it wins genuine ties and represents any bucket it shares.
-_PROVIDER_PREFERENCE = {"deepl": 0, "google": 1, "azure": 2}
+# teaches (see the DeepL-dissent handling in _vote_translation),
+# so it wins genuine ties and represents any bucket it shares. The contextless
+# Google phrase call only votes on multi-word selections; it ranks below the
+# contextual providers because it cannot see the sentence.
+_PROVIDER_PREFERENCE = {"deepl": 0, "google": 1, "google_phrase": 2, "azure": 3}
 
 
 def _alternative_entry(result_dict, votes):
@@ -363,10 +366,18 @@ def _alternative_entry(result_dict, votes):
     }
 
 
-def _vote_single_word_translation(data):
+def _vote_translation(data, phrase=False):
     """
     Run Azure alignment, Google contextual, and DeepL contextual in parallel
-    and pick a primary translation by majority-of-3 voting.
+    and pick a primary translation by majority voting.
+
+    With ``phrase=True`` (multi-word selections) the contextless Google
+    phrase translation votes as a fourth provider. It used to be returned
+    on its own, without a vote, which is right for grammatical MWEs
+    ("vil have fjernet" → "will have removed") but wrong whenever the
+    sentence decides the meaning: "en bonde" in a chess sentence came back
+    as "a farmer" while DeepL said "a pawn". Voting keeps its strength and
+    lets the disagreement surface.
 
     Returns the chosen result dict with three extra optional keys:
       - ``alternatives``: list of {translation, source, votes} for every
@@ -377,11 +388,12 @@ def _vote_single_word_translation(data):
         excludes the winner and is only present when more than one bucket
         existed. Kept during ADR 022's deprecation window.
       - ``disagreement``: True when the consensus shouldn't be trusted —
-        either no majority emerged (all 3 distinct, or only 2 of 3 succeeded
-        and disagreed), or DeepL dissents from a 2-vote majority (see below).
-        Signals the client to auto-open the alternatives menu.
+        either no result got two votes, the top two results tied (a 2-2
+        split once the phrase voter is in), or DeepL dissents from the
+        winner (see below). Signals the client to auto-open the
+        alternatives menu.
 
-    Falls back to Microsoft contextual if all three contextual providers fail.
+    Falls back to Microsoft contextual if every provider fails.
     """
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -396,6 +408,10 @@ def _vote_single_word_translation(data):
         "google": lambda: google_contextual_translate(data),
         "deepl": lambda: deepl_contextual_translate_cached(data),
     }
+    if phrase:
+        funcs["google_phrase"] = lambda: translate_mwe_phrase(
+            data["word"], data["source_language"], data["target_language"]
+        )
 
     results = {name: None for name in funcs}
     with ThreadPoolExecutor(max_workers=len(funcs)) as executor:
@@ -464,7 +480,8 @@ def _vote_single_word_translation(data):
         and deepl_result.get("translation")
         and _translation_key(deepl_result["translation"]) != winner_key
     )
-    if winner_votes < 2 or deepl_dissents:
+    tied = len(bucket_picks) > 1 and bucket_picks[1][1] == winner_votes
+    if winner_votes < 2 or tied or deepl_dissents:
         winner["disagreement"] = True
 
     providers_summary = ", ".join(
@@ -490,6 +507,8 @@ def _format_provider_summary(name, result):
 def _source_to_provider(result_dict):
     """Map a result dict's ``source`` label back to a provider key for tie-breaks."""
     source = (result_dict.get("source") or "").lower()
+    if "mwe phrase" in source:
+        return "google_phrase"
     if "google" in source:
         return "google"
     if "deepl" in source:
@@ -502,28 +521,19 @@ def translate_in_context(word, context, from_lang, to_lang):
     """
     Translate a word or adjacent MWE using context.
 
-    Single words: runs Azure alignment, Google contextual, and DeepL
-    contextual in parallel and picks the primary by majority-of-3 vote
-    (see ``_vote_single_word_translation``).
-
-    Contiguous MWEs (e.g. "kom op", "il y a"): use phrase-only translation
-    via Google contextless, which handles grammatical MWEs better than
-    full-sentence contextual translation.
+    Runs Azure alignment, Google contextual, and DeepL contextual in
+    parallel and picks the primary by majority vote (see
+    ``_vote_translation``). Contiguous MWEs (e.g. "kom op", "il y a") add
+    the contextless Google phrase translation as a fourth voter, since it
+    handles grammatical MWEs better than full-sentence contextual
+    translation.
 
     Returns:
         dict with 'translation', 'source', 'likelihood' keys (plus optional
-        'competing_translations' / 'disagreement' for single-word disagreements),
+        'competing_translations' / 'disagreement' when providers disagree),
         or None if all providers failed.
     """
     from python_translators.translation_query import TranslationQuery
-
-    # For multi-word expressions, try phrase-only translation first
-    # This handles grammatical MWEs better (e.g., Danish "vil have fjernet" = "will have removed")
-    # Contextual translation can misinterpret grammar when full sentence is provided
-    if " " in word:
-        result = translate_mwe_phrase(word, from_lang, to_lang)
-        if result:
-            return result
 
     try:
         query = TranslationQuery.for_word_occurrence(word, context, 1, 7)
@@ -538,16 +548,7 @@ def translate_in_context(word, context, from_lang, to_lang):
         "context": context,
     }
 
-    if " " not in word:
-        return _vote_single_word_translation(data)
-
-    result = azure_alignment_contextual_translate(data)
-    if not result:
-        result = microsoft_contextual_translate(data)
-    if not result:
-        result = google_contextual_translate(data)
-
-    return result
+    return _vote_translation(data, phrase=" " in word)
 
 
 @lru_cache(maxsize=1000)
