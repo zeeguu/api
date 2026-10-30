@@ -31,6 +31,9 @@ def get_all_language_streaks():
             "language": ul.language.name,
             "daily_streak": ul.current_daily_streak,
             "practiced_today": ul.local_last_practiced == today,
+            # A date, not a time: last_practiced is only written on the day's
+            # first activity, so its time of day would be misleading.
+            "last_practiced_date": ul.local_last_practiced and ul.local_last_practiced.isoformat(),
         }
         for ul in UserLanguage.query.filter_by(user_id=user.id).all()
         if ul.language_id != user.native_language_id
