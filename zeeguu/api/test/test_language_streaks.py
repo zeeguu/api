@@ -15,10 +15,12 @@ def test_last_practiced_date_is_the_users_local_day(client: LoggedInClient):
     ul = UserLanguage.find_or_create(db.session, user, user.learned_language)
     ul.last_practiced = server_now() - datetime.timedelta(days=3)
     db.session.commit()
+    code = user.learned_language.code
+    expected = ul.local_last_practiced.isoformat()
 
-    entry = _streaks_by_code(client)[user.learned_language.code]
+    entry = _streaks_by_code(client)[code]
 
-    assert entry["last_practiced_date"] == ul.local_last_practiced.isoformat()
+    assert entry["last_practiced_date"] == expected
     assert "T" not in entry["last_practiced_date"]
 
 
@@ -27,5 +29,6 @@ def test_last_practiced_date_is_null_for_a_language_never_practiced(client: Logg
     ul = UserLanguage.find_or_create(db.session, user, user.learned_language)
     ul.last_practiced = None
     db.session.commit()
+    code = user.learned_language.code
 
-    assert _streaks_by_code(client)[user.learned_language.code]["last_practiced_date"] is None
+    assert _streaks_by_code(client)[code]["last_practiced_date"] is None
