@@ -1,0 +1,48 @@
+# Regression set for the disagreement resolver (prompts/translation_disagreement.py).
+#
+# Each case is a reader lookup whose machine translators disagreed: the word,
+# the sentence, and the candidates they offered. `expect` lists the answers
+# that pass (case-insensitive); the resolver may write one none of the
+# candidates offered. `source` and `target` are language codes, Danish ->
+# English when left out.
+#
+# Score with: python -m tools.run_disagreement_regression --runs 3
+
+cases:
+  # --- the two cases behind the resolver (30 Oct 2026, a song text) ---
+  - word: en bonde
+    context: For jeg' en bonde i et kongespil
+    candidates: [a farmer, a pawn, m a pawn]
+    expect: [a pawn, pawn]
+    note: 'kongespil = a game of kings; the contextless Google phrase call won with "a farmer"'
+  - word: er frosset til
+    context: Hvor hjerterne er frosset til, og jeg
+    candidates: [is frozen to, am frozen solid, are frozen, are frozen to]
+    expect: [are frozen solid, are frozen over, have frozen solid, have frozen over, are frozen stiff]
+    note: 'every candidate partly wrong: "til" is the particle of "fryse til", and the subject is plural'
+
+  # --- the DeepL-dissent rule's case: definiteness ---
+  - word: Skuespilleren
+    context: Skuespilleren fik en pris for sin rolle i filmen.
+    candidates: [Actor, The actor]
+    expect: [the actor]
+
+  # --- why the contextless phrase call is kept: grammar, not meaning ---
+  - word: vil have fjernet
+    context: Vi vil have fjernet momsen på frugt og grønt.
+    candidates: [will have removed, want to remove, want removed]
+    expect: [want removed, want to have removed, want to remove]
+    note: 'here "vil have fjernet" is want + have + removed; the phrase alone reads as future perfect'
+
+  # --- the validator's founding case, seen from the reader ---
+  - word: vil sige
+    context: Jeg lærte, hvad det vil sige at gå, da jeg så evnen forsvinde
+    candidates: [will say, mean]
+    expect: [means]
+    note: 'known miss in v1: answers "mean" (right sense, form of the bare verb); a form example in the prompt did not help'
+
+  # --- particle verb, providers translate the particle literally ---
+  - word: slår op
+    context: Når jeg ikke forstår et ord, slår jeg det op i ordbogen.
+    candidates: [hit up, look up, strike up]
+    expect: [look up]
