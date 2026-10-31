@@ -48,6 +48,14 @@ class HtmlToMarkdownTest(TestCase):
         html = "<table><tr><th>Navn</th><th>Alder</th></tr><tr><td>Agnes</td><td>12</td></tr></table>"
         self.assertEqual(html_to_markdown(html).split("\n\n"), ["Navn Alder", "Agnes 12"])
 
+    def test_a_figure_goes_with_its_caption_and_embed_fallback(self):
+        html = (
+            "<p>Før.</p><figure><div><iframe></iframe><div><h5>Hov! Her ligger et element fra en tjeneste, "
+            "der bruger cookies.</h5><p>Du kan også se indholdet hos YouTube.</p></div></div>"
+            "<figcaption>Se slangen her. (Video: Youtube)</figcaption></figure><p>Efter.</p>"
+        )
+        self.assertEqual(html_to_markdown(html), "Før.\n\nEfter.")
+
     def test_an_article_inside_a_form_is_kept(self):
         self.assertEqual(html_to_markdown("<form><p>Artiklen.</p><button>Send</button></form>"), "Artiklen.")
 

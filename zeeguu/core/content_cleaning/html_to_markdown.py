@@ -36,10 +36,14 @@ BLOCKS = {
 } | set(HEADINGS)
 CELLS = {"td", "th"}
 
-# Not a form: some sites wrap the whole article in one
+# A figure goes whole, as the crawler's readability-server drops it: its
+# caption and credit, and the fallback text an embedded video leaves when its
+# cookies are refused ("Hov! Her ligger et element fra en tjeneste, der bruger
+# cookies", videnskab.dk). Not a form: some sites wrap the whole article in one.
 DROPPED = {
     "script", "style", "noscript", "template", "img", "picture", "source",
     "svg", "video", "audio", "iframe", "button", "input", "select", "textarea",
+    "figure",
 }
 
 # What a paragraph can open with that Markdown reads as structure: a list item
