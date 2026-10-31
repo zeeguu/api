@@ -56,6 +56,27 @@ def _too_long_for_llm(upload):
     return len(content) > MAX_ARTICLE_CHARS_FOR_LLM
 
 
+def _clean_or_alert(upload):
+    # Fail open: an upload the cleanup could not read is kept as it came, and someone is told.
+    from zeeguu.core.content_cleaning.upload_cleanup import cleanup_upload
+
+    try:
+        cleanup_upload(db_session, upload)
+    except Exception as e:
+        db_session.rollback()
+        from sentry_sdk import capture_exception
+        from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
+
+        capture_exception(e)
+        try:
+            ZeeguuMailer.send_alert(
+                f"Upload cleanup failed for upload {upload.id}",
+                [f"{type(e).__name__}: {e}", "The upload was kept as it came."],
+            )
+        except Exception:
+            pass
+
+
 def _user_cefr_level(user):
     try:
         return user.cefr_level_for_learned_language()
@@ -105,6 +126,7 @@ def article_upload_create():
         image_url=image_url,
         author=author,
     )
+    _clean_or_alert(upload)
     return json_result(upload.as_dictionary())
 
 

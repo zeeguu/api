@@ -475,6 +475,7 @@ class SimplifyCallSitesTest(TestCase):
         from zeeguu.core.model.article_upload import ArticleUpload
 
         upload = SimpleNamespace(id=1, title="Titel", language=SimpleNamespace(code="da"), **fields)
+        upload.markdown_from_html = lambda: ArticleUpload.markdown_from_html(upload)
         upload.markdown = lambda: ArticleUpload.markdown(upload)
         return upload
 
