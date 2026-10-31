@@ -50,3 +50,32 @@ class HtmlToMarkdownTest(TestCase):
 
     def test_an_article_inside_a_form_is_kept(self):
         self.assertEqual(html_to_markdown("<form><p>Artiklen.</p><button>Send</button></form>"), "Artiklen.")
+
+    def test_markdown_to_html_reads_only_the_block_markers(self):
+        from zeeguu.core.content_cleaning.html_to_markdown import markdown_to_html
+
+        markdown = "## A <b>\n\n\\- Hej.\n\n12\\. maj\n\n5. maj, foo_bar\n\n- punkt\n\n1. først\n\n> citat"
+        self.assertEqual(
+            markdown_to_html(markdown),
+            "<h2>A &lt;b&gt;</h2><p>- Hej.</p><p>12. maj</p><p>5. maj, foo_bar</p>"
+            "<ul><li>punkt</li></ul><ol><li>først</li></ol><blockquote>citat</blockquote>",
+        )
+        self.assertEqual(html_to_markdown(markdown_to_html(markdown)), markdown.replace("5. maj", "5\\. maj"))
+
+    def test_escape_marker_and_its_inverse(self):
+        from zeeguu.core.content_cleaning.html_to_markdown import escape_marker, unescape_marker
+
+        cases = {
+            "- Jeg er bange.": "\\- Jeg er bange.",
+            "## Tre ting.": "\\## Tre ting.",
+            "> Et citat.": "\\> Et citat.",
+            "12. maj.": "12\\. maj.",
+            "3) Tredje.": "3\\) Tredje.",
+            "-5 grader.": "-5 grader.",
+            "2026 blev varm.": "2026 blev varm.",
+            "#hashtag": "#hashtag",
+            "Tekst.": "Tekst.",
+        }
+        for text, escaped in cases.items():
+            self.assertEqual(escape_marker(text), escaped)
+            self.assertEqual(unescape_marker(escaped), text)
