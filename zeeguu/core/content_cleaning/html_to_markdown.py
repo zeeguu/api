@@ -13,8 +13,9 @@ Why not markdownify: compared on the 40 uploads of the 2026-10-30 eval
 (zeeguu-experiments, simplification/2026-10-30-markdown-input). Matching what
 the simplifier needs (one block per paragraph, list item and table row; text
 without emphasis or links; only a leading marker escaped, where its
-escape_misc escapes [, ], &, + and | anywhere) took a subclass as long as this
-module. It then gave the same Markdown for 31 uploads and worse for 5: list
+escape_misc escapes [, ], &, + and | anywhere) took a 55-line subclass, most
+of what this module is. It then gave the same Markdown for 31 uploads and
+worse for 5: list
 items without their marker, a heading inside a list item split into
 "- ###" and "###", table cells glued into one word.
 """
