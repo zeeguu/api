@@ -61,3 +61,21 @@ class HtmlToMarkdownTest(TestCase):
             "<ul><li>punkt</li></ul><ol><li>først</li></ol><blockquote>citat</blockquote>",
         )
         self.assertEqual(html_to_markdown(markdown_to_html(markdown)), markdown.replace("5. maj", "5\\. maj"))
+
+    def test_escape_marker_and_its_inverse(self):
+        from zeeguu.core.content_cleaning.html_to_markdown import escape_marker, unescape_marker
+
+        cases = {
+            "- Jeg er bange.": "\\- Jeg er bange.",
+            "## Tre ting.": "\\## Tre ting.",
+            "> Et citat.": "\\> Et citat.",
+            "12. maj.": "12\\. maj.",
+            "3) Tredje.": "3\\) Tredje.",
+            "-5 grader.": "-5 grader.",
+            "2026 blev varm.": "2026 blev varm.",
+            "#hashtag": "#hashtag",
+            "Tekst.": "Tekst.",
+        }
+        for text, escaped in cases.items():
+            self.assertEqual(escape_marker(text), escaped)
+            self.assertEqual(unescape_marker(escaped), text)

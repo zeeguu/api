@@ -20,7 +20,7 @@ items without their marker, a heading inside a list item split into
 "- ###" and "###", table cells glued into one word.
 """
 
-import re
+
 from html import escape
 
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -42,14 +42,14 @@ DROPPED = {
     "svg", "video", "audio", "iframe", "button", "input", "select", "textarea",
 }
 
-# A paragraph that starts like this would turn into a list, a heading or a quote
-# when read back as Markdown: "- Jeg er bange", the dash that opens a line of
-# speech in Danish, French and other languages, would become a bullet. A number
-# is escaped after its digits (1\. maj): markdown2 reads that back as "1. maj",
-# but shows \1. as it is.
-MARKDOWN_PREFIX = re.compile(r"^(?:([-*+#>])|(\d+)([.)]))(?=\s)")
-# what _escaped added: the backslash in \- and 1\.
-UNESCAPE = re.compile(r"^(\d*)\\(?=[-*+#>.)])")
+# What a paragraph can open with that Markdown reads as structure: a list item
+# (-, *, +, or a number with . or ), as in "1." and "1)"), a heading (#, ##, ...)
+# or a quote (>). Each is followed by a space. "- Jeg er bange", the dash that
+# opens a line of speech in Danish, French and other languages, would otherwise
+# become a bullet.
+MARKER_SYMBOLS = {"-", "*", "+", "#", ">"}
+NUMBER_ENDS = {".", ")"}
+DIGITS = "0123456789"
 
 
 def html_to_markdown(html: str) -> str:
@@ -112,12 +112,41 @@ def _flush(inline, marker, blocks):
     if marker:
         blocks.append(f"{marker} {text}")
     else:
-        blocks.append(MARKDOWN_PREFIX.sub(_escaped, text))
+        blocks.append(escape_marker(text))
 
 
-def _escaped(match):
-    symbol, digits, after_digits = match.groups()
-    return f"\\{symbol}" if symbol else f"{digits}\\{after_digits}"
+def escape_marker(text: str) -> str:
+    """
+    `text`, with the marker it opens with (see MARKER_SYMBOLS) escaped so that
+    it reads as text: \\- Jeg er bange, \\## Tre ting, 1\\. maj. A number is escaped
+    after its digits: markdown2 reads 1\\. as "1." but shows \\1. as it is.
+    """
+    marker = _opening_marker(text)
+    if not marker:
+        return text
+    at = len(marker) - 1 if marker[-1] in NUMBER_ENDS else 0
+    return text[:at] + "\\" + text[at:]
+
+
+def unescape_marker(text: str) -> str:
+    """The inverse of escape_marker."""
+    at = len(text) - len(text.lstrip(DIGITS))
+    escapable = NUMBER_ENDS if at else MARKER_SYMBOLS
+    if text[at : at + 1] == "\\" and text[at + 1 : at + 2] in escapable:
+        return text[:at] + text[at + 1 :]
+    return text
+
+
+def _opening_marker(text: str) -> str:
+    """The marker `text` opens with ("-", "##", "12."), or "" if it opens with text."""
+    digits = len(text) - len(text.lstrip(DIGITS))
+    if digits:
+        marker = text[: digits + 1] if text[digits : digits + 1] in NUMBER_ENDS else ""
+    elif text[:1] in MARKER_SYMBOLS:
+        marker = text[: len(text) - len(text.lstrip(text[0]))]  # ## is a heading too
+    else:
+        marker = ""
+    return marker if text[len(marker) : len(marker) + 1].isspace() else ""
 
 
 # The markers html_to_markdown writes, and the element each stands for
@@ -142,5 +171,5 @@ def markdown_to_html(markdown: str) -> str:
         elif tag:
             html.append(f"<{tag}>{escape(block.split(' ', 1)[1])}</{tag}>")
         else:
-            html.append(f"<p>{escape(UNESCAPE.sub(r'\1', block))}</p>")
+            html.append(f"<p>{escape(unescape_marker(block))}</p>")
     return "".join(html)
