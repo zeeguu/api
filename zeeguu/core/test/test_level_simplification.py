@@ -174,6 +174,13 @@ class LevelPromptTest(TestCase):
         self.assertIn("[1] Researchers have identified", prompt)
         self.assertIn("[3] Depression affects", prompt)
 
+    def test_markdown_headings_are_paragraphs_that_stay_headings(self):
+        prompt = get_level_simplification_prompt("da", "Titel", "## Overskrift\n\nTekst.", "A2")
+
+        self.assertIn("Output exactly 2 paragraphs", prompt)
+        self.assertIn("[1] ## Overskrift", prompt)
+        self.assertIn("is a heading: write its A2 version as a heading", prompt)
+
     def test_rare_words_skip_names_and_common_words(self):
         words = rare_words(CONTENT, "en", "A2")
 
@@ -322,6 +329,16 @@ class SimplifyCallSitesTest(TestCase):
     GLUED = TextWithParagraphsTest.GLUED
     HTML = TextWithParagraphsTest.HTML
 
+    @staticmethod
+    def _upload(**fields):
+        from types import SimpleNamespace
+
+        from zeeguu.core.model.article_upload import ArticleUpload
+
+        upload = SimpleNamespace(id=1, title="Titel", language=SimpleNamespace(code="da"), **fields)
+        upload.markdown = lambda: ArticleUpload.markdown(upload)
+        return upload
+
     def _content_sent(self, call):
         from zeeguu.core.llm_services import simplification_and_classification as sac
 
@@ -330,13 +347,33 @@ class SimplifyCallSitesTest(TestCase):
         return targeted.call_args.args[0]
 
     def test_upload(self):
-        from types import SimpleNamespace
-
-        upload = SimpleNamespace(
-            id=1, text_content=self.GLUED, raw_html=self.HTML, title="Titel", language=SimpleNamespace(code="da")
-        )
+        upload = self._upload(text_content=self.GLUED, raw_html=self.HTML)
         content = self._content_sent(lambda sac: sac.create_simplified_version_from_upload(None, upload, "A2"))
         self.assertEqual(len(paragraphs(content)), 4)
+
+    def test_upload_keeps_its_headings(self):
+        upload = self._upload(text_content="OverskriftTekst.", raw_html="<h2>Overskrift</h2><p>Tekst.</p>")
+        content = self._content_sent(lambda sac: sac.create_simplified_version_from_upload(None, upload, "A2"))
+        self.assertEqual(content, "## Overskrift\n\nTekst.")
+
+    def test_upload_without_html_sends_its_text(self):
+        upload = self._upload(text_content="Første.\n\nAnden.", raw_html=None)
+        content = self._content_sent(lambda sac: sac.create_simplified_version_from_upload(None, upload, "A2"))
+        self.assertEqual(content, "Første.\n\nAnden.")
+
+    def test_upload_translated_keeps_its_headings(self):
+        from types import SimpleNamespace
+
+        from zeeguu.core.llm_services import simplification_and_classification as sac
+        from zeeguu.core.llm_services.simplification_service import SimplificationService
+
+        upload = self._upload(text_content="OverskriftTekst.", raw_html="<h2>Overskrift</h2><p>Tekst.</p>")
+        upload.url = SimpleNamespace(as_string=lambda: "https://dr.dk/a")
+        with patch.object(sac.Article, "find", return_value=None), patch.object(
+            SimplificationService, "translate_and_adapt", return_value=None
+        ) as translate:
+            sac.create_recipient_derivative(None, upload, "en", "A2")
+        self.assertEqual(translate.call_args.kwargs["content"], "## Overskrift\n\nTekst.")
 
     def test_article(self):
         from types import SimpleNamespace

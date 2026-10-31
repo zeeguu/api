@@ -73,6 +73,15 @@ class ArticleUpload(db.Model):
     def find_by_id(cls, upload_id):
         return cls.query.filter_by(id=upload_id).first()
 
+    def markdown(self):
+        """
+        The page as Markdown, for the LLMs that simplify or translate it. It
+        keeps the headings, lists and quotes that ``text_content`` has lost.
+        """
+        from zeeguu.core.content_cleaning.html_to_markdown import html_to_markdown
+
+        return (html_to_markdown(self.raw_html) if self.raw_html else "") or self.text_content or ""
+
     def canonical_article(self, session, create=False):
         """The canonical Article at this upload's URL, linking it if needed.
 

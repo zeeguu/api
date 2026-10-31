@@ -1745,7 +1745,7 @@ def create_recipient_derivative(session, upload, target_language_code, target_le
     if existing and not existing.broken:
         return existing
 
-    content = text_with_paragraphs(upload.text_content, upload.raw_html) or upload.raw_html or ""
+    content = upload.markdown()
     title = upload.title or ""
     if not content.strip():
         return None
@@ -1816,7 +1816,7 @@ def create_simplified_version_from_upload(session, upload, target_level):
         log(f"Upload {upload.id} has no detected language; cannot simplify")
         return None
 
-    content = text_with_paragraphs(upload.text_content, upload.raw_html) or upload.raw_html or ""
+    content = upload.markdown()
     title = upload.title or ""
     if not content.strip():
         log(f"Upload {upload.id} has no content to simplify")

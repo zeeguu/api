@@ -230,7 +230,7 @@ def article_upload_translate_and_adapt(upload_id):
             "importing a single chapter.",
         )
 
-    content = upload.text_content or upload.raw_html or ""
+    content = upload.markdown()
     title = upload.title or ""
 
     service = SimplificationService()
