@@ -80,14 +80,17 @@ class ArticleUpload(db.Model):
 
         When the HTML holds noticeably less text than ``text_content`` (a
         partial extraction), the text is used, with the paragraphs the HTML
-        does give it.
+        does give it. The HTML's text is counted before the Markdown drops
+        the figures, so that a page with long captions keeps its Markdown.
         """
+        from bs4 import BeautifulSoup
         from zeeguu.core.content_cleaning.html_to_markdown import html_to_markdown
         from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
 
         text = self.text_content or ""
+        html_text = BeautifulSoup(self.raw_html, "html.parser").get_text(" ") if self.raw_html else ""
         markdown = html_to_markdown(self.raw_html) if self.raw_html else ""
-        if len(markdown.split()) >= 0.9 * len(text.split()) and markdown.strip():
+        if len(html_text.split()) >= 0.9 * len(text.split()) and markdown.strip():
             return markdown
         return text_with_paragraphs(text, self.raw_html or "")
 

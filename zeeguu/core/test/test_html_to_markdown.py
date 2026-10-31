@@ -56,6 +56,18 @@ class HtmlToMarkdownTest(TestCase):
         )
         self.assertEqual(html_to_markdown(html), "Før.\n\nEfter.")
 
+    def test_an_upload_with_long_captions_keeps_its_markdown(self):
+        # upload 985: the figures held a seventh of the words, and the upload fell back to text_content
+        from types import SimpleNamespace
+        from zeeguu.core.model.article_upload import ArticleUpload
+
+        caption = "Hov! Her ligger et element fra en tjeneste, der bruger cookies."
+        upload = SimpleNamespace(
+            raw_html=f"<h2>Slanger</h2><p>Før.</p><figure><figcaption>{caption}</figcaption></figure><p>Efter.</p>",
+            text_content=f"Slanger Før. {caption} Efter.",
+        )
+        self.assertEqual(ArticleUpload.markdown(upload), "## Slanger\n\nFør.\n\nEfter.")
+
     def test_an_article_inside_a_form_is_kept(self):
         self.assertEqual(html_to_markdown("<form><p>Artiklen.</p><button>Send</button></form>"), "Artiklen.")
 
