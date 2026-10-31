@@ -30,6 +30,27 @@ LEVEL_MAX_TOKENS = 8000
 TRANSLATE_AND_ADAPT_MAX_TOKENS = 16000
 LEVEL_TIMEOUT = 60
 
+# The article comes in as Markdown (ArticleUpload.markdown) and its structure
+# goes out as it came in. The rules before these asked for **bold**, bullet
+# points and an example "## Main Topic" heading the original did not have, and
+# turned the dash that opens a line of speech into a bullet.
+#
+# Measured 2026-10-30 on 16 uploads in 8 languages, into Danish (English for a
+# Danish original), judged blind by Claude Opus 5.5: invented headings went from
+# 66 to 8 (DeepSeek, A1 and B1). Over DeepSeek A1, B1 and Haiku A1, structure went
+# from 2.1 to 4.6 and faithfulness from 3.5 to 4.2,
+# and these rules ranked first in 43 of 48. The cost is A1 level fit (DeepSeek
+# 4.7 to 3.4): the old prompt reached A1 by dropping facts. Telling the model
+# that a kept block still has to be rewritten at the level raised it only to
+# 3.7, with more language errors. Data and scripts: zeeguu-experiments,
+# simplification/2026-10-30-markdown-input.
+TRANSLATION_FORMATTING = """FORMATTING (Markdown):
+- The article is in Markdown, one block per paragraph, blocks separated by blank lines. Return its blocks in the same order, separated by blank lines.
+- A block that starts with ## or ### is a heading: write its translation as a heading with the same marker.
+- A block that starts with - or 1. is a list item: keep the marker. A block that starts with > is a quote: keep the >.
+- A block that starts with \\- is a paragraph opening with a dash (often a line of speech): keep the \\- exactly.
+- Do not add **bold**, *italics*, headings or lists that are not in the original. No HTML tags."""
+
 
 def _text_fields(result: Dict) -> list:
     """
@@ -62,9 +83,20 @@ def parse_llm_json(reply: str) -> Optional[Dict]:
        decode every object and keep the last one that looks like a result —
        the final step's output, i.e. the adapted version we asked for.
 
+    3. A backslash JSON does not know. The Markdown we send escapes a paragraph
+       that opens with a speech dash as `\\-`, the prompt asks to keep it, and
+       a model that copies it into a string value writes an invalid `\\-`
+       escape. It is kept as the backslash it was meant to be.
+
     Returns None when nothing decodable is in there.
     """
 
+    reply = re.sub(
+        r"\\(.)",
+        lambda m: m.group(0) if m.group(1) in '"\\/bfnrtu' else "\\\\" + m.group(1),
+        reply,
+        flags=re.S,
+    )
     decoder = json.JSONDecoder(strict=False)
     objects = []
     index = 0
@@ -671,8 +703,9 @@ TOPIC: [topic]"""
             import string
             allowed_chars = string.printable + 'àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž'
             cleaned = ''.join(char for char in text if char in allowed_chars or char.isalnum() or char.isspace())
-            # Replace multiple whitespace with single space
-            cleaned = re.sub(r'\s+', ' ', cleaned)
+            # Collapse whitespace, but keep the blank lines between Markdown blocks
+            cleaned = re.sub(r'[^\S\n]+', ' ', cleaned)
+            cleaned = re.sub(r' *\n\s*\n\s*', '\n\n', cleaned)
             return cleaned.strip()
         
         title = clean_text(title)
@@ -700,13 +733,7 @@ CRITICAL: Do NOT shorten or summarize the article. Keep ALL the content, example
 
 ⚠️ IMPORTANT: The translated output should be approximately the SAME LENGTH as the original. If the original has 20 paragraphs, your translation should also have around 20 paragraphs. DO NOT SKIP ANY SECTIONS!
 
-FORMATTING REQUIREMENTS:
-- Return content in clean Markdown format
-- Use proper Markdown syntax: ## for headings, **bold**, *italics*, > for quotes
-- Separate paragraphs with double newlines
-- Use - or * for bullet points, 1. 2. 3. for numbered lists
-- Preserve structure and formatting from the original
-- No HTML tags - use Markdown only
+{TRANSLATION_FORMATTING}
 
 Translate and adapt this article:
 
@@ -716,13 +743,12 @@ Content: {content}
 Provide the response in this exact JSON format (escape quotes properly):
 {{
   "title": "translated and adapted title",
-  "content": "## Main Topic\n\nFirst paragraph with **important term** highlighted.\n\nSecond paragraph with *emphasis* and more details.\n\n- Bullet point one\n- Bullet point two\n\nThird paragraph with conclusion.",
+  "content": "the translated and adapted article in Markdown, its blocks separated by \\n\\n",
   "summary": "First sentence of summary. Second sentence with key point. Third sentence with conclusion."
 }}
 
 IMPORTANT: 
 - Escape any quotes in the content using \\"
-- Use proper HTML paragraph tags for content
 - Summary should be concise, maximum 25 words, using {target_level} vocabulary
 - Ensure valid JSON format"""
 
@@ -798,13 +824,7 @@ CRITICAL: Do NOT shorten or summarize the article. Keep ALL the content, example
 
 ⚠️ IMPORTANT: The translated output should be approximately the SAME LENGTH as the original. If the original has 20 paragraphs, your translation should also have around 20 paragraphs. DO NOT SKIP ANY SECTIONS!
 
-FORMATTING REQUIREMENTS:
-- Return content in clean Markdown format
-- Use proper Markdown syntax: ## for headings, **bold**, *italics*, > for quotes
-- Separate paragraphs with double newlines
-- Use - or * for bullet points, 1. 2. 3. for numbered lists
-- Preserve structure and formatting from the original
-- No HTML tags - use Markdown only
+{TRANSLATION_FORMATTING}
 
 Article to translate:
 Title: {title}
@@ -813,7 +833,7 @@ Content: {content}
 Return ONLY valid JSON in this exact format (no markdown, no code blocks):
 {{
   "title": "translated title",
-  "content": "## Main Topic\n\nFirst paragraph with **important term** highlighted.\n\nSecond paragraph with *emphasis* and more details.\n\n- Bullet point one\n- Bullet point two\n\nThird paragraph with conclusion.",
+  "content": "the translated and adapted article in Markdown, its blocks separated by \\n\\n",
   "summary": "First sentence of summary. Second sentence with key point. Third sentence with conclusion."
 }}
 

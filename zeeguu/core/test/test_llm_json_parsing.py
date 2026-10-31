@@ -64,3 +64,8 @@ class ParseLLMJsonTest(TestCase):
 
     def test_no_object_at_all(self):
         self.assertIsNone(parse_llm_json("I'm sorry, I can't help with that."))
+
+    def test_a_backslash_json_does_not_know_is_kept(self):
+        # the escaped speech dash of the Markdown input, copied into a string value
+        result = parse_llm_json('{"title": "T", "content": "\\\\- Jeg er bange.\\n\\n1\\\\. maj. Et \\"citat\\"."}')
+        self.assertEqual("\\- Jeg er bange.\n\n1\\. maj. Et \"citat\".", result["content"])

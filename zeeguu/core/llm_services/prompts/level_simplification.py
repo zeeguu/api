@@ -11,6 +11,18 @@ simplification quality went from ~3.3 to ~4.1 (out of 5) at A1, A2 and B1, mainl
 faithfulness, level fit and paragraph structure. With Haiku, `strict` hurt faithfulness, so the Haiku
 fallback gets the plain prompt.
 
+The content may be Markdown (an upload's page, see content_cleaning/html_to_markdown.py): headings, list
+items and quotes are paragraphs of their own, and the reply keeps their markers. On 40 uploads in 10
+languages (2026-10-30, DeepSeek strict, A1 and B1, judged blind by Claude Opus 5.5), Markdown input with
+numbered paragraphs kept every heading and the paragraph count of every reply; the flattened text it
+replaced had kept no heading and turned lines of speech into bullets. Faithfulness went from 3.7 to 4.1,
+level fit stayed (4.3 vs 4.2), and it ranked first in 45 of 80 cases against 4. The same Markdown without
+the numbers scored higher on faithfulness (4.3) but lower on level fit (3.8), and lost the paragraph
+count in a third of the replies, mostly by merging paragraphs at A1. The Haiku fallback (plain prompt,
+16 uploads, A1 and B1) gained the same way: every heading kept, faithfulness 3.8 to 4.5, level fit
+unchanged (3.7 vs 3.6), first in 30 of 30. Data and scripts: zeeguu-experiments,
+simplification/2026-10-30-markdown-input.
+
 The rule blocks below are those of the old single-call adaptive prompt, verbatim. <<LANGUAGE_NAME>> is
 replaced with the language name.
 """
@@ -268,8 +280,11 @@ LENGTH AND STRUCTURE (strict):
 - LANGUAGE: use only words and forms you are completely sure exist in {lang}. If you are unsure about a word or a construction, use a simpler, more common one.
 - A paragraph that is only a byline, credit or 'read more' boilerplate can stay as it is.
 
-FORMATTING:
-- Plain text. Do not add **bold**, *italics* or headings that are not in the original.
+FORMATTING (Markdown):
+- A block that starts with ## or ### is a heading: write its {level} version as a heading with the same marker.
+- A block that starts with - or 1. is a list item: keep the marker. A block that starts with > is a quote: keep the >.
+- A block that starts with \\- is a paragraph opening with a dash (often a line of speech): keep the \\- exactly.
+- Do not add **bold**, *italics* or headings that are not in the original.
 
 Respond in exactly this format, everything in {lang}, with no other text:
 TITLE: <{level} title>
