@@ -20,6 +20,7 @@ items without their marker, a heading inside a list item split into
 """
 
 import re
+from html import escape
 
 from bs4 import BeautifulSoup, NavigableString, Tag
 
@@ -46,6 +47,8 @@ DROPPED = {
 # is escaped after its digits (1\. maj): markdown2 reads that back as "1. maj",
 # but shows \1. as it is.
 MARKDOWN_PREFIX = re.compile(r"^(?:([-*+#>])|(\d+)([.)]))(?=\s)")
+# what _escaped added: the backslash in \- and 1\.
+UNESCAPE = re.compile(r"^(\d*)\\(?=[-*+#>.)])")
 
 
 def html_to_markdown(html: str) -> str:
@@ -114,3 +117,29 @@ def _flush(inline, marker, blocks):
 def _escaped(match):
     symbol, digits, after_digits = match.groups()
     return f"\\{symbol}" if symbol else f"{digits}\\{after_digits}"
+
+
+# The markers html_to_markdown writes, and the element each stands for
+BLOCK_TAGS = [("### ", "h3"), ("## ", "h2"), ("- ", "ul"), ("1. ", "ol"), ("> ", "blockquote")]
+
+
+def markdown_to_html(markdown: str) -> str:
+    """
+    The inverse of html_to_markdown, for a translator that keeps HTML tags
+    (DeepL): each block becomes the element its marker names, and the text is
+    escaped. A Markdown renderer would read more into plain text than that:
+    "5. maj kom freden" as a list starting at 5, foo_bar_baz as emphasis.
+    """
+    html = []
+    for block in markdown.split("\n\n"):
+        block = " ".join(block.split())
+        if not block:
+            continue
+        tag = next((t for marker, t in BLOCK_TAGS if block.startswith(marker)), None)
+        if tag in ("ul", "ol"):
+            html.append(f"<{tag}><li>{escape(block[3 if tag == 'ol' else 2:])}</li></{tag}>")
+        elif tag:
+            html.append(f"<{tag}>{escape(block.split(' ', 1)[1])}</{tag}>")
+        else:
+            html.append(f"<p>{escape(UNESCAPE.sub(r'\1', block))}</p>")
+    return "".join(html)

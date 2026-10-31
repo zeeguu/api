@@ -57,7 +57,7 @@ class FakeProviders:
         self.calls = []
 
     def complete(self, provider):
-        def call(prompt, max_tokens=None):
+        def call(prompt, max_tokens=None, timeout=None):
             self.calls.append((provider, prompt))
             reply = self.replies[provider]
             if isinstance(reply, Exception):
@@ -183,6 +183,13 @@ class TranslateAndAdaptTest(TestCase):
         self.assertEqual(len(fake.prompts("deepseek")), 2)
         self.assertEqual(result["content"], DANISH_BODY)
 
+    def test_deepl_in_the_wrong_language_falls_back_to_deepseek(self):
+        fake = FakeProviders(deepseek=f"TITLE: {DANISH_TITLE}\nCONTENT:\n{DANISH_BODY}")
+        result = self._translate(fake, deepl={"title": TITLE, "content": ENGLISH_BODY})
+
+        self.assertEqual(len(fake.prompts("deepseek")), 1)
+        self.assertEqual(result["content"], DANISH_BODY)
+
     def test_none_when_nothing_translates(self):
         self.assertIsNone(self._translate(FakeProviders(deepseek=Exception("down"), haiku=None)))
 
@@ -215,6 +222,12 @@ class ParseTranslationReplyTest(TestCase):
         self.assertEqual(parse_translation_reply("TITLE: Titel\nCONTENT:\n## Overskrift\n\nTekst."), expected)
         self.assertEqual(parse_translation_reply("TITLE: Titel\n\n## Overskrift\n\nTekst."), expected)
 
+    def test_a_sentence_before_the_title_is_not_the_title(self):
+        from zeeguu.core.llm_services.simplification_service import parse_translation_reply
+
+        reply = "Here is the translation:\nTITLE: Titel\nCONTENT:\nTekst."
+        self.assertEqual(parse_translation_reply(reply), {"title": "Titel", "content": "Tekst."})
+
     def test_a_reply_without_content_is_an_error(self):
         from zeeguu.core.llm_services.simplification_service import parse_translation_reply
 
@@ -223,38 +236,44 @@ class ParseTranslationReplyTest(TestCase):
 
 
 class DeeplArticleTest(TestCase):
-    def test_deepl_gets_html_and_the_markdown_comes_back(self):
+    def test_deepl_gets_the_blocks_as_html_and_the_markdown_comes_back(self):
         from types import SimpleNamespace
 
         from zeeguu.core.translation_services import deepl_translate
 
         calls = []
 
-        def translate_text(text, **kwargs):
-            calls.append((text, kwargs))
-            if kwargs.get("tag_handling") == "html":
-                return SimpleNamespace(text="<h2>Heading</h2><p>- I am afraid, says Agnes.</p>")
-            return SimpleNamespace(text="Title")
+        def translate_text(texts, **kwargs):
+            calls.append((texts, kwargs))
+            return [
+                SimpleNamespace(text="<h2>Heading</h2><p>- I am afraid.</p><p>5. May, foo_bar</p>"),
+                SimpleNamespace(text="Fish &amp; chips"),
+            ]
 
         client = SimpleNamespace(translate_text=translate_text)
+        markdown = "## Overskrift\n\n\\- Jeg er bange.\n\n5. maj, foo_bar"
         with patch.object(deepl_translate, "_get_client", return_value=client):
-            result = deepl_translate.deepl_translate_article("Titel", "## Overskrift\n\n\\- Jeg er bange.", "da", "en")
+            result = deepl_translate.deepl_translate_article("Fisk & chips", markdown, "en")
 
-        self.assertEqual(result, {"title": "Title", "content": "## Heading\n\n\\- I am afraid, says Agnes."})
-        html, kwargs = calls[0]
-        self.assertIn("<h2>Overskrift</h2>", html)
-        self.assertEqual((kwargs["source_lang"], kwargs["target_lang"]), ("DA", "EN-US"))
+        self.assertEqual(
+            result, {"title": "Fish & chips", "content": "## Heading\n\n\\- I am afraid.\n\n5\\. May, foo_bar"}
+        )
+        (html, title), kwargs = calls[0]
+        # no list starting at 5, no emphasis in foo_bar: only the markers become tags
+        self.assertEqual(html, "<h2>Overskrift</h2><p>- Jeg er bange.</p><p>5. maj, foo_bar</p>")
+        self.assertEqual(title, "Fisk &amp; chips")
+        self.assertEqual(kwargs, {"target_lang": "EN-US", "tag_handling": "html"})
 
     def test_a_failing_deepl_is_none(self):
         from types import SimpleNamespace
 
         from zeeguu.core.translation_services import deepl_translate
 
-        def translate_text(text, **kwargs):
+        def translate_text(texts, **kwargs):
             raise Exception("Quota for this billing period has been exceeded")
 
         with patch.object(deepl_translate, "_get_client", return_value=SimpleNamespace(translate_text=translate_text)):
-            self.assertIsNone(deepl_translate.deepl_translate_article("Titel", "Tekst.", "da", "en"))
+            self.assertIsNone(deepl_translate.deepl_translate_article("Titel", "Tekst.", "en"))
 
 
 class ParseLevelReplyTest(TestCase):

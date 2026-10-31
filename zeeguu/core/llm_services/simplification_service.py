@@ -30,6 +30,7 @@ LEVEL_MAX_TOKENS = 8000
 # Asked of both LLM translators; output_tokens caps it per model.
 TRANSLATION_MAX_TOKENS = 16000
 LEVEL_TIMEOUT = 60
+TRANSLATION_TIMEOUT = 120
 
 
 def _text_fields(result: Dict) -> list:
@@ -220,14 +221,17 @@ TITLE: {title}
 
 def parse_translation_reply(reply: str) -> Dict:
     """
-    The title and content of a reply to _translation_prompt. The first line is
-    the title; DeepSeek often leaves out the CONTENT: line.
+    The title and content of a reply to _translation_prompt: the TITLE: line,
+    and everything after it. DeepSeek often leaves out the CONTENT: line, and a
+    model may write a sentence before the TITLE: line.
     """
-    head, _, content = reply.strip().partition("\n")
-    content = content.strip().removeprefix("CONTENT:").strip()
+    match = re.search(r"^TITLE:(.*)$", reply, re.M)
+    if not match:
+        raise Exception("no TITLE: line in the translation")
+    content = reply[match.end():].strip().removeprefix("CONTENT:").strip()
     if not content:
         raise Exception("no content in the translation")
-    return {"title": head.replace("TITLE:", "", 1).strip(), "content": content}
+    return {"title": match.group(1).strip(), "content": content}
 
 
 class SimplificationService:
@@ -362,7 +366,9 @@ class SimplificationService:
         log("No simplification provider succeeded (or none is configured)")
         return None
 
-    def _complete_deepseek(self, prompt: str, max_tokens: int = LEVEL_MAX_TOKENS) -> str:
+    def _complete_deepseek(
+        self, prompt: str, max_tokens: int = LEVEL_MAX_TOKENS, timeout: int = LEVEL_TIMEOUT
+    ) -> str:
         sent_max_tokens = models.output_tokens(models.DEEPSEEK_GENERAL, max_tokens)
         response = requests.post(
             "https://api.deepseek.com/v1/chat/completions",
@@ -376,7 +382,7 @@ class SimplificationService:
                 "max_tokens": sent_max_tokens,
                 "temperature": 0.1,
             },
-            timeout=LEVEL_TIMEOUT,
+            timeout=timeout,
         )
         if response.status_code != 200:
             raise Exception(f"DeepSeek API error: {response.status_code} - {response.text[:200]}")
@@ -385,11 +391,11 @@ class SimplificationService:
             raise Exception(f"DeepSeek output truncated at max_tokens={sent_max_tokens}")
         return (choice["message"]["content"] or "").strip()
 
-    def _complete_haiku(self, prompt: str, max_tokens: int = LEVEL_MAX_TOKENS) -> Optional[str]:
+    def _complete_haiku(
+        self, prompt: str, max_tokens: int = LEVEL_MAX_TOKENS, timeout: int = LEVEL_TIMEOUT
+    ) -> Optional[str]:
         # None on API errors and on a reply cut off at max_tokens
-        return haiku_completion(
-            prompt, max_tokens=max_tokens, temperature=0.1, timeout=LEVEL_TIMEOUT
-        )
+        return haiku_completion(prompt, max_tokens=max_tokens, temperature=0.1, timeout=timeout)
 
     def translate_and_adapt(
         self,
@@ -428,19 +434,24 @@ class SimplificationService:
 
         DeepL first: in the 2026-10-31 measurement it was as good a start for the
         simplifier as DeepSeek and took 1s instead of 6. The LLMs are the fallback
-        (no key, a language DeepL lacks, its monthly quota), and their output is
+        (no key, a language DeepL lacks, its monthly quota). Every translation is
         checked for language: "left it in the source language" is the likeliest
-        way for a translation to go wrong. Re-requested once, then the next
+        way for it to go wrong. An LLM is asked again once, then the next
         provider is tried.
 
         Returns: Dict with 'title' and 'content' (Markdown), or None if failed
         """
-        translated = deepl_translate_article(title, content, source_language, target_language)
+        target_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
+        context = f"{target_name} translation of '{title[:50]}'"
+
+        translated = deepl_translate_article(title, content, target_language)
         if translated:
-            return translated
+            try:
+                return generate_in_language(lambda _: translated, target_language, _text_fields, context, attempts=1)
+            except LanguageMismatchError as e:
+                log(f"DeepL did not translate into {target_name}: {e}")
 
         source_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
-        target_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
         prompt = _translation_prompt(title, content, source_name, target_name)
         providers = [
             ("DeepSeek", self.deepseek_api_key, self._complete_deepseek),
@@ -452,15 +463,13 @@ class SimplificationService:
             log(f"Using {provider} to translate from {source_language} to {target_language}")
 
             def generate(correction):
-                reply = complete(prompt + correction, TRANSLATION_MAX_TOKENS)
+                reply = complete(prompt + correction, TRANSLATION_MAX_TOKENS, TRANSLATION_TIMEOUT)
                 if not reply:
                     raise Exception(f"{provider} returned no translation")
                 return parse_translation_reply(reply)
 
             try:
-                return generate_in_language(
-                    generate, target_language, _text_fields, f"{target_name} translation of '{title[:50]}'"
-                )
+                return generate_in_language(generate, target_language, _text_fields, context)
             except LanguageMismatchError as e:
                 log(f"{provider} did not translate into {target_name}: {e}")
             except Exception as e:
