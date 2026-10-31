@@ -356,6 +356,12 @@ class SimplifyCallSitesTest(TestCase):
         content = self._content_sent(lambda sac: sac.create_simplified_version_from_upload(None, upload, "A2"))
         self.assertEqual(content, "## Overskrift\n\nTekst.")
 
+    def test_upload_whose_html_lost_text_sends_its_text(self):
+        text = "Første afsnit med mange ord i sig.\n\nAndet afsnit med endnu flere ord i sig her."
+        upload = self._upload(text_content=text, raw_html="<p>Første afsnit med mange ord i sig.</p>")
+        content = self._content_sent(lambda sac: sac.create_simplified_version_from_upload(None, upload, "A2"))
+        self.assertEqual(content, text)
+
     def test_upload_without_html_sends_its_text(self):
         upload = self._upload(text_content="Første.\n\nAnden.", raw_html=None)
         content = self._content_sent(lambda sac: sac.create_simplified_version_from_upload(None, upload, "A2"))

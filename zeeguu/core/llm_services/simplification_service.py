@@ -83,9 +83,20 @@ def parse_llm_json(reply: str) -> Optional[Dict]:
        decode every object and keep the last one that looks like a result —
        the final step's output, i.e. the adapted version we asked for.
 
+    3. A backslash JSON does not know. The Markdown we send escapes a paragraph
+       that opens with a speech dash as `\\-`, the prompt asks to keep it, and
+       a model that copies it into a string value writes an invalid `\\-`
+       escape. It is kept as the backslash it was meant to be.
+
     Returns None when nothing decodable is in there.
     """
 
+    reply = re.sub(
+        r"\\(.)",
+        lambda m: m.group(0) if m.group(1) in '"\\/bfnrtu' else "\\\\" + m.group(1),
+        reply,
+        flags=re.S,
+    )
     decoder = json.JSONDecoder(strict=False)
     objects = []
     index = 0

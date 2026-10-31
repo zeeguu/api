@@ -24,7 +24,7 @@ class HtmlToMarkdownTest(TestCase):
         self.assertEqual(html_to_markdown("<p>1. maj er en fridag.</p>"), "1\\. maj er en fridag.")
 
     def test_inline_markup_becomes_text_and_images_go(self):
-        html = '<p>Et <b>rigtigt</b> <a href="https://x.dk">link</a><br>videre.<img src="a.jpg"></p><script>x()</script>'
+        html = '<p>Et <b>rigtigt</b> <a href="https://x.dk">link</a> videre.<img src="a.jpg"></p><script>x()</script>'
         self.assertEqual(html_to_markdown(html), "Et rigtigt link videre.")
 
     def test_text_directly_in_a_div_is_a_paragraph(self):
@@ -39,3 +39,14 @@ class HtmlToMarkdownTest(TestCase):
             markdown2.markdown(markdown).split(),
             "<p>- Jeg er bange.</p> <p>1. maj er en fridag.</p> <p># 3 på listen.</p>".split(),
         )
+
+    def test_line_breaks_separate_paragraphs(self):
+        # dialogue laid out with <br>, as the paragraphs html_paragraphs gave before
+        self.assertEqual(html_to_markdown("<p>- Hej<br>- Nej<br/>Ja</p>").split("\n\n"), ["\\- Hej", "\\- Nej", "Ja"])
+
+    def test_a_table_row_is_one_paragraph(self):
+        html = "<table><tr><th>Navn</th><th>Alder</th></tr><tr><td>Agnes</td><td>12</td></tr></table>"
+        self.assertEqual(html_to_markdown(html).split("\n\n"), ["Navn Alder", "Agnes 12"])
+
+    def test_an_article_inside_a_form_is_kept(self):
+        self.assertEqual(html_to_markdown("<form><p>Artiklen.</p><button>Send</button></form>"), "Artiklen.")

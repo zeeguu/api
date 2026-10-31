@@ -77,10 +77,19 @@ class ArticleUpload(db.Model):
         """
         The page as Markdown, for the LLMs that simplify or translate it. It
         keeps the headings, lists and quotes that ``text_content`` has lost.
+
+        When the HTML holds noticeably less text than ``text_content`` (a
+        partial extraction), the text is used, with the paragraphs the HTML
+        does give it.
         """
         from zeeguu.core.content_cleaning.html_to_markdown import html_to_markdown
+        from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
 
-        return (html_to_markdown(self.raw_html) if self.raw_html else "") or self.text_content or ""
+        text = self.text_content or ""
+        markdown = html_to_markdown(self.raw_html) if self.raw_html else ""
+        if len(markdown.split()) >= 0.9 * len(text.split()) and markdown.strip():
+            return markdown
+        return text_with_paragraphs(text, self.raw_html or "")
 
     def canonical_article(self, session, create=False):
         """The canonical Article at this upload's URL, linking it if needed.

@@ -16,16 +16,19 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 
 HEADINGS = {"h1": "##", "h2": "##", "h3": "###", "h4": "###", "h5": "###", "h6": "###"}
 
-# Elements that start a new block of text
+# Elements that start a new block of text. A table row is one block, its cells
+# separated by spaces.
 BLOCKS = {
     "address", "article", "aside", "blockquote", "dd", "div", "dl", "dt",
     "figcaption", "figure", "footer", "header", "li", "main", "nav", "ol",
-    "p", "pre", "section", "table", "td", "th", "tr", "ul",
+    "p", "pre", "section", "table", "tr", "ul",
 } | set(HEADINGS)
+CELLS = {"td", "th"}
 
+# Not a form: some sites wrap the whole article in one
 DROPPED = {
     "script", "style", "noscript", "template", "img", "picture", "source",
-    "svg", "video", "audio", "iframe", "button", "form", "input", "select",
+    "svg", "video", "audio", "iframe", "button", "input", "select", "textarea",
 }
 
 # A paragraph that starts like this would turn into a list, a heading or a quote
@@ -59,6 +62,13 @@ def _walk(node, marker, blocks, inline):
         if not isinstance(child, Tag):
             continue
         if child.name == "br":
+            # lines of dialogue, verse, an address: each its own paragraph.
+            # html.parser can nest the text after a <br/> inside it.
+            _flush(inline, marker, blocks)
+            _walk(child, marker, blocks, inline)
+            continue
+        if child.name in CELLS:
+            _walk(child, marker, blocks, inline)
             inline.append(" ")
             continue
         if child.name not in BLOCKS:
