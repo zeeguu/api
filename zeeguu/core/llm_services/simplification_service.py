@@ -15,6 +15,7 @@ from zeeguu.core.language.generate_in_language import (
 from zeeguu.core.llm_services.haiku_client import HAIKU_MODEL, haiku_completion
 from zeeguu.core.llm_services import models
 from zeeguu.core.model.language import Language
+from zeeguu.core.translation_services.deepl_translate import deepl_translate_article
 from zeeguu.core.llm_services.prompts.level_simplification import (
     get_level_simplification_prompt,
     paragraphs,
@@ -25,31 +26,10 @@ from zeeguu.core.llm_services.prompts.level_simplification import (
 # again before the next provider is tried, so the timeout bounds that wait 4 times over.
 LEVEL_MAX_TOKENS = 8000
 
-# A whole chapter translated and adapted in one reply runs at least as long as
-# the input. Asked of both providers; output_tokens caps it per model.
-TRANSLATE_AND_ADAPT_MAX_TOKENS = 16000
+# A whole chapter translated in one reply runs at least as long as the input.
+# Asked of both LLM translators; output_tokens caps it per model.
+TRANSLATION_MAX_TOKENS = 16000
 LEVEL_TIMEOUT = 60
-
-# The article comes in as Markdown (ArticleUpload.markdown) and its structure
-# goes out as it came in. The rules before these asked for **bold**, bullet
-# points and an example "## Main Topic" heading the original did not have, and
-# turned the dash that opens a line of speech into a bullet.
-#
-# Measured 2026-10-30 on 16 uploads in 8 languages, into Danish (English for a
-# Danish original), judged blind by Claude Opus 5.5: invented headings went from
-# 66 to 8 (DeepSeek, A1 and B1). Over DeepSeek A1, B1 and Haiku A1, structure went
-# from 2.1 to 4.6 and faithfulness from 3.5 to 4.2,
-# and these rules ranked first in 43 of 48. The cost is A1 level fit (DeepSeek
-# 4.7 to 3.4): the old prompt reached A1 by dropping facts. Telling the model
-# that a kept block still has to be rewritten at the level raised it only to
-# 3.7, with more language errors. Data and scripts: zeeguu-experiments,
-# simplification/2026-10-30-markdown-input.
-TRANSLATION_FORMATTING = """FORMATTING (Markdown):
-- The article is in Markdown, one block per paragraph, blocks separated by blank lines. Return its blocks in the same order, separated by blank lines.
-- A block that starts with ## or ### is a heading: write its translation as a heading with the same marker.
-- A block that starts with - or 1. is a list item: keep the marker. A block that starts with > is a quote: keep the >.
-- A block that starts with \\- is a paragraph opening with a dash (often a line of speech): keep the \\- exactly.
-- Do not add **bold**, *italics*, headings or lists that are not in the original. No HTML tags."""
 
 
 def _text_fields(result: Dict) -> list:
@@ -186,7 +166,7 @@ def parse_level_reply(text: str, expected_paragraphs: int) -> Dict:
 
 def _title_rule(source_language: str, target_language: str) -> str:
     """
-    A guard for the title, applied at every level and by both providers.
+    A guard for the title, in the prompt of the LLM translators.
 
     Measured 2026-09-08 on ro->da: across every model and every prompt variant
     tried, the `summary` field carried the article's negation correctly and the
@@ -214,6 +194,40 @@ and you are tempted to keep the original's shape. Do not.
   say it is NOT the case, using a real {target_language} negation.
 - Final check on the title alone: does it assert the SAME thing as the
   original, or the opposite? If the opposite, rewrite it."""
+
+
+def _translation_prompt(title: str, content: str, source_language: str, target_language: str) -> str:
+    """A full translation, its Markdown structure kept; the level comes after, from simplify_text."""
+    return f"""Translate this {source_language} article into {target_language}, completely and faithfully: every sentence,
+name, number and quote. Do not simplify, shorten or explain anything.
+
+The article is in Markdown, one block per paragraph, blocks separated by blank lines. Return its blocks in the
+same order, separated by blank lines. A block that starts with ## or ### is a heading: keep the marker. A block
+that starts with - or 1. is a list item: keep the marker. A block that starts with > is a quote: keep the >. A
+block that starts with \\- is a paragraph opening with a dash: keep the \\- exactly. Add no formatting.
+
+{_title_rule(source_language, target_language)}
+
+Respond in exactly this format, with no other text:
+TITLE: <the title in {target_language}>
+CONTENT:
+<the article in {target_language}>
+
+TITLE: {title}
+
+{content}"""
+
+
+def parse_translation_reply(reply: str) -> Dict:
+    """
+    The title and content of a reply to _translation_prompt. The first line is
+    the title; DeepSeek often leaves out the CONTENT: line.
+    """
+    head, _, content = reply.strip().partition("\n")
+    content = content.strip().removeprefix("CONTENT:").strip()
+    if not content:
+        raise Exception("no content in the translation")
+    return {"title": head.replace("TITLE:", "", 1).strip(), "content": content}
 
 
 class SimplificationService:
@@ -348,8 +362,8 @@ class SimplificationService:
         log("No simplification provider succeeded (or none is configured)")
         return None
 
-    def _complete_deepseek(self, prompt: str) -> str:
-        sent_max_tokens = models.output_tokens(models.DEEPSEEK_GENERAL, LEVEL_MAX_TOKENS)
+    def _complete_deepseek(self, prompt: str, max_tokens: int = LEVEL_MAX_TOKENS) -> str:
+        sent_max_tokens = models.output_tokens(models.DEEPSEEK_GENERAL, max_tokens)
         response = requests.post(
             "https://api.deepseek.com/v1/chat/completions",
             headers={
@@ -371,10 +385,10 @@ class SimplificationService:
             raise Exception(f"DeepSeek output truncated at max_tokens={sent_max_tokens}")
         return (choice["message"]["content"] or "").strip()
 
-    def _complete_haiku(self, prompt: str) -> Optional[str]:
+    def _complete_haiku(self, prompt: str, max_tokens: int = LEVEL_MAX_TOKENS) -> Optional[str]:
         # None on API errors and on a reply cut off at max_tokens
         return haiku_completion(
-            prompt, max_tokens=LEVEL_MAX_TOKENS, temperature=0.1, timeout=LEVEL_TIMEOUT
+            prompt, max_tokens=max_tokens, temperature=0.1, timeout=LEVEL_TIMEOUT
         )
 
     def translate_and_adapt(
@@ -386,151 +400,74 @@ class SimplificationService:
         target_level: str = "B1",
     ) -> Optional[Dict]:
         """
-        Translate and adapt text to target language and reading level.
+        Translate an article into target_language, then simplify it to target_level.
 
-        The riskiest LLM call in the codebase for output language: this is a
-        translation task, so "left it in the source language" is the single most
-        likely way for it to go wrong, and the result is stored as an article in
-        the recipient's language. Checked against target_language, re-requested
-        once, then abandoned (None) rather than stored untranslated.
+        Two steps: a full translation (see translate), then the level simplifier
+        that same-language articles get (simplify_text). One prompt that did both
+        reached A1 by dropping facts and missed B1. Measured 2026-10-31 on 16
+        uploads in 8 languages, A1 and B1, judged blind by Claude Opus 5.5: level
+        fit went from 3.7 to 4.3 (B1 from 2.8 to 4.7), faithfulness from 3.4 to
+        4.1, and the paragraphs and headings of every page were kept. DeepL then
+        simplify ranked first most often, ahead of DeepSeek then simplify. Data
+        and scripts: zeeguu-experiments, simplification/2026-10-30-markdown-input.
 
-        Returns: Dict with 'title', 'content', 'summary' keys or None if failed
+        content may be Markdown (an upload's page) or plain text with paragraphs
+        separated by blank lines.
+
+        Returns: Dict with 'title', 'content' (HTML), 'summary' and 'model_name'
+        (the model that simplified it), or None if failed
         """
-        source_lang_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
-        target_lang_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
-        
-        context = f"{target_lang_name} translation of '{title[:50]}'"
+        translated = self.translate(title, content, source_language, target_language)
+        if not translated:
+            return None
+        return self.simplify_text(translated["title"], translated["content"], target_level, target_language)
 
-        def translated_by(translate):
-            """Wrap one provider's translate call for the output-language check."""
+    def translate(self, title: str, content: str, source_language: str, target_language: str) -> Optional[Dict]:
+        """
+        A complete, faithful translation of an article, its structure kept.
+
+        DeepL first: in the 2026-10-31 measurement it was as good a start for the
+        simplifier as DeepSeek and took 1s instead of 6. The LLMs are the fallback
+        (no key, a language DeepL lacks, its monthly quota), and their output is
+        checked for language: "left it in the source language" is the likeliest
+        way for a translation to go wrong. Re-requested once, then the next
+        provider is tried.
+
+        Returns: Dict with 'title' and 'content' (Markdown), or None if failed
+        """
+        translated = deepl_translate_article(title, content, source_language, target_language)
+        if translated:
+            return translated
+
+        source_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
+        target_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
+        prompt = _translation_prompt(title, content, source_name, target_name)
+        providers = [
+            ("DeepSeek", self.deepseek_api_key, self._complete_deepseek),
+            ("Anthropic", self.anthropic_api_key, self._complete_haiku),
+        ]
+        for provider, api_key, complete in providers:
+            if not api_key:
+                continue
+            log(f"Using {provider} to translate from {source_language} to {target_language}")
 
             def generate(correction):
-                result = translate(correction)
-                if not result:
-                    raise Exception("translation returned nothing")
-                return result
+                reply = complete(prompt + correction, TRANSLATION_MAX_TOKENS)
+                if not reply:
+                    raise Exception(f"{provider} returned no translation")
+                return parse_translation_reply(reply)
 
-            return generate_in_language(generate, target_language, _text_fields, context)
-
-        # Try DeepSeek first. Measured 2026-09-08 on ro->da A1: Haiku carried the
-        # Romanian negation `Nu` through untranslated (it is also a Danish word,
-        # meaning "now"), inverting the headline's claim -- 0/5 runs correct,
-        # against 3/4 for DeepSeek. Cross-checked on da->fr, where DeepSeek was
-        # also more faithful (it kept the article's subject in the title, which
-        # Haiku dropped under A1 pressure) and ~30% faster (6.0s vs 8.5s median).
-        # Anthropic stays as the fallback below, which also keeps this path
-        # working when the Anthropic monthly cap is hit.
-        if self.deepseek_api_key:
-            log(f"Using DeepSeek for translation from {source_language} to {target_language} at {target_level}")
             try:
-                return translated_by(
-                    lambda correction: self._translate_and_adapt_deepseek(
-                        title, content, source_lang_name, target_lang_name, target_level, correction
-                    )
+                return generate_in_language(
+                    generate, target_language, _text_fields, f"{target_name} translation of '{title[:50]}'"
                 )
             except LanguageMismatchError as e:
-                log(f"DeepSeek did not translate into {target_lang_name}, trying Anthropic: {e}")
+                log(f"{provider} did not translate into {target_name}: {e}")
             except Exception as e:
-                log(f"DeepSeek translation failed, falling back to Anthropic: {e}")
+                log(f"{provider} translation failed: {e}")
 
-        # Fallback to Anthropic
-        if self.anthropic_api_key:
-            log(f"Using Anthropic for translation from {source_language} to {target_language} at {target_level}")
-            try:
-                return translated_by(
-                    lambda correction: self._translate_and_adapt_anthropic(
-                        title, content, source_lang_name, target_lang_name, target_level, correction
-                    )
-                )
-            except LanguageMismatchError as e:
-                log(f"Anthropic did not translate into {target_lang_name}, giving up: {e}")
-            except Exception as e:
-                log(f"Anthropic translation failed: {e}")
-
-        log("Neither ANTHROPIC_TEXT_SIMPLIFICATION_KEY nor DEEPSEEK_API_KEY configured")
+        log("No translation provider succeeded (or none is configured)")
         return None
-
-    def _get_level_specific_prompt(self, target_level: str, source_language: str, target_language: str) -> str:
-        """Get CEFR level-specific prompt for translation and adaptation"""
-        
-        log(f"_get_level_specific_prompt called with: target_level={target_level}, source_language={source_language}, target_language={target_language}")
-        
-        if target_level == "A1":
-            return f"""Then, dramatically simplify the translation to A1 CEFR level using these EXTREME A1 CONSTRAINTS:
-
-🚨🚨🚨 CRITICAL: YOU MUST WRITE IN {target_language.upper()} ONLY! NOT ENGLISH! 🚨🚨🚨
-🚨 IF YOU USE COMPLEX WORDS YOU HAVE COMPLETELY FAILED! 🚨
-🚨 IF YOU WRITE IN ENGLISH INSTEAD OF {target_language.upper()}, YOU HAVE FAILED! 🚨
-🚨 DO NOT SHORTEN THE ARTICLE - KEEP ALL CONTENT! 🚨
-
-ULTRA-STRICT A1 RULES:
-• WORD LIMIT: Maximum 5 words per sentence. COUNT EACH WORD!
-• VOCABULARY: ONLY words a 5-year-old child knows. NO EXCEPTIONS!
-• WORD LENGTH: If a word has more than 6 letters, DON'T USE IT
-• NO abstract concepts → use concrete simple words
-• NO technical terms → explain with basic words  
-• NO complex verbs → use: is, go, see, say, have, want, like
-• NO compound words → break into simple parts
-• Write like a children's picture book
-• Group 2-3 short sentences per paragraph
-• PRESERVE ALL CONTENT: Every example, every point, every section from the original must be included
-• You may need MORE sentences to express complex ideas simply - that's OK!
-
-USE ONLY THE MOST BASIC WORDS IN {target_language}:
-- Basic pronouns (I, you, he, she, it, they)
-- Simple verbs (is, go, see, say, have, want, like, eat, drink, work, play)
-- Simple nouns (man, woman, child, people, house, car, money, time, day)
-- Simple adjectives (good, bad, big, small, happy, sad, new, old)
-
-TRANSFORMATION PRINCIPLE:
-❌ WRONG: Complex sentences with advanced vocabulary
-✅ CORRECT: Very short sentences. Simple words only. Like a children's book.
-
-CRITICAL TEST: If a 5-year-old child learning {target_language} cannot understand EVERY single word, you have COMPLETELY FAILED A1!
-
-🔥 FINAL WARNING: Write ONLY in {target_language.upper()}! NO English words allowed! 🔥"""
-
-        elif target_level == "A2":
-            return f"""Then, simplify the translation to A2 CEFR level:
-
-A2 LEVEL GUIDELINES:
-• Simple vocabulary (first 2000 most common words)
-• Maximum 12 words per sentence
-• Simple tenses: present, past, future (will)
-• Basic connectors: and, but, because, when, if
-• Clear subject-verb-object structure
-• Avoid complex grammar and abstract concepts
-• Group 3-4 sentences per paragraph
-
-Write like a simple news article for language learners."""
-
-        elif target_level in ["B1", "B2"]:
-            return f"""Then, adapt the translation to {target_level} CEFR level:
-
-{target_level} LEVEL GUIDELINES:
-• Intermediate vocabulary and expressions
-• Varied sentence length (8-20 words)
-• Mix of simple and complex tenses
-• Connectors: however, although, despite, therefore
-• Some passive voice and conditionals allowed
-• Clear paragraph structure with topic sentences
-• Explain complex concepts but keep accessible
-
-Write like a mainstream news article that's clear and engaging."""
-
-        else:  # C1, C2
-            return f"""Then, adapt the translation to {target_level} CEFR level:
-
-{target_level} LEVEL GUIDELINES:
-• Advanced vocabulary and sophisticated expressions
-• Complex sentence structures and varied length
-• Full range of tenses and grammatical structures
-• Advanced connectors and discourse markers
-• Nuanced language and abstract concepts
-• Maintain original complexity and style
-• Professional/academic writing style
-
-Focus on accurate translation while maintaining natural, fluent {target_language}."""
 
     def _assess_cefr_anthropic(
         self, title: str, content: str, language_code: str
@@ -686,240 +623,6 @@ TOPIC: [topic]"""
         except Exception as e:
             log(f"Error in DeepSeek CEFR assessment: {e}")
             return (None, None)
-
-    def _translate_and_adapt_anthropic(
-        self, title: str, content: str, source_language: str, target_language: str,
-        target_level: str, correction: str = ""
-    ) -> Optional[Dict]:
-        """Translate and adapt text using Anthropic"""
-        
-        import re
-        import unicodedata
-        
-        # Clean content to remove invalid control characters
-        def clean_text(text):
-            # Much more aggressive cleaning
-            # Keep only printable ASCII, basic unicode letters/numbers, and whitespace
-            import string
-            allowed_chars = string.printable + 'àáâãäåæçèéêëìíîïðñòóôõöøùúûüýþÿĀāĂăĄąĆćĈĉĊċČčĎďĐđĒēĔĕĖėĘęĚěĜĝĞğĠġĢģĤĥĦħĨĩĪīĬĭĮįİıĲĳĴĵĶķĸĹĺĻļĽľĿŀŁłŃńŅņŇňŉŊŋŌōŎŏŐőŒœŔŕŖŗŘřŚśŜŝŞşŠšŢţŤťŦŧŨũŪūŬŭŮůŰűŲųŴŵŶŷŸŹźŻżŽž'
-            cleaned = ''.join(char for char in text if char in allowed_chars or char.isalnum() or char.isspace())
-            # Collapse whitespace, but keep the blank lines between Markdown blocks
-            cleaned = re.sub(r'[^\S\n]+', ' ', cleaned)
-            cleaned = re.sub(r' *\n\s*\n\s*', '\n\n', cleaned)
-            return cleaned.strip()
-        
-        title = clean_text(title)
-        content = clean_text(content)
-        
-        log(f"Input content length: {len(content)} chars")
-        log(f"Input title: {title}")
-        
-        # Get level-specific prompt
-        log(f"Anthropic: Calling _get_level_specific_prompt with target_level={target_level}, source_language={source_language}, target_language={target_language}")
-        level_prompt = self._get_level_specific_prompt(target_level, source_language, target_language)
-        title_rule = _title_rule(source_language, target_language)
-        
-        prompt = f"""You must complete this task in TWO CLEAR STEPS. Do both steps
-in your head and output ONLY the STEP 2 result: one JSON object, nothing before
-or after it — no step headings, no code fences, and NOT the STEP 1 translation.
-
-STEP 1: First, translate this {source_language} article to {target_language} accurately and completely. PRESERVE ALL CONTENT AND EXAMPLES.
-
-STEP 2: {level_prompt}
-
-{title_rule}
-
-CRITICAL: Do NOT shorten or summarize the article. Keep ALL the content, examples, and points from the original. Only simplify the LANGUAGE and VOCABULARY, not the length or content.
-
-⚠️ IMPORTANT: The translated output should be approximately the SAME LENGTH as the original. If the original has 20 paragraphs, your translation should also have around 20 paragraphs. DO NOT SKIP ANY SECTIONS!
-
-{TRANSLATION_FORMATTING}
-
-Translate and adapt this article:
-
-Title: {title}
-Content: {content}
-
-Provide the response in this exact JSON format (escape quotes properly):
-{{
-  "title": "translated and adapted title",
-  "content": "the translated and adapted article in Markdown, its blocks separated by \\n\\n",
-  "summary": "First sentence of summary. Second sentence with key point. Third sentence with conclusion."
-}}
-
-IMPORTANT: 
-- Escape any quotes in the content using \\"
-- Summary should be concise, maximum 25 words, using {target_level} vocabulary
-- Ensure valid JSON format"""
-
-        prompt += correction
-
-        log(f"Prompt length: {len(prompt)} chars")
-
-        # Route through the shared Haiku client so the model (models.SIMPLIFICATION,
-        # via haiku_client), key, endpoint, and truncation handling live in one
-        # place instead of a second hand-rolled copy here.
-        #
-        # max_tokens must leave room for the *translated* output, which for a full
-        # chapter runs at least as long as the input (German et al. run 20-30%
-        # longer). Haiku's ceiling is far higher, so 16k comfortably covers a single
-        # chapter (~4k words). If the model still hits the cap, haiku_completion
-        # returns None (it treats stop_reason "max_tokens" as a failure) rather
-        # than handing back truncated, unparseable JSON.
-        result_text = haiku_completion(
-            prompt, max_tokens=TRANSLATE_AND_ADAPT_MAX_TOKENS, temperature=0.3, timeout=120
-        )
-        if not result_text:
-            return None
-
-        try:
-            import markdown2
-
-            result = parse_llm_json(result_text)
-            if not result:
-                log("No JSON object in the Anthropic reply")
-                log(f"Problematic JSON response: {result_text}")
-                return None
-
-            if "content" in result and result["content"]:
-                result["content"] = markdown2.markdown(
-                    result["content"],
-                    extras=['break-on-newline', 'fenced-code-blocks', 'tables']
-                )
-
-            if "summary" not in result or not result["summary"]:
-                from bs4 import BeautifulSoup
-                clean_content = BeautifulSoup(result["content"], 'html.parser').get_text()
-                result["summary"] = clean_content[:200] + "..."
-            return result
-        except json.JSONDecodeError as e:
-            log(f"Error parsing Anthropic JSON: {e}")
-            log(f"Problematic JSON response: {result_text}")
-            return None
-        except Exception as e:
-            log(f"Error in Anthropic translation: {e}")
-            return None
-
-    def _translate_and_adapt_deepseek(
-        self, title: str, content: str, source_language: str, target_language: str,
-        target_level: str, correction: str = ""
-    ) -> Optional[Dict]:
-        """Translate and adapt text using DeepSeek"""
-        
-        # Get level-specific prompt
-        level_prompt = self._get_level_specific_prompt(target_level, source_language, target_language)
-        title_rule = _title_rule(source_language, target_language)
-        
-        prompt = f"""You must complete this task in TWO CLEAR STEPS. Do both steps
-in your head and output ONLY the STEP 2 result: one JSON object, nothing before
-or after it — no step headings, no code fences, and NOT the STEP 1 translation.
-
-STEP 1: First, translate this {source_language} article to {target_language} accurately and completely. PRESERVE ALL CONTENT AND EXAMPLES.
-
-STEP 2: {level_prompt}
-
-{title_rule}
-
-CRITICAL: Do NOT shorten or summarize the article. Keep ALL the content, examples, and points from the original. Only simplify the LANGUAGE and VOCABULARY, not the length or content.
-
-⚠️ IMPORTANT: The translated output should be approximately the SAME LENGTH as the original. If the original has 20 paragraphs, your translation should also have around 20 paragraphs. DO NOT SKIP ANY SECTIONS!
-
-{TRANSLATION_FORMATTING}
-
-Article to translate:
-Title: {title}
-Content: {content}
-
-Return ONLY valid JSON in this exact format (no markdown, no code blocks):
-{{
-  "title": "translated title",
-  "content": "the translated and adapted article in Markdown, its blocks separated by \\n\\n",
-  "summary": "First sentence of summary. Second sentence with key point. Third sentence with conclusion."
-}}
-
-IMPORTANT: Summary should be concise, maximum 25 words, using {target_level} vocabulary."""
-
-        prompt += correction
-
-        try:
-            response = requests.post(
-                "https://api.deepseek.com/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.deepseek_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": models.DEEPSEEK_GENERAL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    # What the Haiku path asks for (above); output_tokens caps it
-                    # at what deepseek-chat writes, 8192, so a long chapter that
-                    # fits Haiku may not fit here. Anything longer is caught by the
-                    # finish_reason check below rather than truncated silently.
-                    "max_tokens": models.output_tokens(
-                        models.DEEPSEEK_GENERAL, TRANSLATE_AND_ADAPT_MAX_TOKENS
-                    ),
-                    "temperature": 0.3,
-                },
-                timeout=120,
-            )
-
-            if response.status_code == 200:
-                # Set before anything that can fail: the except below logs it,
-                # and a body that is not JSON fails at response.json().
-                result_text = None
-                try:
-                    response_data = response.json()
-                    choice = response_data["choices"][0]
-                    result_text = choice["message"]["content"]
-                    log(f"DeepSeek raw response: {result_text[:200]}...")
-
-                    # finish_reason "length" is DeepSeek's truncation signal (the
-                    # equivalent of Anthropic's stop_reason "max_tokens"). Bail
-                    # rather than parse a cut-off response.
-                    if choice.get("finish_reason") == "length":
-                        log(
-                            f"DeepSeek translation hit the token cap "
-                            f"(finish_reason=length, input {len(content)} chars)"
-                        )
-                        return None
-
-                    import markdown2
-
-                    result = parse_llm_json(result_text)
-                    if not result:
-                        log("No JSON object in the DeepSeek reply")
-                        log(f"Raw response: {result_text}")
-                        return None
-                    
-                    # Convert markdown content to HTML
-                    if "content" in result and result["content"]:
-                        result["content"] = markdown2.markdown(
-                            result["content"],
-                            extras=['break-on-newline', 'fenced-code-blocks', 'tables']
-                        )
-                    
-                    # Add fallback summary if not provided by LLM
-                    if "summary" not in result or not result["summary"]:
-                        from bs4 import BeautifulSoup
-                        clean_content = BeautifulSoup(result["content"], 'html.parser').get_text()
-                        result["summary"] = clean_content[:200] + "..."
-                    return result
-                except json.JSONDecodeError as e:
-                    log(f"Failed to parse DeepSeek JSON response: {e}")
-                    log(f"Raw response: {result_text}")
-                    return None
-                except Exception as e:
-                    log(f"Error processing DeepSeek response: {e}")
-                    return None
-            else:
-                log(f"DeepSeek API error: {response.status_code}")
-                log(f"Response text: {response.text}")
-                return None
-
-        except Exception as e:
-            log(f"Error in DeepSeek translation: {e}")
-            return None
-
 
 # Factory function for convenience
 def get_simplification_service() -> SimplificationService:

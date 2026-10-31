@@ -91,3 +91,41 @@ def deepl_contextual_translate(data: dict) -> Optional[dict]:
         "likelihood": 92,
         "service_name": "DeepL - with context",
     }
+
+
+def deepl_translate_article(title: str, markdown: str, source_language: str, target_language: str) -> Optional[dict]:
+    """
+    Translate a whole article with DeepL.
+
+    The article goes in as Markdown and DeepL gets it rendered as HTML
+    (tag_handling="html"), so its headings, lists and quotes come back as the
+    same tags and are turned back into Markdown here.
+
+    Returns:
+        dict with 'title' and 'content' (Markdown), or None if DeepL is
+        unavailable or the call failed (an unsupported language, the monthly
+        quota) -- the caller then translates with an LLM.
+    """
+    client = _get_client()
+    if client is None:
+        return None
+
+    import markdown2
+
+    from zeeguu.core.content_cleaning.html_to_markdown import html_to_markdown
+
+    source = source_language.upper()
+    target = _to_deepl_target_lang(target_language)
+    try:
+        content = client.translate_text(
+            markdown2.markdown(markdown), source_lang=source, target_lang=target, tag_handling="html"
+        )
+        translated_title = client.translate_text(title, source_lang=source, target_lang=target)
+    except Exception as e:
+        logger.warning(f"DeepL article translation failed ({source_language} -> {target_language}): {e}")
+        return None
+
+    content = html_to_markdown(content.text or "")
+    if not content.strip():
+        return None
+    return {"title": (translated_title.text or "").strip(), "content": content}
