@@ -83,16 +83,23 @@ class ArticleUpload(db.Model):
         does give it. The HTML's text is counted before the Markdown drops
         the figures, so that a page with long captions keeps its Markdown.
         """
-        from bs4 import BeautifulSoup
-        from zeeguu.core.content_cleaning.html_to_markdown import html_to_markdown
         from zeeguu.core.llm_services.prompts.level_simplification import text_with_paragraphs
 
+        return self.markdown_from_html() or text_with_paragraphs(self.text_content or "", self.raw_html or "")
+
+    def markdown_from_html(self):
+        """The Markdown of ``raw_html``, or None when the HTML is a partial extraction (see ``markdown``)."""
+        from bs4 import BeautifulSoup
+        from zeeguu.core.content_cleaning.html_to_markdown import html_to_markdown
+
+        if not self.raw_html:
+            return None
         text = self.text_content or ""
-        html_text = BeautifulSoup(self.raw_html, "html.parser").get_text(" ") if self.raw_html else ""
-        markdown = html_to_markdown(self.raw_html) if self.raw_html else ""
+        html_text = BeautifulSoup(self.raw_html, "html.parser").get_text(" ")
+        markdown = html_to_markdown(self.raw_html)
         if len(html_text.split()) >= 0.9 * len(text.split()) and markdown.strip():
             return markdown
-        return text_with_paragraphs(text, self.raw_html or "")
+        return None
 
     def canonical_article(self, session, create=False):
         """The canonical Article at this upload's URL, linking it if needed.
