@@ -166,3 +166,20 @@ def test_an_admins_correction_counts_at_once(client, article, machine):
     _correct(client, article, "house")
 
     assert _look_up(_other_reader(client), article)["translation"] == "house"
+
+
+
+def test_records_the_chosen_translation_when_its_word_already_exists(client, article, machine):
+    # Choosing a translation the reader already has a user word for creates
+    # nothing, so nothing commits, and bookmark.user_word kept pointing at the
+    # old word: on 2026-11-03 such corrections recorded the translation from
+    # before the change ("one behind").
+    _make_teacher(client)
+    client.post(
+        "/contribute_translation/de/en",
+        json={"word": WORD, "translation": "house", "context": "Ein anderes Haus", "source_id": article["source_id"],
+              "context_identifier": {"context_type": "ArticleFragment"}},
+    )
+    _correct(client, article, "house")
+
+    assert [c.translation for c in TranslationCorrection.query.all()] == ["house"]

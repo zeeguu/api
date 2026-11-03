@@ -464,8 +464,8 @@ def ask_llm_translation(from_lang_code, to_lang_code):
 
 def _retranslate_bookmark(bookmark, user, new_translation, service):
     """Move the bookmark to the meaning with ``new_translation``, keeping its
-    position data and carrying the learning progress over. True if the
-    meaning changed. Does not commit."""
+    position data and carrying the learning progress over. The new meaning
+    if it changed, else None. Does not commit."""
     # Find or create new Meaning with the new translation
     old_meaning = bookmark.user_word.meaning
     new_meaning = Meaning.find_or_create(
@@ -504,9 +504,9 @@ def _retranslate_bookmark(bookmark, user, new_translation, service):
         cleanup_old_user_word(db_session, old_user_word, bookmark)
 
     if new_meaning.id == old_meaning.id:
-        return False
+        return None
     bookmark.set_translation_service(db_session, service)
-    return True
+    return new_meaning
 
 
 # Bounds for /resolve_translation_disagreement: the candidates come from the
@@ -640,8 +640,9 @@ def update_bookmark_translation_only(bookmark_id):
     )
 
     old_meaning = bookmark.user_word.meaning
-    if _retranslate_bookmark(bookmark, user, new_translation, service):
-        TranslationCorrection.record(db_session, bookmark)
+    new_meaning = _retranslate_bookmark(bookmark, user, new_translation, service)
+    if new_meaning:
+        TranslationCorrection.record(db_session, bookmark, new_meaning)
     db_session.commit()
 
     # Return updated bookmark
@@ -783,7 +784,7 @@ def update_bookmark_full(bookmark_id):
     # Step 9: Commit changes and return response
     db_session.add(bookmark)
     if meaning_changed:
-        TranslationCorrection.record(db_session, bookmark)
+        TranslationCorrection.record(db_session, bookmark, meaning)
     db_session.commit()
 
     # Refresh to get latest fit_for_study status

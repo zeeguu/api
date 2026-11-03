@@ -59,17 +59,23 @@ class TranslationCorrection(db.Model):
     judged_at = Column(DateTime)
 
     @classmethod
-    def record(cls, session, bookmark):
+    def record(cls, session, bookmark, meaning):
         """The learner changed the translation of a bookmark: remember the new
         pair in the bookmark's sentence. A teacher's or admin's counts at once; anyone
         else's waits for the nightly validator. A user's earlier correction of
-        the same word in the same sentence is dropped. Does not commit."""
+        the same word in the same sentence is dropped. Does not commit.
+
+        ``meaning`` is the new pair, passed in rather than read from
+        bookmark.user_word: the endpoints set bookmark.user_word_id, and when
+        the chosen pair's user word already existed nothing commits, so the
+        loaded relationship still pointed at the old word and the translation
+        from before the change was recorded (2026-11-03)."""
         from zeeguu.core.model.teacher import Teacher
+        from zeeguu.core.model.user import User
 
         if not bookmark.context_id:
             return None
-        meaning = bookmark.user_word.meaning
-        user = bookmark.user_word.user
+        user = User.find_by_id(bookmark.user_word.user_id)
 
         earlier = (
             cls.query.join(Meaning, cls.meaning_id == Meaning.id)
