@@ -651,6 +651,11 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
     Generator that yields translations as they arrive (for SSE streaming).
 
     Yields translation dicts one at a time, allowing frontend to display progressively.
+
+    Only app builds from before 23 May 2026 still call this (web dropped SSE
+    in 469330009). It never calls the LLM: that is behind the reader's
+    explicit "Ask LLM" (ADR 022), and old builds used to pay for one LLM call
+    on every menu open of a phrase.
     """
     from python_translators.translation_query import TranslationQuery
     from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -677,7 +682,6 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
                 yield result
 
         # Then try other services in parallel - they might give different results
-        # Also include LLM for contextual alternatives
         mwe_data = {
             "source_language": from_lang,
             "target_language": to_lang,
@@ -690,7 +694,6 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
             lambda d=mwe_data: microsoft_contextual_translate(d),
             lambda d=mwe_data: google_contextual_translate(d),
             lambda d=mwe_data: deepl_contextual_translate_cached(d),
-            lambda: translate_with_llm(word, context, from_lang, to_lang),
         ]
 
         with ThreadPoolExecutor(max_workers=len(funcs)) as executor:
@@ -709,7 +712,6 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
     if is_separated_mwe and full_sentence_context:
         funcs = [
             lambda: translate_separated_mwe(word, full_sentence_context, from_lang, to_lang),
-            lambda: translate_with_llm(word, full_sentence_context, from_lang, to_lang),
         ]
     else:
         # Single words: use all contextual services
