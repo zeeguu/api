@@ -29,6 +29,8 @@ from zeeguu.core.model.article_share_link import ArticleShareLink
 from zeeguu.core.model.article_public_code import ArticlePublicCode
 from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
 from zeeguu.core.model.public_translation import PublicTranslation
+from zeeguu.core.model.translation_correction import TranslationCorrection
+from zeeguu.core.model.translation_service import TranslationService
 from zeeguu.core.translation_services.translator import get_best_translation
 from zeeguu.logging import log
 from . import api, db_session
@@ -245,14 +247,20 @@ def public_translate(code, to_lang_code):
     if not article or article.broken or not to_language or to_language.id == article.language_id:
         return json_result({"error": "Not found"}), 404
 
-    cached = PublicTranslation.find(article.id, position, to_language.id)
-    if cached:
-        return json_result(cached.as_response())
-
     located = _word_and_sentence(article, position)
     if located is None:
         return json_result({"error": "Bad position"}), 400
     word, sentence = located
+
+    # A reader's accepted correction of this word in this sentence beats the
+    # machine translation, also one cached here before the correction was made
+    correction = TranslationCorrection.best_for(word, sentence, article.language_id, to_language.id)
+    if correction:
+        return json_result({"translation": correction.translation, "source": TranslationService.CORRECTION, "alternatives": None})
+
+    cached = PublicTranslation.find(article.id, position, to_language.id)
+    if cached:
+        return json_result(cached.as_response())
 
     if not _charge_global_miss():
         return json_result({"error": "Too many translations today"}), 429
