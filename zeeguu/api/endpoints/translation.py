@@ -537,6 +537,13 @@ def resolve_translation_disagreement(from_lang_code, to_lang_code):
     from zeeguu.core.llm_services.translation_disagreement_resolver import (
         resolve_translation_disagreement as resolve,
     )
+    from zeeguu.core.user_feature_toggles import is_feature_enabled_for_user
+
+    # The client asks only when the feature is on; this keeps every other
+    # account from spending LLM calls by calling the endpoint directly.
+    user = User.find_by_id(flask.g.user_id)
+    if not is_feature_enabled_for_user("resolve_disagreements", user):
+        return "Not enabled for this account", 403
 
     word_str = request.json.get("word", "").strip(punctuation_extended)
     context = request.json.get("context", "").strip()
@@ -562,7 +569,7 @@ def resolve_translation_disagreement(from_lang_code, to_lang_code):
         except NoResultFound:
             return "Bookmark not found", 404
         # Same response as a missing bookmark, so ids of others are not confirmed.
-        if bookmark.user_word.user_id != flask.g.user_id:
+        if bookmark.user_word.user_id != user.id:
             return "Bookmark not found", 404
 
     resolution = resolve(word_str, context, candidates, from_lang_code, to_lang_code)
@@ -575,7 +582,6 @@ def resolve_translation_disagreement(from_lang_code, to_lang_code):
             # The learner picked or typed something else while we waited.
             changed = False
         else:
-            user = User.find_by_id(flask.g.user_id)
             _retranslate_bookmark(
                 bookmark, user, resolution.translation, TranslationService.DISAGREEMENT_RESOLVER
             )

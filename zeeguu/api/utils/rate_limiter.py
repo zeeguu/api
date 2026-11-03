@@ -228,6 +228,9 @@ RATE_LIMITS = {
     # The explicit "Ask LLM" and "Explain" buttons. Both are a learner asking
     # about one word they are stuck on, a few dozen times on a hard day.
     "endpoints.ask_llm_translation": Limit("300 per day", key="user"),
+    # Fires by itself after a lookup the translators disagree on, which is a
+    # small share of the taps above.
+    "endpoints.resolve_translation_disagreement": Limit("300 per day", key="user"),
     "endpoints.explain_selection_endpoint": Limit("300 per day", key="user"),
 
     # Pronouncing a word or phrase. Exercises play audio on their own, so a

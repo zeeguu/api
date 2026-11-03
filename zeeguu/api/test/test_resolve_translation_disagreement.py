@@ -15,6 +15,7 @@ RESOLVER = "zeeguu.core.llm_services.translation_disagreement_resolver.resolve_t
 
 
 def _resolve(client, bookmark_id, shown="behind", candidates=("behind", "after")):
+    _make_dev(client)
     return client.post(
         "/resolve_translation_disagreement/de/en",
         json={
@@ -25,6 +26,14 @@ def _resolve(client, bookmark_id, shown="behind", candidates=("behind", "after")
             "bookmark_id": bookmark_id,
         },
     )
+
+
+def _make_dev(client):
+    # The resolver is behind the dev-only resolve_disagreements feature.
+    from zeeguu.core.model import User, db
+
+    User.find(client.email).is_dev = True
+    db.session.commit()
 
 
 def _translation(bookmark_id):
@@ -77,6 +86,7 @@ def test_a_failed_llm_call_is_a_404(client):
     add_context_types()
     add_source_types()
     bookmark_id = add_one_bookmark(client)
+    _make_dev(client)
     with patch(RESOLVER, return_value=None):
         response = client.client.post(
             client.append_session("/resolve_translation_disagreement/de/en"),
@@ -85,3 +95,13 @@ def test_a_failed_llm_call_is_a_404(client):
         )
     assert response.status_code == 404
     assert _translation(bookmark_id) == "behind"
+
+
+def test_accounts_without_the_feature_are_refused(client):
+    with patch(RESOLVER) as resolver:
+        response = client.client.post(
+            client.append_session("/resolve_translation_disagreement/de/en"),
+            json={"word": "hinter", "context": "x", "candidates": ["behind"], "shown": "behind"},
+        )
+    assert response.status_code == 403
+    resolver.assert_not_called()
