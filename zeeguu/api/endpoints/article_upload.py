@@ -1,9 +1,9 @@
 """Endpoints for ArticleUpload — lightweight per-user ingestion entity."""
 import flask
 from flask import request
-from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.core.model import Article, ArticleUpload, User
+from zeeguu.core.model.article import UnsupportedLanguage
 from zeeguu.core.model.personal_copy import PersonalCopy
 from zeeguu.core.model.user_article import UserArticle
 from zeeguu.api.utils.json_result import json_result
@@ -42,7 +42,7 @@ def _promote_upload_or_abort(upload):
             image_url=upload.image_url,
             source_upload_id=upload.id,
         )
-    except NoResultFound:
+    except UnsupportedLanguage:
         flask.abort(406, "Language not supported")
     except (FailedToParseWithReadabilityServer, SkippedForLowQuality):
         flask.abort(422, "Could not parse article content")

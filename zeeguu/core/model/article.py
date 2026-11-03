@@ -105,6 +105,19 @@ def strip_trailing_ellipsis_tokens_json(tokens_json):
     return json.dumps(sentences) if changed else tokens_json
 
 
+class UnsupportedLanguage(NoResultFound):
+    """The article's detected language is not one Zeeguu supports.
+
+    A NoResultFound subclass so that callers which already catch
+    NoResultFound keep working; callers that only mean "unsupported
+    language" catch this, and other failed lookups surface as themselves.
+    """
+
+    def __init__(self, lang):
+        super().__init__(f"Language not supported: {lang}")
+        self.lang = lang
+
+
 class UnsignedBigInteger(TypeDecorator):
     """Handles unsigned 64-bit integers for both MySQL and SQLite."""
 
@@ -1581,14 +1594,11 @@ class Article(db.Model):
             authors = ", ".join(np_article.authors or [])
             lang = np_article.meta_lang
 
-        # Try to find the language - if not supported, raise NoResultFound
-        # which will be caught in the endpoint and return 406
         try:
             language = Language.find(lang)
-        except Exception as e:
-            # Language code not supported - log for debugging
+        except NoResultFound:
             print(f"-- detected language '{lang}' is not supported in Zeeguu")
-            raise  # Re-raise to be caught as NoResultFound in endpoint
+            raise UnsupportedLanguage(lang)
 
         # Create new article and save it to DB
         url_object = Url.find_or_create(session, canonical_url)
