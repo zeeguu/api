@@ -462,6 +462,142 @@ def ask_llm_translation(from_lang_code, to_lang_code):
     })
 
 
+def _retranslate_bookmark(bookmark, user, new_translation, service):
+    """Move the bookmark to the meaning with ``new_translation``, keeping its
+    position data and carrying the learning progress over. True if the
+    meaning changed. Does not commit."""
+    # Find or create new Meaning with the new translation
+    old_meaning = bookmark.user_word.meaning
+    new_meaning = Meaning.find_or_create(
+        db_session,
+        old_meaning.origin.content,  # Keep same origin word
+        old_meaning.origin.language.code,
+        new_translation,
+        old_meaning.translation.language.code,
+        user=user,
+    )
+
+    # Find or create UserWord for the new meaning
+    old_user_word = bookmark.user_word
+    new_user_word = UserWord.find_or_create(
+        db_session, old_user_word.user, new_meaning
+    )
+
+    # If UserWord changed, transfer learning progress
+    if new_user_word.id != old_user_word.id:
+        from zeeguu.core.bookmark_operations.update_bookmark import (
+            transfer_learning_progress,
+            cleanup_old_user_word,
+        )
+        transfer_learning_progress(db_session, old_user_word, new_user_word, bookmark)
+
+        # Reassign bookmark to new UserWord
+        bookmark.user_word_id = new_user_word.id
+        db_session.add(bookmark)
+        db_session.flush()
+
+        # Set preferred_bookmark if needed
+        if not new_user_word.preferred_bookmark:
+            new_user_word.preferred_bookmark_id = bookmark.id
+            db_session.add(new_user_word)
+
+        cleanup_old_user_word(db_session, old_user_word, bookmark)
+
+    if new_meaning.id == old_meaning.id:
+        return False
+    bookmark.set_translation_service(db_session, service)
+    return True
+
+
+# Bounds for /resolve_translation_disagreement: the candidates come from the
+# client (the alternatives it was just sent) and all go into the prompt.
+MAX_DISAGREEMENT_CANDIDATES = 6
+
+
+@api.route("/resolve_translation_disagreement/<from_lang_code>/<to_lang_code>", methods=["POST"])
+@cross_domain
+@requires_session
+def resolve_translation_disagreement(from_lang_code, to_lang_code):
+    """
+    Settle a lookup whose translators disagreed (/translate_word answered
+    with ``disagreement``): an LLM sees the sentence and the candidates and
+    gives the translation, possibly one none of them offered, plus one line
+    for the learner on why.
+
+    When it differs from what the reader shows, the bookmark moves to it,
+    unless the learner has changed the translation in the meantime: the
+    client sends what it shows as ``shown``, and a bookmark that no longer
+    has it is left alone.
+
+    Request body: ``{ "word", "context", "candidates": [str], "shown",
+    "bookmark_id" (null for a separated MWE, which has no bookmark) }``
+    Response: ``{ "translation", "reason", "changed" }`` or 404 when the
+    LLM could not be asked.
+    """
+    from zeeguu.core.llm_services.translation_disagreement_resolver import (
+        resolve_translation_disagreement as resolve,
+    )
+    from zeeguu.core.user_feature_toggles import is_feature_enabled_for_user
+
+    # The client asks only when the feature is on; this keeps every other
+    # account from spending LLM calls by calling the endpoint directly.
+    user = User.find_by_id(flask.g.user_id)
+    if not is_feature_enabled_for_user("resolve_disagreements", user):
+        return "Not enabled for this account", 403
+
+    word_str = request.json.get("word", "").strip(punctuation_extended)
+    context = request.json.get("context", "").strip()
+    shown = (request.json.get("shown") or "").strip()
+    candidates = [
+        c.strip() for c in (request.json.get("candidates") or []) if isinstance(c, str) and c.strip()
+    ]
+    if not word_str or not shown:
+        return "word and shown required", 400
+    if len(candidates) > MAX_DISAGREEMENT_CANDIDATES:
+        return "too many candidates", 400
+    _abort_if_translation_input_too_long(word_str, context)
+    for candidate in candidates:
+        abort_if_too_long("candidate", candidate, MAX_PHRASE_CHARS)
+
+    bookmark = None
+    bookmark_id = request.json.get("bookmark_id")
+    if bookmark_id is not None:
+        from sqlalchemy.orm.exc import NoResultFound
+
+        try:
+            bookmark = Bookmark.find(bookmark_id)
+        except NoResultFound:
+            return "Bookmark not found", 404
+        # Same response as a missing bookmark, so ids of others are not confirmed.
+        if bookmark.user_word.user_id != user.id:
+            return "Bookmark not found", 404
+
+    resolution = resolve(word_str, context, candidates, from_lang_code, to_lang_code)
+    if not resolution:
+        return "LLM could not settle the disagreement", 404
+
+    changed = resolution.translation.lower() != shown.lower()
+    if changed and bookmark:
+        if bookmark.user_word.meaning.translation.content.strip().lower() != shown.lower():
+            # The learner picked or typed something else while we waited.
+            changed = False
+        else:
+            _retranslate_bookmark(
+                bookmark, user, resolution.translation, TranslationService.DISAGREEMENT_RESOLVER
+            )
+            db_session.commit()
+
+    zeeguu_log(
+        f"[TRANSLATION-DISAGREEMENT] '{word_str}' {from_lang_code}->{to_lang_code} "
+        f"shown='{shown}' candidates={candidates} -> '{resolution.translation}' changed={changed}"
+    )
+    return json_result({
+        "translation": resolution.translation,
+        "reason": resolution.reason,
+        "changed": changed,
+    })
+
+
 @api.route("/update_bookmark_translation/<bookmark_id>", methods=["POST"])
 @cross_domain
 @requires_session
@@ -503,45 +639,8 @@ def update_bookmark_translation_only(bookmark_id):
         or TranslationService.CHOSEN_ALTERNATIVE
     )
 
-    # Find or create new Meaning with the new translation
     old_meaning = bookmark.user_word.meaning
-    new_meaning = Meaning.find_or_create(
-        db_session,
-        old_meaning.origin.content,  # Keep same origin word
-        old_meaning.origin.language.code,
-        new_translation,
-        old_meaning.translation.language.code,
-        user=user,
-    )
-
-    # Find or create UserWord for the new meaning
-    old_user_word = bookmark.user_word
-    new_user_word = UserWord.find_or_create(
-        db_session, old_user_word.user, new_meaning
-    )
-
-    # If UserWord changed, transfer learning progress
-    if new_user_word.id != old_user_word.id:
-        from zeeguu.core.bookmark_operations.update_bookmark import (
-            transfer_learning_progress,
-            cleanup_old_user_word,
-        )
-        transfer_learning_progress(db_session, old_user_word, new_user_word, bookmark)
-
-        # Reassign bookmark to new UserWord
-        bookmark.user_word_id = new_user_word.id
-        db_session.add(bookmark)
-        db_session.flush()
-
-        # Set preferred_bookmark if needed
-        if not new_user_word.preferred_bookmark:
-            new_user_word.preferred_bookmark_id = bookmark.id
-            db_session.add(new_user_word)
-
-        cleanup_old_user_word(db_session, old_user_word, bookmark)
-
-    if new_meaning.id != old_meaning.id:
-        bookmark.set_translation_service(db_session, service)
+    if _retranslate_bookmark(bookmark, user, new_translation, service):
         TranslationCorrection.record(db_session, bookmark)
     db_session.commit()
 

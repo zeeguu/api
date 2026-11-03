@@ -24,6 +24,7 @@ class TranslationService(db.Model):
     AUDIO_LESSON = "Audio lesson (LLM)"  # word an A0 audio lesson taught (add_word_to_study)
     VALIDATOR = "Translation validator"  # replaced by UserWordValidationService
     CORRECTION = "Shared correction"  # another reader's accepted correction (TranslationCorrection)
+    DISAGREEMENT_RESOLVER = "Disagreement resolver (LLM)"  # translators disagreed; the LLM settled it
 
     # SMALLINT in MySQL, as the migration creates it. SQLite (the tests) only
     # autoincrements INTEGER PRIMARY KEY, so a SMALLINT key there gets no id.
@@ -37,7 +38,7 @@ class TranslationService(db.Model):
         return f"<TranslationService {self.name}>"
 
     # Never accepted from a client: they would claim our own provenance
-    INTERNAL = (MANUAL, CHOSEN_ALTERNATIVE, LEARNING_CARD, AUDIO_LESSON, VALIDATOR, CORRECTION)
+    INTERNAL = (MANUAL, CHOSEN_ALTERNATIVE, LEARNING_CARD, AUDIO_LESSON, VALIDATOR, CORRECTION, DISAGREEMENT_RESOLVER)
 
     @classmethod
     def find_or_create(cls, session, name):

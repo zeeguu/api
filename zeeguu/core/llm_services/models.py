@@ -93,6 +93,12 @@ CLOZE_ALTERNATIVE_JUDGE = ANTHROPIC_SONNET
 # reasoning as the cloze judge: shared verdicts, worth the slower tier.
 TRANSLATION_ALTERNATIVE_JUDGE = ANTHROPIC_SONNET
 
+# Settling a reader lookup whose machine translators disagree ("en bonde" in a
+# chess sentence: "a farmer" or "a pawn"?). Runs right after the lookup and
+# only on disagreements; the answer replaces what the learner sees and
+# studies, so accuracy is worth the slower tier.
+TRANSLATION_DISAGREEMENT = ANTHROPIC_SONNET
+
 # Meaning-frequency classification (COMMON / RARE / …). NOTE: also used as the
 # DB lookup key in AiGenerator.get_current_classification_model — keep the model
 # a classification run records and the model looked up in sync via this one constant.

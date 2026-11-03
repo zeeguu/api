@@ -1,0 +1,27 @@
+translation-disagreement-v1, claude-sonnet-5-5, 2026-10-30, 3 run(s) per case
+en bonde ['a farmer', 'a pawn', 'm a pawn'] -> want ['a pawn', 'pawn']
+    ok  'a pawn'  (In the context of a 'kongespil' (king's game, i.e. chess), 'bonde' means the chess piece, a pawn.)
+    ok  'a pawn'  (In a game of kings (chess), 'bonde' means the chess piece pawn, not farmer.)
+    ok  'a pawn'  (In a 'kongespil' (royal game, i.e. chess), 'bonde' means the chess piece, not a farmer.)
+er frosset til ['is frozen to', 'am frozen solid', 'are frozen', 'are frozen to'] -> want ['are frozen solid', 'are frozen over', 'have frozen solid', 'have frozen over', 'are frozen stiff']
+    ok  'are frozen over'  ('Til' here is a verb particle meaning 'over/solid', not a preposition; the subject 'hjerterne' is plural.)
+    ok  'are frozen solid'  (Here 'til' is a particle of the verb 'fryse til' (freeze over), not a preposition, and 'hjerterne' is plural.)
+    ok  'are frozen over'  ('Fryse til' is a phrasal verb meaning to freeze over; 'til' is a particle, not a preposition.)
+Skuespilleren ['Actor', 'The actor'] -> want ['the actor']
+    ok  'The actor'  (The -en ending marks Danish definiteness, so it means 'the actor', not just 'actor'.)
+    ok  'The actor'  (The Danish suffix -en marks definiteness, so it means 'the actor', not just 'actor'.)
+    ok  'The actor'  (The Danish suffix -en marks definiteness, so 'Skuespilleren' means 'the actor', not bare 'actor'.)
+vil have fjernet ['will have removed', 'want to remove', 'want removed'] -> want ['want removed', 'want to have removed', 'want to remove']
+    ok  'want to have removed'  ("Vil have" + past participle means wanting something done: 'we want the VAT removed', not a future 'will'.)
+    ok  'want to have removed'  ("vil have" + past participle means 'want something done', so it expresses desire, not future.)
+    ok  'want to have removed'  ("Vil have" + past participle means want something done; "vil" is volition, not future.)
+vil sige ['will say', 'mean'] -> want ['means']
+    BAD 'mean'  ("Hvad det vil sige" is an idiom meaning 'what it means'; it is not a future 'will say'.})
+    BAD 'mean'  ("Hvad det vil sige at" is a fixed idiom meaning "what it means to", not future "will say".)
+    BAD 'mean'  ("Hvad det vil sige at" is a fixed idiom meaning 'what it means to', not a future 'will say'."})
+slår op ['hit up', 'look up', 'strike up'] -> want ['look up']
+    ok  'look up'  (Here 'slå op' means to consult a word in a dictionary, not to hit or start something.)
+    ok  'look up'  (Here the phrasal verb 'slå op' means to consult a word in a dictionary, not hit or start.)
+    ok  'look up'  (Here 'slå op' means to consult a word in a dictionary, in the present tense with 'jeg' as subject.')
+
+15/18 runs pass
