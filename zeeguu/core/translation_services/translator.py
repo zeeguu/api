@@ -652,10 +652,10 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
 
     Yields translation dicts one at a time, allowing frontend to display progressively.
 
-    Only app builds from before 23 May 2026 still call this (web dropped SSE
-    in 469330009). It never calls the LLM: that is behind the reader's
-    explicit "Ask LLM" (ADR 022), and old builds used to pay for one LLM call
-    on every menu open of a phrase.
+    The web reader stopped calling this on 23 May 2026 (web 469330009); only
+    older clients still do. It never calls the LLM: that is behind the
+    reader's explicit "Ask LLM" (ADR 022), and those clients used to pay for
+    one LLM call on every menu open of a phrase.
     """
     from python_translators.translation_query import TranslationQuery
     from concurrent.futures import ThreadPoolExecutor, as_completed

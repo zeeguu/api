@@ -1,4 +1,4 @@
-"""The SSE stream (old app builds only) must not call the LLM: that is
+"""The SSE stream (older clients only) must not call the LLM: that is
 behind the reader's explicit "Ask LLM" (ADR 022)."""
 
 from unittest import TestCase
