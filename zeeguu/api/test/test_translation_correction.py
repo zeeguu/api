@@ -11,7 +11,7 @@ from fixtures import LoggedInClient, add_context_types, add_source_types, create
 from fixtures import logged_in_client as client
 from zeeguu.core.model import Teacher, User
 from zeeguu.core.model.db import db
-from zeeguu.core.model.translation_correction import TranslationCorrection, corrections_to_judge, judge
+from zeeguu.core.model.translation_correction import TranslationCorrection, corrections_to_judge, judge, nightly_summary
 from zeeguu.core.model.translation_service import TranslationService
 
 WORD = "Haus"
@@ -183,3 +183,22 @@ def test_records_the_chosen_translation_when_its_word_already_exists(client, art
     _correct(client, article, "house")
 
     assert [c.translation for c in TranslationCorrection.query.all()] == ["house"]
+
+
+def test_the_nightly_summary_names_trusted_disagreements(client, article, machine):
+    _make_teacher(client)
+    _correct(client, article, "house")
+    (audited,) = corrections_to_judge()
+    judge(db.session, audited, _validator("FIX"))
+
+    assert nightly_summary([]) == "nothing to judge"
+    assert nightly_summary([(audited, "FIX")]) == "trusted: 1 audited, 1 disagreement(s): Haus -> house (FIX)"
+    assert nightly_summary([(audited, None)]) == "trusted: 1 audited, 0 disagreement(s) | 1 without verdict (retried tomorrow)"
+
+
+def test_the_nightly_summary_counts_learners(client, article, machine):
+    _correct(client, article, "house")
+    (pending,) = corrections_to_judge()
+    judge(db.session, pending, _validator("VALID"))
+
+    assert nightly_summary([(pending, "VALID")]) == "learners: 1 accepted, 0 rejected"

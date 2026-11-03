@@ -19,13 +19,15 @@ app = create_app_for_scripts()
 app.app_context().push()
 
 from zeeguu.core.llm_services.translation_validator import TranslationValidator
-from zeeguu.core.model.translation_correction import corrections_to_judge, judge
+from zeeguu.core.model.translation_correction import corrections_to_judge, judge, nightly_summary
+from zeeguu.operations.task_status import set_summary
 
 apply = "--apply" in sys.argv
 
 corrections = corrections_to_judge()
 print(f"{len(corrections)} translation corrections to judge")
 validator = TranslationValidator() if apply and corrections else None
+judged = []
 
 for correction in corrections:
     meaning = correction.meaning
@@ -36,9 +38,15 @@ for correction in corrections:
         try:
             verdict = judge(db.session, correction, validator)
             print(f"    {verdict or 'no verdict'} -> {correction.status}", flush=True)
+            judged.append((correction, verdict))
         except Exception as e:
             db.session.rollback()
             print(f"    failed: {e}", flush=True)
+            judged.append((correction, None))
+
+if apply:
+    # On /status and in the daily health digest
+    set_summary(nightly_summary(judged))
 
 if not apply:
     print("(dry run; --apply to judge)")

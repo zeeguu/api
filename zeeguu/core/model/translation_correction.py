@@ -204,3 +204,32 @@ def judge(session, correction, validator):
     session.add(correction)
     session.commit()
     return result.verdict
+
+
+def nightly_summary(judged):
+    """One line for /status and the daily health digest from the nightly run's
+    (correction, verdict) pairs; verdict None when the validator gave none.
+    Names every trusted correction the validator disagrees with: those are the
+    ones to read, since nobody else will look at them."""
+    if not judged:
+        return "nothing to judge"
+    learners = [(c, v) for c, v in judged if c.accepted_by != TranslationCorrection.TRUSTED_USER]
+    trusted = [(c, v) for c, v in judged if c.accepted_by == TranslationCorrection.TRUSTED_USER]
+    parts = []
+    if learners:
+        accepted = sum(c.status == TranslationCorrection.ACCEPTED for c, _ in learners)
+        rejected = sum(c.status == TranslationCorrection.REJECTED for c, _ in learners)
+        parts.append(f"learners: {accepted} accepted, {rejected} rejected")
+    if trusted:
+        disagreements = [
+            f"{c.meaning.origin.content} -> {c.meaning.translation.content} ({v})"
+            for c, v in trusted if v and v != "VALID"
+        ]
+        parts.append(
+            f"trusted: {len(trusted)} audited, {len(disagreements)} disagreement(s)"
+            + (": " + "; ".join(disagreements) if disagreements else "")
+        )
+    unanswered = sum(v is None for _, v in judged)
+    if unanswered:
+        parts.append(f"{unanswered} without verdict (retried tomorrow)")
+    return " | ".join(parts)
