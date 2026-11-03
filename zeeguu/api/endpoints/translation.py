@@ -368,7 +368,7 @@ def translation_alternatives(from_lang_code, to_lang_code):
     provider failed.
     """
     from zeeguu.core.translation_services.translator import (
-        _vote_single_word_translation,
+        _vote_translation,
     )
     from python_translators.translation_query import TranslationQuery
 
@@ -378,11 +378,8 @@ def translation_alternatives(from_lang_code, to_lang_code):
         return "word required", 400
     _abort_if_translation_input_too_long(word_str, context)
 
-    # Always run the 3-way voter, even for multi-word inputs. translate_in_context
-    # short-circuits multi-word translations through translate_mwe_phrase (a
-    # single-provider "best primary" call), which is the right default for the
-    # /translate_word path but useless here: the caller is explicitly asking
-    # for provider alternatives, and the providers all accept multi-word input.
+    # Same voters as /translate_word, so the menu shows the same options the
+    # primary translation was chosen from.
     try:
         query = TranslationQuery.for_word_occurrence(word_str, context, 1, 7)
     except (AttributeError, Exception):
@@ -395,7 +392,7 @@ def translation_alternatives(from_lang_code, to_lang_code):
         "query": query,
         "context": context,
     }
-    result = _vote_single_word_translation(data)
+    result = _vote_translation(data)
     alternatives = (result or {}).get("alternatives") or []
     return json_result({"alternatives": alternatives})
 

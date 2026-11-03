@@ -1,4 +1,4 @@
-"""ADR 022: ``_vote_single_word_translation`` attaches an ``alternatives``
+"""ADR 022: ``_vote_translation`` attaches an ``alternatives``
 list to its return dict so the frontend can render the alternatives menu
 directly, without a second round of provider calls.
 
@@ -39,7 +39,7 @@ class VoterAlternativesTest(TestCase):
         deepl.return_value = _provider_result("close", "DeepL - with context")
         ms.return_value = None  # fallback, must not be consulted
 
-        result = translator._vote_single_word_translation(self.data)
+        result = translator._vote_translation(self.data)
 
         self.assertEqual(result["translation"], "close")
         # DeepL represents a bucket it shares (provider preference DeepL > Google).
@@ -60,7 +60,7 @@ class VoterAlternativesTest(TestCase):
         deepl.return_value = _provider_result("tight", "DeepL - with context")
         ms.return_value = None
 
-        result = translator._vote_single_word_translation(self.data)
+        result = translator._vote_translation(self.data)
 
         # Google+Azure outvote DeepL 2-to-1, so "close" still wins...
         self.assertEqual(result["translation"], "close")
@@ -86,7 +86,7 @@ class VoterAlternativesTest(TestCase):
         deepl.return_value = _provider_result("near", "DeepL - with context")
         ms.return_value = None
 
-        result = translator._vote_single_word_translation(self.data)
+        result = translator._vote_translation(self.data)
 
         # All three buckets are size 1; provider preference (DeepL > Google >
         # Azure) breaks the tie, so DeepL's "near" wins.
@@ -108,7 +108,7 @@ class VoterAlternativesTest(TestCase):
         deepl.return_value = None
         ms.return_value = None
 
-        result = translator._vote_single_word_translation(self.data)
+        result = translator._vote_translation(self.data)
 
         self.assertEqual(result["translation"], "close")
         self.assertEqual(result["alternatives"], [
@@ -125,7 +125,7 @@ class VoterAlternativesTest(TestCase):
         deepl.return_value = None
         ms.return_value = _provider_result("close", "Microsoft - with context")
 
-        result = translator._vote_single_word_translation(self.data)
+        result = translator._vote_translation(self.data)
 
         self.assertEqual(result["translation"], "close")
         self.assertEqual(result["alternatives"], [
@@ -142,6 +142,47 @@ class VoterAlternativesTest(TestCase):
         deepl.return_value = None
         ms.return_value = None
 
-        result = translator._vote_single_word_translation(self.data)
+        result = translator._vote_translation(self.data)
 
         self.assertIsNone(result)
+
+
+
+class PhraseVoteTest(TestCase):
+    """Multi-word selections go through the same 3-way vote as single words.
+    They used to take Google's contextless phrase translation unvoted, so a
+    disagreement never surfaced for them."""
+
+    @patch.object(translator, "translate_mwe_phrase")
+    @patch.object(translator, "deepl_contextual_translate_cached")
+    @patch.object(translator, "google_contextual_translate")
+    @patch.object(translator, "azure_alignment_contextual_translate")
+    @patch.object(translator, "microsoft_contextual_translate")
+    def test_a_phrase_is_voted_on_in_context(self, ms, azure, google, deepl, phrase):
+        # The chess case: Google misses the context, DeepL and Azure get it.
+        google.return_value = _provider_result("a farmer", "Google - with context")
+        deepl.return_value = _provider_result("a pawn", "DeepL - with context")
+        azure.return_value = _provider_result("a pawn", "Azure - alignment")
+
+        result = translator.translate_in_context.__wrapped__(
+            "en bonde", "For jeg' en bonde i et kongespil", "da", "en"
+        )
+
+        self.assertEqual(result["translation"], "a pawn")
+        phrase.assert_not_called()
+
+    @patch.object(translator, "deepl_contextual_translate_cached")
+    @patch.object(translator, "google_contextual_translate")
+    @patch.object(translator, "azure_alignment_contextual_translate")
+    @patch.object(translator, "microsoft_contextual_translate")
+    def test_a_three_way_split_on_a_phrase_flags_disagreement(self, ms, azure, google, deepl):
+        google.return_value = _provider_result("are frozen", "Google - with context")
+        deepl.return_value = _provider_result("am frozen solid", "DeepL - with context")
+        azure.return_value = _provider_result("are frozen to", "Azure - alignment")
+
+        result = translator.translate_in_context.__wrapped__(
+            "er frosset til", "Hvor hjerterne er frosset til, og jeg", "da", "en"
+        )
+
+        self.assertEqual(result["translation"], "am frozen solid")
+        self.assertTrue(result["disagreement"])

@@ -349,7 +349,7 @@ def _translation_key(text):
 # Preference order used both for picking a bucket's representative dict and
 # for breaking ties between equally-sized buckets: DeepL > Google > Azure.
 # DeepL is the most accurate provider for the European language pairs Zeeguu
-# teaches (see the DeepL-dissent handling in _vote_single_word_translation),
+# teaches (see the DeepL-dissent handling in _vote_translation),
 # so it wins genuine ties and represents any bucket it shares.
 _PROVIDER_PREFERENCE = {"deepl": 0, "google": 1, "azure": 2}
 
@@ -363,10 +363,11 @@ def _alternative_entry(result_dict, votes):
     }
 
 
-def _vote_single_word_translation(data):
+def _vote_translation(data):
     """
     Run Azure alignment, Google contextual, and DeepL contextual in parallel
-    and pick a primary translation by majority-of-3 voting.
+    and pick a primary translation by majority-of-3 voting. Single words and
+    multi-word selections alike.
 
     Returns the chosen result dict with three extra optional keys:
       - ``alternatives``: list of {translation, source, votes} for every
@@ -502,28 +503,20 @@ def translate_in_context(word, context, from_lang, to_lang):
     """
     Translate a word or adjacent MWE using context.
 
-    Single words: runs Azure alignment, Google contextual, and DeepL
-    contextual in parallel and picks the primary by majority-of-3 vote
-    (see ``_vote_single_word_translation``).
+    Runs Azure alignment, Google contextual, and DeepL contextual in
+    parallel and picks the primary by majority-of-3 vote (see
+    ``_vote_translation``), for single words and contiguous MWEs alike.
 
-    Contiguous MWEs (e.g. "kom op", "il y a"): use phrase-only translation
-    via Google contextless, which handles grammatical MWEs better than
-    full-sentence contextual translation.
+    MWEs used to take Google's contextless phrase translation unvoted. It
+    can't see the sentence, which is what decides the meaning of a phrase:
+    "en bonde" in a chess sentence came back as "a farmer" (DeepL: "a pawn").
 
     Returns:
         dict with 'translation', 'source', 'likelihood' keys (plus optional
-        'competing_translations' / 'disagreement' for single-word disagreements),
+        'competing_translations' / 'disagreement' when providers disagree),
         or None if all providers failed.
     """
     from python_translators.translation_query import TranslationQuery
-
-    # For multi-word expressions, try phrase-only translation first
-    # This handles grammatical MWEs better (e.g., Danish "vil have fjernet" = "will have removed")
-    # Contextual translation can misinterpret grammar when full sentence is provided
-    if " " in word:
-        result = translate_mwe_phrase(word, from_lang, to_lang)
-        if result:
-            return result
 
     try:
         query = TranslationQuery.for_word_occurrence(word, context, 1, 7)
@@ -538,16 +531,7 @@ def translate_in_context(word, context, from_lang, to_lang):
         "context": context,
     }
 
-    if " " not in word:
-        return _vote_single_word_translation(data)
-
-    result = azure_alignment_contextual_translate(data)
-    if not result:
-        result = microsoft_contextual_translate(data)
-    if not result:
-        result = google_contextual_translate(data)
-
-    return result
+    return _vote_translation(data)
 
 
 @lru_cache(maxsize=1000)
