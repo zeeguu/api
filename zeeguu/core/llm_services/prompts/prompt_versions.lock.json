@@ -12,5 +12,6 @@
   "example_generation:v3": "613201895fd32ba3ffb99ddf8a068dd24d807706578e3240caba196725a5a4ba",
   "example_generation:v4": "9f31984f74f086ca0a624b0686f712b964812b8471e56e4410e1985a630b9950",
   "translation_alternative:translation-alternative-v1": "d709f4ad22b8e0fc4e8f996dc33289ccda47dd149b8c14b15fc0ff82dde2bcb2",
+  "translation_disagreement:translation-disagreement-v1": "286312709f5d6ac758ecffe0e7579e46fc2aa607b3a80e60613faf717ef3e59c",
   "translation_validator:translation-validator-v1": "d48a2e6bf2abb0cd39585564cd2a9b062a32cffdf9b6dd2b3fa1c9e76cce81bf"
 }

@@ -10,9 +10,10 @@ that the CLI the shell script parses keeps its shape.
 import subprocess
 import sys
 from unittest import TestCase
+from unittest.mock import patch
 
 import zeeguu.core.crawl_schedule as crawl_schedule
-from zeeguu.core.crawl_schedule import CRAWL_SCHEDULE, languages_due_at
+from zeeguu.core.crawl_schedule import CRAWL_SCHEDULE, PAUSED, LanguageCrawl, languages_due_at
 from zeeguu.core.model.language import Language
 
 
@@ -41,8 +42,11 @@ class CrawlScheduleTest(TestCase):
         self.assertEqual(languages_due_at(11), ["da", "fr", "de"])
 
     def test_paused_language_is_offered_but_never_due(self):
-        self.assertIn("sv", Language.CODES_OF_LANGUAGES_BEING_CRAWLED)
-        self.assertFalse(any("sv" in languages_due_at(h) for h in range(24)))
+        # No language is paused right now (Swedish came back on 26 Oct), so
+        # pause one here. Being in CRAWL_SCHEDULE is what keeps it offered.
+        with patch.dict(CRAWL_SCHEDULE, {"sv": LanguageCrawl(PAUSED, 5)}):
+            self.assertIn("sv", CRAWL_SCHEDULE)
+            self.assertFalse(any("sv" in languages_due_at(h) for h in range(24)))
 
 
 class CrawlScheduleCliTest(TestCase):
