@@ -30,24 +30,30 @@ def student_info_for_teacher_dashboard(user, cohort, from_date: str, to_date: st
     info.update(
         browsing_and_listening_time(user.id, cohort.id, from_date, to_date)
     )
-    info["last_active"] = _last_practised(user, cohort)
+    info.update(_in_class_language(user, cohort))
 
     return info
 
 
-def _last_practised(user, cohort):
-    """When the student last practised the class's language (any period):
-    the class list's "Last active". Day resolution (set on the first practice
-    of each day)."""
+def _in_class_language(user, cohort):
+    """What the student's settings for the class's language say:
+    - last_active: when they last practised it (any period), the class list's
+      "Last active". Day resolution (set on the first practice of each day).
+    - cefr_level: the level they declared, 0..6 for A0..C2; None if never set.
+    """
     from zeeguu.core.model.user_language import UserLanguage
     from zeeguu.core.util.encoding import datetime_to_json
 
     user_language = UserLanguage.query.filter_by(
         user_id=user.id, language_id=cohort.language_id
     ).first()
-    if not user_language or not user_language.last_practiced:
-        return None
-    return datetime_to_json(user_language.last_practiced)
+    if not user_language:
+        return {"last_active": None, "cefr_level": None}
+    last_practiced = user_language.last_practiced
+    return {
+        "last_active": datetime_to_json(last_practiced) if last_practiced else None,
+        "cefr_level": user_language.cefr_level,
+    }
 
 
 def all_user_info_from_cohort(id, from_date: str, to_date: str):

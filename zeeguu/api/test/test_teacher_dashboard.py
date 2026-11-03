@@ -270,6 +270,25 @@ def test_class_list_counts_browsing_in_the_class_language(client):
     assert row["last_active"] is None  # never practised (no session started)
 
 
+def test_student_row_has_declared_level(client):
+    from zeeguu.core.model import User, Language
+    from zeeguu.core.model.user_language import UserLanguage
+    from zeeguu.core.model.db import db
+
+    client.post("/create_own_cohort", data=FRENCH_B1_COHORT)
+    data = dict(password="test", username="l", learned_language="fr", invite_code="123")
+    client.response_from_post("/add_user/level@mir.lu", data=data)
+    student = User.find("level@mir.lu")
+
+    user_language = UserLanguage.find_or_create(db.session, student, Language.find("fr"))
+    user_language.cefr_level = 0  # A0: a level, not "not set"
+    db.session.commit()
+
+    [row] = client.get("/users_from_cohort/1/14")
+
+    assert row["cefr_level"] == 0
+
+
 FRENCH_B1_COHORT = {
     "inv_code": "123",
     "name": "FrenchB1",
