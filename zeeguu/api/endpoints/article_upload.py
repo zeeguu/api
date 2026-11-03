@@ -46,6 +46,18 @@ def _promote_upload_or_abort(upload):
         flask.abort(422, "Could not parse article content")
 
 
+_NO_TEXT_MESSAGE = "Couldn't find any article text on this page."
+
+
+def _extracted_nothing(text_content):
+    # The client extracted text, and it is only whitespace: a portal or
+    # front page (e.g. Wikipedia.nl gave four newlines). Not a language
+    # problem, though langdetect fails on it and the article path then
+    # reported "language not supported". None means no client extraction
+    # at all, which the readability path handles.
+    return text_content is not None and not text_content.strip()
+
+
 def _too_long_for_llm(upload):
     # An upload that cannot come back whole from one LLM reply. Checked before
     # the call, so that we don't pay for the input tokens of a reply that
@@ -105,6 +117,8 @@ def article_upload_create():
 
     if not raw_html and not text_content:
         flask.abort(400, "raw_html or text_content required")
+    if _extracted_nothing(text_content):
+        return make_error(422, _NO_TEXT_MESSAGE)
 
     user = User.find_by_id(flask.g.user_id)
 
@@ -157,6 +171,9 @@ def article_upload_get(upload_id):
 def article_upload_promote(upload_id):
     user = User.find_by_id(flask.g.user_id)
     upload = _find_upload_or_404(upload_id, user)
+
+    if _extracted_nothing(upload.text_content):
+        return make_error(422, _NO_TEXT_MESSAGE)
 
     try:
         article = _promote_upload_or_abort(upload)
