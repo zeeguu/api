@@ -42,9 +42,13 @@ class TranslationCorrection(db.Model):
     context = relationship(BookmarkContext)
     meaning_id = Column(Integer, ForeignKey(Meaning.id, ondelete="CASCADE"), nullable=False)
     meaning = relationship(Meaning)
-    # SET NULL: a bookmark can be deleted by MySQL itself (the validator's fix
-    # orphans a user word, and bookmark.user_word_id cascades)
+    # Where the correction was made, not what makes it true: it outlives the
+    # bookmark (SET NULL, not CASCADE) when the teacher removes the word from
+    # their list, the learner deletes a word they know, or MySQL deletes the
+    # bookmark itself (the validator's fix orphans a user word, and
+    # bookmark.user_word_id cascades). None of these says the pair was wrong.
     bookmark_id = Column(Integer, ForeignKey("bookmark.id", ondelete="SET NULL"))
+    # SET NULL too: a deleted account's corrections still serve other readers
     user_id = Column(Integer, ForeignKey("user.id", ondelete="SET NULL"))
     status = Column(Enum(PENDING, ACCEPTED, REJECTED), nullable=False, default=PENDING)
     accepted_by = Column(Enum(VALIDATOR, TRUSTED_USER))

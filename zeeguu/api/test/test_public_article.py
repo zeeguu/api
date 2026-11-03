@@ -319,13 +319,13 @@ def test_a_teachers_correction_beats_the_cached_translation(client, article_id, 
     bookmark_id = client.post(
         "/contribute_translation/de/en",
         json={
-            "word": token["text"], "translation": "the right one", "context": sentence,
+            "word": token["text"], "translation": "machine guess", "context": sentence,
             "source_id": Article.find_by_id(article_id).source_id,
             "context_identifier": {"context_type": "ArticleFragment"},
         },
     )["bookmark_id"]
-    client.post(f"/update_bookmark_translation/{bookmark_id}", json={"translation": "the teachers one"})
+    client.post(f"/update_bookmark_translation/{bookmark_id}", json={"translation": "the teacher's one"})
 
     after = json.loads(_translate(client, link, position).data)
-    assert machine != "the teachers one"
-    assert (after["translation"], after["source"]) == ("the teachers one", TranslationService.CORRECTION)
+    assert machine != "the teacher's one"
+    assert (after["translation"], after["source"]) == ("the teacher's one", TranslationService.CORRECTION)

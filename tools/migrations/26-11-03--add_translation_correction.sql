@@ -27,8 +27,8 @@ CREATE TABLE translation_correction (
         REFERENCES bookmark_context (id) ON DELETE CASCADE,
     CONSTRAINT translation_correction_meaning_fk FOREIGN KEY (meaning_id)
         REFERENCES meaning (id) ON DELETE CASCADE,
-    -- SET NULL: the validator's fix can make MySQL delete a bookmark itself
-    -- (bookmark.user_word_id cascades), and the correction outlives it
+    -- SET NULL, not CASCADE: the bookmark is where the correction was made,
+    -- not what makes it true; it outlives a deleted word or account
     CONSTRAINT translation_correction_bookmark_fk FOREIGN KEY (bookmark_id)
         REFERENCES bookmark (id) ON DELETE SET NULL,
     CONSTRAINT translation_correction_user_fk FOREIGN KEY (user_id)
