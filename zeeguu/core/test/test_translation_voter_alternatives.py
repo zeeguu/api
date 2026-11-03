@@ -147,7 +147,6 @@ class VoterAlternativesTest(TestCase):
         self.assertIsNone(result)
 
 
-
 class PhraseVoteTest(TestCase):
     """Multi-word selections go through the same 3-way vote as single words.
     They used to take Google's contextless phrase translation unvoted, so a

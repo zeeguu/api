@@ -290,14 +290,14 @@ def deepl_contextual_translate_cached(data):
 @lru_cache(maxsize=1000)
 def translate_mwe_phrase(word, from_lang, to_lang):
     """
-    Translate a Multi-Word Expression (MWE) as a standalone phrase.
+    Translate a Multi-Word Expression (MWE) as a standalone phrase, with
+    Google and no sentence.
 
-    For MWEs like "vil have fjernet" (Danish future perfect), contextual translation
-    can fail because the full sentence context leads to grammar misinterpretation.
-    E.g., "Vi vil have fjernet momsen" → "We want to remove VAT" (wrong!)
-    But "vil have fjernet" alone → "will have removed" (correct!)
-
-    Google contextless handles grammatical MWEs better than contextual approaches.
+    Only the SSE stream and /get_multiple_translations use it. The reader's
+    primary translation doesn't since api#929: a phrase's meaning is decided
+    by its sentence ("en bonde" in a chess line is "a pawn", not "a farmer").
+    The case it was added for, "Vi vil have fjernet momsen" → "will have
+    removed", was a misreading: it is "we want the VAT removed".
 
     Args:
         word: The MWE phrase (e.g., "vil have fjernet", "kom op")
