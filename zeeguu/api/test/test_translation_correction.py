@@ -149,7 +149,7 @@ def test_the_alternatives_menu_lists_the_correction_first(client, article, machi
     _correct(client, article, "house")
 
     with patch(
-        "zeeguu.core.translation_services.translator._vote_single_word_translation",
+        "zeeguu.core.translation_services.translator._vote_translation",
         return_value={"alternatives": [{"translation": "machine", "source": "Test", "votes": 2}]},
     ):
         menu = _other_reader(client).post(
