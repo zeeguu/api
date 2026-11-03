@@ -86,6 +86,7 @@ POLICIES = {
     ("user_video", "user_id"): MOVE,
     ("user_watching_session", "user_id"): MOVE,
     ("word_report", "user_id"): MOVE,
+    ("translation_correction", "user_id"): MOVE,
     ("user_cohort_map", "user_id"): MOVE_DEDUP,
     ("teacher", "user_id"): MOVE_DEDUP,
     ("teacher_cohort_map", "user_id"): MOVE_DEDUP,

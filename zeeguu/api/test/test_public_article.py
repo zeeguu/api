@@ -291,3 +291,41 @@ def test_summary_link_preview_describes_the_summary(client, link, level_summary)
 def test_summary_lists_the_levels_it_can_switch_to(client, link, level_summary):
     _, info = _anon_get(client, f"/public_article_summary/{link}")
     assert info["levels"] == [{"level": "A2", "original": False}, {"level": "B2", "original": True}]
+
+
+def test_a_teachers_correction_beats_the_cached_translation(client, article_id, link, fake_translator):
+    from zeeguu.core.model import Article, Teacher
+    from zeeguu.core.model.translation_service import TranslationService
+
+    _, info = _anon_get(client, f"/public_article/{link}")
+    # a real sentence: one that is only the word itself matches nothing
+    fragment, sentence_tokens = next(
+        (f, sent)
+        for f in info["tokenized_fragments"]
+        for par in f["tokens"]
+        for sent in par
+        if sum(not t["is_punct"] for t in sent) >= 5
+    )
+    token = next(t for t in sentence_tokens if not t["is_punct"])
+    sentence = "".join(t["text"] + (" " if t.get("has_space") else "") for t in sentence_tokens).strip()
+    position = dict(
+        part=fragment["context_identifier"]["article_fragment_id"],
+        paragraph_i=token["paragraph_i"], sent_i=token["sent_i"], token_i=token["token_i"], total_tokens=1,
+    )
+    machine = json.loads(_translate(client, link, position).data)["translation"]
+
+    db.session.add(Teacher(User.find(client.email)))
+    db.session.commit()
+    bookmark_id = client.post(
+        "/contribute_translation/de/en",
+        json={
+            "word": token["text"], "translation": "machine guess", "context": sentence,
+            "source_id": Article.find_by_id(article_id).source_id,
+            "context_identifier": {"context_type": "ArticleFragment"},
+        },
+    )["bookmark_id"]
+    client.post(f"/update_bookmark_translation/{bookmark_id}", json={"translation": "the teacher's one"})
+
+    after = json.loads(_translate(client, link, position).data)
+    assert machine != "the teacher's one"
+    assert (after["translation"], after["source"]) == ("the teacher's one", TranslationService.CORRECTION)

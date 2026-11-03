@@ -23,7 +23,7 @@ from zeeguu.core.translation_services.translator import (
 from zeeguu.core.crowd_translations import (
     get_own_past_translation,
 )
-from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride, TranslationSearch, SelectionExplanation, TranslationService
+from zeeguu.core.model import Bookmark, User, Meaning, UserWord, UserMweOverride, TranslationSearch, SelectionExplanation, TranslationService, TranslationCorrection
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.bookmark_context import BookmarkContext
@@ -134,7 +134,12 @@ def translate_word(from_lang_code, to_lang_code):
         from zeeguu.logging import log
         import time
 
-        if IS_DEV_SKIP_TRANSLATION:
+        correction = None if is_separated_mwe else _shared_correction(
+            word_str, full_sentence_context or context, from_lang_code, to_lang_code
+        )
+        if correction:
+            t1 = correction
+        elif IS_DEV_SKIP_TRANSLATION:
             print("Dev Skipping Translation")
             t1 = {"translation": f"T-({to_lang_code})-'{word_str}'", "likelihood": None, "source": "DEV_SKIP"}
         else:
@@ -394,7 +399,33 @@ def translation_alternatives(from_lang_code, to_lang_code):
     }
     result = _vote_translation(data)
     alternatives = (result or {}).get("alternatives") or []
+    correction = _shared_correction(word_str, context, from_lang_code, to_lang_code)
+    if correction:
+        alternatives = correction["alternatives"] + [
+            a for a in alternatives if a.get("translation") != correction["translation"]
+        ]
     return json_result({"alternatives": alternatives})
+
+
+def _shared_correction(word, sentence, from_lang_code, to_lang_code):
+    """Another reader's accepted correction of this word in this sentence
+    (TranslationCorrection), shaped like get_best_translation's answer, or
+    None. Wins over the machine translators: a teacher, or a learner whose
+    correction the validator accepted, has already looked at this case."""
+    from_language = Language.find(from_lang_code)
+    to_language = Language.find(to_lang_code)
+    if not from_language or not to_language:
+        return None
+    row = TranslationCorrection.best_for(word, sentence, from_language.id, to_language.id)
+    if row is None:
+        return None
+    source = TranslationService.CORRECTION
+    return {
+        "translation": row.translation,
+        "source": source,
+        "likelihood": 1,
+        "alternatives": [{"translation": row.translation, "source": source, "votes": 1}],
+    }
 
 
 @api.route("/ask_llm_translation/<from_lang_code>/<to_lang_code>", methods=["POST"])
@@ -511,6 +542,7 @@ def update_bookmark_translation_only(bookmark_id):
 
     if new_meaning.id != old_meaning.id:
         bookmark.set_translation_service(db_session, service)
+        TranslationCorrection.record(db_session, bookmark)
     db_session.commit()
 
     # Return updated bookmark
@@ -608,7 +640,8 @@ def update_bookmark_full(bookmark_id):
         transfer_learning_progress(db_session, old_user_word, new_user_word, bookmark)
 
     # Step 6: Reassign bookmark to new entities
-    if meaning.id != old_user_word.meaning_id:
+    meaning_changed = meaning.id != old_user_word.meaning_id
+    if meaning_changed:
         # The learner's own pair now, whichever half they changed
         bookmark.set_translation_service(db_session, TranslationService.MANUAL)
     bookmark.user_word_id = new_user_word.id
@@ -650,6 +683,8 @@ def update_bookmark_full(bookmark_id):
 
     # Step 9: Commit changes and return response
     db_session.add(bookmark)
+    if meaning_changed:
+        TranslationCorrection.record(db_session, bookmark)
     db_session.commit()
 
     # Refresh to get latest fit_for_study status
