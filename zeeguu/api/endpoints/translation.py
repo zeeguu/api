@@ -392,7 +392,7 @@ def translation_alternatives(from_lang_code, to_lang_code):
         "query": query,
         "context": context,
     }
-    result = _vote_translation(data, phrase=" " in word_str)
+    result = _vote_translation(data)
     alternatives = (result or {}).get("alternatives") or []
     return json_result({"alternatives": alternatives})
 
