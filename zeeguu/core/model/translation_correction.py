@@ -12,11 +12,12 @@ word and its translation. Token positions would drift with re-tokenization
 (#618); a sentence anchor also carries over to the same sentence in another
 article (a republished story, the same lyrics posted twice).
 
-Who is believed: a teacher's correction counts at once (TRUSTED_USER) and no
-LLM is asked when it is made; anyone else's waits as PENDING until the
-nightly run of tools/validate_translation_corrections.py, where the validator
-accepts it (VALIDATOR) or not (REJECTED). The same run audits teachers'
-corrections without changing their status, only recording the verdict.
+Who is believed: a teacher's or an admin's correction counts at once
+(TRUSTED_USER) and no LLM is asked when it is made; anyone else's waits as
+PENDING until the nightly run of tools/validate_translation_corrections.py,
+where the validator accepts it (VALIDATOR) or not (REJECTED). The same run
+audits trusted corrections without changing their status, only recording the
+verdict.
 """
 
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, and_, func, or_
@@ -60,7 +61,7 @@ class TranslationCorrection(db.Model):
     @classmethod
     def record(cls, session, bookmark):
         """The learner changed the translation of a bookmark: remember the new
-        pair in the bookmark's sentence. A teacher's counts at once; anyone
+        pair in the bookmark's sentence. A teacher's or admin's counts at once; anyone
         else's waits for the nightly validator. A user's earlier correction of
         the same word in the same sentence is dropped. Does not commit."""
         from zeeguu.core.model.teacher import Teacher
@@ -91,7 +92,11 @@ class TranslationCorrection(db.Model):
 
         row.bookmark_id = bookmark.id
         row.user_id = user.id
-        if Teacher.exists(user):
+        # Admins too: on 2026-11-03 an admin's correction waited for the
+        # nightly validator because the account had no teacher row. Trust
+        # beyond staff (native-speaker volunteers, per language) would get a
+        # table of its own.
+        if user.is_admin or Teacher.exists(user):
             row.status, row.accepted_by = cls.ACCEPTED, cls.TRUSTED_USER
         else:
             row.status, row.accepted_by = cls.PENDING, None

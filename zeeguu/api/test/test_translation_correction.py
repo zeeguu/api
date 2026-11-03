@@ -157,3 +157,12 @@ def test_the_alternatives_menu_lists_the_correction_first(client, article, machi
         )["alternatives"]
 
     assert [a["translation"] for a in menu] == ["house", "machine"]
+
+
+def test_an_admins_correction_counts_at_once(client, article, machine):
+    user = User.find(client.email)
+    user.is_admin = True
+    db.session.commit()
+    _correct(client, article, "house")
+
+    assert _look_up(_other_reader(client), article)["translation"] == "house"
