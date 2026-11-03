@@ -42,8 +42,6 @@ def _promote_upload_or_abort(upload):
             image_url=upload.image_url,
             source_upload_id=upload.id,
         )
-    except UnsupportedLanguage:
-        flask.abort(406, "Language not supported")
     except (FailedToParseWithReadabilityServer, SkippedForLowQuality):
         flask.abort(422, "Could not parse article content")
 
@@ -160,7 +158,14 @@ def article_upload_promote(upload_id):
     user = User.find_by_id(flask.g.user_id)
     upload = _find_upload_or_404(upload_id, user)
 
-    article = _promote_upload_or_abort(upload)
+    try:
+        article = _promote_upload_or_abort(upload)
+    except UnsupportedLanguage as e:
+        # Returned, not raised: an upload in a language we don't teach is the
+        # user's choice, not a server error, so it should not show up as an
+        # exception. 422 + JSON {message} so the client can display it.
+        detected = f" (detected: {e.lang})" if e.lang else ""
+        return make_error(422, f"This article's language is not supported{detected}.")
     if not article.cefr_assessment or not article.cefr_assessment.llm_cefr_level:
         article.assess_cefr_level(db_session)
 
