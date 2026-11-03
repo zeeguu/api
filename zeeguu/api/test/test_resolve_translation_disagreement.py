@@ -9,7 +9,7 @@ from fixtures import (
     add_one_bookmark,
 )
 from zeeguu.core.llm_services.translation_disagreement_resolver import Resolution
-from zeeguu.core.model import Bookmark, TranslationService
+from zeeguu.core.model import Bookmark, TranslationCorrection, TranslationService
 
 RESOLVER = "zeeguu.core.llm_services.translation_disagreement_resolver.resolve_translation_disagreement"
 
@@ -50,6 +50,9 @@ def test_a_different_answer_moves_the_bookmark(client):
     assert result == {"translation": "backs", "reason": "Here: to support someone.", "changed": True}
     assert _translation(bookmark_id) == "backs"
     assert Bookmark.find(bookmark_id).translation_service.name == TranslationService.DISAGREEMENT_RESOLVER
+    # The LLM's answer is not the learner's correction: it must not be shared
+    # with the next readers under the learner's name and trust.
+    assert TranslationCorrection.query.count() == 0
 
 
 def test_the_same_answer_changes_nothing(client):
