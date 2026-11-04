@@ -510,13 +510,16 @@ def translate_and_adapt_article():
 
     user = User.find_by_id(flask.g.user_id)
     target_language = request.form.get("target_language", user.learned_language.code)
+    target_lang_obj = Language.find(target_language)
 
-    # Get user's CEFR level first for the translated URL key
+    # The level the user reads at in the target language, not in the language
+    # they learn now: switching language with an article open translates it
+    # into the new language (Danish B2 -> French A2).
     try:
-        user_level = user.cefr_level_for_learned_language()
+        user_level = user.cefr_level_for_language(target_lang_obj)
         log(f"User {user.id} CEFR level for {target_language}: {user_level}")
     except Exception as e:
-        log(f"Error getting CEFR level for user {user.id}: {e}")
+        log(f"Error getting CEFR level for user {user.id} in {target_language}: {e}")
         user_level = "A1"  # Default to A1 if there's an error
         log(f"Defaulting to A1 level")
 
@@ -531,6 +534,11 @@ def translate_and_adapt_article():
         source_article = Article.find_by_id(article_id)
         if not source_article:
             flask.abort(404, "Article not found")
+        # Translate from the original, not from a simplified version of it: the
+        # translation is simplified to the target level anyway, and keying the
+        # cache on the original's url gives every version the same translation.
+        if source_article.parent_article:
+            source_article = source_article.parent_article
         article_content = source_article.content
         article_title = source_article.title
         source_language = source_article.language.code
@@ -633,7 +641,6 @@ def translate_and_adapt_article():
 
         # Create URL and language objects with unique translated URL
         translated_url = Url.find_or_create(db_session, translated_url_key)
-        target_lang_obj = Language.find(target_language)
 
         # Create Source object just like find_or_create does
         source_type = SourceType.find_by_type(SourceType.ARTICLE)
