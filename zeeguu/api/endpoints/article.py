@@ -509,17 +509,17 @@ def translate_and_adapt_article():
     abort_if_too_long("url", url, MAX_URL_CHARS)
 
     user = User.find_by_id(flask.g.user_id)
-    target_language = request.form.get("target_language", user.learned_language.code)
-    target_lang_obj = Language.find(target_language)
+    target_language_str = request.form.get("target_language", user.learned_language.code)
+    target_language = Language.find(target_language_str)
 
     # The level the user reads at in the target language, not in the language
     # they learn now: switching language with an article open translates it
     # into the new language (Danish B2 -> French A2).
     try:
-        user_level = user.cefr_level_for_language(target_lang_obj)
-        log(f"User {user.id} CEFR level for {target_language}: {user_level}")
+        user_level = user.cefr_level_for_language(target_language)
+        log(f"User {user.id} CEFR level for {target_language_str}: {user_level}")
     except Exception as e:
-        log(f"Error getting CEFR level for user {user.id} in {target_language}: {e}")
+        log(f"Error getting CEFR level for user {user.id} in {target_language_str}: {e}")
         user_level = "A1"  # Default to A1 if there's an error
         log(f"Defaulting to A1 level")
 
@@ -559,7 +559,7 @@ def translate_and_adapt_article():
     # Based on source language, target language and CEFR level so translations can be shared between users
     # Format: url#translated-from-SOURCE-to-TARGET-LEVEL
     translated_url_key = (
-        f"{cache_base_url}#translated-from-{source_language}-to-{target_language}-{user_level}"
+        f"{cache_base_url}#translated-from-{source_language}-to-{target_language_str}-{user_level}"
     )
 
     from zeeguu.core.model.url import Url
@@ -623,7 +623,7 @@ def translate_and_adapt_article():
             title=article_title,
             content=article_content,
             source_language=source_language,
-            target_language=target_language,
+            target_language=target_language_str,
             target_level=user_level,
         )
 
@@ -648,7 +648,7 @@ def translate_and_adapt_article():
             db_session,
             result["content"],  # Use translated content
             source_type,
-            target_lang_obj,
+            target_language,
             0,
         )
 
@@ -692,7 +692,7 @@ def translate_and_adapt_article():
                 result.get("summary", clean_summary),  # summary (clean text)
                 datetime.now(),  # published_time
                 None,  # feed
-                target_lang_obj,  # language
+                target_language,  # language
                 result["content"],  # htmlContent (keep HTML for parsing)
                 None,  # uploader
             )
