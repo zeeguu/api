@@ -5,6 +5,7 @@ from urllib.parse import unquote_plus
 import flask
 from flask import request
 from python_translators.translation_query import TranslationQuery
+from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.api.utils.input_limits import (
     abort_if_too_long,
@@ -561,8 +562,6 @@ def resolve_translation_disagreement(from_lang_code, to_lang_code):
 
     bookmark_id = request.json.get("bookmark_id")
     if bookmark_id is not None:
-        from sqlalchemy.orm.exc import NoResultFound
-
         try:
             bookmark = Bookmark.find(bookmark_id)
         except NoResultFound:
@@ -618,7 +617,6 @@ def update_bookmark_translation_only(bookmark_id):
     :return: Updated bookmark as JSON
     """
     from zeeguu.api.utils.json_result import json_result
-    from sqlalchemy.orm.exc import NoResultFound
 
     # Find bookmark with proper error handling
     # Fixes ZEEGUU-WEB-B2: Bookmark.find() throws NoResultFound, not returns None
