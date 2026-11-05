@@ -463,7 +463,7 @@ def ask_llm_translation(from_lang_code, to_lang_code):
     })
 
 
-def _retranslate_bookmark(bookmark, user, new_translation, service):
+def _move_bookmark_to_translation(bookmark, user, new_translation, service):
     """Move the bookmark to the meaning with ``new_translation``, keeping its
     position data and carrying the learning progress over. The new meaning
     if it changed, else None. Does not commit."""
@@ -584,7 +584,7 @@ def resolve_translation_disagreement(from_lang_code, to_lang_code):
             # The learner deleted it, or picked or typed something else, while we waited.
             changed = False
         else:
-            _retranslate_bookmark(
+            _move_bookmark_to_translation(
                 bookmark, user, resolution.translation, TranslationService.DISAGREEMENT_RESOLVER
             )
             db_session.commit()
@@ -641,7 +641,7 @@ def update_bookmark_translation_only(bookmark_id):
     )
 
     old_meaning = bookmark.user_word.meaning
-    new_meaning = _retranslate_bookmark(bookmark, user, new_translation, service)
+    new_meaning = _move_bookmark_to_translation(bookmark, user, new_translation, service)
     if new_meaning:
         TranslationCorrection.record(db_session, bookmark, new_meaning)
     db_session.commit()
