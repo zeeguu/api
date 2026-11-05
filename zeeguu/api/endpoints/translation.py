@@ -559,7 +559,6 @@ def resolve_translation_disagreement(from_lang_code, to_lang_code):
     for candidate in candidates:
         abort_if_too_long("candidate", candidate, MAX_PHRASE_CHARS)
 
-    bookmark = None
     bookmark_id = request.json.get("bookmark_id")
     if bookmark_id is not None:
         from sqlalchemy.orm.exc import NoResultFound
@@ -572,14 +571,21 @@ def resolve_translation_disagreement(from_lang_code, to_lang_code):
         if bookmark.user_word.user_id != user.id:
             return "Bookmark not found", 404
 
+    # The learner reads on during the LLM call, and fusing the word into a
+    # phrase deletes its bookmark. Ending the transaction drops the session's
+    # copy and the REPEATABLE READ snapshot, either of which would still show
+    # a deleted row, and frees the connection for the wait.
+    db_session.commit()
+
     resolution = resolve(word_str, context, candidates, from_lang_code, to_lang_code)
     if not resolution:
         return "LLM could not settle the disagreement", 404
 
     changed = resolution.translation.lower() != shown.lower()
-    if changed and bookmark:
-        if bookmark.user_word.meaning.translation.content.strip().lower() != shown.lower():
-            # The learner picked or typed something else while we waited.
+    if changed and bookmark_id is not None:
+        bookmark = Bookmark.query.get(bookmark_id)
+        if not bookmark or bookmark.user_word.meaning.translation.content.strip().lower() != shown.lower():
+            # The learner deleted it, or picked or typed something else, while we waited.
             changed = False
         else:
             _retranslate_bookmark(

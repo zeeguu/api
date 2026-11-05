@@ -2,6 +2,8 @@
 bookmark moves to its answer, unless the learner got there first."""
 from unittest.mock import patch
 
+from sqlalchemy import text
+
 from fixtures import (
     logged_in_client as client,
     add_context_types,
@@ -9,7 +11,7 @@ from fixtures import (
     add_one_bookmark,
 )
 from zeeguu.core.llm_services.translation_disagreement_resolver import Resolution
-from zeeguu.core.model import Bookmark, TranslationCorrection, TranslationService
+from zeeguu.core.model import Bookmark, TranslationCorrection, TranslationService, db
 
 RESOLVER = "zeeguu.core.llm_services.translation_disagreement_resolver.resolve_translation_disagreement"
 
@@ -30,7 +32,7 @@ def _resolve(client, bookmark_id, shown="behind", candidates=("behind", "after")
 
 def _make_dev(client):
     # The resolver is behind the dev-only resolve_disagreements feature.
-    from zeeguu.core.model import User, db
+    from zeeguu.core.model import User
 
     User.find(client.email).is_dev = True
     db.session.commit()
@@ -77,6 +79,23 @@ def test_a_translation_the_learner_changed_meanwhile_is_kept(client):
 
     assert result["changed"] is False
     assert _translation(bookmark_id) == "after"
+
+
+def test_a_bookmark_deleted_meanwhile_is_left_alone(client):
+    # Fusing a word into a phrase deletes its bookmark, often during the wait.
+    add_context_types()
+    add_source_types()
+    bookmark_id = add_one_bookmark(client)
+
+    def delete_while_waiting(*_):
+        # SQL, as from another request: the session keeps its copy of the row.
+        db.session.execute(text("DELETE FROM bookmark WHERE id = :id"), {"id": bookmark_id})
+        return Resolution("backs", "")
+
+    with patch(RESOLVER, side_effect=delete_while_waiting):
+        result = _resolve(client, bookmark_id)
+
+    assert result["changed"] is False
 
 
 def test_no_bookmark_still_gets_an_answer(client):
