@@ -12,6 +12,10 @@ import newspaper
 from time import time
 from pymysql import DataError
 from datetime import datetime, timedelta
+from collections import Counter
+from io import BytesIO
+import html
+import traceback
 from simhash import Simhash
 
 from zeeguu.core.content_retriever.crawler_exceptions import *
@@ -273,8 +277,6 @@ def _url_after_redirects(url):
 
 
 def _date_in_the_future(time):
-    from datetime import datetime
-
     return time > datetime.now()
 
 
@@ -306,8 +308,6 @@ def extract_article_image(np_article):
     if np_article.top_image != "":
         # from https://stackoverflow.com/questions/7391945/how-do-i-read-image-data-from-a-url-in-python
         from PIL import Image
-        import requests
-        from io import BytesIO
 
         try:
             # timeout is essential: this lead-image fetch is the one outbound
@@ -375,7 +375,6 @@ def download_from_feed(
         if is_http_error or is_connection_error:
             log(f"[REQUEST FAILED] Feed unavailable: {feed.title} - {e}")
         else:
-            import traceback
             traceback.print_stack()
             capture_to_sentry(e)
         return ""
@@ -568,8 +567,6 @@ def download_from_feed(
             continue
 
         except Exception as e:
-            import traceback
-
             # Disarm before the slow work below (Sentry, rollback): a timeout
             # raised inside this handler would escape the loop and drop the
             # rest of the feed.
@@ -634,8 +631,6 @@ def download_from_feed(
 
 
 def download_feed_item(session, feed, feed_item, url, crawl_report, simplification_provider=None):
-    import html
-
     title = html.unescape(feed_item["title"])
     log(f" → Processing: {title[:80]}")
     log(f"   URL: {url}")
@@ -933,8 +928,6 @@ def add_topics(new_article, feed, url_keywords, session):
             return TopicOriginType.URL_PARSED.value, [
                 t.topic.title for t in new_article.topics
             ]
-
-    from collections import Counter
 
     # Add based on KK neighbours:
     topic_to_assign = get_topic_classification_based_on_similar_content(

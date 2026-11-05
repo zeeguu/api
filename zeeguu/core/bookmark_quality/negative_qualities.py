@@ -1,3 +1,6 @@
+import re
+import unicodedata
+
 from zeeguu.core.model.meaning import MeaningFrequency, PhraseType
 from zeeguu.core.model.study_choice import UnfitReason
 
@@ -127,8 +130,6 @@ def word_not_in_context(bookmark):
 
     These bookmarks cannot be properly highlighted in exercises.
     """
-    import unicodedata
-
     try:
         word = bookmark.user_word.meaning.origin.content
         context = bookmark.get_context()
@@ -144,8 +145,6 @@ def word_not_in_context(bookmark):
 
 
 def _split_words_from_context(bookmark):
-    import re
-
     result = []
     bookmark_content_words = re.findall(r"(?u)\w+", bookmark.get_context())
     for word in bookmark_content_words:

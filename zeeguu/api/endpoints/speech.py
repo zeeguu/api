@@ -1,5 +1,6 @@
 import os.path
 import re
+import hashlib
 
 from flask import request
 
@@ -148,7 +149,6 @@ def _file_name_for_phrase(phrase, language_id):
 
 def _file_name_for_full_article(full_article_text, language_id, article_id):
     # create md5 hash of the phrase and return it
-    import hashlib
 
     m = hashlib.md5()
     m.update(full_article_text.encode("utf-8"))

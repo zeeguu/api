@@ -1,8 +1,10 @@
+from datetime import datetime, timedelta
 from unittest import TestCase
 
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 
 import zeeguu.core
+from zeeguu.core.model import Article
 from zeeguu.core.model.article_topic_map import TopicOriginType
 from zeeguu.core.test.rules.article_rule import ArticleRule
 from zeeguu.core.test.rules.topic_rule import TopicRule
@@ -15,6 +17,17 @@ class ArticleTest(ModelTestMixIn, TestCase):
         super().setUp()
         self.article1 = ArticleRule().article
         self.article2 = ArticleRule().article
+
+    def test_all_older_and_younger_than_split_on_published_time(self):
+        self.article1.published_time = datetime.now() - timedelta(days=10)
+        self.article2.published_time = datetime.now()
+        session.commit()
+
+        older = Article.all_older_than(5)
+        younger = Article.all_younger_than(5)
+
+        assert self.article1 in older and self.article2 not in older
+        assert self.article2 in younger and self.article1 not in younger
 
     def test_article_topics_and_basics(self):
         # articles are different

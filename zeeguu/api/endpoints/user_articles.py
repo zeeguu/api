@@ -1,3 +1,5 @@
+import traceback
+
 import flask
 
 from zeeguu.core.content_recommender import (
@@ -320,8 +322,6 @@ def user_articles_foryou():
         articles = content_recommendations(user.id, user.learned_language_id)
         print("Sending CB recommendations")
     except Exception as e:
-        import traceback
-
         traceback.print_exc()
         print("Failed with: ", e)
         capture_exception(e)

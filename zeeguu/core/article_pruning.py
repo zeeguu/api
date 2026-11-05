@@ -19,6 +19,8 @@ Design (see also migration 26-05-26--restrict-article-fk-for-prune-protection):
     caption are kept.
 """
 
+import time
+
 from sqlalchemy import text, event
 from sqlalchemy.exc import IntegrityError
 
@@ -182,8 +184,6 @@ def delete_articles_in_batches(db_session, ids, batch_size=BATCH_SIZE, skip_binl
     connection's user; if the SET is denied we log it and continue with binlog ON
     rather than fail. Never use it where a replica reads this binlog.
     """
-    import time
-
     if skip_binlog:
         _disable_binlog_on_connect(db_session)
 

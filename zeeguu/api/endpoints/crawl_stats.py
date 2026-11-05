@@ -4,6 +4,7 @@ Shows articles crawled per language, feed, and topic.
 """
 
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 from flask import request
 from markupsafe import escape
@@ -158,7 +159,6 @@ def crawl_stats_today():
 def crawl_stats_week():
     """Get stats for the last 7 days."""
     # Temporarily set days param
-    from flask import request
     request.args = {"days": "7"}
     return crawl_stats()
 
@@ -245,7 +245,6 @@ def crawl_stats_dashboard():
                 .all()
             )
             # Group by feed_id
-            from collections import defaultdict
             topics_by_feed = defaultdict(list)
             for feed_id, topic_title, count in feed_topic_stats:
                 topics_by_feed[feed_id].append((topic_title, count))
@@ -392,7 +391,6 @@ def crawl_stats_dashboard():
             <h2>🏷️ Simplified by Topic per Language (Today)</h2>"""
 
     # Group topic stats by language
-    from collections import defaultdict
     topics_by_lang = defaultdict(list)
     for lang_code, lang_name, topic_id, topic_title, count in topic_stats_by_lang:
         topics_by_lang[lang_code].append((lang_name, topic_id, topic_title, count))

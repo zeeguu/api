@@ -1,4 +1,5 @@
 import hmac
+import re
 import sqlalchemy
 import flask
 
@@ -248,7 +249,6 @@ def request_email_verification():
     This avoids the "limbo state" where the user is no longer anonymous
     but hasn't verified their email yet.
     """
-    import re
     from zeeguu.core.emailer.email_confirmation import send_email_confirmation
 
     email = request.form.get("email", None)
@@ -388,8 +388,6 @@ def _email_change_error(user, new_email, password):
     by address, not by user, so the code only proves the inbox, and the
     password is what proves the person.
     """
-    import re
-
     if user.is_anonymous():
         return "Anonymous accounts add an email by upgrading the account"
     if not new_email or not password:
@@ -504,8 +502,6 @@ def send_code(email):
 @api.route("/reset_password/<email>", methods=["POST"])
 @cross_domain
 def reset_password(email):
-    from zeeguu.logging import log
-
     log(f"PASSWORD RESET ATTEMPT: email='{email}'")
 
     code = request.form.get("code", None)

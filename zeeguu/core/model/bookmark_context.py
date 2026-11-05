@@ -116,7 +116,6 @@ class BookmarkContext(db.Model):
         in multiple articles actually...
         """
         from zeeguu.core.util import long_hash
-        from zeeguu.core.model.new_text import NewText
 
         hash_string = long_hash(text)
         return (

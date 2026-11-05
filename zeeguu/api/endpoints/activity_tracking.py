@@ -1,3 +1,6 @@
+from datetime import datetime
+import json
+
 import flask
 from flask import request
 
@@ -59,8 +62,6 @@ def days_since_last_use():
     or an empty string in case there is no user activity event.
     """
 
-    from datetime import datetime
-
     last_active_time = UserActivityData.get_last_activity_timestamp(flask.g.user_id)
 
     if last_active_time:
@@ -82,7 +83,6 @@ def _update_reading_completion_on_scroll(user, form_data):
     try:
         from zeeguu.core.model import Article, UserArticle
         from zeeguu.core.behavioral_modeling import find_last_reading_percentage
-        import json
 
         article_id = int(form_data.get("article_id"))
         article = Article.find_by_id(article_id)
@@ -131,8 +131,6 @@ def _update_reading_completion_on_scroll(user, form_data):
 
         # Check if article is completed (>90%) and not already marked
         if completion_percentage > 0.9 and not user_article.completed_at:
-            from datetime import datetime
-
             user_article.completed_at = datetime.now()
 
             from zeeguu.core import events

@@ -232,8 +232,6 @@ def get_browsing_stats_for_user(user_id, start, end):
 
 def get_translations_for_user(user_id, start, end):
     """Get translations/bookmarks made by user in the given period."""
-    from zeeguu.core.model.bookmark import Bookmark
-
     bookmarks = (
         Bookmark.query.join(UserWord, Bookmark.user_word_id == UserWord.id)
         .filter(UserWord.user_id == user_id)

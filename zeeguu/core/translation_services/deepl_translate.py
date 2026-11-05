@@ -10,6 +10,7 @@ word in <b>…</b> tags inside the sentence.
 import logging
 import os
 from typing import Optional
+from html import escape, unescape
 
 logger = logging.getLogger(__name__)
 
@@ -110,8 +111,6 @@ def deepl_translate_article(title: str, markdown: str, target_language: str) -> 
     client = _get_client()
     if client is None:
         return None
-
-    from html import escape, unescape
 
     from zeeguu.core.content_cleaning.html_to_markdown import html_to_markdown, markdown_to_html
 

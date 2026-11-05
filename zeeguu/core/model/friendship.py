@@ -170,7 +170,6 @@ class Friendship(db.Model):
             - or friend request between user_id and friend_username, if exists.
         Returns None if the target user is not found.
         """
-        from zeeguu.core.model.user import User
         from zeeguu.core.model.friend_request import FriendRequest
 
         friend_user: User = User.find_by_username(friend_username)

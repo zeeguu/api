@@ -757,8 +757,6 @@ class User(db.Model):
         :param password: str
         :return:
         """
-        from zeeguu.logging import log
-
         log(
             f"UPDATE_PASSWORD: user_id={self.id}, email='{self.email}' - Generating bcrypt password hash"
         )
@@ -781,8 +779,6 @@ class User(db.Model):
         :param password: Optional new password (keeps existing if not provided)
         :raises ValueError: If user is not anonymous or email is invalid/taken
         """
-        from zeeguu.logging import log
-
         if not self.is_anonymous():
             raise ValueError("Only anonymous accounts can be upgraded")
 
@@ -949,7 +945,6 @@ class User(db.Model):
         Unlike learned_bookmarks which can have duplicates for the same word from different contexts,
         this returns unique user words that have been learned.
         """
-        from sqlalchemy.orm import joinedload
         from zeeguu.core.model import Phrase, Meaning, UserWord
         from zeeguu.core.model.bookmark import Bookmark
 
@@ -1311,7 +1306,6 @@ class User(db.Model):
 
     def _stored_cefr_level(self, language):
         """The stored level as A0..C2; ValueError when there is none to use."""
-        from sqlalchemy.orm.exc import NoResultFound
         from zeeguu.core.model import UserLanguage
 
         try:
@@ -1617,8 +1611,6 @@ class User(db.Model):
 
     @classmethod
     def authorize(cls, email, password):
-        from zeeguu.logging import log
-
         try:
             log(f"AUTHORIZE: Looking up user with email '{email}'")
             user = cls.find(email)

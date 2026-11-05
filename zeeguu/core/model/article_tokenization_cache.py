@@ -5,6 +5,7 @@ from sqlalchemy import Column, Integer, UnicodeText, ForeignKey, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.exc import IntegrityError, OperationalError
 from datetime import datetime, timedelta
+from collections import defaultdict
 from zeeguu.core.model.db import db
 
 log = logging.getLogger(__name__)
@@ -109,7 +110,6 @@ class ArticleTokenizationCache(db.Model):
 
         Returns (populated, failed). Caller commits.
         """
-        from collections import defaultdict
         from zeeguu.core.mwe import enrich_tokens_with_mwe
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
 

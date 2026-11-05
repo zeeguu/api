@@ -1,3 +1,5 @@
+import time
+
 import sqlalchemy.orm
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import Computed
@@ -68,8 +70,6 @@ class Phrase(db.Model):
         from zeeguu.api.utils.background import run_in_background
 
         def calc(pid):
-            from zeeguu.core.model.db import db
-
             phrase = db.session.query(cls).get(pid)
             if phrase is None or phrase.rank is not None:
                 return
@@ -230,8 +230,6 @@ class Phrase(db.Model):
                         print("successfully avoided race condition. nice! ")
                         return w
                     except sqlalchemy.orm.exc.NoResultFound:
-                        import time
-
                         time.sleep(0.3)
                         continue
                     break

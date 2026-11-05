@@ -20,6 +20,8 @@ audits trusted corrections without changing their status, only recording the
 verdict.
 """
 
+from datetime import datetime
+
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, and_, func, or_
 from sqlalchemy.orm import aliased, relationship
 
@@ -179,8 +181,6 @@ def judge(session, correction, validator):
     teachers and the validator disagree before trusting either more. No
     verdict leaves it as it was, to be asked again the next night. Commits.
     Returns the verdict, or None."""
-    from datetime import datetime
-
     meaning = correction.meaning
     result = validator.validate_translation(
         word=meaning.origin.content,

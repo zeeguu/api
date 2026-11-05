@@ -9,6 +9,7 @@ from . import api, db_session
 
 from datetime import datetime
 import json
+import traceback
 
 import newspaper
 
@@ -112,7 +113,6 @@ def user_article_stream():
                 yield f"event: complete\ndata: {json.dumps(article_info)}\n\n"
 
             except Exception as e:
-                import traceback
                 traceback.print_exc()
                 yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
 

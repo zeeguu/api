@@ -1,4 +1,6 @@
 from smtplib import SMTP
+from datetime import datetime, timedelta
+from email.mime.text import MIMEText
 
 import yagmail
 import zeeguu
@@ -38,8 +40,6 @@ class ZeeguuMailer(object):
             capture_exception(e)
 
     def _content_of_email(self):
-        from email.mime.text import MIMEText
-
         message = MIMEText(self.message_body)
         message["From"] = self.our_email
         message["To"] = self.to_email
@@ -163,7 +163,6 @@ _NOISY_EVENTS = {"SPEAK TEXT"}
 def _recent_activity(user, minutes=15, max_lines=12):
     """What the user did right before sending feedback, oldest first,
     with consecutive repeats of an event collapsed into one line."""
-    from datetime import datetime, timedelta
     from zeeguu.core.model.user_activitiy_data import UserActivityData
 
     try:

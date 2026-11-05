@@ -1,3 +1,6 @@
+from collections import Counter
+from pprint import pprint
+
 from elasticsearch import Elasticsearch
 from elastic_transport import ConnectionError
 
@@ -105,8 +108,6 @@ def get_topic_classification_based_on_similar_content(
     filter_ids: list[int] = None,
     verbose=False,
 ):
-    from collections import Counter
-
     if filter_ids is None:
         filter_ids = []
 
@@ -118,8 +119,6 @@ def get_topic_classification_based_on_similar_content(
         topics_counter = Counter(neighbouring_topics)
 
         if verbose:
-            from pprint import pprint
-
             pprint(topics_counter)
 
         top_topic, count = topics_counter.most_common(1)[0]

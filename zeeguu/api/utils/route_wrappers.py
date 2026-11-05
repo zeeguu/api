@@ -6,6 +6,10 @@ from zeeguu.logging import log
 from zeeguu.core.model.session import Session
 
 from datetime import datetime, timedelta
+import sys
+import threading
+import time as time_module
+import traceback
 import zeeguu
 
 # Saves a database lookup per request. The cache is per worker: evicting a
@@ -41,9 +45,6 @@ def requires_session(view):
 
     @functools.wraps(view)
     def wrapped_view(*args, **kwargs):
-        import sys
-        import threading
-        import time as time_module
         from zeeguu.api.utils.abort_handling import make_error
 
         request_start = time_module.time()
@@ -120,7 +121,6 @@ def requires_session(view):
             flask.abort(401)
 
         except Exception as e:
-            import traceback
             from sentry_sdk import capture_exception
 
             capture_exception(e)

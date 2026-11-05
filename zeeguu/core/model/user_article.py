@@ -1,4 +1,6 @@
 from datetime import datetime
+import copy
+import json
 
 from sqlalchemy import (
     Column,
@@ -426,8 +428,6 @@ class UserArticle(db.Model):
         Returns:
             List of content items with hidden articles removed
         """
-        from zeeguu.core.model import Article
-
         filtered = []
         for item in content_list:
             # Only filter Article objects, preserve other types
@@ -686,7 +686,6 @@ class UserArticle(db.Model):
         """
         if not overrides_by_hash or not summary_tokens:
             return summary_tokens
-        import copy
 
         tokens = copy.deepcopy(summary_tokens)
         for paragraph in tokens:
@@ -755,7 +754,6 @@ class UserArticle(db.Model):
     @classmethod
     def _summary_tokens(cls, article, cache):
         """Cached summary tokens if we have them, else an immediate cheap pass."""
-        import json
         from zeeguu.core.model.article import strip_trailing_ellipsis_tokens_json
         from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
 
@@ -771,7 +769,6 @@ class UserArticle(db.Model):
     @classmethod
     def _title_tokens(cls, article, cache):
         """Cached title tokens if we have them, else an immediate cheap pass."""
-        import json
         from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
 
         if cache and cache.tokenized_title:
@@ -896,7 +893,6 @@ class UserArticle(db.Model):
         lines further down (simplified_pc_by_parent) was already built to avoid
         -- except that one runs after selection, so it could never help it.
         """
-        from zeeguu.core.model.personal_copy import PersonalCopy
         from . import db
 
         root_ids = {a.parent_article_id or a.id for a in articles}

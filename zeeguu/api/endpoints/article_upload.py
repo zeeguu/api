@@ -1,4 +1,6 @@
 """Endpoints for ArticleUpload — lightweight per-user ingestion entity."""
+from datetime import datetime
+
 import flask
 from flask import request
 
@@ -245,7 +247,6 @@ def article_upload_translate_and_adapt(upload_id):
     from zeeguu.api.endpoints.helpers.translated_article import (
         save_translated_article,
     )
-    from datetime import datetime
 
     user = User.find_by_id(flask.g.user_id)
     upload = _find_upload_or_404(upload_id, user)

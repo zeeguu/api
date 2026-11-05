@@ -5,6 +5,7 @@ Daily lesson generator for creating audio lessons from user words.
 import os
 import time
 from datetime import datetime, timezone, timedelta
+import traceback
 
 from sqlalchemy.orm import sessionmaker
 
@@ -701,7 +702,6 @@ class DailyLessonGenerator:
             log(
                 f"[generate_daily_lesson] Unexpected error in daily lesson generation: {str(e)}"
             )
-            import traceback
 
             log(f"[generate_daily_lesson] Traceback: {traceback.format_exc()}")
             return {"error": f"Unexpected error: {str(e)}"}

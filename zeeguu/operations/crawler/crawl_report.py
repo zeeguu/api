@@ -4,6 +4,7 @@ import os
 import inspect
 import json
 import pathlib
+from pprint import pprint
 
 STR_DATETIME_FORMAT = "%d_%m_%y_%H_%M_%S"
 CRAWL_REPORT_DATA = os.environ.get(
@@ -231,8 +232,6 @@ class CrawlReport:
                         feed_dict["article_report"]["sents_removed"]
                     )
                 except Exception as e:
-                    from pprint import pprint
-
                     pprint(feed_dict)
                     print(e, type(e))
                     input("Continue?")

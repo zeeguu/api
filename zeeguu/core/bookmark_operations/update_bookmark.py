@@ -8,6 +8,9 @@ This module handles the complex logic of updating bookmarks when users edit:
 
 See docs/BOOKMARK_UPDATE_LOGIC.md for detailed documentation.
 """
+from string import punctuation
+from urllib.parse import unquote_plus
+
 from zeeguu.logging import log
 from zeeguu.core.model import Meaning, Text, BookmarkContext, UserWord, Bookmark, Exercise
 
@@ -48,9 +51,6 @@ def parse_update_params(request_json, bookmark):
                        context_identifier, context_type,
                        origin_lang_code, translation_lang_code
     """
-    from urllib.parse import unquote_plus
-    from string import punctuation
-
     punctuation_extended = "»«" + punctuation
 
     return {

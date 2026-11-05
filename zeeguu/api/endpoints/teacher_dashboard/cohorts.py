@@ -64,8 +64,6 @@ def remove_cohort(cohort_id):
     Also removes all students from the cohort.
 
     """
-    from zeeguu.core.model import TeacherCohortMap, UserCohortMap
-
     check_permission_for_cohort(cohort_id)
 
     try:
@@ -122,8 +120,6 @@ def create_own_cohort():
         """
         Takes user_id and cohort_id and links them together in teacher_cohort_map table.
         """
-        from zeeguu.core.model import TeacherCohortMap
-
         user = User.find_by_id(user_id)
         cohort = Cohort.find(cohort_id)
         db.session.add(TeacherCohortMap(user, cohort))

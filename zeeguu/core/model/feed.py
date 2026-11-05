@@ -1,6 +1,7 @@
 # -*- coding: utf8 -*-
 
 from datetime import datetime, timedelta
+import traceback
 
 import sqlalchemy.orm.exc
 from sqlalchemy.orm.exc import NoResultFound
@@ -214,8 +215,6 @@ class Feed(db.Model):
             result = cls.query.filter(cls.id == i).one()
             return result
         except Exception as e:
-            import traceback
-
             traceback.print_exc()
             from sentry_sdk import capture_exception
 
