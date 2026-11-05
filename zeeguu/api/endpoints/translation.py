@@ -5,6 +5,7 @@ from urllib.parse import unquote_plus
 import flask
 from flask import request
 from python_translators.translation_query import TranslationQuery
+from sqlalchemy.orm.exc import NoResultFound
 
 from zeeguu.api.utils.input_limits import (
     abort_if_too_long,
@@ -462,7 +463,7 @@ def ask_llm_translation(from_lang_code, to_lang_code):
     })
 
 
-def _retranslate_bookmark(bookmark, user, new_translation, service):
+def _move_bookmark_to_translation(bookmark, user, new_translation, service):
     """Move the bookmark to the meaning with ``new_translation``, keeping its
     position data and carrying the learning progress over. The new meaning
     if it changed, else None. Does not commit."""
@@ -559,11 +560,8 @@ def resolve_translation_disagreement(from_lang_code, to_lang_code):
     for candidate in candidates:
         abort_if_too_long("candidate", candidate, MAX_PHRASE_CHARS)
 
-    bookmark = None
     bookmark_id = request.json.get("bookmark_id")
     if bookmark_id is not None:
-        from sqlalchemy.orm.exc import NoResultFound
-
         try:
             bookmark = Bookmark.find(bookmark_id)
         except NoResultFound:
@@ -577,12 +575,16 @@ def resolve_translation_disagreement(from_lang_code, to_lang_code):
         return "LLM could not settle the disagreement", 404
 
     changed = resolution.translation.lower() != shown.lower()
-    if changed and bookmark:
-        if bookmark.user_word.meaning.translation.content.strip().lower() != shown.lower():
-            # The learner picked or typed something else while we waited.
+    if changed and bookmark_id is not None:
+        # The learner reads on during the LLM call. Nothing to save here: the
+        # commit ends the transaction, so this read sees what they did meanwhile.
+        db_session.commit()
+        bookmark = Bookmark.query.get(bookmark_id)
+        if not bookmark or bookmark.user_word.meaning.translation.content.strip().lower() != shown.lower():
+            # The learner deleted it, or picked or typed something else, while we waited.
             changed = False
         else:
-            _retranslate_bookmark(
+            _move_bookmark_to_translation(
                 bookmark, user, resolution.translation, TranslationService.DISAGREEMENT_RESOLVER
             )
             db_session.commit()
@@ -612,7 +614,6 @@ def update_bookmark_translation_only(bookmark_id):
     :return: Updated bookmark as JSON
     """
     from zeeguu.api.utils.json_result import json_result
-    from sqlalchemy.orm.exc import NoResultFound
 
     # Find bookmark with proper error handling
     # Fixes ZEEGUU-WEB-B2: Bookmark.find() throws NoResultFound, not returns None
@@ -640,7 +641,7 @@ def update_bookmark_translation_only(bookmark_id):
     )
 
     old_meaning = bookmark.user_word.meaning
-    new_meaning = _retranslate_bookmark(bookmark, user, new_translation, service)
+    new_meaning = _move_bookmark_to_translation(bookmark, user, new_translation, service)
     if new_meaning:
         TranslationCorrection.record(db_session, bookmark, new_meaning)
     db_session.commit()
