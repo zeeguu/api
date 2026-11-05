@@ -576,9 +576,9 @@ def resolve_translation_disagreement(from_lang_code, to_lang_code):
 
     changed = resolution.translation.lower() != shown.lower()
     if changed and bookmark_id is not None:
-        # The learner reads on during the LLM call. Nothing to save here: end
-        # the transaction so this read sees what they did meanwhile.
-        db_session.rollback()
+        # The learner reads on during the LLM call. Nothing to save here: the
+        # commit ends the transaction, so this read sees what they did meanwhile.
+        db_session.commit()
         bookmark = Bookmark.query.get(bookmark_id)
         if not bookmark or bookmark.user_word.meaning.translation.content.strip().lower() != shown.lower():
             # The learner deleted it, or picked or typed something else, while we waited.
