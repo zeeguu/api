@@ -11,7 +11,7 @@ from fixtures import (
     add_one_bookmark,
 )
 from zeeguu.core.llm_services.translation_disagreement_resolver import Resolution
-from zeeguu.core.model import Bookmark, TranslationCorrection, TranslationService, db
+from zeeguu.core.model import Bookmark, Meaning, TranslationCorrection, TranslationService, db
 
 RESOLVER = "zeeguu.core.llm_services.translation_disagreement_resolver.resolve_translation_disagreement"
 
@@ -81,6 +81,13 @@ def test_a_translation_the_learner_changed_meanwhile_is_kept(client):
     assert _translation(bookmark_id) == "after"
 
 
+def _from_another_request(sql, **params):
+    # Committed past the session, which keeps its copies of the rows, as it
+    # does when another request writes during the LLM call.
+    db.session.execute(text(sql), params)
+    db.session.connection().connection.commit()
+
+
 def test_a_bookmark_deleted_meanwhile_is_left_alone(client):
     # Fusing a word into a phrase deletes its bookmark, often during the wait.
     add_context_types()
@@ -88,14 +95,38 @@ def test_a_bookmark_deleted_meanwhile_is_left_alone(client):
     bookmark_id = add_one_bookmark(client)
 
     def delete_while_waiting(*_):
-        # SQL, as from another request: the session keeps its copy of the row.
-        db.session.execute(text("DELETE FROM bookmark WHERE id = :id"), {"id": bookmark_id})
+        _from_another_request("DELETE FROM bookmark WHERE id = :id", id=bookmark_id)
         return Resolution("backs", "")
 
     with patch(RESOLVER, side_effect=delete_while_waiting):
         result = _resolve(client, bookmark_id)
 
     assert result["changed"] is False
+
+
+def test_a_translation_the_learner_changes_during_the_wait_is_kept(client):
+    add_context_types()
+    add_source_types()
+    bookmark_id = add_one_bookmark(client)
+    user_word = Bookmark.find(bookmark_id).user_word
+    user_word_id = user_word.id
+    picked = Meaning.find_or_create(db.session, "hinter", "de", "after", "en")
+    db.session.commit()
+    picked_id = picked.id
+
+    def pick_while_waiting(*_):
+        _from_another_request(
+            "UPDATE user_word SET meaning_id = :meaning WHERE id = :id",
+            meaning=picked_id,
+            id=user_word_id,
+        )
+        return Resolution("backs", "")
+
+    with patch(RESOLVER, side_effect=pick_while_waiting):
+        result = _resolve(client, bookmark_id, shown="behind")
+
+    assert result["changed"] is False
+    assert _translation(bookmark_id) == "after"
 
 
 def test_no_bookmark_still_gets_an_answer(client):
