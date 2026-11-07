@@ -12,6 +12,7 @@ Models are trained on LLM-assessed articles and stored in $ZEEGUU_DATA_FOLDER/ml
 import os
 import re
 import pickle
+import traceback
 import numpy as np
 from zeeguu.logging import log
 
@@ -161,7 +162,6 @@ def load_model(language_code):
         return model
 
     except Exception as e:
-        import traceback
         log(f"Failed to load ML model for {language_code}: {e}")
         log(f"ML classifier traceback: {traceback.format_exc()}")
         _MODEL_CACHE[language_code] = None
@@ -190,7 +190,6 @@ def predict_cefr_level(content, language_code, fk_difficulty, word_count):
     try:
         return model.predict(features)[0]
     except Exception as e:
-        import traceback
         log(f"ML prediction failed for {language_code}: {e}")
         log(f"ML classifier prediction traceback: {traceback.format_exc()}")
         return None

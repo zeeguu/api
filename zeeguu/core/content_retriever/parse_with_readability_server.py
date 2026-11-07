@@ -1,5 +1,6 @@
 import json
 import re
+import time
 
 import newspaper
 from langdetect import detect
@@ -79,7 +80,6 @@ def download_and_parse(url, html_content=None, request_timeout=TIMEOUT_SECONDS):
 
     # Call readability server - always use POST with the HTML we already fetched
     log(f"   Calling readability server...")
-    import time
     readability_start = time.time()
     result_dict = None  # Initialize to None for exception handling
 

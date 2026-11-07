@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 
@@ -161,7 +161,6 @@ class AudioLessonGenerationProgress(db.Model):
 
     @classmethod
     def cleanup_old_records(cls, hours=1):
-        from datetime import timedelta
         cutoff = datetime.utcnow() - timedelta(hours=hours)
         cls.query.filter(cls.started_at < cutoff).delete()
         db.session.commit()

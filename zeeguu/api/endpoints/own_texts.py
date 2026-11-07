@@ -1,3 +1,5 @@
+import os
+
 import flask
 import sqlalchemy
 from flask import request
@@ -161,7 +163,6 @@ def estimate_article_cefr():
 
     if ml_assessment is None:
         # Check if model exists for this language
-        import os
         data_folder = os.environ.get("ZEEGUU_DATA_FOLDER")
         model_path = None
         if data_folder:

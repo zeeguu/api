@@ -15,6 +15,9 @@ from zeeguu.api.utils.rate_limiter import init_limiter, apply_rate_limits_to_end
 
 # apimux is quite noisy; supress it's output
 import logging
+import subprocess
+import sys
+import traceback
 from apimux.log import logger
 
 # Suppress verbose Elasticsearch connection error logs
@@ -148,7 +151,6 @@ def create_app(testing=False):
     # Add SQL query listener to catch source_text queries
     from sqlalchemy import event
     from sqlalchemy.engine import Engine
-    import sys
 
     @event.listens_for(Engine, "before_cursor_execute")
     def detect_source_text_query(conn, cursor, statement, parameters, context, executemany):
@@ -159,7 +161,6 @@ def create_app(testing=False):
                     print(f"\n!!! FULL TABLE SCAN DETECTED ON source_text !!!", file=sys.stderr)
                     print(f"Statement: {statement[:500]}", file=sys.stderr)
                     print(f"Parameters: {parameters}", file=sys.stderr)
-                    import traceback
                     print("Call stack:", file=sys.stderr)
                     traceback.print_stack(file=sys.stderr)
                     sys.stderr.flush()
@@ -191,7 +192,6 @@ def create_app(testing=False):
             # the session has already been cleaned up or doesn't need cleanup
             pass
         if exception:
-            import sys
             print(f"[DB-SESSION-TEARDOWN] Exception during request: {exception}", file=sys.stderr)
             sys.stderr.flush()
 
@@ -232,7 +232,6 @@ def create_app(testing=False):
     # print(app.config)
     # Log the current git commit hash
     try:
-        import subprocess
         git_hash = subprocess.check_output(
             ["git", "rev-parse", "HEAD"],
             cwd=os.path.dirname(__file__),

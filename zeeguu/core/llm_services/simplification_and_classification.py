@@ -13,6 +13,9 @@ import anthropic
 import requests
 import time
 from collections import namedtuple
+from datetime import datetime
+import copy
+import re
 from requests.exceptions import Timeout, RequestException
 from zeeguu.logging import log
 from zeeguu.core.language.language_check import describe_mismatches
@@ -411,8 +414,6 @@ def _clean_text(text):
 
 def _strip_markdown_from_summary(text):
     """Remove markdown bold/italic formatting from summary text."""
-    import re
-
     text = re.sub(r"\*\*(.+?)\*\*", r"\1", text)
     text = re.sub(r"__(.+?)__", r"\1", text)
     text = re.sub(r"\*(.+?)\*", r"\1", text)
@@ -1087,7 +1088,6 @@ def simplify_article_adaptive_levels(
                 grammar_service = get_grammar_correction_service()
 
                 # Keep a copy of uncorrected versions for logging
-                import copy
 
                 uncorrected_versions = copy.deepcopy(versions)
 
@@ -1511,8 +1511,6 @@ def create_user_specific_simplified_version(session, article, target_level):
     Returns:
         Simplified Article object or None if failed
     """
-    from zeeguu.logging import log
-
     log(f"Creating simplified version for article {article.id} at level {target_level}")
 
     try:
@@ -1592,8 +1590,6 @@ def create_recipient_derivative_from_article(
     Returns the Article, or ``None`` (recipient opens the original and adapts)
     when no simplification is needed (level ≥ the article's) or generation fails.
     """
-    from zeeguu.core.model.article import Article
-
     if not article.language:
         return None
     source_language_code = article.language.code
@@ -1616,11 +1612,9 @@ def create_recipient_derivative_from_article(
     # Cross language → translate + adapt into the recipient's language, as a
     # child of the original. Cached under the #translated-from URL key.
     from zeeguu.core.model import Language
-    from zeeguu.core.model.url import Url
     from zeeguu.core.model.source import Source
     from zeeguu.core.model.source_type import SourceType
     from zeeguu.core.llm_services.simplification_service import SimplificationService
-    from datetime import datetime
     import markdown2
 
     target_lang = Language.find(target_language_code)
@@ -1702,14 +1696,10 @@ def create_recipient_derivative(session, upload, target_language_code, target_le
     language+level reuses the first one's article. Returns the Article, or
     ``None`` if generation failed (too long / LLM error).
     """
-    from zeeguu.core.model.article import Article
     from zeeguu.core.model import Language
-    from zeeguu.core.model.url import Url
     from zeeguu.core.model.source import Source
     from zeeguu.core.model.source_type import SourceType
     from zeeguu.core.llm_services.simplification_service import SimplificationService
-    from datetime import datetime
-    from zeeguu.logging import log
 
     if not upload.language:
         log(f"Upload {upload.id} has no language; cannot build recipient derivative")
@@ -1799,8 +1789,6 @@ def create_simplified_version_from_upload(session, upload, target_level):
     is created; the resulting simplified Article stores source_upload_id
     as the back-reference. Returns the simplified Article or None.
     """
-    from zeeguu.logging import log
-
     log(f"Creating simplified article from upload {upload.id} at level {target_level}")
 
     cefr_order = ["A1", "A2", "B1", "B2", "C1", "C2"]

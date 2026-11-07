@@ -20,6 +20,7 @@ import traceback
 
 from sqlalchemy.exc import PendingRollbackError
 from time import time
+import datetime
 
 import zeeguu.core
 
@@ -89,8 +90,6 @@ def retrieve_articles_for_language(language_code, send_email=False):
     if send_email:
 
         log("sending summary email")
-
-        import datetime
 
         mailer = ZeeguuMailer(
             f"{language.name} Crawl Summary "

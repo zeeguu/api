@@ -1,6 +1,9 @@
 import re
 import unicodedata
-from datetime import datetime
+from datetime import date, datetime, timedelta
+import difflib
+import json
+import uuid
 
 from sqlalchemy import (
     Column,
@@ -82,7 +85,6 @@ def strip_trailing_ellipsis_tokens_json(tokens_json):
     parsing fails or no trailing ellipsis token is found)."""
     if not tokens_json:
         return tokens_json
-    import json
 
     try:
         sentences = json.loads(tokens_json)
@@ -378,8 +380,6 @@ class Article(db.Model):
 
     def update_content(self, session, content=None, commit=True):
         from zeeguu.core.content_retriever import download_and_parse
-        from zeeguu.core.model.source import Source
-        from zeeguu.core.model.source_type import SourceType
         from zeeguu.core.content_quality.quality_filter import (
             sufficient_quality_plain_text,
         )
@@ -599,8 +599,6 @@ class Article(db.Model):
         from zeeguu.core.tokenization import get_tokenizer, TOKENIZER_MODEL
         from zeeguu.core.tokenization.zeeguu_tokenizer import ZeeguuTokenizer
         from zeeguu.core.mwe import tokenize_for_reading
-        from zeeguu.core.model.db import db
-        import json
 
         content = self.get_content()
 
@@ -748,7 +746,6 @@ class Article(db.Model):
             ArticleTokenizationCache,
         )
         from zeeguu.core.mwe import tokenize_for_reading
-        import json
 
         tokenized_content = json.dumps(
             {
@@ -795,7 +792,6 @@ class Article(db.Model):
         list, so a relationship added to article_info is warmed everywhere.
         """
         from sqlalchemy.orm import selectinload
-        from zeeguu.core.model.article_topic_map import ArticleTopicMap
         from zeeguu.core.model.url import Url
 
         return [
@@ -1043,10 +1039,7 @@ class Article(db.Model):
         Article (parent_article) or directly from an ArticleUpload
         (source_upload). Exactly one of the two must be provided.
         """
-        from zeeguu.core.model.source import Source
-        from zeeguu.core.model.source_type import SourceType
         from zeeguu.core.model.url import Url
-        import uuid
 
         if (parent_article is None) == (source_upload is None):
             raise ValueError("Provide exactly one of parent_article or source_upload")
@@ -1548,8 +1541,6 @@ class Article(db.Model):
             - else download and parse article
         """
         from zeeguu.core.model import Url, Language
-        from zeeguu.core.model.source import Source
-        from zeeguu.core.model.source_type import SourceType
 
         from zeeguu.core.content_retriever.article_downloader import (
             extract_article_image,
@@ -1733,7 +1724,6 @@ class Article(db.Model):
 
             # If no exact match, try fuzzy title matching for similar titles
             # This catches typos like "Gittes Von G" vs "Gitte Von G"
-            import difflib
 
             # Get all articles from same feed with similar content length
             candidates = cls.query.filter(
@@ -1767,10 +1757,7 @@ class Article(db.Model):
 
     @classmethod
     def all_older_than(cls, days, limit=None):
-        import datetime
-
-        today = datetime.date.today()
-        long_ago = today - datetime.timedelta(days)
+        long_ago = date.today() - timedelta(days)
         query = cls.query.filter(cls.published_time < long_ago).order_by(desc(cls.id))
         if limit:
             query = query.limit(limit)
@@ -1782,10 +1769,7 @@ class Article(db.Model):
 
     @classmethod
     def all_younger_than(cls, days):
-        import datetime
-
-        today = datetime.date.today()
-        some_time_ago = today - datetime.timedelta(days)
+        some_time_ago = date.today() - timedelta(days)
         try:
             return cls.query.filter(cls.published_time > some_time_ago).all()
 

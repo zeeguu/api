@@ -272,7 +272,6 @@ class Meaning(db.Model):
         potential_meanings = []
         try:
             from sqlalchemy.orm import aliased, contains_eager
-            from zeeguu.core.model.db import db
 
             OriginPhrase = aliased(Phrase)
             TranslationPhrase = aliased(Phrase)

@@ -25,6 +25,7 @@ from python_translators.factories.microsoft_translator_factory import (
 from python_translators.translators.wordnik_translator import WordnikTranslator
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 logging.getLogger("python_translators").setLevel(logging.CRITICAL)
@@ -308,7 +309,6 @@ def translate_mwe_phrase(word, from_lang, to_lang):
         dict with 'translation', 'source', 'likelihood' keys, or None
     """
     from python_translators.translation_query import TranslationQuery
-    from python_translators.factories.google_translator_factory import GoogleTranslatorFactory
 
     try:
         # Use contextless translation for the phrase
@@ -384,8 +384,6 @@ def _vote_translation(data):
 
     Falls back to Microsoft contextual if all three contextual providers fail.
     """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
     def azure_with_fallback():
         # Azure alignment doesn't support every language pair (e.g. fr→nl
         # returns no alignment data). When it returns None, fall back to
@@ -642,7 +640,6 @@ def get_translations_streaming(word, context, from_lang, to_lang, is_separated_m
     one LLM call on every menu open of a phrase.
     """
     from python_translators.translation_query import TranslationQuery
-    from concurrent.futures import ThreadPoolExecutor, as_completed
 
     seen_translations = set()
 
@@ -786,8 +783,6 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
     else:
         # For contiguous MWEs: use phrase translation plus other services and LLM
         if " " in word:
-            from concurrent.futures import ThreadPoolExecutor, as_completed
-
             query = TranslationQuery(word, "", "", 1)
             data = {
                 "source_language": from_lang,
@@ -835,7 +830,6 @@ def get_all_translations(word, context, from_lang, to_lang, is_separated_mwe=Fal
         }
 
         # Run translation services in parallel
-        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         def get_azure():
             return azure_alignment_contextual_translate(data)

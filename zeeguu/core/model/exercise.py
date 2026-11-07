@@ -1,3 +1,4 @@
+
 import zeeguu.core
 
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
@@ -71,8 +72,6 @@ class Exercise(db.Model):
 
         return: list of exercises sorted by time in ascending order
         """
-        from zeeguu.core.model.user_word import UserWord
-
         query = cls.query
         if user_id is not None:
             query = query.join(UserWord).filter(UserWord.user_id == user_id)

@@ -291,10 +291,6 @@ def delete_bookmark(bookmark_id):
 @cross_domain
 @requires_session
 def set_user_word_exercise_preference(bookmark_id):
-    from zeeguu.core.word_scheduling.basicSR.four_levels_per_word import (
-        FourLevelsPerWord,
-    )
-
     bookmark = get_bookmark_if_owned(bookmark_id)
     user_word = bookmark.user_word
 
@@ -673,7 +669,6 @@ def set_preferred_bookmark(user_word_id):
     }
     """
     from zeeguu.core.model import UserWord, Bookmark
-    from flask import request
 
     user = User.find_by_id(flask.g.user_id)
     user_word = UserWord.query.get(user_word_id)

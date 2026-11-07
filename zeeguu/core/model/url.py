@@ -153,8 +153,6 @@ class Url(db.Model):
     @classmethod
     def extract_canonical_url(self, url: str):
 
-        from urllib.parse import urlparse
-
         u = urlparse(url)
 
         return f"{u.scheme}://{u.netloc}{u.path}"

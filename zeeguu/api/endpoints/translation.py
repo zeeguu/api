@@ -1,6 +1,8 @@
 import os
 from string import punctuation
 from urllib.parse import unquote_plus
+import json
+import time
 
 import flask
 from flask import request
@@ -133,7 +135,6 @@ def translate_word(from_lang_code, to_lang_code):
     else:
         # TODO: must remove theurl, and title - they are not used in the calling method.
         from zeeguu.logging import log
-        import time
 
         correction = None if is_separated_mwe else _shared_correction(
             word_str, full_sentence_context or context, from_lang_code, to_lang_code
@@ -324,7 +325,6 @@ def get_translations_stream(from_lang_code, to_lang_code):
 
     :return: SSE stream with translation events
     """
-    import json
     from flask import Response
     from zeeguu.core.translation_services.translator import get_translations_streaming
 
@@ -376,7 +376,6 @@ def translation_alternatives(from_lang_code, to_lang_code):
     from zeeguu.core.translation_services.translator import (
         _vote_translation,
     )
-    from python_translators.translation_query import TranslationQuery
 
     word_str = request.json.get("word", "").strip(punctuation_extended)
     context = request.json.get("context", "").strip()
@@ -613,8 +612,6 @@ def update_bookmark_translation_only(bookmark_id):
     :param bookmark_id: ID of bookmark to update
     :return: Updated bookmark as JSON
     """
-    from zeeguu.api.utils.json_result import json_result
-
     # Find bookmark with proper error handling
     # Fixes ZEEGUU-WEB-B2: Bookmark.find() throws NoResultFound, not returns None
     try:

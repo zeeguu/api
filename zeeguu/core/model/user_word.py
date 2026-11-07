@@ -140,8 +140,6 @@ class UserWord(db.Model):
         so when strict=False it MUST NOT modify the database permanently.
         Any repairs should happen during write operations.
         """
-        from zeeguu.logging import log
-
         bookmarks = self.bookmarks()
 
         # Check 1: Verify preferred_bookmark actually belongs to this UserWord
@@ -295,7 +293,6 @@ class UserWord(db.Model):
         if self.is_user_added:
             scheduling_reason = "manually_added"
         elif next_practice_time:
-            from datetime import datetime
             # Use naive datetime to match next_practice_time from database
             now = datetime.now()
 

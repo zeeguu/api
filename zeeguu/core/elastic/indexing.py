@@ -1,3 +1,5 @@
+import traceback
+
 from zeeguu.core.model import UrlKeyword, Topic
 from zeeguu.core.model.article_url_keyword_map import ArticleUrlKeywordMap
 from zeeguu.core.model.article_topic_map import TopicOriginType, ArticleTopicMap
@@ -268,7 +270,6 @@ def index_in_elasticsearch(new_article, session):
         from sentry_sdk import capture_exception
 
         capture_exception(e)
-        import traceback
 
         traceback.print_exc()
 

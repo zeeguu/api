@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from collections import Counter
 from sqlalchemy import Column, DateTime, Integer, JSON, ForeignKey, TIMESTAMP
 from sqlalchemy.orm import relationship
 
@@ -251,8 +252,6 @@ class DailyAudioLesson(db.Model):
         across segments, which tracks the user's generation level (ties resolve
         to the first segment encountered).
         """
-        from collections import Counter
-
         levels = []
         for segment in self.segments:
             if segment.segment_type == "dialogue_lesson" and segment.audio_lesson_dialogue:

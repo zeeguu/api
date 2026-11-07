@@ -5,7 +5,7 @@ When multiple users report an article as broken, it gets automatically
 marked with the USER_REPORTED code.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import Column, Integer, DateTime, String, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import relationship
 import sqlalchemy
@@ -137,7 +137,5 @@ class UserArticleBrokenReport(db.Model):
     @classmethod
     def recent_reports(cls, session, days: int = 7):
         """Get reports from last N days."""
-        from datetime import timedelta
-
         cutoff = datetime.now() - timedelta(days=days)
         return cls.query.filter(cls.report_time >= cutoff).all()

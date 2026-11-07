@@ -1,5 +1,6 @@
 import json
 import traceback
+import re
 
 import flask
 import sentry_sdk
@@ -697,7 +698,6 @@ def preview_learning_card():
 
         # Parse CEFR level from level_note (e.g., "appropriate for B1 - ..." → "B1")
         level_note = learning_card.get("level_note", "")
-        import re
         cefr_match = re.search(r'\b(A1|A2|B1|B2|C1|C2)\b', level_note)
         if cefr_match:
             meaning.word_cefr_level = cefr_match.group(1)

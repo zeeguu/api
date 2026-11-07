@@ -1,4 +1,5 @@
 from datetime import datetime
+import time
 
 import sqlalchemy
 from sqlalchemy.exc import NoResultFound
@@ -152,7 +153,6 @@ class Bookmark(db.Model):
 
     def get_source_title(self):
         from zeeguu.core.model.context_type import ContextType
-        from zeeguu.core.model.article import Article
         from zeeguu.core.model.video import Video
 
         if self.context.context_type.type == ContextType.ARTICLE_TITLE:
@@ -421,7 +421,6 @@ class Bookmark(db.Model):
         ):
             return
 
-        from zeeguu.core.model.db import db
         from zeeguu.logging import log
 
         try:
@@ -498,7 +497,6 @@ class Bookmark(db.Model):
         )
 
     def get_context_identifier(self):
-        from zeeguu.core.model.context_identifier import ContextIdentifier
         from zeeguu.core.model.context_type import ContextType
 
         context_type = self.context.context_type.type
@@ -601,7 +599,6 @@ class Bookmark(db.Model):
         sentence is not a translation.
         """
         from zeeguu.logging import log
-        import time
 
         # Checked up front, before the Meaning and UserWord side effects below
         if translation_source not in cls.TRANSLATION_SOURCES:

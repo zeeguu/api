@@ -29,6 +29,8 @@ import math
 import requests
 from io import BytesIO
 from urllib.parse import quote
+from datetime import datetime
+import traceback
 from markupsafe import escape
 from PIL import Image
 from zeeguu.config import ZEEGUU_DATA_FOLDER
@@ -312,8 +314,6 @@ def find_or_create_article():
 
         print_and_log_to_sentry(e)
 
-        import traceback
-
         traceback.print_exc()
 
         flask.abort(500)
@@ -522,7 +522,6 @@ def translate_and_adapt_article():
         JSON with translated article data and fragments
     """
     from zeeguu.core.llm_services.simplification_service import SimplificationService
-    from zeeguu.core.model import User
     from zeeguu.core.model.article import Article
     from zeeguu.core.content_retriever import download_and_parse
 
@@ -667,7 +666,6 @@ def translate_and_adapt_article():
         from zeeguu.api.endpoints.helpers.translated_article import (
             save_translated_article,
         )
-        from datetime import datetime
 
         # Create URL and language objects with unique translated URL
         translated_url = Url.find_or_create(db_session, translated_url_key)
@@ -774,7 +772,6 @@ def simplify_article(article_id):
         flask.abort(404, "Article not found")
 
     # Get the current user's CEFR level
-    from zeeguu.core.model import User
 
     user = User.find_by_id(flask.g.user_id)
     try:
@@ -846,8 +843,6 @@ def simplify_article(article_id):
             )
 
     except Exception as e:
-        from zeeguu.logging import log
-
         log(f"Simplification failed for article {article_id}: {str(e)}")
         return json_result({"status": "failed", "error": str(e)[:200]})
 

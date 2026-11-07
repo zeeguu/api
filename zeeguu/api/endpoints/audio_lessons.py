@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 import flask
 from markupsafe import escape
 
@@ -134,7 +136,6 @@ def generate_daily_lesson():
     is_general_topic = False
     if suggestion and lesson_type in ("topic", "situation"):
         # Reuse canonical form if this user has typed the same thing before
-        from zeeguu.core.model import DailyAudioLesson
         cached_canonical = DailyAudioLesson.find_canonical_for_raw_suggestion(user, suggestion)
         if cached_canonical:
             canonical_suggestion = cached_canonical
@@ -528,7 +529,6 @@ def get_audio_lesson_generation_progress():
         return json_result({"progress": None})
 
     # Detect stuck generations (e.g., server restarted mid-generation)
-    from datetime import datetime, timedelta
     if progress.updated_at and datetime.utcnow() - progress.updated_at > timedelta(minutes=2):
         progress.mark_error("Generation appears to have stopped. Please try again.")
         db.session.commit()
