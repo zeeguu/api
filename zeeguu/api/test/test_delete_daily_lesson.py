@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from zeeguu.api.endpoints.helpers import activity_sessions
 from zeeguu.api.test.fixtures import logged_in_client, LoggedInClient
 from zeeguu.api.utils.rate_limiter import get_limiter
 from zeeguu.core.audio_lessons import daily_lesson_generator
@@ -19,6 +20,7 @@ from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
 from zeeguu.core.model.db import db
+from zeeguu.core.model.user_listening_session import UserListeningSession
 
 
 @pytest.fixture(autouse=True)
@@ -121,3 +123,35 @@ def test_a_second_session_shares_the_allowance(logged_in_client, limiting_enable
     logged_in_client.session = second
 
     assert _delete(logged_in_client, _lesson_for(logged_in_client.email)).status_code == 429
+
+
+@pytest.mark.parametrize("action", ["update", "end"])
+def test_listening_update_racing_the_delete_answers_404(
+    logged_in_client, monkeypatch, action
+):
+    # Deleting a lesson cascades to its listening sessions, and the player keeps
+    # sending updates meanwhile. Here the row goes between the read and the
+    # write, which used to be a 500 (StaleDataError).
+    user = User.find(logged_in_client.email)
+    lesson_id = _lesson_for(logged_in_client.email)
+    session = UserListeningSession(user.id, lesson_id)
+    db.session.add(session)
+    db.session.commit()
+    session_id = session.id
+
+    read_session = activity_sessions.find_own_activity_session
+
+    def read_then_lose_the_row(session_class, id):
+        found = read_session(session_class, id)
+        session_class.query.filter_by(id=id).delete(synchronize_session=False)
+        return found
+
+    monkeypatch.setattr(
+        activity_sessions, "find_own_activity_session", read_then_lose_the_row
+    )
+
+    response = logged_in_client.response_from_post(
+        f"/listening_session_{action}", data=dict(id=session_id, duration=5000)
+    )
+
+    assert response.status_code == 404

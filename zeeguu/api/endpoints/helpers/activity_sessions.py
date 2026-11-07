@@ -5,7 +5,7 @@
 
 import flask
 from datetime import datetime
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.exc import NoResultFound, StaleDataError
 
 from zeeguu.core.model import User
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
@@ -40,10 +40,21 @@ def update_activity_session(session_class, request, db_session):
     session.last_action_time = datetime.now()
     db_session.add(session)
 
-    if duration >= MIN_STREAK_DURATION_MS:
-        _update_streak(db_session, session)
+    # The row can vanish after we read it: deleting a lesson cascades to its
+    # listening sessions (and deleting an account to all of a user's sessions),
+    # and the client keeps sending updates while that delete runs. The write
+    # then matches 0 rows and SQLAlchemy raises StaleDataError. That is the same
+    # situation as the session having been gone before we looked, so answer the
+    # same 404 instead of a 500. The streak step is inside the try because its
+    # queries autoflush this same write.
+    try:
+        if duration >= MIN_STREAK_DURATION_MS:
+            _update_streak(db_session, session)
 
-    db_session.commit()
+        db_session.commit()
+    except StaleDataError:
+        db_session.rollback()
+        flask.abort(404)
 
     return session
 
