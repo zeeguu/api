@@ -10,6 +10,7 @@ from zeeguu.api.utils.input_limits import (
     MAX_URL_CHARS,
 )
 from zeeguu.core.model.personal_copy import PersonalCopy
+from zeeguu.core.model.shared_article import SharedArticle
 from sqlalchemy.orm.exc import NoResultFound
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api, db_session
@@ -479,6 +480,29 @@ def is_article_language_supported():
             return "NO"
 
 
+def _original_of(article):
+    """
+    The article this one was derived from, through its simplified and translated
+    versions. A translation of an upload stays itself: the article at the
+    upload's url may be only the paywall teaser the upload was made to get past.
+    """
+    if article.parent_article:
+        return _original_of(article.parent_article)
+    if article.source_upload_id:
+        return article
+    original = Article.find_by_id(SharedArticle.resolve_original_article_id(article))
+    # A translation's url can start from a simplified version: older ones were
+    # made from the open article, whichever version that was.
+    return article if original.id == article.id else _original_of(original)
+
+
+def _version_at_level(original, level):
+    for version in original.available_simplified_versions:
+        if version.cefr_level == level:
+            return version
+    return original
+
+
 # ---------------------------------------------------------------------------
 @api.route("/translate_and_adapt_article", methods=["POST"])
 # ---------------------------------------------------------------------------
@@ -531,14 +555,23 @@ def translate_and_adapt_article():
     downloaded = None
     source_article = None
     if article_id:
-        source_article = Article.find_by_id(article_id)
-        if not source_article:
+        requested_article = Article.find_by_id(article_id)
+        if not requested_article:
             flask.abort(404, "Article not found")
-        # Translate from the original, not from a simplified version of it: the
-        # translation is simplified to the target level anyway, and keying the
-        # cache on the original's url gives every version the same translation.
-        if source_article.parent_article:
-            source_article = source_article.parent_article
+        # Translate from the original, not from a simplified or translated
+        # version of it: the translation is simplified to the target level
+        # anyway, and keying the cache on the original's url gives every version
+        # the same translation.
+        source_article = _original_of(requested_article)
+        # Back in the language the article was written in: the reader gets the
+        # real text, not a translation of a translation. Only from another
+        # language: asking for an article's own language adapts its level.
+        if (
+            source_article.language_id == target_language.id
+            and requested_article.language_id != target_language.id
+        ):
+            article = _version_at_level(source_article, user_level)
+            return json_result(UserArticle.user_article_info(user, article, with_content=True))
         article_content = source_article.content
         article_title = source_article.title
         source_language = source_article.language.code
@@ -572,8 +605,6 @@ def translate_and_adapt_article():
             existing_article = Article.find(translated_url_key)
             if existing_article:
                 log(f"Found existing translated article for {url}")
-                from zeeguu.core.model.user_article import UserArticle
-
                 uai = UserArticle.user_article_info(
                     user, existing_article, with_content=True
                 )
@@ -631,7 +662,6 @@ def translate_and_adapt_article():
             flask.abort(500, "Translation failed")
 
         # Create and save the translated article to DB for caching
-        from zeeguu.core.model.user_article import UserArticle
         from zeeguu.core.model.source import Source
         from zeeguu.core.model.source_type import SourceType
         from zeeguu.api.endpoints.helpers.translated_article import (
@@ -699,6 +729,10 @@ def translate_and_adapt_article():
             # Set the CEFR level to match the user's level for display
             article.cefr_level = user_level
             article.img_url = img_url
+            # A further translation of an upload's translation is upload-based
+            # too: _original_of must not follow its url to a paywall teaser.
+            if source_article:
+                article.source_upload_id = source_article.source_upload_id
             return article
 
         # Save to DB for caching, with its fragments
