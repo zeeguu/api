@@ -1630,10 +1630,8 @@ def create_recipient_derivative_from_article(
         f"{article.url.as_string()}"
         f"#translated-from-{source_language_code}-to-{target_language_code}-{target_level}"
     )
-    existing = Article.find(translated_url_key)
-    # Skip a copy marked broken — the audit tool marks wrong-language ones, and
-    # this URL-key cache is the only thing that would otherwise keep serving it.
-    if existing and not existing.broken:
+    existing = Article.find_usable_translation(session, translated_url_key)
+    if existing:
         return existing
 
     content = article.content or ""
@@ -1739,10 +1737,8 @@ def create_recipient_derivative(session, upload, target_language_code, target_le
         f"{upload.url.as_string()}"
         f"#translated-from-{source_language_code}-to-{target_language_code}-{target_level}"
     )
-    existing = Article.find(translated_url_key)
-    # Skip a copy marked broken — the audit tool marks wrong-language ones, and
-    # this URL-key cache is the only thing that would otherwise keep serving it.
-    if existing and not existing.broken:
+    existing = Article.find_usable_translation(session, translated_url_key)
+    if existing:
         return existing
 
     content = upload.markdown()

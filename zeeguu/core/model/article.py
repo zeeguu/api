@@ -1679,6 +1679,29 @@ class Article(db.Model):
             return None
 
     @classmethod
+    def find_usable_translation(cls, session, translated_url_key: str):
+        """
+        The translation cached at this "#translated-from-..." url, or None when
+        a new one is needed.
+
+        A broken one (the audit tool marks wrong-language ones) must not be
+        served, and it gives up the url, which is unique, so the new translation
+        can be saved there. A reader who has it open keeps it. Its new url still
+        holds "#translated-from-", which is how its origin is found.
+        """
+        from zeeguu.core.model import Url
+
+        existing = cls.find(translated_url_key)
+        if not existing or not existing.broken:
+            return existing
+
+        existing.url = Url.find_or_create(
+            session, f"{translated_url_key}-broken-{existing.id}"
+        )
+        session.commit()
+        return None
+
+    @classmethod
     def find_by_content_and_source(
         cls, title: str, content_preview: str, feed_id: int, language_id: int
     ):

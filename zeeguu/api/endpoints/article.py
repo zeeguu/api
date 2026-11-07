@@ -602,7 +602,7 @@ def translate_and_adapt_article():
     try:
         existing_url = Url.find(translated_url_key)
         if existing_url:
-            existing_article = Article.find(translated_url_key)
+            existing_article = Article.find_usable_translation(db_session, translated_url_key)
             if existing_article:
                 log(f"Found existing translated article for {url}")
                 uai = UserArticle.user_article_info(

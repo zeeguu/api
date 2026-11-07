@@ -259,7 +259,7 @@ def article_upload_translate_and_adapt(upload_id):
         f"#translated-from-{source_language}-to-{target_language}-{user_level}"
     )
 
-    existing_article = Article.find(translated_url_key)
+    existing_article = Article.find_usable_translation(db_session, translated_url_key)
     if existing_article:
         _ensure_personal_copy(user, existing_article)
         uai = UserArticle.user_article_info(user, existing_article, with_content=True)
