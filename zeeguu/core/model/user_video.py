@@ -190,12 +190,18 @@ class UserVideo(db.Model):
                 ]
 
             if "captions" in returned_info:
+                # One query for all captions' past bookmarks instead of N --
+                # this used to be the N+1 next to the Stanza loop.
+                caption_ids = [
+                    c["context_identifier"]["video_caption_id"]
+                    for c in returned_info["captions"]
+                ]
+                grouped = VideoCaptionContext.get_user_bookmarks_grouped_by_caption(
+                    user.id, caption_ids
+                )
                 for caption in returned_info["captions"]:
-                    caption["past_bookmarks"] = (
-                        VideoCaptionContext.get_all_user_bookmarks_for_caption(
-                            user.id, caption["context_identifier"]["video_caption_id"]
-                        )
-                    )
+                    caption_id = caption["context_identifier"]["video_caption_id"]
+                    caption["past_bookmarks"] = grouped.get(caption_id, [])
 
             if "tokenized_title" in returned_info:
                 returned_info["tokenized_title"]["past_bookmarks"] = (
