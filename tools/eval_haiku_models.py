@@ -289,7 +289,7 @@ def _run_assess(item):
     out = {"outcome": "ok"}
     try:
         result = sac.assess_and_summarize(
-            item["title"], item["content"], item["lang"], simplification_provider=_provider()
+            item["title"], item["content"], item["lang"], genie=_provider()
         )
     except _CountOnly:
         raise

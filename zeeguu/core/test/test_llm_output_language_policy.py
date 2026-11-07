@@ -45,17 +45,15 @@ ENGLISH_BODY = (
 
 
 @contextmanager
-def _llm_returning(response, prompt_function):
+def _llm_returning(response):
     """
     Put the module's whole LLM path under our control: choose a provider without
-    needing an API key, use a trivial prompt template, and answer every call with
+    needing an API key, and answer every call with
     `response`. Yields the call mock, so a test can assert how many times we asked
     — which is how "it retried once" is observed.
     """
     with patch.object(
         sac, "_api_key_for", return_value="fake-key"
-    ), patch.object(
-        sac, prompt_function, return_value="{title}\n{content}"
     ), patch.object(
         sac, "_call_simplification_llm", return_value=(response, "fake-model")
     ) as llm:
@@ -63,11 +61,11 @@ def _llm_returning(response, prompt_function):
 
 
 def assessing(response):
-    return _llm_returning(response, "get_assessment_and_summary_prompt")
+    return _llm_returning(response)
 
 
 def simplifying(response):
-    return _llm_returning(response, "get_adaptive_simplification_prompt")
+    return _llm_returning(response)
 
 
 def an_assessment(summary, level_summary=None, level_title=None):

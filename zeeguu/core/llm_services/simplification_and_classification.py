@@ -5,14 +5,13 @@ This module handles:
 - Creating CEFR-level appropriate simplified versions of articles
 - Classifying content (disturbing news, etc.)
 - Both operations done in a single LLM call for efficiency
-- Round-robin between DeepSeek and Anthropic for A/B comparison
+- Which LLM serves each feature is declared in genie_tasks.py
 """
 
 import os
 import anthropic
 import requests
 import time
-from collections import namedtuple
 from requests.exceptions import Timeout, RequestException
 from zeeguu.logging import log
 from zeeguu.core.language.language_check import describe_mismatches
@@ -24,10 +23,7 @@ from zeeguu.core.model.article import Article
 from zeeguu.core.model.url import Url
 from .haiku_client import HAIKU_MODEL, haiku_completion_or_raise
 from .prompts.level_simplification import text_with_paragraphs
-from .prompts.article_simplification import (
-    get_adaptive_simplification_prompt,
-    get_assessment_and_summary_prompt,
-)
+from .genie_tasks import ADAPTIVE_SIMPLIFICATION, ASSESS_AND_SUMMARIZE, TASKS
 from zeeguu.core.llm_services import models
 
 
@@ -118,74 +114,13 @@ def _notify_failover_once(from_provider, to_provider, reason):
         log(f"  (could not send failover notification: {mail_error})")
 
 
-# Every model is a genie: it grants the wish as worded, and each genie reads the
-# wording its own way. The wish is the prompt. The difference arrives as
-# well-formed but different answers, not as errors. In Aug 2026 DeepSeek granted
-# the assess prompt's bare-word "unfinished" exit on 6/6 complete articles
-# (api#717), and it was read as DeepSeek being broken.
-#
-# So the unit of fallback is a Task: a genie together with its wish. Each
-# feature declares its tasks, in fallback order, and a failover only ever moves
-# along that list, never to "the other provider" with whatever wish the first
-# one had.
-#
-# A task without a wish gets the wish of the task before it (PREVIOUS_WISH): the
-# cheap default. But do see how the new genie grants that wish (run it on
-# recorded production inputs and compare the DECISIONS, e.g. rejection rate and
-# level distribution, not only whether it parses) before adding the task, and
-# give it a wish of its own, worded for it, when it reads the shared one
-# differently.
-PREVIOUS_WISH = None
-
-# The features that run on declared tasks.
-ASSESS_AND_SUMMARIZE = "assess_and_summarize"
-ADAPTIVE_SIMPLIFICATION = "adaptive_simplification"
-
-Task = namedtuple("Task", ["genie", "wish"], defaults=[PREVIOUS_WISH])
-# genie: a provider; wish: a prompt, `language -> template`
-
-
-def _prioritized(*tasks):
-    """
-    A feature's tasks in priority order: the first runs, each next one is the
-    fallback for the one before. A task without a wish gets the wish of the
-    task before it (PREVIOUS_WISH).
-    """
-    declared = []
-    for task in tasks:
-        if task.wish is PREVIOUS_WISH:
-            if not declared:
-                raise ValueError("the first task of a feature needs a wish")
-            task = task._replace(wish=declared[-1].wish)
-        declared.append(task)
-    return declared
-
-
-_TASKS = {
-    # The field-based assess prompt (api#717) runs on DeepSeek in the crawl;
-    # Haiku 5.5 at low effort parsed 200/200 prod articles on the same wish
-    # (tools/eval_haiku_models.py).
-    ASSESS_AND_SUMMARIZE: _prioritized(
-        Task(genie="deepseek", wish=get_assessment_and_summary_prompt),
-        Task(genie="anthropic"),
-    ),
-    # Anthropic only: the adaptive prompt still has the bare-word "unfinished" /
-    # "advertorial" exit that DeepSeek takes (api#717), so PREVIOUS_WISH is
-    # known to be wrong here. A DeepSeek task needs a field-based wording of
-    # this wish first, evaluated on DeepSeek.
-    ADAPTIVE_SIMPLIFICATION: _prioritized(
-        Task(genie="anthropic", wish=get_adaptive_simplification_prompt),
-    ),
-}
-
-
 def _tasks_in_order(feature, genie=None):
     """
     The feature's tasks in the order to try them: as declared, or starting at
     `genie`'s task when one is asked for (evals, backfills). Tasks whose genie
     has no API key are skipped, the first one included.
     """
-    tasks = _TASKS[feature]
+    tasks = TASKS[feature]
     if genie:
         start = next((i for i, t in enumerate(tasks) if t.genie == genie), None)
         if start is None:
@@ -488,7 +423,7 @@ def assess_and_summarize(
     title: str,
     content: str,
     target_language: str,
-    simplification_provider: str = None,
+    genie: str = None,
 ) -> dict:
     """
     On-demand-pipeline crawl step: assess CEFR level, summarize, and classify an
@@ -525,7 +460,7 @@ def assess_and_summarize(
         # for a C2 article) plus the original summary. 2000 gives headroom over the
         # single-summary sizing so the last-emitted levels aren't truncated — still
         # a fraction of the 6000 the full multi-level bodies needed.
-        result, model_name, genie = _run_tasks(
+        result, model_name, answered_by = _run_tasks(
             ASSESS_AND_SUMMARIZE,
             target_language,
             {"title": title, "content": content},
@@ -533,13 +468,13 @@ def assess_and_summarize(
             timeout=120,
             stop=REJECTION_STOPS,
             correction=correction,
-            genie=simplification_provider,
+            genie=genie,
         )
         _raise_if_paywall_or_advertorial(result)
         # The genie that answered, not the one asked first: on a failover the row
         # must record the model that actually wrote the text, or AIGenerator
         # attributes it to the wrong one.
-        assessment = _parse_assessment_and_summary(result, genie, model_name)
+        assessment = _parse_assessment_and_summary(result, answered_by, model_name)
         # Raised, not returned, so junk propagates out of the language-check retry
         # loop exactly as the bare-word rejection always has.
         _raise_if_flagged(assessment)
@@ -660,7 +595,7 @@ def _parse_assessment_and_summary(result: str, provider: str, model_name: str) -
 
 
 def assess_summarize_and_classify(
-    session, original_article: Article, simplification_provider: str = None
+    session, original_article: Article, genie: str = None
 ) -> tuple[list, list]:
     """
     The on-demand pipeline's assessment of an article that already exists
@@ -694,7 +629,7 @@ def assess_summarize_and_classify(
         original_article.title,
         original_article.get_content(),
         original_article.language.code,
-        simplification_provider=simplification_provider,
+        genie=genie,
     )
     return [], save_assessment(session, original_article, result)
 
@@ -1009,7 +944,7 @@ def simplify_article_adaptive_levels(
     content: str,
     target_language: str,
     model: str = models.DEEPSEEK_GENERAL,
-    simplification_provider: str = None,
+    genie: str = None,
     correct_grammar: bool = False,
 ) -> dict:
     """
@@ -1021,7 +956,7 @@ def simplify_article_adaptive_levels(
         content: Original article content
         target_language: Language code (e.g., 'da', 'es')
         model: Model to use (deprecated, provider chosen automatically)
-        simplification_provider: Provider to use ('deepseek' or 'anthropic'), overrides default if set
+        genie: genie to try first ('deepseek' or 'anthropic'), for evals and backfills; normally genie_tasks.TASKS decides
         correct_grammar: Whether to run a separate Haiku grammar/spelling correction pass after simplification. Default is False — the DeepSeek + Haiku correction experiment ran 2025-12-09 → 2026-04-05 and concluded that the corrections were overwhelmingly cosmetic (~96% of title fixes and ~72% of content fixes were ≤2 char diffs). The correction pass and grammar_correction_log writes are kept in place but disabled by default; data from the experiment is preserved in the table.
 
     Returns:
@@ -1053,17 +988,17 @@ def simplify_article_adaptive_levels(
         log(f"  Article length: {len(content)} characters")
 
         def generate(correction):
-            result, model_name, genie = _run_tasks(
+            result, model_name, answered_by = _run_tasks(
                 ADAPTIVE_SIMPLIFICATION,
                 target_language,
                 {"title": title, "content": content},
                 max_tokens=6000,
                 timeout=180,
                 correction=correction,
-                genie=simplification_provider,
+                genie=genie,
             )
             _raise_if_paywall_or_advertorial(result)
-            return _parse_adaptive_response(result, genie, model_name)
+            return _parse_adaptive_response(result, answered_by, model_name)
 
         simplification = generate_in_language(
             generate,
@@ -1216,7 +1151,7 @@ def create_simplified_article_adaptive(
 
 
 def simplify_and_classify(
-    session, original_article: Article, simplification_provider: str = None
+    session, original_article: Article, genie: str = None
 ) -> tuple[list[Article], list[tuple[str, str]]]:
     """
     Simplify article to multiple CEFR levels and classify content type (e.g., disturbing).
@@ -1231,7 +1166,7 @@ def simplify_and_classify(
     Args:
         session: Database session
         original_article: The original article to simplify
-        simplification_provider: Provider to use ('deepseek' or 'anthropic'), overrides default if set
+        genie: genie to try first ('deepseek' or 'anthropic'), for evals and backfills; normally genie_tasks.TASKS decides
 
     Returns:
         Tuple of (simplified_articles, classifications)
@@ -1284,7 +1219,7 @@ def simplify_and_classify(
             title,
             content,
             language_code,
-            simplification_provider=simplification_provider,
+            genie=genie,
         )
         log(f"  LLM call completed successfully")
 

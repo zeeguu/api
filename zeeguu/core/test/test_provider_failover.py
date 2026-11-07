@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 import anthropic
 import httpx2  # the HTTP client the Anthropic SDK builds its errors on
 
+from zeeguu.core.llm_services import genie_tasks
 from zeeguu.core.llm_services import simplification_and_classification as sac
 
 # The exact body Anthropic returns when the monthly spend cap is reached. Note
@@ -169,7 +170,7 @@ class ProviderFailoverTest(TestCase):
             "zeeguu.core.emailer.zeeguu_mailer.ZeeguuMailer.send_alert"
         ):
             return sac._run_tasks(
-                sac.ASSESS_AND_SUMMARIZE,
+                genie_tasks.ASSESS_AND_SUMMARIZE,
                 "da", FIELDS, max_tokens=100, genie="deepseek"
             ), llm
 
@@ -200,7 +201,7 @@ class ProviderFailoverTest(TestCase):
             side_effect=[sac.ProviderUnavailable("capped"), ("ok", "claude")],
         ) as llm, patch("zeeguu.core.emailer.zeeguu_mailer.ZeeguuMailer.send_alert"):
             sac._run_tasks(
-                sac.ASSESS_AND_SUMMARIZE,
+                genie_tasks.ASSESS_AND_SUMMARIZE,
                 "da", FIELDS, max_tokens=100, genie="deepseek", stop=stop
             )
         assert llm.call_args_list[1].kwargs["stop"] == stop
@@ -213,7 +214,7 @@ class ProviderFailoverTest(TestCase):
         ) as llm:
             with self.assertRaises(Exception):
                 sac._run_tasks(
-                    sac.ASSESS_AND_SUMMARIZE,
+                    genie_tasks.ASSESS_AND_SUMMARIZE,
                     "da", FIELDS, max_tokens=100, genie="deepseek"
                 )
         assert llm.call_count == 1, "must not have tried the other provider"
@@ -232,7 +233,7 @@ class ProviderFailoverTest(TestCase):
         ) as llm:
             with self.assertRaises(sac.ProviderUnavailable):
                 sac._run_tasks(
-                    sac.ASSESS_AND_SUMMARIZE,
+                    genie_tasks.ASSESS_AND_SUMMARIZE,
                     "da", FIELDS, max_tokens=100, genie="deepseek"
                 )
         assert llm.call_count == 1
@@ -268,12 +269,12 @@ class TasksTest(TestCase):
 
     def test_the_fallback_gets_its_own_wish(self):
         tasks = {
-            "feature": sac._prioritized(
-                sac.Task("deepseek", lambda language: "DEEPSEEK PROMPT {title}"),
-                sac.Task("anthropic", lambda language: "HAIKU PROMPT {title}"),
+            "feature": genie_tasks.prioritized(
+                genie_tasks.GenieTask("deepseek", lambda language: "DEEPSEEK PROMPT {title}"),
+                genie_tasks.GenieTask("anthropic", lambda language: "HAIKU PROMPT {title}"),
             )
         }
-        with patch.dict(sac._TASKS, tasks), patch.dict(
+        with patch.dict(genie_tasks.TASKS, tasks), patch.dict(
             "os.environ", BOTH_KEYS, clear=False
         ), patch.object(
             sac,
@@ -291,15 +292,15 @@ class TasksTest(TestCase):
 
     def test_a_task_without_a_wish_gets_the_previous_ones(self):
         first = lambda language: "SHARED {title}"
-        tasks = sac._prioritized(sac.Task("deepseek", first), sac.Task("anthropic"))
+        tasks = genie_tasks.prioritized(genie_tasks.GenieTask("deepseek", first), genie_tasks.GenieTask("anthropic"))
         assert tasks == [("deepseek", first), ("anthropic", first)]
 
     def test_the_first_task_must_have_a_wish(self):
         with self.assertRaises(ValueError):
-            sac._prioritized(sac.Task("deepseek"))
+            genie_tasks.prioritized(genie_tasks.GenieTask("deepseek"))
 
     def test_without_a_requested_genie_the_declared_order_decides(self):
-        assert self._fail_over(sac.ASSESS_AND_SUMMARIZE, None) == ["deepseek", "anthropic"]
+        assert self._fail_over(genie_tasks.ASSESS_AND_SUMMARIZE, None) == ["deepseek", "anthropic"]
 
     def test_a_first_genie_without_an_api_key_is_skipped(self):
         """The old missing-key fallback, now done by the task order."""
@@ -310,7 +311,7 @@ class TasksTest(TestCase):
         ), patch.object(
             sac, "_call_simplification_llm", return_value=("ok", "model")
         ) as llm:
-            _, _, genie = sac._run_tasks(sac.ASSESS_AND_SUMMARIZE, "da", FIELDS, 100)
+            _, _, genie = sac._run_tasks(genie_tasks.ASSESS_AND_SUMMARIZE, "da", FIELDS, 100)
         assert genie == "anthropic" and llm.call_count == 1
 
     def test_no_api_key_for_any_genie_is_an_error(self):
@@ -320,14 +321,14 @@ class TasksTest(TestCase):
             clear=False,
         ):
             with self.assertRaises(Exception):
-                sac._run_tasks(sac.ASSESS_AND_SUMMARIZE, "da", FIELDS, 100)
+                sac._run_tasks(genie_tasks.ASSESS_AND_SUMMARIZE, "da", FIELDS, 100)
 
     def test_the_assess_prompt_fails_over_both_ways(self):
-        assert self._fail_over(sac.ASSESS_AND_SUMMARIZE, "deepseek") == [
+        assert self._fail_over(genie_tasks.ASSESS_AND_SUMMARIZE, "deepseek") == [
             "deepseek",
             "anthropic",
         ]
-        assert self._fail_over(sac.ASSESS_AND_SUMMARIZE, "anthropic") == [
+        assert self._fail_over(genie_tasks.ASSESS_AND_SUMMARIZE, "anthropic") == [
             "anthropic",
             "deepseek",
         ]
@@ -336,13 +337,13 @@ class TasksTest(TestCase):
         """Its prompt's bare-word "unfinished" exit is one DeepSeek takes on
         complete articles (api#717): an Anthropic outage must not send those
         articles there, where they would be marked paywalled."""
-        assert self._fail_over(sac.ADAPTIVE_SIMPLIFICATION, "anthropic") == ["anthropic"]
+        assert self._fail_over(genie_tasks.ADAPTIVE_SIMPLIFICATION, "anthropic") == ["anthropic"]
 
     def test_a_provider_without_a_task_for_the_feature_is_not_used(self):
-        assert self._fail_over(sac.ADAPTIVE_SIMPLIFICATION, "deepseek") == ["anthropic"]
+        assert self._fail_over(genie_tasks.ADAPTIVE_SIMPLIFICATION, "deepseek") == ["anthropic"]
 
     def test_every_task_has_a_known_genie_and_a_wish(self):
-        for tasks in sac._TASKS.values():
+        for tasks in genie_tasks.TASKS.values():
             providers = [task.genie for task in tasks]
             assert set(providers) <= {"deepseek", "anthropic"}
             assert len(providers) == len(set(providers))
@@ -402,7 +403,7 @@ class FailoverNotificationTest(TestCase):
         ) as send_mail:
             for _ in range(times):
                 sac._run_tasks(
-                    sac.ASSESS_AND_SUMMARIZE,
+                    genie_tasks.ASSESS_AND_SUMMARIZE,
                     "da", FIELDS, max_tokens=100, genie="deepseek"
                 )
             return send_mail
@@ -434,7 +435,7 @@ class FailoverNotificationTest(TestCase):
             side_effect=Exception("SMTP down"),
         ):
             result, _, used = sac._run_tasks(
-                sac.ASSESS_AND_SUMMARIZE,
+                genie_tasks.ASSESS_AND_SUMMARIZE,
                 "da", FIELDS, max_tokens=100, genie="deepseek"
             )
         assert result == "ok"
@@ -455,7 +456,7 @@ class FailoverNotificationTest(TestCase):
         ) as send_mail:
             with self.assertRaises(sac.ProviderUnavailable):
                 sac._run_tasks(
-                    sac.ASSESS_AND_SUMMARIZE,
+                    genie_tasks.ASSESS_AND_SUMMARIZE,
                     "da", FIELDS, max_tokens=100, genie="deepseek"
                 )
         assert send_mail.call_count == 0
