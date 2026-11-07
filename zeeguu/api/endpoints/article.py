@@ -490,7 +490,10 @@ def _original_of(article):
         return _original_of(article.parent_article)
     if article.source_upload_id:
         return article
-    return Article.find_by_id(SharedArticle.resolve_original_article_id(article))
+    original = Article.find_by_id(SharedArticle.resolve_original_article_id(article))
+    # A translation's url can start from a simplified version: older ones were
+    # made from the open article, whichever version that was.
+    return article if original.id == article.id else _original_of(original)
 
 
 def _version_at_level(original, level):
@@ -726,6 +729,10 @@ def translate_and_adapt_article():
             # Set the CEFR level to match the user's level for display
             article.cefr_level = user_level
             article.img_url = img_url
+            # A further translation of an upload's translation is upload-based
+            # too: _original_of must not follow its url to a paywall teaser.
+            if source_article:
+                article.source_upload_id = source_article.source_upload_id
             return article
 
         # Save to DB for caching, with its fragments

@@ -190,6 +190,88 @@ def test_an_article_adapted_in_its_own_language_is_still_adapted(logged_in_clien
             _delete(created)
 
 
+def _article_at(url, like, language_code, content):
+    article = Article(
+        Url.find_or_create(db.session, url),
+        "Stored article",
+        None,
+        like.source,
+        like.summary,
+        like.published_time,
+        None,
+        Language.find_or_create(language_code),
+        content,
+        None,
+    )
+    db.session.add(article)
+    db.session.commit()
+    return article.id
+
+
+def test_an_old_translation_of_a_simplified_version_goes_back_to_the_original(
+    logged_in_client,
+):
+    original_id = _original_id(logged_in_client)
+    original = Article.find_by_id(original_id)
+    simplified = _simplified_version_of(original)
+    simplified_id = simplified.id
+    old_translation_id = _article_at(
+        simplified.url.as_string() + "#translated-from-de-to-fr-A2",
+        original,
+        "fr",
+        "Un paragraphe.",
+    )
+
+    calls = []
+    with _mock_llm(calls):
+        try:
+            back = _translate(logged_in_client, old_translation_id, "de")
+
+            assert back["id"] == original_id
+            assert calls == []
+        finally:
+            _delete([old_translation_id, simplified_id])
+
+
+def test_translations_of_an_upload_never_reach_the_teaser_at_its_url(logged_in_client):
+    # The upload holds the full text of an article we only have the teaser of.
+    url = "https://example.com/switch/paywalled"
+    teaser_id = _article_at(
+        url,
+        Article.find_by_id(_original_id(logged_in_client)),
+        "de",
+        "Nur der Anfang.",
+    )
+    upload_id = logged_in_client.post(
+        "/article_upload/create",
+        data=dict(
+            url=url,
+            title="Bezahlt",
+            text_content="Der ganze Text steht hier. Er ist lang und bleibt auf Deutsch.",
+        ),
+    )["id"]
+
+    calls = []
+    created = []
+    with _mock_llm(calls):
+        try:
+            first = logged_in_client.response_from_post(
+                f"/article_upload/{upload_id}/translate_and_adapt"
+            ).get_json()
+            created.append(first["id"])
+            french = _translate(logged_in_client, first["id"], "fr")
+            created.append(french["id"])
+
+            spanish = _translate(logged_in_client, french["id"], "es")
+            created.append(spanish["id"])
+
+            assert Article.find_by_id(french["id"]).source_upload_id == upload_id
+            assert "Nur der Anfang." not in [call["content"] for call in calls]
+            assert teaser_id not in [first["id"], french["id"], spanish["id"]]
+        finally:
+            _delete(created + [teaser_id])
+
+
 def test_a_simplified_article_is_translated_from_its_original_at_the_target_level(
     logged_in_client,
 ):
