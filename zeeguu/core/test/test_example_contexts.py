@@ -1,21 +1,26 @@
 """Which words get their fragment context swapped for a generated example.
 
 The swap itself (locating the word in an example, tokenizing) is the same
-code /alternative_sentences runs; these tests pin the gate: only fragments,
-and only before the word's first exercise.
+code /alternative_sentences runs; these tests pin the gate: only fragments
+and sentences from articles above the learner's level, and only before the
+word's first exercise.
 """
 from unittest import TestCase
 from unittest.mock import patch
 
 import zeeguu.core
 from zeeguu.core.exercises import example_contexts
-from zeeguu.core.model import Bookmark, Meaning, Phrase, UserWord
+from zeeguu.core.model import Bookmark, Meaning, Phrase, UserLanguage, UserWord
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.exercises.example_contexts import (
+    _rank,
+    is_above_level,
     is_fragment,
-    replace_fragments_before_first_exercise,
+    next_unused_example_bookmark,
+    replace_context_with_example,
+    replace_hard_contexts_before_first_exercise,
 )
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
@@ -46,7 +51,7 @@ class ExampleContextsTest(ModelTestMixIn, TestCase):
         self.assertTrue(is_fragment(self._user_word(right_ellipsis=True).preferred_bookmark))
         self.assertFalse(is_fragment(self._user_word().preferred_bookmark))
 
-    def test_only_unexercised_fragments_are_swapped(self):
+    def test_only_unexercised_words_are_considered(self):
         whole = self._user_word()
         fragment = self._user_word(left_ellipsis=True)
         exercised_fragment = self._user_word(right_ellipsis=True)
@@ -54,13 +59,13 @@ class ExampleContextsTest(ModelTestMixIn, TestCase):
         exercised_fragment.add_new_exercise(exercise)
         session.commit()
 
-        with patch.object(example_contexts, "replace_fragment_with_example", return_value=True) as swap:
-            swapped = replace_fragments_before_first_exercise(
+        with patch.object(example_contexts, "replace_context_with_example", return_value=True) as swap:
+            swapped = replace_hard_contexts_before_first_exercise(
                 session, [whole, fragment, exercised_fragment]
             )
 
-        self.assertEqual(swapped, 1)
-        self.assertEqual([c.args[1] for c in swap.call_args_list], [fragment])
+        self.assertEqual(swapped, 2)
+        self.assertEqual([c.args[1] for c in swap.call_args_list], [whole, fragment])
 
     def test_a_failing_swap_does_not_fail_the_rest(self):
         first = self._user_word(left_ellipsis=True)
@@ -71,8 +76,8 @@ class ExampleContextsTest(ModelTestMixIn, TestCase):
                 raise RuntimeError("tokenizer down")
             return True
 
-        with patch.object(example_contexts, "replace_fragment_with_example", side_effect=swap):
-            self.assertEqual(replace_fragments_before_first_exercise(session, [first, second]), 1)
+        with patch.object(example_contexts, "replace_context_with_example", side_effect=swap):
+            self.assertEqual(replace_hard_contexts_before_first_exercise(session, [first, second]), 1)
 
     def test_a_failed_flush_is_rolled_back_before_the_next_word(self):
         # What happened on prod: the preferred_bookmark integrity check fails
@@ -86,8 +91,81 @@ class ExampleContextsTest(ModelTestMixIn, TestCase):
                 _session.flush()
             return True
 
-        with patch.object(example_contexts, "replace_fragment_with_example", side_effect=swap):
-            self.assertEqual(replace_fragments_before_first_exercise(session, [first, second]), 1)
+        with patch.object(example_contexts, "replace_context_with_example", side_effect=swap):
+            self.assertEqual(replace_hard_contexts_before_first_exercise(session, [first, second]), 1)
+
+
+class AboveLevelContextTest(ModelTestMixIn, TestCase):
+    """An A2 learner got B2 article sentences in exercises and looked up half
+    of each (user 6885, 9 Nov 2026)."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = UserRule().user
+        self._set_level(2)  # A2
+
+    def _set_level(self, level):
+        user_language = UserLanguage.find_or_create(session, self.user, self.user.learned_language)
+        user_language.cefr_level = level
+        session.commit()
+
+    def _user_word(self, article_level):
+        bookmark = BookmarkRule(self.user).bookmark
+        bookmark.text.article.cefr_level = article_level
+        user_word = bookmark.user_word
+        user_word.preferred_bookmark = bookmark
+        session.add_all([bookmark, user_word])
+        session.commit()
+        return user_word
+
+    def test_even_one_level_above_is_too_much(self):
+        self.assertTrue(is_above_level(self._user_word("B1").preferred_bookmark, "A2"))
+        self.assertFalse(is_above_level(self._user_word("A2").preferred_bookmark, "A2"))
+        self.assertFalse(is_above_level(self._user_word("A1").preferred_bookmark, "A2"))
+
+    def test_unknown_levels_are_not_above(self):
+        self.assertFalse(is_above_level(self._user_word(None).preferred_bookmark, "A2"))
+        self.assertFalse(is_above_level(self._user_word("C1").preferred_bookmark, None))
+
+    def test_a_split_assessment_counts_as_the_higher_level(self):
+        self.assertEqual(_rank("B1/B2"), _rank("B2"))
+
+    def test_an_above_level_context_asks_for_an_example_at_the_learners_level(self):
+        user_word = self._user_word("B2")
+        with patch.object(example_contexts, "next_unused_example_bookmark", return_value=None) as find:
+            self.assertFalse(replace_context_with_example(session, user_word))
+        self.assertEqual(find.call_args.kwargs, {"max_level": "A2"})
+
+    def test_a_context_at_the_learners_level_stays(self):
+        user_word = self._user_word("A2")
+        with patch.object(example_contexts, "next_unused_example_bookmark") as find:
+            self.assertFalse(replace_context_with_example(session, user_word))
+        find.assert_not_called()
+
+    def test_without_a_learner_level_nothing_is_swapped(self):
+        self._set_level(None)
+        user_word = self._user_word("C2")
+        with patch.object(example_contexts, "next_unused_example_bookmark") as find:
+            self.assertFalse(replace_context_with_example(session, user_word))
+        find.assert_not_called()
+
+    def test_examples_above_the_learners_level_are_skipped(self):
+        user_word = self._user_word("B2")
+        for sentence, level in [("hard", "B1"), ("easy", "A1"), ("unknown", None)]:
+            session.add(
+                ExampleSentence(sentence, self.user.learned_language, user_word.meaning, cefr_level=level)
+            )
+        session.commit()
+
+        offered = []
+
+        def bookmark_for(_session, _user, _user_word, example):
+            offered.append(example.sentence)
+            return None
+
+        with patch.object(example_contexts, "bookmark_for_example", side_effect=bookmark_for):
+            next_unused_example_bookmark(session, user_word, max_level="A2")
+        self.assertEqual(offered, ["easy"])
 
 
 class ExampleBookmarkStaysOnTheWordTest(ModelTestMixIn, TestCase):

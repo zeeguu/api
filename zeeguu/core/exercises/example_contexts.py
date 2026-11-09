@@ -7,6 +7,11 @@ en del af ..."). A fragment often misses what makes the sentence make sense,
 so before a word's first exercise we swap such a context for one of the
 word's generated example sentences. The fragment stays among the word's
 bookmarks, and the exercise arrows still offer it as a past context.
+
+The same goes for a whole sentence from an article written above the
+learner's level: an A2 learner shown a B2 sentence in an exercise looks up
+half of it (user 6885, 9 Nov 2026). Such a context gives way only to an
+example at or below the learner's level.
 """
 
 from zeeguu.core.model import Bookmark
@@ -140,10 +145,48 @@ def usable_examples(meaning_id):
     return usable_examples_query(meaning_id).all()
 
 
-def next_unused_example_bookmark(session, user_word, skip_ids=()):
+def _rank(cefr_level):
+    """A1 -> 0 .. C2 -> 5; None for anything else. An assessment between two
+    levels ("B1/B2") counts as the higher one."""
+    if not cefr_level:
+        return None
+    ranks = [CEFR_LEVELS.index(level) for level in cefr_level.split("/") if level in CEFR_LEVELS]
+    return max(ranks) if ranks else None
+
+
+def learner_level(user_word):
+    """The learner's level in the word's language, A1..C2, or None if not set."""
+    try:
+        return user_word.user.cefr_level_for_language(user_word.meaning.origin.language)
+    except ValueError:
+        return None
+
+
+def article_level(bookmark):
+    """The level of the article the bookmark's sentence comes from, or None
+    (no article, or not assessed). Same choice as Article.article_info:
+    the effective assessment first, the legacy column otherwise."""
+    article = bookmark.text.article if bookmark.text else None
+    if not article:
+        return None
+    if article.cefr_assessment and article.cefr_assessment.effective_cefr_level:
+        return article.cefr_assessment.effective_cefr_level
+    return article.cefr_level
+
+
+def is_above_level(bookmark, cefr_level):
+    """The bookmark's sentence comes from an article written above
+    `cefr_level`. Even one level above is too much for an exercise sentence."""
+    learner, article = _rank(cefr_level), _rank(article_level(bookmark))
+    return learner is not None and article is not None and article > learner
+
+
+def next_unused_example_bookmark(session, user_word, skip_ids=(), max_level=None):
     """The bookmark of the first usable example that anchors the word and is
-    neither the word's preferred context nor one of `skip_ids`, or None."""
-    for example in usable_examples(user_word.meaning_id):
+    neither the word's preferred context nor one of `skip_ids`, or None.
+    With `max_level`, only examples at or below that level, closest first."""
+    examples = usable_examples_query(user_word.meaning_id, max_level)
+    for example in examples.all():
         bookmark = bookmark_for_example(session, user_word.user, user_word, example)
         if not bookmark or bookmark.id == user_word.preferred_bookmark_id or bookmark.id in skip_ids:
             continue
@@ -164,48 +207,75 @@ def replace_fragment_with_example(session, user_word):
     if not user_word.preferred_bookmark or not is_fragment(user_word.preferred_bookmark):
         return False
 
-    bookmark = next_unused_example_bookmark(session, user_word)
-    if bookmark:
-        log(
-            f"[FRAGMENT-CONTEXT] user_word {user_word.id}: bookmark "
-            f"{user_word.preferred_bookmark.id} -> example bookmark {bookmark.id}"
-        )
-        user_word.preferred_bookmark = bookmark
-        session.add(user_word)
-        session.commit()
-        return True
-    return False
+    # Any example beats a fragment, but one at the learner's level beats the rest
+    level = learner_level(user_word)
+    bookmark = (level and next_unused_example_bookmark(session, user_word, max_level=level)) or (
+        next_unused_example_bookmark(session, user_word)
+    )
+    return _switch_to(session, user_word, bookmark, "FRAGMENT-CONTEXT")
 
 
-def replace_fragments_before_first_exercise(session, user_words):
+def replace_above_level_with_example(session, user_word):
     """
-    Swap fragment contexts for generated examples, but only for words that
-    have never been exercised: once a learner has seen a word's context they
-    may have picked it themselves (nothing records that), and we must not
-    switch it back behind their back.
+    Make an example at or below the learner's level the word's preferred
+    context, if the current one comes from an article above that level.
+    Returns True if it swapped.
+    """
+    level = learner_level(user_word)
+    if not user_word.preferred_bookmark or not is_above_level(user_word.preferred_bookmark, level):
+        return False
+
+    bookmark = next_unused_example_bookmark(session, user_word, max_level=level)
+    return _switch_to(session, user_word, bookmark, "ABOVE-LEVEL-CONTEXT")
+
+
+def replace_context_with_example(session, user_word):
+    return replace_fragment_with_example(session, user_word) or replace_above_level_with_example(
+        session, user_word
+    )
+
+
+def _switch_to(session, user_word, bookmark, why):
+    if not bookmark:
+        return False
+    log(
+        f"[{why}] user_word {user_word.id}: bookmark "
+        f"{user_word.preferred_bookmark.id} -> example bookmark {bookmark.id}"
+    )
+    user_word.preferred_bookmark = bookmark
+    session.add(user_word)
+    session.commit()
+    return True
+
+
+def replace_hard_contexts_before_first_exercise(session, user_words):
+    """
+    Swap fragment contexts, and sentences from articles above the learner's
+    level, for generated examples, but only for words that have never been
+    exercised: once a learner has seen a word's context they may have picked
+    it themselves (nothing records that), and we must not switch it back
+    behind their back.
 
     Returns the number of words swapped.
     """
-    fragment_words = [
-        uw for uw in user_words if uw.preferred_bookmark and is_fragment(uw.preferred_bookmark)
-    ]
-    if not fragment_words:
+    candidates = [uw for uw in user_words if uw.preferred_bookmark]
+    if not candidates:
         return 0
 
     exercised_ids = {
         row.user_word_id
         for row in session.query(Exercise.user_word_id)
-        .filter(Exercise.user_word_id.in_([uw.id for uw in fragment_words]))
+        .filter(Exercise.user_word_id.in_([uw.id for uw in candidates]))
         .distinct()
     }
 
     swapped = 0
-    for user_word in fragment_words:
+    for user_word in candidates:
         user_word_id = user_word.id
         if user_word_id in exercised_ids:
             continue
         try:
-            if replace_fragment_with_example(session, user_word):
+            if replace_context_with_example(session, user_word):
                 swapped += 1
         except Exception as e:
             # Serving the fragment is the old behaviour; never fail the
