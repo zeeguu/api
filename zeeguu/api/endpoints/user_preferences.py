@@ -38,7 +38,8 @@ def save_user_preferences():
             f"{', '.join(UserPreference.AUDIO_LESSON_CHARACTERS)}",
         )
 
-    daily_goal_value = data.get(UserPreference.DAILY_GOAL_MINUTES, None)
+    # Empty means not sent, as for the other preferences here.
+    daily_goal_value = data.get(UserPreference.DAILY_GOAL_MINUTES) or None
     daily_goal_minutes = UserPreference.parse_daily_goal_minutes(daily_goal_value)
     if daily_goal_value is not None and daily_goal_minutes is None:
         return make_error(
@@ -48,11 +49,7 @@ def save_user_preferences():
         )
 
     if daily_goal_minutes is not None:
-        daily_goal = UserPreference.find_or_create(
-            db_session, user, UserPreference.DAILY_GOAL_MINUTES
-        )
-        daily_goal.value = str(daily_goal_minutes)
-        db_session.add(daily_goal)
+        UserPreference.set_daily_goal_minutes(db_session, user, daily_goal_minutes)
         _credit_today_if_new_goal_is_met(user, daily_goal_minutes)
 
     max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
@@ -181,15 +178,15 @@ def save_user_preferences():
 def _credit_today_if_new_goal_is_met(user, goal_minutes):
     """A learner who lowers the goal below what they already studied today
     would otherwise wait for their next session update to get the day; with
-    none that day, the streak breaks although the countdown showed 0 left."""
-    language = user.learned_language
-    if language is None:
-        return
-    ul = UserLanguage.query.filter_by(user_id=user.id, language_id=language.id).first()
-    if ul is None or ul.practiced_today:
-        return
-    if UserLanguage.study_ms_today_for(user, language.id) >= goal_minutes * 60_000:
-        ul.update_streak_if_needed(user, db_session)
+    none that day, the streak breaks although the countdown showed 0 left.
+    Every language the learner has a row for: streaks are per language. Saving
+    the goal is rare, so one sum per language is fine here."""
+    goal_ms = goal_minutes * 60_000  # not get_daily_goal_ms: not committed yet
+    for ul in UserLanguage.query.filter_by(user_id=user.id).all():
+        if ul.language_id == user.native_language_id or ul.practiced_today:
+            continue
+        if UserLanguage.study_ms_today_for(user, ul.language_id) >= goal_ms:
+            ul.update_streak_if_needed(user, db_session)
 
 
 def _mirror_daily_audio_subscriptions(user, data):

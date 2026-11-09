@@ -52,9 +52,14 @@ class UserPreference(db.Model):
     # the goal existed were given 2, the old fixed streak minimum, so no streak
     # broke when it shipped (migration 26-11-09).
     DAILY_GOAL_MINUTES = "daily_goal_minutes"
-    DAILY_GOAL_CHOICES = (2, 5, 10, 15, 20)
+    # What a learner picks. 2 is only the grandfathered value of learners from
+    # before the goal existed: still valid, but it does not count as chosen.
+    DAILY_GOAL_PICKER_CHOICES = (5, 10, 15, 20)
+    DAILY_GOAL_CHOICES = (2,) + DAILY_GOAL_PICKER_CHOICES
     DEFAULT_DAILY_GOAL_MINUTES = 5
-    DAILY_GOAL_SET = "daily_goal_set"  # derived in all_for_user, not stored
+    # Derived in all_for_user, not stored: whether the learner picked a goal.
+    # Aiki mode and the study reminder need one (ADR 046).
+    DAILY_GOAL_SET = "daily_goal_set"
 
     # Which character the learner plays in situation lessons: "man", "woman", or
     # "either" (alternate). Asked, never inferred -- not from the name either: a
@@ -200,6 +205,21 @@ class UserPreference(db.Model):
         return stored or cls.DEFAULT_DAILY_GOAL_MINUTES
 
     @classmethod
+    def set_daily_goal_minutes(cls, session, user: User, minutes: int):
+        """Writes the newest row and drops any duplicates: find_or_create's
+        .one() would 500 on them, and readers must all see the same goal."""
+        rows = (
+            cls.query.filter_by(user_id=user.id, key=cls.DAILY_GOAL_MINUTES)
+            .order_by(cls.id.desc())
+            .all()
+        )
+        for duplicate in rows[1:]:
+            session.delete(duplicate)
+        row = rows[0] if rows else cls(user, cls.DAILY_GOAL_MINUTES)
+        row.value = str(minutes)
+        session.add(row)
+
+    @classmethod
     def get_daily_goal_ms(cls, user: User):
         return cls.get_daily_goal_minutes(user) * 60_000
 
@@ -240,7 +260,9 @@ class UserPreference(db.Model):
     @classmethod
     def all_for_user(cls, user: User):
         preferences_dict = {}
-        all_preference_objects = cls.query.filter_by(user=user).all()
+        # By id, so a key stored twice reads as its newest row, as the
+        # single-key getters (get_daily_goal_minutes) read it.
+        all_preference_objects = cls.query.filter_by(user=user).order_by(cls.id).all()
 
         for each in all_preference_objects:
             preferences_dict[each.key] = each.value
@@ -255,12 +277,11 @@ class UserPreference(db.Model):
             preferences_dict[cls.MAX_WORDS_TO_SCHEDULE] = DEFAULT_MAX_WORDS_TO_SCHEDULE
 
         # Always present, so clients show the goal the streak is counted with.
-        # daily_goal_set is derived, never stored: whether the learner chose the
-        # goal (or was given one by the migration) rather than running on the
-        # default. Aiki mode and the study reminder need a chosen goal (ADR 046).
-        chosen_goal = cls.parse_daily_goal_minutes(preferences_dict.get(cls.DAILY_GOAL_MINUTES))
-        preferences_dict[cls.DAILY_GOAL_SET] = "true" if chosen_goal else "false"
-        preferences_dict[cls.DAILY_GOAL_MINUTES] = str(chosen_goal or cls.DEFAULT_DAILY_GOAL_MINUTES)
+        stored_goal = cls.parse_daily_goal_minutes(preferences_dict.get(cls.DAILY_GOAL_MINUTES))
+        preferences_dict[cls.DAILY_GOAL_SET] = (
+            "true" if stored_goal in cls.DAILY_GOAL_PICKER_CHOICES else "false"
+        )
+        preferences_dict[cls.DAILY_GOAL_MINUTES] = str(stored_goal or cls.DEFAULT_DAILY_GOAL_MINUTES)
 
         return preferences_dict
 

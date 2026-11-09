@@ -183,3 +183,35 @@ def test_a_duplicated_goal_row_does_not_break_session_updates(client: LoggedInCl
     _browse(client, 310)
 
     assert _streaks_by_code(client)[code]["practiced_today"] is True
+
+
+def test_saving_the_goal_over_a_duplicated_row_works(client: LoggedInClient):
+    from zeeguu.core.model import UserPreference
+
+    _never_practiced(client, goal_minutes=10)
+    user = User.find(client.email)
+    db.session.add(UserPreference(user, UserPreference.DAILY_GOAL_MINUTES, "15"))
+    db.session.commit()
+
+    client.post("/save_user_preferences", data={"daily_goal_minutes": "20"})
+
+    assert client.get("/user_preferences")["daily_goal_minutes"] == "20"
+    user = User.find(client.email)
+    assert UserPreference.get_daily_goal_minutes(user) == 20
+    assert UserPreference.query.filter_by(user_id=user.id, key=UserPreference.DAILY_GOAL_MINUTES).count() == 1
+
+
+def test_the_grandfathered_two_minutes_does_not_count_as_chosen(client: LoggedInClient):
+    _never_practiced(client, goal_minutes=2)
+
+    preferences = client.get("/user_preferences")
+    assert preferences["daily_goal_minutes"] == "2"
+    assert preferences["daily_goal_set"] == "false"
+
+
+def test_an_empty_goal_is_ignored(client: LoggedInClient):
+    _never_practiced(client, goal_minutes=10)
+
+    client.post("/save_user_preferences", data={"daily_goal_minutes": ""})
+
+    assert client.get("/user_preferences")["daily_goal_minutes"] == "10"
