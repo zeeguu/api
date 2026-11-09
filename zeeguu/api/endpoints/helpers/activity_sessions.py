@@ -48,8 +48,7 @@ def update_activity_session(session_class, request, db_session):
     # same 404 instead of a 500. The streak step is inside the try because its
     # queries autoflush this same write.
     try:
-        if duration >= MIN_STREAK_DURATION_MS:
-            _update_streak(db_session, session)
+        _update_streak(db_session, session)
 
         db_session.commit()
     except StaleDataError:
@@ -58,8 +57,6 @@ def update_activity_session(session_class, request, db_session):
 
     return session
 
-
-MIN_STREAK_DURATION_MS = 120_000  # 2 minutes in milliseconds (frontend sends ms)
 
 # Activity sessions belong to a language one of two ways: their content
 # (lesson/article/video) carries it, or — for exercise/browsing sessions
@@ -84,4 +81,12 @@ def _update_streak(db_session, session):
     language = _session_language(session) or user.learned_language
     if language is None:
         return
-    UserLanguage.find_or_create(db_session, user, language).update_streak_if_needed(user, db_session)
+    user_language = UserLanguage.find_or_create(db_session, user, language)
+    if user_language.practiced_today:
+        return
+    # The day counts once the learner's study time today, across all their
+    # sessions in this language, reaches the minimum; this session's update
+    # is already in it (the query autoflushes it).
+    if user_language.study_ms_today() < UserLanguage.STREAK_MIN_STUDY_MS:
+        return
+    user_language.update_streak_if_needed(user, db_session)

@@ -75,6 +75,14 @@ def user_local_today(user):
     return _now_utc().astimezone(user_zone(user)).date()
 
 
+def user_local_day_start(user):
+    """The user's local midnight today, as a naive server-time datetime: the
+    lower bound for "today" in queries on the DB's naive DateTime columns."""
+    local_now = _now_utc().astimezone(user_zone(user))
+    midnight = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return midnight.astimezone(SERVER_TZ).replace(tzinfo=None)
+
+
 def to_user_local_date(user, naive_server_dt):
     if naive_server_dt is None:
         return None

@@ -4,7 +4,7 @@ from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, U
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model import User
-from zeeguu.core.util.time import user_local_today, to_user_local_date, server_now
+from zeeguu.core.util.time import user_local_today, user_local_day_start, to_user_local_date, server_now
 
 import zeeguu.core
 
@@ -77,6 +77,9 @@ class UserLanguage(db.Model):
     # is read in whatever locale it was read in before varieties existed.
     dialect = Column(String(2))
 
+    # Study time in a day (all sessions in this language) that keeps the streak.
+    STREAK_MIN_STUDY_MS = 120_000
+
     last_practiced = Column(DateTime, nullable=True)
     daily_streak = Column(Integer, default=0)
     max_streak = Column(Integer, default=0)
@@ -99,6 +102,48 @@ class UserLanguage(db.Model):
             return 0
 
         return self.daily_streak or 0
+
+    @property
+    def practiced_today(self):
+        return self.local_last_practiced == user_local_today(self.user)
+
+    def study_ms_today(self):
+        """Milliseconds the learner spent on this language since their local
+        midnight, summed over every kind of activity session. A day counts for
+        the streak once this reaches STREAK_MIN_STUDY_MS, however it is split
+        (45 s of exercises plus 90 s of reading counts)."""
+        from sqlalchemy import func
+        from zeeguu.core.model.article import Article
+        from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+        from zeeguu.core.model.video import Video
+        from zeeguu.core.model.user_exercise_session import UserExerciseSession
+        from zeeguu.core.model.user_browsing_session import UserBrowsingSession
+        from zeeguu.core.model.user_reading_session import UserReadingSession
+        from zeeguu.core.model.user_listening_session import UserListeningSession
+        from zeeguu.core.model.user_watching_session import UserWatchingSession
+
+        since = user_local_day_start(self.user)
+
+        def total(session_class, language_column, *joins):
+            query = db.session.query(func.coalesce(func.sum(session_class.duration), 0))
+            for target, on in joins:
+                query = query.join(target, on)
+            return query.filter(
+                session_class.user_id == self.user_id,
+                session_class.start_time >= since,
+                language_column == self.language_id,
+            ).scalar()
+
+        return int(
+            total(UserExerciseSession, UserExerciseSession.language_id)
+            + total(UserBrowsingSession, UserBrowsingSession.language_id)
+            + total(UserReadingSession, Article.language_id,
+                    (Article, UserReadingSession.article_id == Article.id))
+            + total(UserListeningSession, DailyAudioLesson.language_id,
+                    (DailyAudioLesson, UserListeningSession.daily_audio_lesson_id == DailyAudioLesson.id))
+            + total(UserWatchingSession, Video.language_id,
+                    (Video, UserWatchingSession.video_id == Video.id))
+        )
 
     @staticmethod
     def parse_cefr_level(value):
