@@ -57,13 +57,11 @@ class Cohort(db.Model):
         self.is_study = False
 
     def get_current_student_count(self):
-        from zeeguu.core.model.user import User
         from zeeguu.core.model.user_cohort_map import UserCohortMap
 
-        users_in_cohort = (
-            User.query.join(UserCohortMap).filter_by(cohort_id=self.id).all()
-        )
-        return len(users_in_cohort)
+        # A COUNT, not loading every member to len() them: this runs on every
+        # class join (signup with a code, /join_cohort, guest upgrade).
+        return UserCohortMap.query.filter_by(cohort_id=self.id).count()
 
     def cohort_still_has_capacity(self):
         # +10 here is just an approximation, because in the UI we
