@@ -53,7 +53,7 @@ class UserPreference(db.Model):
     # broke when it shipped (migration 26-11-09).
     DAILY_GOAL_MINUTES = "daily_goal_minutes"
     DAILY_GOAL_CHOICES = (2, 5, 10, 15, 20)
-    DEFAULT_DAILY_GOAL_MINUTES = 10
+    DEFAULT_DAILY_GOAL_MINUTES = 5
 
     # Which character the learner plays in situation lessons: "man", "woman", or
     # "either" (alternate). Asked, never inferred -- not from the name either: a
