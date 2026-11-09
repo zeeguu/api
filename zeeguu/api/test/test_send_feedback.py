@@ -60,3 +60,21 @@ def test_feedback_is_mailed_even_when_storing_fails(client):
 
     assert response == b"OK"
     assert sent["body"].startswith("love it 💗")
+
+
+def test_mail_body_survives_yagmail_newline_to_br(client):
+    # yagmail does body.replace("\n", "<br>"); on a markupsafe Markup that
+    # escapes the "<br>" and the mail showed "<br>" as text (feedback 7078).
+    _activity(client, "KEEP EXERCISING", '{"had_notification":true}')
+    bodies = []
+
+    def capture(self):
+        bodies.append(self.message_body)
+
+    with patch.object(ZeeguuMailer, "send", capture):
+        client.post("/send_feedback", data=dict(message="it's <b>odd</b>\nreally"))
+
+    html = bodies[0].replace("\n", "<br>")
+    assert type(bodies[0]) is str
+    assert "&lt;br&gt;" not in html
+    assert html.startswith("it&#39;s &lt;b&gt;odd&lt;/b&gt;<br>really")

@@ -11,7 +11,9 @@ from zeeguu.logging import logger, log
 class ZeeguuMailer(object):
     def __init__(self, message_subject, message_body, to_email):
 
-        self.message_body = message_body
+        # yagmail turns "\n" into "<br>" with str.replace; on a markupsafe
+        # Markup that escapes the "<br>" itself and the mail shows "<br>" as text.
+        self.message_body = str(message_body)
         self.to_email = to_email
         self.message_subject = message_subject
 
@@ -49,18 +51,19 @@ class ZeeguuMailer(object):
 
     @classmethod
     def send_feedback(cls, subject, component, message, user, url=None, origin=None):
-        where = " · ".join(escape(x) for x in [component, origin, url] if x)
+        where = " · ".join(x for x in [component, origin, url] if x)
         body = (
-            f"{escape(message)}\n\n"
+            f"{message}\n\n"
             + "—\n"
-            + f"{escape(user.name)} ({user.id}) · {escape(user.email)}\n"
+            + f"{user.name} ({user.id}) · {user.email}\n"
             + f"{where}\n"
             + _learner_line(user)
             + _recent_activity(user)
         )
         mailer = ZeeguuMailer(
             subject,
-            body,
+            # Escaped once, whole: str + Markup re-escapes the str side.
+            escape(body),
             # Gmail files mail it sends to itself under Sent only, never the
             # Inbox, so feedback goes to an address someone actually reads.
             zeeguu.core.app.config.get(
@@ -150,7 +153,7 @@ def _learner_line(user):
         classes = [m.cohort.name for m in user.cohorts]
         if classes:
             line += " · Class: " + ", ".join(classes)
-        return escape(line) + "\n"
+        return line + "\n"
     except Exception as e:
         log(f"feedback mail: no learner line: {e}")
         return ""
@@ -192,4 +195,4 @@ def _recent_activity(user, minutes=15, max_lines=12):
         count = f" ×{l['count']}" if l["count"] > 1 else ""
         value = f": {l['value'][:60]}" if l["value"] else ""
         out += f"{l['time']:%H:%M} {l['event'].lower()}{count}{value}\n"
-    return escape(out)
+    return out
