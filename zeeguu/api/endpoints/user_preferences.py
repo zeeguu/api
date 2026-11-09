@@ -50,7 +50,7 @@ def save_user_preferences():
 
     if daily_goal_minutes is not None:
         UserPreference.set_daily_goal_minutes(db_session, user, daily_goal_minutes)
-        _credit_today_if_new_goal_is_met(user, daily_goal_minutes)
+        _credit_today_if_new_goal_is_met(user)
 
     max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
     if max_words_to_schedule_value:
@@ -175,13 +175,14 @@ def save_user_preferences():
     return "OK"
 
 
-def _credit_today_if_new_goal_is_met(user, goal_minutes):
+def _credit_today_if_new_goal_is_met(user):
     """A learner who lowers the goal below what they already studied today
     would otherwise wait for their next session update to get the day; with
     none that day, the streak breaks although the countdown showed 0 left.
     Every language the learner has a row for: streaks are per language. Saving
     the goal is rare, so one sum per language is fine here."""
-    goal_ms = goal_minutes * 60_000  # not get_daily_goal_ms: not committed yet
+    # The new goal is already in the session; this query autoflushes it.
+    goal_ms = UserPreference.get_daily_goal_ms(user)
     for ul in UserLanguage.query.filter_by(user_id=user.id).all():
         if ul.language_id == user.native_language_id or ul.practiced_today:
             continue
