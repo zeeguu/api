@@ -108,10 +108,15 @@ class UserLanguage(db.Model):
         return self.local_last_practiced == user_local_today(self.user)
 
     def study_ms_today(self):
-        """Milliseconds the learner spent on this language since their local
-        midnight, summed over every kind of activity session. A day counts for
-        the streak once this reaches STREAK_MIN_STUDY_MS, however it is split
-        (45 s of exercises plus 90 s of reading counts)."""
+        """Milliseconds the learner spent on this language today, summed over
+        every kind of activity session. A day counts for the streak once this
+        reaches STREAK_MIN_STUDY_MS, however it is split (45 s of exercises
+        plus 90 s of reading counts).
+
+        A session counts for the day it was last active in, whole: one that
+        runs from 23:55 to 00:30 counts for the new day. Crediting happens in
+        the moment, for "today", so counting it for the day it started would
+        lose the minutes after midnight for both days."""
         from sqlalchemy import func
         from zeeguu.core.model.article import Article
         from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
@@ -130,7 +135,7 @@ class UserLanguage(db.Model):
                 query = query.join(target, on)
             return query.filter(
                 session_class.user_id == self.user_id,
-                session_class.start_time >= since,
+                session_class.last_action_time >= since,
                 language_column == self.language_id,
             ).scalar()
 

@@ -78,8 +78,26 @@ def test_study_time_from_yesterday_does_not_count_today(client: LoggedInClient):
         language_id=user.learned_language_id,
     )
     yesterday.duration = 100_000
+    yesterday.last_action_time = yesterday.start_time + datetime.timedelta(minutes=2)
     db.session.commit()
 
     _browse(client, 30)
 
     assert _streaks_by_code(client)[code]["practiced_today"] is False
+
+
+def test_a_session_running_past_midnight_counts_for_the_new_day(client: LoggedInClient):
+    from zeeguu.core.model.user_browsing_session import UserBrowsingSession
+
+    code = _never_practiced(client)
+    user = User.find(client.email)
+    started_yesterday = UserBrowsingSession._create_new_session(
+        db.session,
+        user.id,
+        current_time=server_now() - datetime.timedelta(days=1),
+        language_id=user.learned_language_id,
+    )
+
+    client.post("/browsing_session_update", data=dict(id=started_yesterday.id, duration=130_000))
+
+    assert _streaks_by_code(client)[code]["practiced_today"] is True
