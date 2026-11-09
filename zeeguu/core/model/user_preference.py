@@ -188,7 +188,15 @@ class UserPreference(db.Model):
 
     @classmethod
     def get_daily_goal_minutes(cls, user: User):
-        stored = cls.parse_daily_goal_minutes(cls.get(user, cls.DAILY_GOAL_MINUTES))
+        # .first(), not get()'s .one(): user_preference has no unique index on
+        # (user_id, key), so two concurrent saves can leave two rows, and this
+        # runs on every session update -- a duplicate must not 500 them all.
+        row = (
+            cls.query.filter_by(user_id=user.id, key=cls.DAILY_GOAL_MINUTES)
+            .order_by(cls.id.desc())
+            .first()
+        )
+        stored = cls.parse_daily_goal_minutes(row.value if row else None)
         return stored or cls.DEFAULT_DAILY_GOAL_MINUTES
 
     @classmethod
@@ -250,10 +258,9 @@ class UserPreference(db.Model):
         # daily_goal_set is derived, never stored: whether the learner chose the
         # goal (or was given one by the migration) rather than running on the
         # default. Aiki mode and the study reminder need a chosen goal (ADR 046).
-        preferences_dict[cls.DAILY_GOAL_SET] = (
-            "true" if cls.parse_daily_goal_minutes(preferences_dict.get(cls.DAILY_GOAL_MINUTES)) else "false"
-        )
-        preferences_dict[cls.DAILY_GOAL_MINUTES] = str(cls.get_daily_goal_minutes(user))
+        chosen_goal = cls.parse_daily_goal_minutes(preferences_dict.get(cls.DAILY_GOAL_MINUTES))
+        preferences_dict[cls.DAILY_GOAL_SET] = "true" if chosen_goal else "false"
+        preferences_dict[cls.DAILY_GOAL_MINUTES] = str(chosen_goal or cls.DEFAULT_DAILY_GOAL_MINUTES)
 
         return preferences_dict
 

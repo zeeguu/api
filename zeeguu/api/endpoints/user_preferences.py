@@ -4,7 +4,7 @@ import zeeguu.core
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
-from ...core.model import UserPreference, User
+from ...core.model import UserPreference, User, UserLanguage
 from zeeguu.api.utils.abort_handling import make_error
 
 db_session = zeeguu.core.model.db.session
@@ -53,6 +53,7 @@ def save_user_preferences():
         )
         daily_goal.value = str(daily_goal_minutes)
         db_session.add(daily_goal)
+        _credit_today_if_new_goal_is_met(user, daily_goal_minutes)
 
     max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
     if max_words_to_schedule_value:
@@ -175,6 +176,20 @@ def save_user_preferences():
     db_session.add(user)
     db_session.commit()
     return "OK"
+
+
+def _credit_today_if_new_goal_is_met(user, goal_minutes):
+    """A learner who lowers the goal below what they already studied today
+    would otherwise wait for their next session update to get the day; with
+    none that day, the streak breaks although the countdown showed 0 left."""
+    language = user.learned_language
+    if language is None:
+        return
+    ul = UserLanguage.query.filter_by(user_id=user.id, language_id=language.id).first()
+    if ul is None or ul.practiced_today:
+        return
+    if UserLanguage.study_ms_today_for(user, language.id) >= goal_minutes * 60_000:
+        ul.update_streak_if_needed(user, db_session)
 
 
 def _mirror_daily_audio_subscriptions(user, data):

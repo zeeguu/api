@@ -158,3 +158,28 @@ def test_a_goal_outside_the_choices_is_refused(client: LoggedInClient):
 
     assert response.status_code == 400
     assert client.get("/user_preferences")["daily_goal_minutes"] == "10"
+
+
+def test_lowering_the_goal_below_todays_study_counts_the_day(client: LoggedInClient):
+    code = _never_practiced(client, goal_minutes=10)
+    _browse(client, 420)
+    assert _streaks_by_code(client)[code]["practiced_today"] is False
+
+    client.post("/save_user_preferences", data={"daily_goal_minutes": "5"})
+
+    entry = _streaks_by_code(client)[code]
+    assert entry["practiced_today"] is True
+    assert entry["daily_streak"] == 1
+
+
+def test_a_duplicated_goal_row_does_not_break_session_updates(client: LoggedInClient):
+    from zeeguu.core.model import UserPreference
+
+    code = _never_practiced(client, goal_minutes=10)
+    user = User.find(client.email)
+    db.session.add(UserPreference(user, UserPreference.DAILY_GOAL_MINUTES, "5"))
+    db.session.commit()
+
+    _browse(client, 310)
+
+    assert _streaks_by_code(client)[code]["practiced_today"] is True
