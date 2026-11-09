@@ -54,6 +54,7 @@ class UserPreference(db.Model):
     DAILY_GOAL_MINUTES = "daily_goal_minutes"
     DAILY_GOAL_CHOICES = (2, 5, 10, 15, 20)
     DEFAULT_DAILY_GOAL_MINUTES = 5
+    DAILY_GOAL_SET = "daily_goal_set"  # derived in all_for_user, not stored
 
     # Which character the learner plays in situation lessons: "man", "woman", or
     # "either" (alternate). Asked, never inferred -- not from the name either: a
@@ -246,6 +247,12 @@ class UserPreference(db.Model):
             preferences_dict[cls.MAX_WORDS_TO_SCHEDULE] = DEFAULT_MAX_WORDS_TO_SCHEDULE
 
         # Always present, so clients show the goal the streak is counted with.
+        # daily_goal_set is derived, never stored: whether the learner chose the
+        # goal (or was given one by the migration) rather than running on the
+        # default. Aiki mode and the study reminder need a chosen goal (ADR 046).
+        preferences_dict[cls.DAILY_GOAL_SET] = (
+            "true" if cls.parse_daily_goal_minutes(preferences_dict.get(cls.DAILY_GOAL_MINUTES)) else "false"
+        )
         preferences_dict[cls.DAILY_GOAL_MINUTES] = str(cls.get_daily_goal_minutes(user))
 
         return preferences_dict

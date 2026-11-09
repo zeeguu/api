@@ -130,14 +130,18 @@ def test_the_default_goal_is_five_minutes(client: LoggedInClient):
     db.session.commit()
     code = user.learned_language.code
 
-    assert client.get("/user_preferences")["daily_goal_minutes"] == "5"
+    preferences = client.get("/user_preferences")
+    assert preferences["daily_goal_minutes"] == "5"
+    assert preferences["daily_goal_set"] == "false"
     assert _streaks_by_code(client)[code]["ms_to_streak"] == 300_000
 
 
 def test_the_streak_counts_against_the_learners_goal(client: LoggedInClient):
     code = _never_practiced(client, goal_minutes=10)
 
-    assert client.get("/user_preferences")["daily_goal_minutes"] == "10"
+    preferences = client.get("/user_preferences")
+    assert preferences["daily_goal_minutes"] == "10"
+    assert preferences["daily_goal_set"] == "true"
     _browse(client, 500)
     entry = _streaks_by_code(client)[code]
     assert entry["practiced_today"] is False
