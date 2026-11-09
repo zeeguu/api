@@ -23,11 +23,34 @@ from . import api, db_session
 MAX_EXAMPLES_ALTERNATIVE = 5  # Max examples for alternative_sentences endpoint
 MAX_EXAMPLES_GENERATE = 3     # Max examples for generate_examples endpoint
 DEFAULT_CEFR_LEVEL = "B1"
+CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 # A learner is waiting on these calls. With the service defaults (120s per
 # attempt, 2 SDK retries, then DeepSeek) one request ran for 15 minutes.
 # One 20s try per provider: at worst ~40s, then an error.
 INTERACTIVE_LLM = dict(timeout=20, max_retries=0)
+
+
+def _learner_cefr_level(user, language, requested=None):
+    """
+    The level to write or pick example sentences at: the one the caller asks
+    for, else the learner's own level in `language`, else B1. The web never
+    sends one, so before this every example was asked for at B1, also for
+    A1-A2 school classes.
+    """
+    if requested:
+        return requested
+    try:
+        return user.cefr_level_for_language(language)
+    except ValueError:
+        return DEFAULT_CEFR_LEVEL
+
+
+def _levels_up_to(cefr_level):
+    """The CEFR levels at or below `cefr_level`, easiest first."""
+    if cefr_level not in CEFR_LEVELS:
+        return CEFR_LEVELS
+    return CEFR_LEVELS[: CEFR_LEVELS.index(cefr_level) + 1]
 
 
 def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):
@@ -90,8 +113,9 @@ def alternative_sentences(user_word_id):
     if user_word.preferred_bookmark and user_word.preferred_bookmark.context:
         current_context = user_word.preferred_bookmark.get_context().strip().lower()
 
-    # Determine CEFR level
-    cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
+    cefr_level = _learner_cefr_level(
+        user, user_word.meaning.origin.language, request.args.get("cefr_level")
+    )
 
     # First, try to get pre-generated examples from database
     # Try exact CEFR level match first
@@ -102,7 +126,16 @@ def alternative_sentences(user_word_id):
         .all()
     )
 
-    # If no exact match, try any CEFR level for this meaning
+    # Then easier ones: an A2 learner is better off with A1 than with B1
+    if not db_examples:
+        db_examples = (
+            usable_examples_query(user_word.meaning_id)
+            .filter(ExampleSentence.cefr_level.in_(_levels_up_to(cefr_level)))
+            .limit(MAX_EXAMPLES_ALTERNATIVE)
+            .all()
+        )
+
+    # If still nothing, try any CEFR level for this meaning
     if not db_examples:
         db_examples = usable_examples_query(user_word.meaning_id).limit(MAX_EXAMPLES_ALTERNATIVE).all()
 
@@ -396,7 +429,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
     :param from_lang: Source language code (e.g., 'da')
     :param to_lang: Target language code (e.g., 'en')
     :query translation: Optional translation/meaning to generate examples for specific sense
-    :query cefr_level: User's CEFR level for appropriate difficulty (default: B1)
+    :query cefr_level: CEFR level to write at (default: the learner's level in from_lang, else B1)
     :return: JSON array with example sentences
     """
     user = User.find_by_id(flask.g.user_id)
@@ -408,7 +441,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
     if not origin_lang or not translation_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
 
-    cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
+    cefr_level = _learner_cefr_level(user, origin_lang, request.args.get("cefr_level"))
     translation = request.args.get("translation", "")
     abort_if_too_long("word", word, MAX_PHRASE_CHARS)
     abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
@@ -537,15 +570,14 @@ def add_word_to_learning():
     abort_if_too_long("word", word, MAX_PHRASE_CHARS)
     abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
 
-    # Get user's CEFR level
-    cefr_level = data.get("cefr_level", DEFAULT_CEFR_LEVEL)
-
     # Get language objects
     origin_lang = Language.find(from_lang)
     target_lang = Language.find(to_lang)
 
     if not origin_lang or not target_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
+
+    cefr_level = _learner_cefr_level(user, origin_lang, data.get("cefr_level"))
 
     try:
         # Call LLM to prepare the optimal learning card
