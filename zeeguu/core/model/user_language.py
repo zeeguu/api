@@ -108,6 +108,10 @@ class UserLanguage(db.Model):
         return self.local_last_practiced == user_local_today(self.user)
 
     def study_ms_today(self):
+        return UserLanguage.study_ms_today_for(self.user, self.language_id)
+
+    @staticmethod
+    def study_ms_today_for(user, language_id):
         """Milliseconds the learner spent on this language today, summed over
         every kind of activity session. A day counts for the streak once this
         reaches STREAK_MIN_STUDY_MS, however it is split (45 s of exercises
@@ -127,16 +131,16 @@ class UserLanguage(db.Model):
         from zeeguu.core.model.user_listening_session import UserListeningSession
         from zeeguu.core.model.user_watching_session import UserWatchingSession
 
-        since = user_local_day_start(self.user)
+        since = user_local_day_start(user)
 
         def total(session_class, language_column, *joins):
             query = db.session.query(func.coalesce(func.sum(session_class.duration), 0))
             for target, on in joins:
                 query = query.join(target, on)
             return query.filter(
-                session_class.user_id == self.user_id,
+                session_class.user_id == user.id,
                 session_class.last_action_time >= since,
-                language_column == self.language_id,
+                language_column == language_id,
             ).scalar()
 
         return int(

@@ -101,3 +101,17 @@ def test_a_session_running_past_midnight_counts_for_the_new_day(client: LoggedIn
     client.post("/browsing_session_update", data=dict(id=started_yesterday.id, duration=130_000))
 
     assert _streaks_by_code(client)[code]["practiced_today"] is True
+
+
+def test_a_few_seconds_in_another_language_do_not_add_it(client: LoggedInClient):
+    from zeeguu.core.model import Language
+    from zeeguu.core.model.user_browsing_session import UserBrowsingSession
+
+    user = User.find(client.email)
+    other = Language.find_or_create("es" if user.learned_language.code != "es" else "fr")
+    user_id, other_id = user.id, other.id
+    session_id = UserBrowsingSession._create_new_session(db.session, user_id, language_id=other_id).id
+
+    client.post("/browsing_session_update", data=dict(id=session_id, duration=5_000))
+
+    assert UserLanguage.query.filter_by(user_id=user_id, language_id=other_id).first() is None

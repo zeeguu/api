@@ -81,12 +81,19 @@ def _update_streak(db_session, session):
     language = _session_language(session) or user.learned_language
     if language is None:
         return
-    user_language = UserLanguage.find_or_create(db_session, user, language)
-    if user_language.practiced_today:
+    # Look the row up but only create it when the day counts: a few seconds
+    # on an article in another language must not add that language to the
+    # user's languages (streaks, friends, badges all list those rows).
+    existing = UserLanguage.query.filter_by(user_id=user.id, language_id=language.id).first()
+    if existing is not None and existing.practiced_today:
         return
     # The day counts once the learner's study time today, across all their
-    # sessions in this language, reaches the minimum; this session's update
-    # is already in it (the query autoflushes it).
-    if user_language.study_ms_today() < UserLanguage.STREAK_MIN_STUDY_MS:
+    # sessions in this language, reaches the minimum. This session alone is
+    # enough for most study, which skips the sum; otherwise sum the day (this
+    # session's update is in it: the query autoflushes it).
+    if (
+        (session.duration or 0) < UserLanguage.STREAK_MIN_STUDY_MS
+        and UserLanguage.study_ms_today_for(user, language.id) < UserLanguage.STREAK_MIN_STUDY_MS
+    ):
         return
-    user_language.update_streak_if_needed(user, db_session)
+    UserLanguage.find_or_create(db_session, user, language).update_streak_if_needed(user, db_session)
