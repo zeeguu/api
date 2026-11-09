@@ -652,7 +652,7 @@ class User(db.Model):
         session.add(new_cohort)
         session.commit()
 
-    def join_class_of_invite_code(self, invite_code, session):
+    def join_class_of_invite_code(self, invite_code, session, include_teacher_classes=False):
         """Join the class whose invite code a guest gave; the class, or None.
 
         Used at guest signup and again at the upgrade to a full account, so
@@ -660,7 +660,8 @@ class User(db.Model):
         (user_cohort_map's key is (user_id, cohort_id)). The code is matched
         case-insensitively and without surrounding spaces. A class with no
         max_students has no limit, as in /join_cohort. A class of teachers is
-        skipped: an anonymous visitor does not become a teacher.
+        skipped unless include_teacher_classes: an anonymous visitor does not
+        join one at signup, while the upgrade keeps its old behavior.
         """
         from zeeguu.core.model import Cohort
 
@@ -669,13 +670,16 @@ class User(db.Model):
             return None
 
         cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == code.lower()).first()
-        if cohort is None or cohort.is_cohort_of_teachers:
+        if cohort is None:
+            return None
+        if cohort.is_cohort_of_teachers and not include_teacher_classes:
             return None
 
         if self.is_member_of_cohort(cohort.id):
             return cohort
 
         if cohort.max_students is not None and not cohort.cohort_still_has_capacity():
+            log(f"User {self.id}: class {cohort.id} of invite code {code!r} is full; not added")
             return None
 
         self.add_user_to_cohort(cohort, session)
@@ -823,9 +827,15 @@ class User(db.Model):
 
         # A guest who signed up with a class code joined that class already
         # (since add_anon_user does it); this catches the ones from before.
-        if self.invitation_code and not self.join_class_of_invite_code(self.invitation_code, db.session):
-            log(f"UPGRADE_ACCOUNT: user_id={self.id} -The classroom with the invitation code: " +
-                f"{self.invitation_code} does not exist or does not have enough capacity")
+        # Best effort, as at signup: the verification code is already spent,
+        # so a failed join must not fail the upgrade.
+        if self.invitation_code:
+            try:
+                self.join_class_of_invite_code(self.invitation_code, db.session, include_teacher_classes=True)
+            except Exception as e:
+                db.session.rollback()
+                log(f"UPGRADE_ACCOUNT: user_id={self.id} - could not join the class of "
+                    f"{self.invitation_code!r}: {e}")
 
         log(f"UPGRADE_ACCOUNT: user_id={self.id} - Upgrading from anonymous to {email}")
 

@@ -220,8 +220,7 @@ def _join_class_of_invite_code(user, invite_code):
     if not invite_code:
         return
     try:
-        if not user.join_class_of_invite_code(invite_code, db_session):
-            log(f"Guest {user.id}: no class joined for invite code {invite_code!r}")
+        user.join_class_of_invite_code(invite_code, db_session)
     except Exception as e:
         db_session.rollback()
         log(f"Guest {user.id}: could not join the class of invite code {invite_code!r}: {e}")
