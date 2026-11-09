@@ -98,7 +98,12 @@ def test_a_session_running_past_midnight_counts_for_the_new_day(client: LoggedIn
         language_id=user.learned_language_id,
     )
 
-    client.post("/browsing_session_update", data=dict(id=started_yesterday.id, duration=130_000))
+    started_yesterday_id = started_yesterday.id
+
+    # Each session is under the minimum on its own, so only the day's sum,
+    # which must include the session started yesterday, can credit today.
+    client.post("/browsing_session_update", data=dict(id=started_yesterday_id, duration=100_000))
+    _browse(client, 30)
 
     assert _streaks_by_code(client)[code]["practiced_today"] is True
 
