@@ -2,7 +2,6 @@ import flask
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.util.time import user_local_today
 from zeeguu.core.model.friendship import Friendship
 from . import api
 from ...core.model import User
@@ -19,22 +18,38 @@ def get_daily_streak():
     return json_result({"daily_streak": ul.current_daily_streak})
 
 
+def _ms_to_streak(ul, user, practiced_today):
+    """Study time still needed today for the day to count; 0 once it has.
+    Only for the language being learned now (the one the countdown shows):
+    this endpoint is polled, and the sum is five queries per language."""
+    if practiced_today:
+        return 0
+    if ul.language_id != user.learned_language_id:
+        return None
+    return max(0, UserLanguage.STREAK_MIN_STUDY_MS - ul.study_ms_today())
+
+
+def _language_streak(ul, user):
+    practiced_today = ul.practiced_today
+    return {
+        "code": ul.language.code,
+        "language": ul.language.name,
+        "daily_streak": ul.current_daily_streak,
+        "practiced_today": practiced_today,
+        # A date, not a time: last_practiced is only written on the day's
+        # first activity, so its time of day would be misleading.
+        "last_practiced_date": ul.local_last_practiced and ul.local_last_practiced.isoformat(),
+        "ms_to_streak": _ms_to_streak(ul, user, practiced_today),
+    }
+
+
 @api.route("/all_language_streaks", methods=["GET"])
 @cross_domain
 @requires_session
 def get_all_language_streaks():
     user = User.find_by_id(flask.g.user_id)
-    today = user_local_today(user)
     result = [
-        {
-            "code": ul.language.code,
-            "language": ul.language.name,
-            "daily_streak": ul.current_daily_streak,
-            "practiced_today": ul.local_last_practiced == today,
-            # A date, not a time: last_practiced is only written on the day's
-            # first activity, so its time of day would be misleading.
-            "last_practiced_date": ul.local_last_practiced and ul.local_last_practiced.isoformat(),
-        }
+        _language_streak(ul, user)
         for ul in UserLanguage.query.filter_by(user_id=user.id).all()
         if ul.language_id != user.native_language_id
     ]

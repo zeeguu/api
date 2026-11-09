@@ -48,8 +48,7 @@ def update_activity_session(session_class, request, db_session):
     # same 404 instead of a 500. The streak step is inside the try because its
     # queries autoflush this same write.
     try:
-        if duration >= MIN_STREAK_DURATION_MS:
-            _update_streak(db_session, session)
+        _update_streak(db_session, session)
 
         db_session.commit()
     except StaleDataError:
@@ -58,8 +57,6 @@ def update_activity_session(session_class, request, db_session):
 
     return session
 
-
-MIN_STREAK_DURATION_MS = 120_000  # 2 minutes in milliseconds (frontend sends ms)
 
 # Activity sessions belong to a language one of two ways: their content
 # (lesson/article/video) carries it, or — for exercise/browsing sessions
@@ -83,5 +80,20 @@ def _update_streak(db_session, session):
     user = User.find_by_id(flask.g.user_id)
     language = _session_language(session) or user.learned_language
     if language is None:
+        return
+    # Look the row up but only create it when the day counts: a few seconds
+    # on an article in another language must not add that language to the
+    # user's languages (streaks, friends, badges all list those rows).
+    existing = UserLanguage.query.filter_by(user_id=user.id, language_id=language.id).first()
+    if existing is not None and existing.practiced_today:
+        return
+    # The day counts once the learner's study time today, across all their
+    # sessions in this language, reaches the minimum. This session alone is
+    # enough for most study, which skips the sum; otherwise sum the day (this
+    # session's update is in it: the query autoflushes it).
+    if (
+        (session.duration or 0) < UserLanguage.STREAK_MIN_STUDY_MS
+        and UserLanguage.study_ms_today_for(user, language.id) < UserLanguage.STREAK_MIN_STUDY_MS
+    ):
         return
     UserLanguage.find_or_create(db_session, user, language).update_streak_if_needed(user, db_session)
