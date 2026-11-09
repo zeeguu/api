@@ -193,11 +193,43 @@ def add_anon_user():
         if language_code and cefr_level not in (None, ""):
             new_user.set_learned_language(language_code, cefr_level, db_session)
             db_session.commit()
+
+        _join_class_of_invite_code(new_user, invite_code)
     except ValueError as e:
         return bad_request("Could not create anon user.")
     except sqlalchemy.exc.IntegrityError as e:
         return bad_request("Could not create anon user. Maybe uuid already exists?")
     return get_anon_session(uuid)
+
+
+def _join_class_of_invite_code(user, invite_code):
+    """Put a guest who signed up with a class's invite code into that class.
+
+    Signing up with an email (create_account) has always done this; the guest
+    path only stored the code, so a student who chose "start without an
+    account" never showed up in the teacher's class (Danish challenge, Nov
+    2026: two of them, found only by hand). Same lookup and capacity rule as
+    create_account, but a guest is never turned away: with an unknown code or
+    a full class the account is still created, just without the class, since
+    a guest has nowhere to see an error and the code was already checked when
+    it was typed (/validate_invite_code). A class of teachers is skipped:
+    an anonymous visitor does not become a teacher.
+    """
+    from sqlalchemy import func
+    from zeeguu.core.model import Cohort
+
+    if not invite_code or not invite_code.strip():
+        return
+
+    cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == invite_code.strip().lower()).first()
+    if cohort is None or cohort.is_cohort_of_teachers:
+        return
+
+    if not cohort.cohort_still_has_capacity():
+        log(f"Guest {user.id} signed up with the code of full class {cohort.id}; not added")
+        return
+
+    user.add_user_to_cohort(cohort, db_session)
 
 
 @api.route("/upgrade_anon_user", methods=["POST"])
