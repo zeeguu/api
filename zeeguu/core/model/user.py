@@ -848,9 +848,12 @@ class User(db.Model):
             try:
                 self.join_class_of_invite_code(self.invitation_code, db.session, include_teacher_classes=True)
             except Exception as e:
+                from sentry_sdk import capture_exception
+
                 db.session.rollback()
                 log(f"UPGRADE_ACCOUNT: user_id={self.id} - could not join the class of "
                     f"{self.invitation_code!r}: {e}")
+                capture_exception(e)
 
         log(f"UPGRADE_ACCOUNT: user_id={self.id} - Upgrading from anonymous to {email}")
 

@@ -157,7 +157,7 @@ def add_anon_user():
     native_code = request.form.get("native_language_code", None)
     cefr_level = request.form.get("learned_cefr_level", None)
     platform = request.form.get("platform", None)
-    # Stripped so the stored code matches the class's inv_code exactly.
+    # Stripped of surrounding spaces, which the class lookup ignores too.
     invite_code = (request.form.get("invite_code") or "").strip() or None
 
     # Checked before the user is created: a bad level after the commit below
@@ -222,8 +222,13 @@ def _join_class_of_invite_code(user, invite_code):
     try:
         user.join_class_of_invite_code(invite_code, db_session)
     except Exception as e:
+        from sentry_sdk import capture_exception
+
         db_session.rollback()
         log(f"Guest {user.id}: could not join the class of invite code {invite_code!r}: {e}")
+        # Reported, not only logged: a guest missing from their class is
+        # invisible to the teacher, which is the bug this join fixes.
+        capture_exception(e)
 
 
 @api.route("/upgrade_anon_user", methods=["POST"])
