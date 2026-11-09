@@ -254,8 +254,23 @@ class User(db.Model):
         UserCohortMap.query.filter(UserCohortMap.user_id == self.id).filter(
             UserCohortMap.cohort_id == cohort_id
         ).delete()
+        self._forget_invite_code_of_class(cohort_id)
         session.add(self)
         session.commit()
+
+    def _forget_invite_code_of_class(self, cohort_id):
+        """A guest removed from (or leaving) the class of their invite code
+        forgets the code, so upgrading to a full account later does not put
+        them back in the class (upgrade_to_full_account joins the class of
+        the stored code). Only guests: for a full account the code stays as
+        the record of how they signed up."""
+        from zeeguu.core.model import Cohort
+
+        if not self.is_anonymous() or not self.invitation_code:
+            return
+        cohort = Cohort.query.get(cohort_id)
+        if cohort and cohort.inv_code and cohort.inv_code.strip().lower() == self.invitation_code.strip().lower():
+            self.invitation_code = None
 
     def details_as_dictionary(self):
         from datetime import datetime
@@ -652,6 +667,39 @@ class User(db.Model):
         session.add(new_cohort)
         session.commit()
 
+    def join_class_of_invite_code(self, invite_code, session, include_teacher_classes=False):
+        """Join the class whose invite code a guest gave; the class, or None.
+
+        Used at guest signup and again at the upgrade to a full account, so
+        it is idempotent: already a member is a success, not a second row
+        (user_cohort_map's key is (user_id, cohort_id)). The code is matched
+        case-insensitively and without surrounding spaces. A class with no
+        max_students has no limit, as in /join_cohort. A class of teachers is
+        skipped unless include_teacher_classes: an anonymous visitor does not
+        join one at signup, while the upgrade keeps its old behavior.
+        """
+        from zeeguu.core.model import Cohort
+
+        code = (invite_code or "").strip()
+        if not code:
+            return None
+
+        cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == code.lower()).first()
+        if cohort is None:
+            return None
+        if cohort.is_cohort_of_teachers and not include_teacher_classes:
+            return None
+
+        if self.is_member_of_cohort(cohort.id):
+            return cohort
+
+        if cohort.max_students is not None and not cohort.cohort_still_has_capacity():
+            log(f"User {self.id}: class {cohort.id} of invite code {code!r} is full; not added")
+            return None
+
+        self.add_user_to_cohort(cohort, session)
+        return cohort
+
     def cohort_articles_for_user(self):
         """The class texts this student can see, each tagged with its class.
 
@@ -792,15 +840,20 @@ class User(db.Model):
         if User.email_exists(email):
             raise ValueError("Email already in use")
 
-        # Add anonymous user to cohort on account upgrade. 
-        from zeeguu.core.model import Cohort
+        # A guest who signed up with a class code joined that class already
+        # (since add_anon_user does it); this catches the ones from before.
+        # Best effort, as at signup: the verification code is already spent,
+        # so a failed join must not fail the upgrade.
         if self.invitation_code:
-            cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == self.invitation_code.lower()).first()
-            if cohort and cohort.cohort_still_has_capacity():
-                self.add_user_to_cohort(cohort, db.session)
-            else:
-                log(f"UPGRADE_ACCOUNT: user_id={self.id} -The classroom with the invitation code: " +
-                    f"{self.invitation_code} does not exist or does not have enough capacity")
+            try:
+                self.join_class_of_invite_code(self.invitation_code, db.session, include_teacher_classes=True)
+            except Exception as e:
+                from sentry_sdk import capture_exception
+
+                db.session.rollback()
+                log(f"UPGRADE_ACCOUNT: user_id={self.id} - could not join the class of "
+                    f"{self.invitation_code!r}: {e}")
+                capture_exception(e)
 
         log(f"UPGRADE_ACCOUNT: user_id={self.id} - Upgrading from anonymous to {email}")
 

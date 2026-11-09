@@ -157,7 +157,8 @@ def add_anon_user():
     native_code = request.form.get("native_language_code", None)
     cefr_level = request.form.get("learned_cefr_level", None)
     platform = request.form.get("platform", None)
-    invite_code = request.form.get("invite_code", None)
+    # Stripped of surrounding spaces, which the class lookup ignores too.
+    invite_code = (request.form.get("invite_code") or "").strip() or None
 
     # Checked before the user is created: a bad level after the commit below
     # would leave the account half-made, and a retry with the same uuid fails.
@@ -197,7 +198,37 @@ def add_anon_user():
         return bad_request("Could not create anon user.")
     except sqlalchemy.exc.IntegrityError as e:
         return bad_request("Could not create anon user. Maybe uuid already exists?")
+
+    _join_class_of_invite_code(new_user, invite_code)
     return get_anon_session(uuid)
+
+
+def _join_class_of_invite_code(user, invite_code):
+    """Put a guest who signed up with a class's invite code into that class.
+
+    Signing up with an email (create_account) has always done this at signup;
+    the guest path only did it at the upgrade to a full account, so a student
+    who stayed a guest never showed up in the teacher's class (Danish
+    challenge, Nov 2026: two of them, found only by hand).
+
+    Best effort: the account already exists, so a guest is never turned away.
+    With an unknown code or a full class they just get no class, and if the
+    join itself fails it is rolled back and logged, and the signup still
+    returns a session (the client retries with the same uuid otherwise, and
+    that fails).
+    """
+    if not invite_code:
+        return
+    try:
+        user.join_class_of_invite_code(invite_code, db_session)
+    except Exception as e:
+        from sentry_sdk import capture_exception
+
+        db_session.rollback()
+        log(f"Guest {user.id}: could not join the class of invite code {invite_code!r}: {e}")
+        # Reported, not only logged: a guest missing from their class is
+        # invisible to the teacher, which is the bug this join fixes.
+        capture_exception(e)
 
 
 @api.route("/upgrade_anon_user", methods=["POST"])
