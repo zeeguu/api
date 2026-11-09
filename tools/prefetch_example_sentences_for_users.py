@@ -7,16 +7,19 @@ Pre-generates example sentences for all user words to avoid real-time LLM calls.
 This tool can be run periodically (e.g., nightly) to ensure users have
 instant access to example sentences.
 
+Writes examples at the learner's level, for the words the exercises will
+show next: scheduled words and the next new ones. A meaning is covered once
+it has EXAMPLES_PER_LEVEL usable examples at or below the learner's level.
+
 Usage:
-    python -m tools.example_batch_generator --all
-    python -m tools.example_batch_generator --user-id 123
-    python -m tools.example_batch_generator --missing-only
+    python -m tools.prefetch_example_sentences_for_users --all [--dry-run] [--max-words N]
+    python -m tools.prefetch_example_sentences_for_users --user-id 123
 """
 
 import argparse
 import sys
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import zeeguu.core
 from zeeguu.core.model import User, UserWord, ExampleSentence
@@ -29,95 +32,108 @@ from zeeguu.core.model.db import db
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 
-def get_user_words_needing_examples(
-    user: Optional[User] = None,
-    missing_only: bool = False,
-    min_examples_threshold: int = 5,
-    scheduled_only: bool = True,
-    active_users_only: bool = True,
-    days_active_threshold: int = 30,
-) -> List[UserWord]:
-    """
-    Get user words that need example sentences generated.
+CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
+FALLBACK_LEVEL = "B1"  # learners who never set one; as in generated_examples
+EXAMPLES_PER_LEVEL = 3  # usable examples at or below the learner's level
+NEXT_NEW_WORDS = 10  # unscheduled words the exercises will introduce next
 
-    Args:
-        user: Specific user to generate for, or None for all users
-        missing_only: Only return user words with fewer than min_examples_threshold examples
-        min_examples_threshold: Minimum number of examples each word should have
-        scheduled_only: Only include words that are currently scheduled for study
-        active_users_only: Only include words for users active in the last N days
-        days_active_threshold: Number of days to consider for "active" users
 
-    Returns:
-        List of UserWord objects needing examples
+def learner_level(user: User) -> str:
+    try:
+        return user.cefr_level_for_learned_language()
+    except ValueError:
+        return FALLBACK_LEVEL
+
+
+def levels_up_to(cefr_level: str) -> List[str]:
+    return CEFR_LEVELS[: CEFR_LEVELS.index(cefr_level) + 1]
+
+
+def words_the_exercises_will_show(user: User, all_words: bool = False) -> List[UserWord]:
     """
-    from sqlalchemy import func
-    from zeeguu.core.model import Meaning, Phrase
+    The learner's scheduled words, and the next unscheduled ones the exercises
+    will introduce (BasicSRSchedule.user_words_to_study takes them in the same
+    order). Scheduled words alone are not enough: a word gets a schedule only
+    at its first exercise, and that is when its context gets swapped for an
+    example (zeeguu/core/exercises/example_contexts.py).
+    """
     from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
-    query = UserWord.query.filter(UserWord.fit_for_study == True)
-
-    if user:
-        query = query.filter(UserWord.user_id == user.id)
-
-    if scheduled_only:
-        # Only include words that have a schedule (are actively being studied)
-        query = query.join(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
-
-    if missing_only:
-        # Only get user words that have fewer than N example sentences
-        # Using a subquery to count existing examples per meaning
-        example_count_subquery = (
-            db.session.query(
-                ExampleSentence.meaning_id,
-                func.count(ExampleSentence.id).label("example_count"),
-            )
-            .group_by(ExampleSentence.meaning_id)
-            .subquery()
+    if all_words:
+        return BasicSRSchedule.user_words_not_scheduled(user, None) + (
+            BasicSRSchedule._scheduled_user_words_query(user).all()
         )
-
-        # Left join to include meanings with zero examples
-        query = query.outerjoin(
-            example_count_subquery,
-            UserWord.meaning_id == example_count_subquery.c.meaning_id,
-        ).filter(
-            (example_count_subquery.c.example_count == None)
-            | (example_count_subquery.c.example_count < min_examples_threshold)
-        )
-
-    # Prioritize by word frequency (most common words first)
-    query = (
-        query.join(Meaning, UserWord.meaning_id == Meaning.id)
-        .join(Phrase, Meaning.origin_id == Phrase.id)
-        .order_by(Phrase.rank)
+    return BasicSRSchedule._scheduled_user_words_query(user).all() + (
+        BasicSRSchedule.user_words_not_scheduled(user, NEXT_NEW_WORDS)
     )
 
-    # Apply active users filter if needed - much more efficient with last_seen
-    if active_users_only and not user:  # Only filter by activity if processing all users
-        from datetime import datetime, timedelta
-        cutoff_date = datetime.now() - timedelta(days=days_active_threshold)
-        
-        # Use the user relationship instead of explicit join to avoid cartesian product
-        query = query.filter(
-            UserWord.user.has(User.last_seen > cutoff_date)
-        )
-        log(f"Filtering to users active since {cutoff_date}")
 
-    return query.all()
+def meanings_with_examples_up_to(meaning_ids, cefr_level: str, needed: int) -> set:
+    """Of these meanings, those with `needed` usable examples at or below the level."""
+    from sqlalchemy import func
+    from zeeguu.core.model.example_sentence_misfit import ExampleSentenceMisfit
+
+    if not meaning_ids:
+        return set()
+    rows = (
+        db.session.query(ExampleSentence.meaning_id)
+        .filter(ExampleSentence.meaning_id.in_(meaning_ids))
+        .filter(ExampleSentence.cefr_level.in_(levels_up_to(cefr_level)))
+        .filter(~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()))
+        .group_by(ExampleSentence.meaning_id)
+        .having(func.count(ExampleSentence.id) >= needed)
+    )
+    return {row.meaning_id for row in rows}
+
+
+def get_user_words_needing_examples(
+    user: Optional[User] = None,
+    target_examples: int = EXAMPLES_PER_LEVEL,
+    all_words: bool = False,
+    days_active_threshold: int = 30,
+) -> List[Tuple[UserWord, str]]:
+    """
+    (user word, learner's level) for each word the exercises will show that
+    has fewer than `target_examples` usable examples at or below the learner's
+    level. Examples belong to the meaning, so a meaning needed by several
+    learners at one level comes once.
+
+    Before 9 Nov 2026 examples were written at a level guessed from word rank,
+    for scheduled words only, and an A2 learner's new words came with no
+    examples or B1-C2 ones (user 6885).
+    """
+    from datetime import timedelta
+
+    if user:
+        users = [user]
+    else:
+        cutoff = datetime.now() - timedelta(days=days_active_threshold)
+        users = User.query.filter(User.last_seen > cutoff).order_by(User.id).all()
+        log(f"{len(users)} learners active since {cutoff}")
+
+    needing = []
+    seen = set()
+    for each in users:
+        level = learner_level(each)
+        words = words_the_exercises_will_show(each, all_words)
+        covered = meanings_with_examples_up_to(
+            {w.meaning_id for w in words}, level, target_examples
+        )
+        for user_word in words:
+            key = (user_word.meaning_id, level)
+            if user_word.meaning_id in covered or key in seen:
+                continue
+            seen.add(key)
+            needing.append((user_word, level))
+    return needing
 
 
 def generate_examples_for_user_word(
-    user_word: UserWord, target_example_count: int = 5
+    user_word: UserWord, cefr_level: str, target_example_count: int = EXAMPLES_PER_LEVEL
 ) -> List[ExampleSentence]:
     """
-    Generate multiple example sentences for a single user word.
-
-    Args:
-        user_word: The UserWord to generate examples for
-        target_example_count: Target total number of examples (will generate enough to reach this count)
-
-    Returns:
-        List of created ExampleSentence objects
+    Write examples at `cefr_level` until the word's meaning has
+    `target_example_count` usable ones at or below that level.
     """
     # Validate translation first (may fix it)
     from zeeguu.core.llm_services.validation_service import UserWordValidationService
@@ -129,24 +145,26 @@ def generate_examples_for_user_word(
     # Use the validated (possibly fixed) user_word
     user_word = validated_user_word
 
-    # Check how many examples already exist
-    existing_count = ExampleSentence.query.filter(
-        ExampleSentence.meaning_id == user_word.meaning_id
-    ).count()
-
-    # Calculate how many more we need
-    examples_to_generate = max(0, target_example_count - existing_count)
-
-    if examples_to_generate == 0:
-        log(f"User word {user_word.id} already has {existing_count} examples, skipping")
+    # Validation may have moved the word to another meaning
+    if user_word.meaning_id in meanings_with_examples_up_to(
+        {user_word.meaning_id}, cefr_level, target_example_count
+    ):
+        log(f"User word {user_word.id} already has {target_example_count} examples up to {cefr_level}")
         return []
+
+    from zeeguu.core.exercises.example_contexts import usable_examples_query
+
+    existing_count = (
+        usable_examples_query(user_word.meaning_id)
+        .filter(ExampleSentence.cefr_level.in_(levels_up_to(cefr_level)))
+        .count()
+    )
+    examples_to_generate = target_example_count - existing_count
+
     origin_word = user_word.meaning.origin.content
     translation = user_word.meaning.translation.content
     origin_lang = user_word.meaning.origin.language.code
     translation_lang = user_word.meaning.translation.language.code
-
-    # Determine CEFR level based on user's level or word frequency
-    cefr_level = determine_cefr_level(user_word)
 
     try:
         log(f"Getting LLM service for word: {origin_word}")
@@ -154,7 +172,7 @@ def generate_examples_for_user_word(
         log(f"Using LLM service: {type(llm_service).__name__}")
 
         log(
-            f"Generating {examples_to_generate} examples for '{origin_word}' -> '{translation}'"
+            f"Generating {examples_to_generate} {cefr_level} examples for '{origin_word}' -> '{translation}'"
         )
         # Generate the needed number of examples
         examples = llm_service.generate_examples(
@@ -196,11 +214,6 @@ def generate_examples_for_user_word(
 
         # Commit immediately after creating each set of examples
         db.session.commit()
-        log(f"Committed {len(created_examples)} examples for user_word {user_word.id}")
-
-        for i, example_sentence in enumerate(created_examples):
-            log(f"Created and committed ExampleSentence with ID: {example_sentence.id}")
-
         log(f"Generated {len(created_examples)} examples for user_word {user_word.id}")
         return created_examples
 
@@ -210,30 +223,6 @@ def generate_examples_for_user_word(
         log(f"Error generating examples for user_word {user_word.id}: {e}")
         log(f"Full traceback: {traceback.format_exc()}")
         return []
-
-
-def determine_cefr_level(user_word: UserWord) -> str:
-    """
-    Determine appropriate CEFR level for a user word based on:
-    - User's overall level
-    - Word frequency/rank
-    - User's learning progress
-    """
-    # For now, use a simple heuristic based on word rank
-    word_rank = user_word.meaning.origin.rank or 100000
-
-    if word_rank <= 1000:
-        return "A1"
-    elif word_rank <= 3000:
-        return "A2"
-    elif word_rank <= 5000:
-        return "B1"
-    elif word_rank <= 10000:
-        return "B2"
-    elif word_rank <= 20000:
-        return "C1"
-    else:
-        return "C2"
 
 
 def send_completion_notification(stats: dict, user: Optional[User] = None, send_email: bool = False):
@@ -304,12 +293,9 @@ Generated by Zeeguu Example Prefetch System
 
 def batch_generate_examples(
     user: Optional[User] = None,
-    missing_only: bool = False,
-    target_examples_per_word: int = 5,
-    batch_size: int = 1,
+    target_examples: int = EXAMPLES_PER_LEVEL,
     max_words: Optional[int] = None,
-    scheduled_only: bool = True,
-    active_users_only: bool = True,
+    all_words: bool = False,
     days_active_threshold: int = 30,
     send_email: bool = False,
 ) -> dict:
@@ -317,13 +303,10 @@ def batch_generate_examples(
     Main function to batch generate examples.
 
     Args:
-        user: Specific user to generate for
-        missing_only: Only generate for words with fewer than target_examples_per_word examples
-        target_examples_per_word: Target total number of examples per word (will generate enough to reach this)
-        batch_size: Number of words to process before committing
-        max_words: Maximum number of words to process (for testing)
-        scheduled_only: Only include words that are currently scheduled for study
-        active_users_only: Only include words for users active in the last N days
+        user: Specific user to generate for, or None for all active learners
+        target_examples: Usable examples each meaning should have at or below the learner's level
+        max_words: Maximum number of words to process (spreads a backlog over several nights)
+        all_words: All the learner's words, not only those the exercises will show next
         days_active_threshold: Number of days to consider for "active" users
         send_email: If True, send completion notification email
 
@@ -333,7 +316,7 @@ def batch_generate_examples(
     start_time = datetime.now()
 
     user_words = get_user_words_needing_examples(
-        user, missing_only, target_examples_per_word, scheduled_only, active_users_only, days_active_threshold
+        user, target_examples, all_words, days_active_threshold
     )
 
     if max_words:
@@ -352,13 +335,11 @@ def batch_generate_examples(
     current_count = ExampleSentence.query.count()
     log(f"Current ExampleSentence count in database: {current_count}")
 
-    for i, user_word in enumerate(user_words):
+    for i, (user_word, cefr_level) in enumerate(user_words):
         try:
-            log(f"Processing {i+1}/{total_words}: {user_word.meaning.origin.content}")
+            log(f"Processing {i+1}/{total_words}: {user_word.meaning.origin.content} ({cefr_level})")
 
-            examples = generate_examples_for_user_word(
-                user_word, target_examples_per_word
-            )
+            examples = generate_examples_for_user_word(user_word, cefr_level, target_examples)
 
             if examples:
                 log(
@@ -448,24 +429,13 @@ def main():
     parser.add_argument("--all", action="store_true", help="Generate for all users")
     parser.add_argument("--user-id", type=int, help="Generate for specific user ID")
     parser.add_argument(
-        "--missing-only",
-        action="store_true",
-        help="Only generate for words with no existing examples",
-    )
-    parser.add_argument(
         "--target-examples",
         type=int,
-        default=5,
-        help="Target total number of examples per word (will generate enough to reach this)",
+        default=EXAMPLES_PER_LEVEL,
+        help="Usable examples each meaning should have at or below the learner's level",
     )
     parser.add_argument(
-        "--batch-size",
-        type=int,
-        default=100,
-        help="Number of words to process before committing",
-    )
-    parser.add_argument(
-        "--max-words", type=int, help="Maximum number of words to process (for testing)"
+        "--max-words", type=int, help="Maximum number of words to process (spreads a backlog over nights)"
     )
     parser.add_argument(
         "--dry-run",
@@ -475,7 +445,7 @@ def main():
     parser.add_argument(
         "--all-words",
         action="store_true",
-        help="Include all user words, not just scheduled ones",
+        help="All the learner's words, not only those the exercises will show next",
     )
     parser.add_argument(
         "--send-email",
@@ -496,32 +466,27 @@ def main():
             print(f"Error: User with ID {args.user_id} not found")
             sys.exit(1)
 
-    # By default, only process scheduled words unless --all-words is specified
-    scheduled_only = not args.all_words
-
     if args.dry_run:
-        user_words = get_user_words_needing_examples(
-            user, args.missing_only, args.target_examples, scheduled_only, True, 30
-        )
+        user_words = get_user_words_needing_examples(user, args.target_examples, args.all_words, 30)
         if args.max_words:
             user_words = user_words[: args.max_words]
 
-        scope = "scheduled" if scheduled_only else "all"
-        print(f"Would process {len(user_words)} {scope} user words")
-        for uw in user_words[:10]:  # Show first 10
-            print(f"  - {uw.meaning.origin.content} ({uw.user.name})")
+        print(f"Would process {len(user_words)} user words")
+        for level in CEFR_LEVELS:
+            at_level = sum(1 for _, each in user_words if each == level)
+            if at_level:
+                print(f"  {level}: {at_level}")
+        for uw, level in user_words[:10]:
+            print(f"  - {uw.meaning.origin.content} ({level}, user {uw.user_id})")
         if len(user_words) > 10:
             print(f"  ... and {len(user_words) - 10} more")
         return
 
     stats = batch_generate_examples(
         user=user,
-        missing_only=args.missing_only,
-        target_examples_per_word=args.target_examples,
-        batch_size=args.batch_size,
+        target_examples=args.target_examples,
         max_words=args.max_words,
-        scheduled_only=scheduled_only,
-        active_users_only=True,
+        all_words=args.all_words,
         days_active_threshold=30,
         send_email=args.send_email,
     )
