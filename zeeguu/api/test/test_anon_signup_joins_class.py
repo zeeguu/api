@@ -86,3 +86,25 @@ def test_a_guest_in_a_class_can_still_upgrade_to_a_full_account(client, _mock_we
     with client.application.app_context():
         upgraded = User.find("upgraded@zeeguu.test")
         assert {membership.cohort_id for membership in upgraded.cohorts} == {cohort_id}
+
+
+def test_a_guest_removed_from_the_class_is_not_put_back_at_upgrade(client, _mock_web):
+    cohort_id = _cohort(client, "removal-class", 30)
+    session = _guest_signup(client, "guest-6", "removal-class")
+    with client.application.app_context():
+        guest = User.find("guest-6" + User.ANONYMOUS_EMAIL_DOMAIN)
+        guest.remove_from_cohort(cohort_id, db.session)
+        assert guest.invitation_code is None
+        code = UniqueCode("removed@zeeguu.test", UniqueCode.VERIFY)
+        db.session.add(code)
+        db.session.commit()
+        code = code.code
+
+    rv = client.post(
+        f"/complete_account_upgrade?session={session}",
+        data=dict(email="removed@zeeguu.test", code=code, password="newpass"),
+    )
+
+    assert rv.status_code == 200
+    with client.application.app_context():
+        assert User.find("removed@zeeguu.test").cohorts == []

@@ -254,8 +254,23 @@ class User(db.Model):
         UserCohortMap.query.filter(UserCohortMap.user_id == self.id).filter(
             UserCohortMap.cohort_id == cohort_id
         ).delete()
+        self._forget_invite_code_of_class(cohort_id)
         session.add(self)
         session.commit()
+
+    def _forget_invite_code_of_class(self, cohort_id):
+        """A guest removed from (or leaving) the class of their invite code
+        forgets the code, so upgrading to a full account later does not put
+        them back in the class (upgrade_to_full_account joins the class of
+        the stored code). Only guests: for a full account the code stays as
+        the record of how they signed up."""
+        from zeeguu.core.model import Cohort
+
+        if not self.is_anonymous() or not self.invitation_code:
+            return
+        cohort = Cohort.query.get(cohort_id)
+        if cohort and cohort.inv_code and cohort.inv_code.strip().lower() == self.invitation_code.strip().lower():
+            self.invitation_code = None
 
     def details_as_dictionary(self):
         from datetime import datetime
