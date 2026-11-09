@@ -8,4 +8,9 @@
 INSERT INTO user_preference (user_id, `key`, value)
 SELECT u.id, 'daily_goal_minutes', '2'
 FROM `user` AS u
-WHERE u.id NOT IN (SELECT user_id FROM user_preference WHERE `key` = 'daily_goal_minutes');
+-- NOT EXISTS, not NOT IN: user_preference.user_id is nullable, and a single
+-- NULL there makes `u.id NOT IN (...)` false for every user.
+WHERE NOT EXISTS (
+    SELECT 1 FROM user_preference p
+    WHERE p.user_id = u.id AND p.`key` = 'daily_goal_minutes'
+);
