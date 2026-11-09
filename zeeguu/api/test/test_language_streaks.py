@@ -34,7 +34,8 @@ def test_last_practiced_date_is_null_for_a_language_never_practiced(client: Logg
     assert _streaks_by_code(client)[code]["last_practiced_date"] is None
 
 
-def _never_practiced(client):
+def _never_practiced(client, goal_minutes=2):
+    client.post("/save_user_preferences", data={"daily_goal_minutes": str(goal_minutes)})
     user = User.find(client.email)
     ul = UserLanguage.find_or_create(db.session, user, user.learned_language)
     ul.last_practiced = None
@@ -120,3 +121,36 @@ def test_a_few_seconds_in_another_language_do_not_add_it(client: LoggedInClient)
     client.post("/browsing_session_update", data=dict(id=session_id, duration=5_000))
 
     assert UserLanguage.query.filter_by(user_id=user_id, language_id=other_id).first() is None
+
+
+def test_the_default_goal_is_ten_minutes(client: LoggedInClient):
+    user = User.find(client.email)
+    ul = UserLanguage.find_or_create(db.session, user, user.learned_language)
+    ul.last_practiced = None
+    db.session.commit()
+    code = user.learned_language.code
+
+    assert client.get("/user_preferences")["daily_goal_minutes"] == "10"
+    assert _streaks_by_code(client)[code]["ms_to_streak"] == 600_000
+
+
+def test_the_streak_counts_against_the_learners_goal(client: LoggedInClient):
+    code = _never_practiced(client, goal_minutes=5)
+
+    assert client.get("/user_preferences")["daily_goal_minutes"] == "5"
+    _browse(client, 200)
+    entry = _streaks_by_code(client)[code]
+    assert entry["practiced_today"] is False
+    assert entry["ms_to_streak"] == 100_000
+
+    _browse(client, 100)
+    assert _streaks_by_code(client)[code]["practiced_today"] is True
+
+
+def test_a_goal_outside_the_choices_is_refused(client: LoggedInClient):
+    _never_practiced(client, goal_minutes=5)
+
+    response = client.response_from_post("/save_user_preferences", data={"daily_goal_minutes": "7"})
+
+    assert response.status_code == 400
+    assert client.get("/user_preferences")["daily_goal_minutes"] == "5"

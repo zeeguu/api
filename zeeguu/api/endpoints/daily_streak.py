@@ -7,6 +7,7 @@ from . import api
 from ...core.model import User
 from ...core.model.db import db
 from ...core.model.user_language import UserLanguage
+from ...core.model.user_preference import UserPreference
 
 
 @api.route("/daily_streak", methods=["GET"])
@@ -26,7 +27,7 @@ def _ms_to_streak(ul, user, practiced_today):
         return 0
     if ul.language_id != user.learned_language_id:
         return None
-    return max(0, UserLanguage.STREAK_MIN_STUDY_MS - ul.study_ms_today())
+    return max(0, UserPreference.get_daily_goal_ms(user) - ul.study_ms_today())
 
 
 def _language_streak(ul, user):

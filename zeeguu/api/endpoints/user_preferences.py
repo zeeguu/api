@@ -38,6 +38,22 @@ def save_user_preferences():
             f"{', '.join(UserPreference.AUDIO_LESSON_CHARACTERS)}",
         )
 
+    daily_goal_value = data.get(UserPreference.DAILY_GOAL_MINUTES, None)
+    daily_goal_minutes = UserPreference.parse_daily_goal_minutes(daily_goal_value)
+    if daily_goal_value is not None and daily_goal_minutes is None:
+        return make_error(
+            400,
+            f"{UserPreference.DAILY_GOAL_MINUTES} must be one of "
+            f"{', '.join(str(each) for each in UserPreference.DAILY_GOAL_CHOICES)}",
+        )
+
+    if daily_goal_minutes is not None:
+        daily_goal = UserPreference.find_or_create(
+            db_session, user, UserPreference.DAILY_GOAL_MINUTES
+        )
+        daily_goal.value = str(daily_goal_minutes)
+        db_session.add(daily_goal)
+
     max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
     if max_words_to_schedule_value:
         # Validate and cap the value to prevent SQL errors

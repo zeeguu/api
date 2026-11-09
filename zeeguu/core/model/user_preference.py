@@ -46,6 +46,15 @@ class UserPreference(db.Model):
     SHOW_READING_TIMER = "show_reading_timer"  # Show timer in reader and exercises
     EMAIL_ON_ARTICLE_SHARED = "email_on_article_shared"  # Email me when a friend shares an article
 
+    # Minutes of study a day that count the day for the streak, counted in each
+    # language separately; Aiki mode and the study reminder (on the phone) read
+    # the same number. ADR 046. Unset means the default: learners from before
+    # the goal existed were given 2, the old fixed streak minimum, so no streak
+    # broke when it shipped (migration 26-11-09).
+    DAILY_GOAL_MINUTES = "daily_goal_minutes"
+    DAILY_GOAL_CHOICES = (2, 5, 10, 15, 20)
+    DEFAULT_DAILY_GOAL_MINUTES = 10
+
     # Which character the learner plays in situation lessons: "man", "woman", or
     # "either" (alternate). Asked, never inferred -- not from the name either: a
     # wrong guess would address them, and in many languages drill their own
@@ -167,6 +176,25 @@ class UserPreference(db.Model):
         return setting and setting.value == "true"
 
     @classmethod
+    def parse_daily_goal_minutes(cls, value):
+        """A goal as sent by a client, as an int from DAILY_GOAL_CHOICES; None
+        when it is not one of them."""
+        try:
+            minutes = int(value)
+        except (TypeError, ValueError):
+            return None
+        return minutes if minutes in cls.DAILY_GOAL_CHOICES else None
+
+    @classmethod
+    def get_daily_goal_minutes(cls, user: User):
+        stored = cls.parse_daily_goal_minutes(cls.get(user, cls.DAILY_GOAL_MINUTES))
+        return stored or cls.DEFAULT_DAILY_GOAL_MINUTES
+
+    @classmethod
+    def get_daily_goal_ms(cls, user: User):
+        return cls.get_daily_goal_minutes(user) * 60_000
+
+    @classmethod
     def get_audio_lesson_character(cls, user: User):
         """'man' or 'woman' when the learner chose one; None for either or unset."""
         value = cls.get(user, cls.AUDIO_LESSON_CHARACTER)
@@ -216,6 +244,9 @@ class UserPreference(db.Model):
             )
 
             preferences_dict[cls.MAX_WORDS_TO_SCHEDULE] = DEFAULT_MAX_WORDS_TO_SCHEDULE
+
+        # Always present, so clients show the goal the streak is counted with.
+        preferences_dict[cls.DAILY_GOAL_MINUTES] = str(cls.get_daily_goal_minutes(user))
 
         return preferences_dict
 
