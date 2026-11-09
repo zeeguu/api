@@ -652,6 +652,35 @@ class User(db.Model):
         session.add(new_cohort)
         session.commit()
 
+    def join_class_of_invite_code(self, invite_code, session):
+        """Join the class whose invite code a guest gave; the class, or None.
+
+        Used at guest signup and again at the upgrade to a full account, so
+        it is idempotent: already a member is a success, not a second row
+        (user_cohort_map's key is (user_id, cohort_id)). The code is matched
+        case-insensitively and without surrounding spaces. A class with no
+        max_students has no limit, as in /join_cohort. A class of teachers is
+        skipped: an anonymous visitor does not become a teacher.
+        """
+        from zeeguu.core.model import Cohort
+
+        code = (invite_code or "").strip()
+        if not code:
+            return None
+
+        cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == code.lower()).first()
+        if cohort is None or cohort.is_cohort_of_teachers:
+            return None
+
+        if self.is_member_of_cohort(cohort.id):
+            return cohort
+
+        if cohort.max_students is not None and not cohort.cohort_still_has_capacity():
+            return None
+
+        self.add_user_to_cohort(cohort, session)
+        return cohort
+
     def cohort_articles_for_user(self):
         """The class texts this student can see, each tagged with its class.
 
@@ -792,15 +821,11 @@ class User(db.Model):
         if User.email_exists(email):
             raise ValueError("Email already in use")
 
-        # Add anonymous user to cohort on account upgrade. 
-        from zeeguu.core.model import Cohort
-        if self.invitation_code:
-            cohort = Cohort.query.filter(func.lower(Cohort.inv_code) == self.invitation_code.lower()).first()
-            if cohort and cohort.cohort_still_has_capacity():
-                self.add_user_to_cohort(cohort, db.session)
-            else:
-                log(f"UPGRADE_ACCOUNT: user_id={self.id} -The classroom with the invitation code: " +
-                    f"{self.invitation_code} does not exist or does not have enough capacity")
+        # A guest who signed up with a class code joined that class already
+        # (since add_anon_user does it); this catches the ones from before.
+        if self.invitation_code and not self.join_class_of_invite_code(self.invitation_code, db.session):
+            log(f"UPGRADE_ACCOUNT: user_id={self.id} -The classroom with the invitation code: " +
+                f"{self.invitation_code} does not exist or does not have enough capacity")
 
         log(f"UPGRADE_ACCOUNT: user_id={self.id} - Upgrading from anonymous to {email}")
 

@@ -6,7 +6,7 @@ without a class.
 """
 
 from zeeguu.api.test.fixtures import client
-from zeeguu.core.model import Cohort, Language, User
+from zeeguu.core.model import Cohort, Language, UniqueCode, User
 from zeeguu.core.model.db import db
 
 
@@ -25,6 +25,7 @@ def _guest_signup(client, uuid, invite_code):
         data=dict(uuid=uuid, password="anonpass", learned_language_code="de", invite_code=invite_code),
     )
     assert rv.status_code == 200
+    return rv.data.decode("utf-8")
 
 
 def _classes_of_guest(client, uuid):
@@ -63,3 +64,25 @@ def test_guest_does_not_join_a_class_of_teachers(client, _mock_web):
     _guest_signup(client, "guest-4", "teachers-only")
 
     assert _classes_of_guest(client, "guest-4") == set()
+
+
+def test_a_guest_in_a_class_can_still_upgrade_to_a_full_account(client, _mock_web):
+    # The upgrade also joins the class of the invite code; for a guest who is
+    # already in it, that must not insert a second user_cohort_map row.
+    cohort_id = _cohort(client, "upgrade-class", 30)
+    session = _guest_signup(client, "guest-5", "upgrade-class")
+    with client.application.app_context():
+        code = UniqueCode("upgraded@zeeguu.test", UniqueCode.VERIFY)
+        db.session.add(code)
+        db.session.commit()
+        code = code.code
+
+    rv = client.post(
+        f"/complete_account_upgrade?session={session}",
+        data=dict(email="upgraded@zeeguu.test", code=code, password="newpass"),
+    )
+
+    assert rv.status_code == 200
+    with client.application.app_context():
+        upgraded = User.find("upgraded@zeeguu.test")
+        assert {membership.cohort_id for membership in upgraded.cohorts} == {cohort_id}
