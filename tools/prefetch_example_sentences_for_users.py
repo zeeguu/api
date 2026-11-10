@@ -27,7 +27,7 @@ from zeeguu.core.exercises.example_contexts import (
     CEFR_LEVELS,
     anchorable_examples,
     learner_example_level,
-    levels_up_to,
+    only_usable_examples,
     usable_examples_query,
 )
 from zeeguu.core.llm_services import get_llm_service
@@ -38,7 +38,7 @@ from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 
 EXAMPLES_PER_LEVEL = 3  # usable examples at or below the learner's level
-NEXT_NEW_WORDS = 10  # unscheduled words the exercises will introduce next
+NEW_WORDS_AHEAD = 10  # unscheduled words the exercises will introduce next
 
 
 def words_the_exercises_will_show(user: User, all_words: bool = False) -> List[UserWord]:
@@ -56,23 +56,20 @@ def words_the_exercises_will_show(user: User, all_words: bool = False) -> List[U
             BasicSRSchedule._scheduled_user_words_query(user).all()
         )
     return BasicSRSchedule._scheduled_user_words_query(user).all() + (
-        BasicSRSchedule.user_words_not_scheduled(user, NEXT_NEW_WORDS)
+        BasicSRSchedule.user_words_not_scheduled(user, NEW_WORDS_AHEAD)
     )
 
 
 def meanings_with_examples_up_to(meaning_ids, cefr_level: str, needed: int) -> set:
     """Of these meanings, those with `needed` usable examples at or below the
-    level. usable_examples_query for many meanings in one query."""
+    level: usable_examples_query's rule, counted for many meanings at once."""
     from sqlalchemy import func
-    from zeeguu.core.model.example_sentence_misfit import ExampleSentenceMisfit
 
     if not meaning_ids:
         return set()
+    query = db.session.query(ExampleSentence.meaning_id).filter(ExampleSentence.meaning_id.in_(meaning_ids))
     rows = (
-        db.session.query(ExampleSentence.meaning_id)
-        .filter(ExampleSentence.meaning_id.in_(meaning_ids))
-        .filter(ExampleSentence.cefr_level.in_(levels_up_to(cefr_level)))
-        .filter(~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()))
+        only_usable_examples(query, cefr_level)
         .group_by(ExampleSentence.meaning_id)
         .having(func.count(ExampleSentence.id) >= needed)
     )
