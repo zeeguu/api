@@ -60,6 +60,8 @@ with open(args.path, newline="") as f:
 
 language = Language.find(args.language)
 translation_language = Language.find(args.translation_language) if args.translation_language else None
+if language is None or (args.translation_language and translation_language is None):
+    sys.exit(f"unknown language code: {args.language} / {args.translation_language}")
 
 word_list = WordList.find(args.name, language)
 if word_list is None:
