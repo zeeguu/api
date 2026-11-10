@@ -16,6 +16,7 @@ from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.exercises.example_contexts import (
     MAX_EXERCISE_SENTENCE_WORDS,
+    MAX_EXERCISE_SENTENCE_WORDS_BEGINNERS,
     _rank,
     is_fragment,
     next_unused_example_bookmark,
@@ -173,9 +174,21 @@ class GoodExerciseContextTest(ModelTestMixIn, TestCase):
         self.assertEqual(_rank("A2/B1"), _rank("B1"))
 
     def test_a_long_sentence_is_not_good(self):
-        just_right = " ".join(["Wort"] * MAX_EXERCISE_SENTENCE_WORDS)
+        # The learner here is A2: at most 10 words
+        just_right = " ".join(["Wort"] * MAX_EXERCISE_SENTENCE_WORDS_BEGINNERS)
         self.assertIsNone(self._why(self._user_word(sentence=just_right)))
         self.assertEqual(self._why(self._user_word(sentence=just_right + " mehr")), "too long")
+
+    def test_from_b1_on_sentences_may_be_longer(self):
+        just_right = " ".join(["Wort"] * MAX_EXERCISE_SENTENCE_WORDS)
+        self.assertIsNone(self._why(self._user_word("B1", sentence=just_right), level="B1"))
+        self.assertEqual(self._why(self._user_word("B1", sentence=just_right + " mehr"), level="B1"), "too long")
+
+    def test_a_short_a2_summary_sentence_can_still_be_too_long_for_a2(self):
+        # user 6885: from the A2 summary, 12 words, and she looked up three of them
+        sentence = "Die Psychotherapeutin Franca Cerutti schreibt darüber, warum sich Menschen schwer entschuldigen."
+        user_word = self._user_word("A2", sentence=sentence, context_type=ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY)
+        self.assertEqual(self._why(user_word), "too long")
 
     def test_a_fragment_is_not_good(self):
         user_word = self._user_word()
