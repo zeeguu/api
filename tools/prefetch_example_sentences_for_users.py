@@ -24,7 +24,13 @@ from typing import List, Optional, Tuple
 import zeeguu.core
 from zeeguu.core.model import User, UserWord, ExampleSentence
 from zeeguu.core.model.ai_generator import AIGenerator
-from zeeguu.core.exercises.example_contexts import anchorable_examples
+from zeeguu.core.exercises.example_contexts import (
+    CEFR_LEVELS,
+    EXAMPLE_FALLBACK_LEVEL,
+    anchorable_examples,
+    levels_up_to,
+    usable_examples_query,
+)
 from zeeguu.core.llm_services import get_llm_service
 from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.logging import log
@@ -32,8 +38,6 @@ from zeeguu.core.model.db import db
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 
-CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
-FALLBACK_LEVEL = "A2"  # learners who never set one; as in generated_examples
 EXAMPLES_PER_LEVEL = 3  # usable examples at or below the learner's level
 NEXT_NEW_WORDS = 10  # unscheduled words the exercises will introduce next
 
@@ -42,11 +46,7 @@ def learner_level(user: User) -> str:
     try:
         return user.cefr_level_for_learned_language()
     except ValueError:
-        return FALLBACK_LEVEL
-
-
-def levels_up_to(cefr_level: str) -> List[str]:
-    return CEFR_LEVELS[: CEFR_LEVELS.index(cefr_level) + 1]
+        return EXAMPLE_FALLBACK_LEVEL
 
 
 def words_the_exercises_will_show(user: User, all_words: bool = False) -> List[UserWord]:
@@ -69,7 +69,8 @@ def words_the_exercises_will_show(user: User, all_words: bool = False) -> List[U
 
 
 def meanings_with_examples_up_to(meaning_ids, cefr_level: str, needed: int) -> set:
-    """Of these meanings, those with `needed` usable examples at or below the level."""
+    """Of these meanings, those with `needed` usable examples at or below the
+    level. usable_examples_query for many meanings in one query."""
     from sqlalchemy import func
     from zeeguu.core.model.example_sentence_misfit import ExampleSentenceMisfit
 
@@ -152,13 +153,7 @@ def generate_examples_for_user_word(
         log(f"User word {user_word.id} already has {target_example_count} examples up to {cefr_level}")
         return []
 
-    from zeeguu.core.exercises.example_contexts import usable_examples_query
-
-    existing_count = (
-        usable_examples_query(user_word.meaning_id)
-        .filter(ExampleSentence.cefr_level.in_(levels_up_to(cefr_level)))
-        .count()
-    )
+    existing_count = usable_examples_query(user_word.meaning_id, cefr_level).count()
     examples_to_generate = target_example_count - existing_count
 
     origin_word = user_word.meaning.origin.content
