@@ -187,11 +187,29 @@ class GoodExerciseContextTest(ModelTestMixIn, TestCase):
         self.assertEqual(self._why(self._user_word(None)), "level unknown")
         self.assertEqual(self._why(self._user_word(context_type=ContextType.WEB_FRAGMENT)), "level unknown")
 
-    def test_level_adapted_and_example_contexts_are_good(self):
+    def _example_word(self, example_level, sentence=SHORT):
+        """A word whose context is a generated example written at `example_level`."""
+        from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
+
+        user_word = self._user_word("C1", sentence=sentence, context_type=ContextType.EXAMPLE_SENTENCE)
+        example = ExampleSentence(sentence, self.user.learned_language, user_word.meaning, cefr_level=example_level)
+        session.add(example)
+        session.commit()
+        session.add(ExampleSentenceContext(user_word.preferred_bookmark, example))
+        session.commit()
+        return user_word
+
+    def test_a_level_adapted_context_is_good(self):
         adapted = self._user_word("C1", context_type=ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY)
         self.assertIsNone(self._why(adapted))
-        example = self._user_word("C1", sentence="x " * 30, context_type=ContextType.EXAMPLE_SENTENCE)
-        self.assertIsNone(self._why(example))
+
+    def test_an_example_is_held_to_the_learners_level(self):
+        self.assertIsNone(self._why(self._example_word("A2")))
+        self.assertEqual(self._why(self._example_word("B1")), "above level")
+        self.assertEqual(self._why(self._example_word(None)), "level unknown")
+
+    def test_an_example_is_not_held_to_the_length(self):
+        self.assertIsNone(self._why(self._example_word("A1", sentence="Wort " * 30)))
 
     def test_a_context_that_is_not_good_asks_for_an_example_at_the_learners_level(self):
         user_word = self._user_word("B2")

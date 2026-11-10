@@ -182,6 +182,15 @@ LEVEL_ADAPTED_CONTEXTS = {ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY, ContextType
 ARTICLE_CONTEXTS = {ContextType.ARTICLE_FRAGMENT, ContextType.ARTICLE_TITLE, ContextType.ARTICLE_SUMMARY}
 
 
+def example_level(bookmark):
+    """The level of the generated example a bookmark shows, or None."""
+    from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
+
+    # .first(): a bookmark can carry more than one example link
+    link = ExampleSentenceContext.query.filter(ExampleSentenceContext.bookmark_id == bookmark.id).first()
+    return link.example_sentence.cefr_level if link else None
+
+
 def why_not_a_good_exercise_context(bookmark, cefr_level):
     """
     None when the bookmark's context makes a good exercise sentence for a
@@ -189,26 +198,34 @@ def why_not_a_good_exercise_context(bookmark, cefr_level):
     "level unknown" or "above level".
 
     Good means a whole sentence, at most MAX_EXERCISE_SENTENCE_WORDS words,
-    at or below the learner's level. A generated example is good as it is.
-    A context of unknown level (a web page, a video, an unassessed article)
-    is not: an example at the learner's level is the safer choice.
+    at or below the learner's level: an A2 learner sees A2, also in a
+    generated example (most older examples were written at B1). A context of
+    unknown level (a web page, a video, an unassessed article or example) is
+    not good: an example at the learner's level is the safer choice.
+
+    Generated examples are not held to the length: they are what a long
+    sentence gets swapped for, and swapping one example for another over a
+    few words would only churn.
     """
     context = bookmark.context
     context_type = context.context_type.type if context and context.context_type else None
-    if context_type == ContextType.EXAMPLE_SENTENCE:
-        return None
+    is_example = context_type == ContextType.EXAMPLE_SENTENCE
     if is_fragment(bookmark):
         return "fragment"
-    if len((bookmark.get_context() or "").split()) > MAX_EXERCISE_SENTENCE_WORDS:
+    if not is_example and len((bookmark.get_context() or "").split()) > MAX_EXERCISE_SENTENCE_WORDS:
         return "too long"
     if context_type in LEVEL_ADAPTED_CONTEXTS:
         return None
-    if context_type not in ARTICLE_CONTEXTS:
+    if is_example:
+        level = example_level(bookmark)
+    elif context_type in ARTICLE_CONTEXTS:
+        level = article_level(bookmark)
+    else:
         return "level unknown"
-    learner, article = _rank(cefr_level), _rank(article_level(bookmark))
-    if learner is None or article is None:
+    learner, context_rank = _rank(cefr_level), _rank(level)
+    if learner is None or context_rank is None:
         return "level unknown"
-    if article > learner:  # even one level above is too much
+    if context_rank > learner:  # even one level above is too much
         return "above level"
     return None
 
@@ -228,22 +245,6 @@ def next_unused_example_bookmark(session, user_word, skip_ids=(), max_level=None
             continue
         return bookmark
     return None
-
-
-def replace_fragment_with_example(session, user_word):
-    """
-    Make one of the word's generated examples its preferred context, if the
-    current one is a fragment and an example that anchors the word exists.
-    Returns True if it swapped.
-    """
-    if not user_word.preferred_bookmark or not is_fragment(user_word.preferred_bookmark):
-        return False
-
-    # Any example beats a fragment, but one at the learner's level beats the rest
-    bookmark = next_unused_example_bookmark(
-        session, user_word, max_level=learner_level(user_word)
-    ) or next_unused_example_bookmark(session, user_word)
-    return _switch_to(session, user_word, bookmark, "FRAGMENT-CONTEXT")
 
 
 def replace_context_with_example(session, user_word):
