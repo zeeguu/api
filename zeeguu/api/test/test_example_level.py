@@ -12,7 +12,10 @@ from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.model.db import db
 
 
-class _RecordingLLM:
+class FakeExampleWriter:
+    """Stands in for the LLM: notes the level it is asked to write examples
+    at, and writes none."""
+
     def __init__(self):
         self.levels = []
 
@@ -28,8 +31,10 @@ def _set_german_level(email, level):
     db.session.commit()
 
 
-def _requested_level(client, monkeypatch, url):
-    llm = _RecordingLLM()
+def levels_the_llm_was_asked_for(client, monkeypatch, url):
+    """GETs `url` with FakeExampleWriter as the LLM and returns the levels
+    the endpoint asked it to write at: [] when it used stored examples."""
+    llm = FakeExampleWriter()
     monkeypatch.setattr(generated_examples, "get_llm_service", lambda **kwargs: llm)
     client.get(url)
     return llm.levels
@@ -38,20 +43,20 @@ def _requested_level(client, monkeypatch, url):
 def test_examples_are_written_at_the_learners_level(logged_in_client, monkeypatch):
     _set_german_level(logged_in_client.email, 2)  # A2
 
-    assert _requested_level(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en") == ["A2"]
+    assert levels_the_llm_was_asked_for(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en") == ["A2"]
 
 
 def test_an_explicit_level_still_wins(logged_in_client, monkeypatch):
     _set_german_level(logged_in_client.email, 2)
 
-    levels = _requested_level(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en?cefr_level=C1")
+    levels = levels_the_llm_was_asked_for(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en?cefr_level=C1")
     assert levels == ["C1"]
 
 
 def test_without_a_level_examples_fall_back_to_a2(logged_in_client, monkeypatch):
     _set_german_level(logged_in_client.email, None)
 
-    assert _requested_level(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en") == ["A2"]
+    assert levels_the_llm_was_asked_for(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en") == ["A2"]
 
 
 def test_levels_up_to():
@@ -94,4 +99,4 @@ def test_the_popup_reuses_easier_stored_examples(logged_in_client, monkeypatch):
     _set_german_level(logged_in_client.email, 2)  # A2
     _meaning_with_examples("A1", "B2")
 
-    assert _requested_level(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en?translation=house") == []
+    assert levels_the_llm_was_asked_for(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en?translation=house") == []
