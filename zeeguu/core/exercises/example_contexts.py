@@ -23,6 +23,15 @@ CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 EXAMPLE_FALLBACK_LEVEL = "A2"
 
 
+def learner_example_level(user, language):
+    """The level to write and pick examples at for this learner in `language`:
+    their level (A0 reads as A1), or EXAMPLE_FALLBACK_LEVEL when none is set."""
+    try:
+        return user.cefr_level_for_language(language)
+    except ValueError:
+        return EXAMPLE_FALLBACK_LEVEL
+
+
 def levels_up_to(cefr_level):
     """The CEFR levels at or below `cefr_level`, easiest first; all of them
     for a level we don't know."""

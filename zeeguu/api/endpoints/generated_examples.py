@@ -10,9 +10,9 @@ from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.exercises.example_contexts import (
-    EXAMPLE_FALLBACK_LEVEL,
     anchorable_examples,
     bookmark_for_example,
+    learner_example_level,
     usable_examples_query,
 )
 from zeeguu.core.llm_services import get_llm_service
@@ -38,16 +38,11 @@ INTERACTIVE_LLM = dict(timeout=20, max_retries=0)
 def _example_level(user, language, requested=None):
     """
     The CEFR level to write or pick example sentences at: the one the caller
-    asks for, else the learner's level in `language`, else A2. The web never
-    sends one, so before this every example was asked for at B1, also for
-    A1-A2 school classes.
+    asks for, else the learner's (learner_example_level). The web never sends
+    one, so before this every example was asked for at B1, also for A1-A2
+    school classes.
     """
-    if requested:
-        return requested
-    try:
-        return user.cefr_level_for_language(language)
-    except ValueError:
-        return EXAMPLE_FALLBACK_LEVEL
+    return requested or learner_example_level(user, language)
 
 
 def _stored_examples_for_level(meaning_id, cefr_level, limit=MAX_EXAMPLES_ALTERNATIVE):
