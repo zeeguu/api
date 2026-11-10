@@ -90,11 +90,6 @@ class ExampleGenerationAttempt(db.Model):
         )
         return {row.meaning_id for row in rows if row.is_paused(generator_key, now)}
 
-    @classmethod
-    def all_rows(cls, session):
-        """Every row: few meanings ever land here."""
-        return session.query(cls).all()
-
 
 def _key(ai_generator):
     return (ai_generator.model_name, ai_generator.prompt_version)

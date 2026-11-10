@@ -7,9 +7,9 @@ from unittest import TestCase
 
 import zeeguu.core
 from tools.prefetch_example_sentences_for_users import (
-    INTENDED_GENERATOR,
     forget_tries_of_covered_meanings,
     get_user_words_needing_examples,
+    intended_generator,
 )
 from zeeguu.core.model import ExampleGenerationAttempt, UserLanguage
 from zeeguu.core.model.ai_generator import AIGenerator
@@ -122,8 +122,8 @@ class TriesPauseTest(ModelTestMixIn, TestCase):
     def _paused(self, now, key=(MODEL, PROMPT)):
         return self.meaning_id in ExampleGenerationAttempt.paused_meaning_ids({self.meaning_id}, "A2", key, now)
 
-    def _listed(self):
-        return self.user_word.id in [uw.id for uw, _ in get_user_words_needing_examples(self.user)]
+    def _listed(self, **kwargs):
+        return self.user_word.id in [uw.id for uw, _ in get_user_words_needing_examples(self.user, **kwargs)]
 
     def _rows(self):
         return ExampleGenerationAttempt.query.filter_by(meaning_id=self.meaning_id).count()
@@ -163,11 +163,13 @@ class TriesPauseTest(ModelTestMixIn, TestCase):
         # Also what happens when the validator rejects the examples after the
         # try: the meaning is short again, and it already had its try
         self.assertTrue(self._listed())
-        self._try(server_now(), *INTENDED_GENERATOR)
+        self._try(server_now(), *intended_generator())
         self.assertFalse(self._listed())
+        # --ignore-pause, e.g. after an anchoring fix
+        self.assertTrue(self._listed(respect_pause=False))
 
     def test_a_covered_meaning_forgets_its_tries(self):
-        self._try(server_now() - timedelta(days=100), *INTENDED_GENERATOR)
+        self._try(server_now() - timedelta(days=100), *intended_generator())
         for i, level in enumerate(["A1", "A2", "A2"]):
             session.add(ExampleSentence(f"satz {i}", self.user.learned_language, self.user_word.meaning, cefr_level=level))
         session.commit()
@@ -179,17 +181,17 @@ class TriesPauseTest(ModelTestMixIn, TestCase):
         self.assertEqual(self._rows(), 0)
 
     def test_a_short_meaning_keeps_its_tries(self):
-        self._try(server_now(), *INTENDED_GENERATOR)
+        self._try(server_now(), *intended_generator())
         forget_tries_of_covered_meanings()
         self.assertEqual(self._rows(), 1)
 
-    def test_every_generation_is_counted_for_the_intended_generator(self):
+    def _generate(self, answered_by):
         from unittest.mock import patch
         from tools import prefetch_example_sentences_for_users as prefetch
 
         class Unanchorable:
             def generate_examples(self, **kwargs):
-                return [{"sentence": "Ein Satz ohne das Wort.", "llm_model": "fallback", "prompt_version": "v4"}]
+                return [{"sentence": "Ein Satz ohne das Wort.", "llm_model": answered_by, "prompt_version": "v4"}]
 
         with patch.object(prefetch, "get_llm_service", lambda **kwargs: Unanchorable()), patch(
             "zeeguu.core.llm_services.validation_service.UserWordValidationService.validate_and_fix",
@@ -197,6 +199,21 @@ class TriesPauseTest(ModelTestMixIn, TestCase):
         ):
             prefetch.generate_examples_for_user_word(self.user_word, "A2")
 
+    def test_a_generation_by_the_intended_model_is_counted(self):
+        self._generate(answered_by=intended_generator()[0])
         row = ExampleGenerationAttempt.query.filter_by(meaning_id=self.meaning_id, cefr_level="A2").one()
-        # The primary model and prompt, not the fallback that answered
-        self.assertEqual((row.generator_key(), row.tries), (INTENDED_GENERATOR, 1))
+        self.assertEqual((row.generator_key(), row.tries), (intended_generator(), 1))
+
+    def test_a_generation_by_the_fallback_is_not_counted(self):
+        # A night on DeepSeek says nothing about what the primary model can do
+        self._generate(answered_by="some-fallback-model")
+        self.assertEqual(self._rows(), 0)
+
+    def test_the_intended_model_follows_the_configured_provider(self):
+        from unittest.mock import patch
+        from zeeguu.core.llm_services import models
+
+        with patch.dict("os.environ", {"LLM_PROVIDER": "deepseek"}):
+            self.assertEqual(intended_generator()[0], models.DEEPSEEK_GENERAL)
+        with patch.dict("os.environ", {"LLM_PROVIDER": "unified"}):
+            self.assertEqual(intended_generator()[0], models.ANTHROPIC_GENERAL)
