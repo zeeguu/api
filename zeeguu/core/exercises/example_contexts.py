@@ -121,25 +121,34 @@ def is_fragment(bookmark):
     return bool(context and (context.left_ellipsis or context.right_ellipsis))
 
 
+def only_usable_examples(query, cefr_level=None):
+    """
+    Narrows a query over ExampleSentence to the usable ones: without those
+    the validator would not pass their meaning in (ExampleSentenceMisfit),
+    and with `cefr_level`, only those at or below it. No ordering, so it also
+    fits a GROUP BY (the nightly prefetch counts examples per meaning).
+    """
+    query = query.filter(~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()))
+    if cefr_level is None:
+        return query
+    return query.filter(ExampleSentence.cefr_level.in_(levels_up_to(cefr_level)))
+
+
 def usable_examples_query(meaning_id, cefr_level=None):
     """
-    The meaning's generated examples without those the validator would not
-    pass the meaning in (ExampleSentenceMisfit). With `cefr_level`, only
-    those at or below it, closest to it first: an A2 learner gets A2, then A1.
-    Newest first within a level, because newer examples come from newer
-    prompts and models (the v4 example prompt, the 19 Oct cleanup), so they
-    are the likeliest to be right. A query, so callers can limit or count it.
+    The meaning's usable examples (only_usable_examples). With `cefr_level`,
+    closest to it first: an A2 learner gets A2, then A1. Newest first within
+    a level, because newer examples come from newer prompts and models (the
+    v4 example prompt, the 19 Oct cleanup), so they are the likeliest to be
+    right. A query, so callers can limit or count it.
     """
-    query = ExampleSentence.query.filter(
-        ExampleSentence.meaning_id == meaning_id,
-        ~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()),
+    query = only_usable_examples(
+        ExampleSentence.query.filter(ExampleSentence.meaning_id == meaning_id), cefr_level
     )
     if cefr_level is None:
         return query.order_by(ExampleSentence.id.desc())
     # The level names sort as the levels do: "A1" < "A2" < ... < "C2"
-    return query.filter(ExampleSentence.cefr_level.in_(levels_up_to(cefr_level))).order_by(
-        ExampleSentence.cefr_level.desc(), ExampleSentence.id.desc()
-    )
+    return query.order_by(ExampleSentence.cefr_level.desc(), ExampleSentence.id.desc())
 
 
 def usable_examples(meaning_id):
