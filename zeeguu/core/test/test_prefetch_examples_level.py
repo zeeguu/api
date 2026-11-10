@@ -63,3 +63,16 @@ class PrefetchAtLearnerLevelTest(ModelTestMixIn, TestCase):
         needing = get_user_words_needing_examples()
         meanings = [(uw.meaning_id, level) for uw, level in needing]
         self.assertEqual(meanings.count((self.user_word.meaning_id, "A2")), 1)
+
+
+    def test_the_most_recently_active_learner_comes_first(self):
+        from datetime import timedelta
+
+        self.user.last_seen = datetime.now() - timedelta(days=3)
+        recent = self._learner(level=2)  # last_seen: now
+        recent_word = BookmarkRule(recent).bookmark.user_word
+        recent_word.fit_for_study = True
+        session.commit()
+
+        users_in_order = [uw.user_id for uw, _ in get_user_words_needing_examples()]
+        self.assertLess(users_in_order.index(recent.id), users_in_order.index(self.user.id))

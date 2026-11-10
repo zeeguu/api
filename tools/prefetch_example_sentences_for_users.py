@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 
 """
-Batch Example Generator Tool
-
-Pre-generates example sentences for all user words to avoid real-time LLM calls.
-This tool can be run periodically (e.g., nightly) to ensure users have
-instant access to example sentences.
+Nightly example prefetch: writes example sentences ahead of time, so that
+exercises do not wait for an LLM.
 
 Writes examples at the learner's level, for the words the exercises will
 show next: scheduled words and the next new ones. A meaning is covered once
 it has EXAMPLES_PER_LEVEL usable examples at or below the learner's level.
+Learners who were active most recently come first, so a run capped with
+--max-words serves those practicing now.
 
 Usage:
     python -m tools.prefetch_example_sentences_for_users --all [--dry-run] [--max-words N]
@@ -102,7 +101,8 @@ def get_user_words_needing_examples(
         users = [user]
     else:
         cutoff = datetime.now() - timedelta(days=days_active_threshold)
-        users = User.query.filter(User.last_seen > cutoff).order_by(User.id).all()
+        # Most recently active first: --max-words cuts the end of this list
+        users = User.query.filter(User.last_seen > cutoff).order_by(User.last_seen.desc()).all()
         log(f"{len(users)} learners active since {cutoff}")
 
     needing = []
@@ -205,12 +205,11 @@ def generate_examples_for_user_word(
         log(f"Generated {len(created_examples)} examples for user_word {user_word.id}")
         return created_examples
 
-    except Exception as e:
-        import traceback
-
-        log(f"Error generating examples for user_word {user_word.id}: {e}")
-        log(f"Full traceback: {traceback.format_exc()}")
-        return []
+    except Exception:
+        # The caller logs it and counts it as an error; a quiet [] would
+        # count as "processed" and hide failures from the run summary.
+        db.session.rollback()
+        raise
 
 
 def send_completion_notification(stats: dict, user: Optional[User] = None, send_email: bool = False):
