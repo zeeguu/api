@@ -1,7 +1,6 @@
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.db import db
 from zeeguu.core.model.example_sentence import ExampleSentence
-import sqlalchemy
 from zeeguu.core.model.race_safe import find_or_create
 
 
@@ -44,10 +43,15 @@ class ExampleSentenceContext(db.Model):
 
     @classmethod
     def find_by_bookmark(cls, bookmark):
-        try:
-            return cls.query.filter(cls.bookmark == bookmark).one()
-        except sqlalchemy.orm.exc.NoResultFound:
-            return None
+        """The bookmark's example link, the newest if it has several, or None.
+
+        A bookmark can carry more than one: bookmark_for_example reuses the
+        bookmark of an identical sentence, and the nightly prefetch can write
+        an example whose text an earlier one (at another level) already has.
+        .one() then raised in Bookmark.as_dictionary, which broke the context
+        swap and /alternative_sentences for the word (39 bookmarks on 10 Nov).
+        """
+        return cls.query.filter(cls.bookmark == bookmark).order_by(cls.id.desc()).first()
 
     @classmethod
     def find_or_create(
