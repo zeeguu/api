@@ -88,3 +88,10 @@ def test_never_an_example_above_the_level(logged_in_client):
     meaning = _meaning_with_examples("B2", "C1")
 
     assert usable_examples_query(meaning.id, "A2").all() == []
+
+
+def test_the_popup_reuses_easier_stored_examples(logged_in_client, monkeypatch):
+    _set_german_level(logged_in_client.email, 2)  # A2
+    _meaning_with_examples("A1", "B2")
+
+    assert _requested_level(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en?translation=house") == []
