@@ -179,6 +179,15 @@ class TranslationAlternativesTest(ModelTestMixIn, TestCase):
         self.user = UserRule().user
         self.bookmark = BookmarkRule(self.user).bookmark
         self.meaning = self.bookmark.user_word.meaning
+        # BookmarkRule picks both languages at random. When they match, the
+        # word side and the translation side share a verdict cache key, and
+        # test_a_translation_verdict_is_not_a_cloze_verdict fails. Real
+        # meanings never translate into their own language.
+        if self.meaning.translation.language_id == self.meaning.origin.language_id:
+            other = "da" if self.meaning.origin.language.code == "en" else "en"
+            self.meaning.translation.language = LanguageRule.get_or_create_language(other)
+            session.add(self.meaning.translation)
+            session.commit()
 
     def test_the_judge_gets_the_word_the_expected_translation_and_the_sentence(self):
         judge = FakeJudge()
