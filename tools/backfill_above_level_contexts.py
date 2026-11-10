@@ -31,13 +31,11 @@ app = create_app_for_scripts()
 app.app_context().push()
 
 from zeeguu.core.exercises.example_contexts import (
-    CEFR_LEVELS,
     is_above_level,
     learner_level,
     replace_above_level_with_example,
     usable_examples_query,
 )
-from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.model import Meaning, Phrase, User, UserWord
 
 db_session = db.session
@@ -66,13 +64,7 @@ def words_in_study(user):
 
 
 def has_example_up_to(user_word, level):
-    levels = CEFR_LEVELS[: CEFR_LEVELS.index(level) + 1]
-    return (
-        usable_examples_query(user_word.meaning_id)
-        .filter(ExampleSentence.cefr_level.in_(levels))
-        .first()
-        is not None
-    )
+    return usable_examples_query(user_word.meaning_id, level).first() is not None
 
 
 def main():
