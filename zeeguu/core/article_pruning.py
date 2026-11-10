@@ -69,6 +69,8 @@ def _disable_binlog_on_connect(db_session):
 # an article referenced by any of these must NOT be deleted. Keep in sync with
 #   SELECT TABLE_NAME FROM information_schema.REFERENTIAL_CONSTRAINTS
 #   WHERE REFERENCED_TABLE_NAME='article' AND DELETE_RULE IN ('RESTRICT','NO ACTION');
+# test_article_pruning.py fails on a model's foreign key to article that is
+# neither here nor listed there as cascading.
 PROTECTING_TABLES = [
     "user_article",
     "text",
@@ -84,6 +86,14 @@ PROTECTING_TABLES = [
     "topic_user_feedback",
     "user_mwe_override",
     "article_share_link",
+    "article_upload",
+    "shared_article",
+]
+
+# The same protection for every column that points at article: the tables above
+# through article_id, plus the ones that use another name.
+PROTECTING_COLUMNS = [(tbl, "article_id") for tbl in PROTECTING_TABLES] + [
+    ("shared_article", "delivery_article_id"),
 ]
 
 BATCH_SIZE = 1000
@@ -98,16 +108,16 @@ def referenced_article_ids(db_session, verbose=True):
     if verbose:
         print("Building reference set...")
     ref = set()
-    for tbl in PROTECTING_TABLES:
+    for tbl, column in PROTECTING_COLUMNS:
         before = len(ref)
         ref.update(
             r[0]
             for r in db_session.execute(
-                text(f"SELECT DISTINCT article_id FROM {tbl} WHERE article_id IS NOT NULL")
+                text(f"SELECT DISTINCT {column} FROM {tbl} WHERE {column} IS NOT NULL")
             )
         )
         if verbose:
-            print(f"  {tbl}: +{len(ref) - before} (total {len(ref)})")
+            print(f"  {tbl}.{column}: +{len(ref) - before} (total {len(ref)})")
 
     # Activity can reference an article via source_id -> article.source_id.
     source_ids = set(
@@ -219,8 +229,9 @@ def delete_articles_in_batches(db_session, ids, batch_size=BATCH_SIZE, skip_binl
             print(f"\n!!! ABORTED after {deleted} deletions.")
             print("    An article is still referenced — the FK below blocked its")
             print("    deletion, so referenced_article_ids() is missing a table.")
-            print("    Add it to PROTECTING_TABLES (or, if disposable, make its FK")
-            print("    ON DELETE CASCADE) and re-run. No referenced data was lost.")
+            print("    Add it to PROTECTING_TABLES (PROTECTING_COLUMNS if its column")
+            print("    is not article_id), or, if disposable, make its FK ON DELETE")
+            print("    CASCADE, and re-run. No referenced data was lost.")
             print(f"\n    {e.orig}")
             raise
 
