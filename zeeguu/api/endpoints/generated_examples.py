@@ -109,8 +109,8 @@ def alternative_sentences(user_word_id):
         user, user_word.meaning.origin.language, request.args.get("cefr_level")
     )
 
-    # Pre-generated examples first. Never above the learner's level: with none at or below it, new ones are
-    # written at that level below (the nightly job prefetches them).
+    # Pre-generated examples first, never above the level. With none at or
+    # below it, new ones are written at it below (the nightly job prefetches).
     db_examples = usable_examples_query(user_word.meaning_id, cefr_level).limit(MAX_EXAMPLES_ALTERNATIVE).all()
 
     if db_examples:
