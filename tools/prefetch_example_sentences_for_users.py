@@ -33,7 +33,7 @@ from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 
 CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
-FALLBACK_LEVEL = "B1"  # learners who never set one; as in generated_examples
+FALLBACK_LEVEL = "A2"  # learners who never set one; as in generated_examples
 EXAMPLES_PER_LEVEL = 3  # usable examples at or below the learner's level
 NEXT_NEW_WORDS = 10  # unscheduled words the exercises will introduce next
 
