@@ -15,6 +15,8 @@ import csv
 import os
 import sys
 
+from sqlalchemy.exc import NoResultFound
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from zeeguu.api.app import create_app_for_scripts
@@ -58,10 +60,15 @@ with open(args.path, newline="") as f:
         sys.exit(f"no phrase column in {reader.fieldnames}")
     rows = [{field: row[name] for field, name in names.items() if name} for row in reader]
 
-language = Language.find(args.language)
-translation_language = Language.find(args.translation_language) if args.translation_language else None
-if language is None or (args.translation_language and translation_language is None):
-    sys.exit(f"unknown language code: {args.language} / {args.translation_language}")
+def language_or_exit(code):
+    try:
+        return Language.find(code)
+    except NoResultFound:
+        sys.exit(f"unknown language code: {code}")
+
+
+language = language_or_exit(args.language)
+translation_language = language_or_exit(args.translation_language) if args.translation_language else None
 
 word_list = WordList.find(args.name, language)
 if word_list is None:
