@@ -614,10 +614,19 @@ def add_word_to_learning():
 @requires_session
 def preview_learning_card():
     """
-    Preview a learning card without saving it.
+    The learning card for one candidate translation in the Translate tab
+    (web Translate.js, fetchCardPreview), shown before the learner decides.
 
-    Returns cached explanation/level_note from Meaning if available,
-    otherwise generates via LLM and caches for future use.
+    Why preview and not save: a lookup lists several translations and the
+    learner adds at most one, with the Add button (/add_word_to_learning).
+    Saving here would put every translation they only looked at among their
+    words, and into their exercises.
+
+    Nothing of the learner's is written. What is written is shared: the
+    explanation and the word's CEFR level are cached on the Meaning, so the
+    next preview of that meaning, by anyone, needs no LLM call. That is also
+    why the level stays DEFAULT_CEFR_LEVEL here and not the learner's: the
+    cache is the same for every learner.
 
     Request body (JSON):
     {
