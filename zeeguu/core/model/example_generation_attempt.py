@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import sqlalchemy
 
+from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.model.db import db
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.util.time import server_now
@@ -18,9 +19,14 @@ class ExampleGenerationAttempt(db.Model):
     expressions), or the validator later rejected them. Without this the
     prefetch asks the LLM again every night. With it, the pair pauses: a week
     after the first try, a month after the second, and for good after the
-    third, until the example prompt changes. Once the meaning is seen with
-    enough examples, its row goes (clear_covered), so a later shortfall
-    starts at a week again.
+    third, until the generator (LLM model or example prompt) changes. Once
+    the meaning has enough examples, its row goes (the prefetch's
+    forget_tries_of_covered_meanings), so a later shortfall starts at a week
+    again.
+
+    The generator is the one the prefetch means to use (its primary model and
+    the current prompt), not whichever answered: a night on the fallback
+    model does not start the pause over, a better primary model does.
 
     A side table rather than a column on meaning: few meanings land here,
     and its rows are also the list of what the generator cannot handle.
@@ -28,7 +34,8 @@ class ExampleGenerationAttempt(db.Model):
 
     __tablename__ = "example_generation_attempt"
     __table_args__ = (
-        sqlalchemy.UniqueConstraint("meaning_id", "cefr_level"),
+        # Named as in the migration, so metadata and the database agree
+        sqlalchemy.UniqueConstraint("meaning_id", "cefr_level", name="meaning_id"),
         {"mysql_charset": "utf8mb4", "mysql_collate": "utf8mb4_bin"},
     )
 
@@ -38,46 +45,56 @@ class ExampleGenerationAttempt(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     meaning_id = db.Column(db.Integer, db.ForeignKey(Meaning.id, ondelete="CASCADE"), nullable=False)
     cefr_level = db.Column(db.String(2), nullable=False)
-    # The example prompt the tries were made with; a new one starts over
-    prompt_version = db.Column(db.String(32), nullable=False)
+    # The generator the tries were made with; a new model or prompt starts over.
+    # Compared by model and prompt, not id: ai_generator can hold duplicates.
+    ai_generator_id = db.Column(db.Integer, db.ForeignKey(AIGenerator.id), nullable=False)
+    ai_generator = db.relationship(AIGenerator, lazy="joined")
     tries = db.Column(db.Integer, nullable=False, default=0)
     last_try_at = db.Column(db.DateTime, nullable=False)
 
     @classmethod
-    def record_try(cls, session, meaning_id, cefr_level, prompt_version, now=None):
+    def record_try(cls, session, meaning_id, cefr_level, ai_generator, now=None):
         now = now or server_now()
-        row = cls.query.filter_by(meaning_id=meaning_id, cefr_level=cefr_level).first()
+        row = session.query(cls).filter_by(meaning_id=meaning_id, cefr_level=cefr_level).first()
         if row is None:
-            row = cls(meaning_id=meaning_id, cefr_level=cefr_level, prompt_version=prompt_version, tries=0)
-        if row.prompt_version != prompt_version:
-            row.prompt_version = prompt_version
+            row = cls(meaning_id=meaning_id, cefr_level=cefr_level, ai_generator=ai_generator, tries=0)
+        if row.generator_key() != _key(ai_generator):
+            row.ai_generator = ai_generator
             row.tries = 0
         row.tries += 1
         row.last_try_at = now
         session.add(row)
 
-    def is_paused(self, prompt_version, now):
-        if self.prompt_version != prompt_version or self.tries < 1:
+    def generator_key(self):
+        return _key(self.ai_generator)
+
+    def is_paused(self, generator_key, now):
+        """`generator_key`: (model name, prompt version) of the generator the
+        prefetch means to use now."""
+        if self.generator_key() != generator_key or self.tries < 1:
             return False
         if self.tries > len(self.PAUSES):
             return True
         return now < self.last_try_at + self.PAUSES[self.tries - 1]
 
     @classmethod
-    def paused_meaning_ids(cls, meaning_ids, cefr_level, prompt_version, now=None):
+    def paused_meaning_ids(cls, meaning_ids, cefr_level, generator_key, now=None):
         """Of these meanings, those whose examples at `cefr_level` are on pause."""
         if not meaning_ids:
             return set()
         now = now or server_now()
-        rows = cls.query.filter(cls.meaning_id.in_(meaning_ids), cls.cefr_level == cefr_level).all()
-        return {row.meaning_id for row in rows if row.is_paused(prompt_version, now)}
+        rows = (
+            db.session.query(cls)
+            .filter(cls.meaning_id.in_(meaning_ids), cls.cefr_level == cefr_level)
+            .all()
+        )
+        return {row.meaning_id for row in rows if row.is_paused(generator_key, now)}
 
     @classmethod
-    def clear_covered(cls, session, meaning_ids, cefr_level):
-        """These meanings have enough examples at `cefr_level` now: forget
-        their tries, so a later shortfall pauses for a week, not longer."""
-        if not meaning_ids:
-            return
-        cls.query.filter(cls.meaning_id.in_(meaning_ids), cls.cefr_level == cefr_level).delete(
-            synchronize_session=False
-        )
+    def all_rows(cls, session):
+        """Every row: few meanings ever land here."""
+        return session.query(cls).all()
+
+
+def _key(ai_generator):
+    return (ai_generator.model_name, ai_generator.prompt_version)
