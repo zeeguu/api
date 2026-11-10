@@ -152,3 +152,6 @@ from .onboarding_funnel_event import OnboardingFunnelEvent
 
 
 from .skipped_url import SkippedUrl
+
+# curated word lists (PD3, basic vocabulary, ...) to highlight in reading
+from .word_list import WordList, WordListEntry
