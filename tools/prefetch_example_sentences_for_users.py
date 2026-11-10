@@ -26,8 +26,8 @@ from zeeguu.core.model import User, UserWord, ExampleSentence
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.exercises.example_contexts import (
     CEFR_LEVELS,
-    EXAMPLE_FALLBACK_LEVEL,
     anchorable_examples,
+    learner_example_level,
     levels_up_to,
     usable_examples_query,
 )
@@ -40,13 +40,6 @@ from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
 EXAMPLES_PER_LEVEL = 3  # usable examples at or below the learner's level
 NEXT_NEW_WORDS = 10  # unscheduled words the exercises will introduce next
-
-
-def learner_level(user: User) -> str:
-    try:
-        return user.cefr_level_for_learned_language()
-    except ValueError:
-        return EXAMPLE_FALLBACK_LEVEL
 
 
 def words_the_exercises_will_show(user: User, all_words: bool = False) -> List[UserWord]:
@@ -115,7 +108,7 @@ def get_user_words_needing_examples(
     needing = []
     seen = set()
     for each in users:
-        level = learner_level(each)
+        level = learner_example_level(each, each.learned_language)
         words = words_the_exercises_will_show(each, all_words)
         covered = meanings_with_examples_up_to(
             {w.meaning_id for w in words}, level, target_examples
