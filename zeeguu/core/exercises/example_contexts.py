@@ -19,6 +19,8 @@ from zeeguu.core.tokenization.word_position_finder import find_first_occurrence,
 from zeeguu.logging import log
 
 CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
+# For learners without a level: most are A2, and too easy beats too hard
+EXAMPLE_FALLBACK_LEVEL = "A2"
 
 
 def levels_up_to(cefr_level):

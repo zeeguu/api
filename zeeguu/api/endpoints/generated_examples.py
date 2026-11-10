@@ -10,6 +10,7 @@ from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.exercises.example_contexts import (
+    EXAMPLE_FALLBACK_LEVEL,
     anchorable_examples,
     bookmark_for_example,
     usable_examples_query,
@@ -27,7 +28,6 @@ from . import api, db_session
 MAX_EXAMPLES_ALTERNATIVE = 5  # Max examples for alternative_sentences endpoint
 MAX_EXAMPLES_GENERATE = 3     # Max examples for generate_examples endpoint
 DEFAULT_CEFR_LEVEL = "B1"  # only /preview_learning_card, see there
-EXAMPLE_FALLBACK_LEVEL = "A2"  # learners without a level: most are A2, and too easy beats too hard
 
 # A learner is waiting on these calls. With the service defaults (120s per
 # attempt, 2 SDK retries, then DeepSeek) one request ran for 15 minutes.
