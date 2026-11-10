@@ -1,20 +1,18 @@
 """
 Generated example sentences as exercise contexts.
 
-The reader saves at most ~28 words around a looked-up word, so in a long
-sentence the saved context is a fragment ("...håndkikkert kan du se, at kun
-en del af ..."). A fragment often misses what makes the sentence make sense,
-so before a word's first exercise we swap such a context for one of the
-word's generated example sentences. The fragment stays among the word's
-bookmarks, and the exercise arrows still offer it as a past context.
+Exercises show a word in the sentence where the learner looked it up. On
+10 Nov 2026 only 24% of the contexts waiting to be practiced made good
+exercise sentences: a whole sentence, at or below the learner's level, and
+short. The rest were fragments the reader cut short (it saves at most ~28
+words), titles, of unknown level, long, or above the learner's level (an A2
+learner shown B2 sentences looked up half of each, user 6885).
 
-The same goes for any context that is not a good exercise sentence. On
-10 Nov 2026 only 24% of the contexts waiting to be practiced were: a whole
-sentence, at or below the learner's level, and short. The rest were
-fragments, titles, above the learner's level (an A2 learner shown B2
-sentences looked up half of each, user 6885), of unknown level, or long.
 So an example at or below the learner's level is the default, and the
-original stays only when it is good (why_not_a_good_exercise_context).
+original stays only when it is good (why_not_a_good_exercise_context). The
+original stays among the word's bookmarks, and the exercise arrows still
+offer it as a past context. A context the learner picked with the arrows is
+never switched (has_default_context).
 """
 
 from zeeguu.core.model import Bookmark
@@ -279,13 +277,27 @@ def _switch_to(session, user_word, bookmark, why):
     return True
 
 
-def replace_hard_contexts_before_first_exercise(session, user_words):
+def has_default_context(user_word):
+    """
+    The word's context is still the one it got when the learner looked it up:
+    its first bookmark (Bookmark.find_or_create makes that the preferred
+    one). Any other was chosen, by the learner with the exercise arrows
+    (/set_preferred_bookmark, /set_preferred_example) or by the system.
+    """
+    preferred = user_word.preferred_bookmark
+    if not preferred:
+        return False
+    first = Bookmark.query.filter(Bookmark.user_word_id == user_word.id).order_by(Bookmark.id).first()
+    return first is not None and first.id == preferred.id
+
+
+def replace_contexts_not_good_for_exercise(session, user_words):
     """
     Swap contexts that are not good exercise sentences for generated examples
-    at the learner's level (replace_context_with_example), but only for words
-    that have never been exercised: once a learner has seen a word's context
-    they may have picked it themselves (nothing records that), and we must
-    not switch it back behind their back.
+    at the learner's level (replace_context_with_example). A word that was
+    already exercised is swapped only while it still has its default context:
+    a context the learner picked with the arrows must not be switched back
+    behind their back, but one they never touched is ours to improve.
 
     Returns the number of words swapped.
     """
@@ -303,9 +315,9 @@ def replace_hard_contexts_before_first_exercise(session, user_words):
     swapped = 0
     for user_word in candidates:
         user_word_id = user_word.id
-        if user_word_id in exercised_ids:
-            continue
         try:
+            if user_word_id in exercised_ids and not has_default_context(user_word):
+                continue
             if replace_context_with_example(session, user_word):
                 swapped += 1
         except Exception as e:

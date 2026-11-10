@@ -20,7 +20,7 @@ from zeeguu.core.exercises.example_contexts import (
     is_fragment,
     next_unused_example_bookmark,
     replace_context_with_example,
-    replace_hard_contexts_before_first_exercise,
+    replace_contexts_not_good_for_exercise,
     why_not_a_good_exercise_context,
 )
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
@@ -52,21 +52,54 @@ class ExampleContextsTest(ModelTestMixIn, TestCase):
         self.assertTrue(is_fragment(self._user_word(right_ellipsis=True).preferred_bookmark))
         self.assertFalse(is_fragment(self._user_word().preferred_bookmark))
 
-    def test_only_unexercised_words_are_considered(self):
-        whole = self._user_word()
-        fragment = self._user_word(left_ellipsis=True)
-        exercised_fragment = self._user_word(right_ellipsis=True)
+    def _exercise(self, user_word):
         exercise = ExerciseRule(ExerciseSessionRule(self.user).exerciseSession).exercise
-        exercised_fragment.add_new_exercise(exercise)
+        user_word.add_new_exercise(exercise)
         session.commit()
 
+    def _second_bookmark_of(self, user_word):
+        """Another sentence the learner looked the word up in, made its
+        preferred one (what the arrows' /set_preferred_bookmark does)."""
+        second = BookmarkRule(self.user).bookmark
+        second.user_word = user_word
+        session.add(second)
+        session.commit()
+        user_word.preferred_bookmark = second
+        session.add(user_word)
+        session.commit()
+        return second
+
+    def test_an_exercised_word_with_its_default_context_is_considered(self):
+        fresh = self._user_word()
+        exercised = self._user_word(left_ellipsis=True)
+        self._exercise(exercised)
+
         with patch.object(example_contexts, "replace_context_with_example", return_value=True) as swap:
-            swapped = replace_hard_contexts_before_first_exercise(
-                session, [whole, fragment, exercised_fragment]
-            )
+            swapped = replace_contexts_not_good_for_exercise(session, [fresh, exercised])
 
         self.assertEqual(swapped, 2)
-        self.assertEqual([c.args[1] for c in swap.call_args_list], [whole, fragment])
+        self.assertEqual([c.args[1] for c in swap.call_args_list], [fresh, exercised])
+
+    def test_a_context_the_learner_picked_is_left_alone(self):
+        # The learner looked the word up twice and picked the second sentence
+        # with the arrows (/set_preferred_bookmark)
+        picked = self._user_word()
+        first = picked.preferred_bookmark
+        second = self._second_bookmark_of(picked)
+        self.assertGreater(second.id, first.id)
+        self._exercise(picked)
+
+        with patch.object(example_contexts, "replace_context_with_example", return_value=True) as swap:
+            self.assertEqual(replace_contexts_not_good_for_exercise(session, [picked]), 0)
+        swap.assert_not_called()
+
+    def test_a_picked_context_counts_only_once_exercised(self):
+        # Never exercised: no exercise to have picked it in, so it is fair game
+        picked = self._user_word()
+        second = self._second_bookmark_of(picked)
+
+        with patch.object(example_contexts, "replace_context_with_example", return_value=True) as swap:
+            self.assertEqual(replace_contexts_not_good_for_exercise(session, [picked]), 1)
 
     def test_a_failing_swap_does_not_fail_the_rest(self):
         first = self._user_word(left_ellipsis=True)
@@ -78,7 +111,7 @@ class ExampleContextsTest(ModelTestMixIn, TestCase):
             return True
 
         with patch.object(example_contexts, "replace_context_with_example", side_effect=swap):
-            self.assertEqual(replace_hard_contexts_before_first_exercise(session, [first, second]), 1)
+            self.assertEqual(replace_contexts_not_good_for_exercise(session, [first, second]), 1)
 
     def test_a_failed_flush_is_rolled_back_before_the_next_word(self):
         # What happened on prod: the preferred_bookmark integrity check fails
@@ -93,7 +126,7 @@ class ExampleContextsTest(ModelTestMixIn, TestCase):
             return True
 
         with patch.object(example_contexts, "replace_context_with_example", side_effect=swap):
-            self.assertEqual(replace_hard_contexts_before_first_exercise(session, [first, second]), 1)
+            self.assertEqual(replace_contexts_not_good_for_exercise(session, [first, second]), 1)
 
 
 class GoodExerciseContextTest(ModelTestMixIn, TestCase):
