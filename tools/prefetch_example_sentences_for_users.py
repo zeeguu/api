@@ -20,10 +20,10 @@ import sys
 from datetime import datetime
 from typing import List, Optional, Tuple
 
+from zeeguu.core import cefr
 import zeeguu.core
 from zeeguu.core.model import ExampleGenerationAttempt, ExampleSentence, User, UserWord
 from zeeguu.core.model.ai_generator import AIGenerator
-from zeeguu.core import cefr
 from zeeguu.core.exercises.example_contexts import (
     anchorable_examples,
     learner_example_level,

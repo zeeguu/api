@@ -5,9 +5,9 @@ API endpoints for article simplification.
 import flask
 from flask import request
 
-from zeeguu.core import cefr
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core import cefr
 from zeeguu.core.model import Article
 from . import api
 

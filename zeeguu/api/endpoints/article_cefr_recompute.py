@@ -8,9 +8,9 @@ Used by teachers in the article editor to get assessments without saving to DB:
 """
 
 from flask import request
-from zeeguu.core import cefr
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.core import cefr
 from zeeguu.core.model import Article
 from zeeguu.logging import log
 from . import api

@@ -23,8 +23,8 @@ Note: By default, AI assesses the original article's CEFR level and creates
 import sys
 import argparse
 from datetime import date
-from zeeguu.core import cefr
 from zeeguu.api.app import create_app_for_scripts
+from zeeguu.core import cefr
 from zeeguu.core.model import Article, db
 from zeeguu.core.llm_services.simplification_and_classification import (
     create_simplified_article_adaptive,

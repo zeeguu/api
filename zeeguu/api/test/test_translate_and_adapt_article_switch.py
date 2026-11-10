@@ -9,8 +9,8 @@ original, without a new translation.
 
 from unittest import mock
 
-from zeeguu.core import cefr
 from zeeguu.api.test.fixtures import create_and_get_article, logged_in_client
+from zeeguu.core import cefr
 from zeeguu.core.model import Article, Language, User, UserLanguage
 from zeeguu.core.model.article_fragment import ArticleFragment
 from zeeguu.core.model.db import db

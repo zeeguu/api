@@ -9,8 +9,8 @@ from sqlalchemy import Column, Boolean, case, func, select
 from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
-import zeeguu.core
 from zeeguu.core import cefr
+import zeeguu.core
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
@@ -22,19 +22,6 @@ from zeeguu.core.util.hash import (
 )
 from zeeguu.logging import log
 from zeeguu.logging import warning
-
-# This mapping reflects splitting
-# the scale of 0 - 100 into 6 bands.
-# Rounded up (16.6666 ~ 17)
-CEFR_TO_DIFFICULTY_MAPPING = {
-    1: (0, 1.7),
-    2: (1.7, 3.4),
-    3: (3.4, 5.1),
-    4: (5.1, 6.8),
-    5: (6.8, 8.5),
-    6: (8.5, 10),
-}
-
 
 class User(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -1378,8 +1365,7 @@ class User(db.Model):
         reads the easiest texts there are. Only the audio lessons go below A1,
         and they ask for audio_lesson_level_for_learned_language instead.
         """
-        level = self._stored_cefr_level(language)
-        return "A1" if level == "A0" else level
+        return cefr.readable(self._stored_cefr_level(language))
 
     def cefr_level_for_learned_language(self):
         return self.cefr_level_for_language(self.learned_language)
@@ -1440,10 +1426,9 @@ class User(db.Model):
                 declared_level_max = lang_info.declared_level_max
 
         if lang_info.cefr_level is not None:
-            # A0 (0) reads the A1 range: see cefr_level_for_language.
-            declared_level_min, declared_level_max = CEFR_TO_DIFFICULTY_MAPPING[
-                max(lang_info.cefr_level, 1)
-            ]
+            declared_level_min, declared_level_max = cefr.difficulty_range(
+                cefr.from_number(lang_info.cefr_level)
+            )
 
         # ML, Sept 12, 2024
         # This is too complicated stuff for something that I don't even remmeber anybody asking for

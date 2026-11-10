@@ -9,10 +9,10 @@ to the teacher (Article.article_info_for_teacher, "cefr_assessments").
 import flask
 from flask import request
 
-from zeeguu.core import cefr
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core import cefr
 from zeeguu.core.model import Article, User, ArticleCefrAssessment
 from . import api, db_session
 

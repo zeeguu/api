@@ -13,7 +13,7 @@ def test_a_split_level_counts_as_the_higher_one():
 
 
 def test_not_a_level():
-    for value in (None, "", "A0", "b1", "B3", "X/Y"):
+    for value in (None, "", "A0", "b1", "B3", "X/Y", 3, ["B1"]):
         assert cefr.rank(value) is None
         assert cefr.single(value) is None
         assert cefr.up_to(value) == []
@@ -52,3 +52,27 @@ def test_stored_numbers():
     assert cefr.from_number(None) is None
     assert [cefr.to_number(level) for level in cefr.STORED_LEVELS] == list(range(7))
     assert cefr.to_number("B1/B2") is None
+
+
+def test_readable():
+    assert cefr.readable("A0") == "A1"
+    assert cefr.readable("B1") == "B1"
+    assert cefr.readable("B1/B2") == "B2"
+    assert cefr.readable(None) is None
+    assert cefr.readable("b1") is None
+
+
+def test_combine():
+    assert cefr.combine("B1", "B1") == "B1"
+    assert cefr.combine("B2", "B1") == "B1/B2"
+    assert cefr.combine("A1", "B1") == "B1"
+    assert cefr.combine("A2", None) == "A2"
+    assert cefr.combine(None, "C1") == "C1"
+    assert cefr.combine(None, None) is None
+
+
+def test_difficulty_range():
+    assert cefr.difficulty_range("A1") == (0, 1.7)
+    assert cefr.difficulty_range("A0") == (0, 1.7)
+    assert cefr.difficulty_range("C2") == (8.5, 10)
+    assert cefr.difficulty_range(None) is None

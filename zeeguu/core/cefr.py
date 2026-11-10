@@ -35,7 +35,7 @@ def parse(value):
 def rank(level):
     """A1 -> 0 .. C2 -> 5; a split level ("B1/B2") ranks as its higher part;
     None for anything else (None, A0, garbage)."""
-    if not level:
+    if not isinstance(level, str):
         return None
     ranks = [LEVELS.index(part) for part in level.split("/") if part in LEVELS]
     return max(ranks) if ranks else None
@@ -46,6 +46,45 @@ def single(level):
     None when there is no level in it."""
     r = rank(level)
     return None if r is None else LEVELS[r]
+
+
+def readable(level):
+    """The level of the texts a learner at `level` reads, as one of A1..C2:
+    A0 reads A1 (no text is written below A1), a split level its higher
+    part. None when there is no level in it."""
+    return "A1" if level == "A0" else single(level)
+
+
+def combine(level, other):
+    """One level out of two assessments of the same text (LLM and ML): the
+    level when they agree, a split level ("B1/B2") when they are one step
+    apart, the higher when further apart. When only one is a level, that
+    one; when neither is, None."""
+    a, b = rank(level), rank(other)
+    if a is None or b is None:
+        return single(level) or single(other)
+    low, high = sorted((a, b))
+    if high - low == 1:
+        return f"{LEVELS[low]}/{LEVELS[high]}"
+    return LEVELS[high]
+
+
+# Each level's band on the 0-10 difficulty scale articles were ranked by
+# before CEFR assessment: 0-100 split into six, rounded (16.67 ~ 17).
+_DIFFICULTY_RANGES = {
+    "A1": (0, 1.7),
+    "A2": (1.7, 3.4),
+    "B1": (3.4, 5.1),
+    "B2": (5.1, 6.8),
+    "C1": (6.8, 8.5),
+    "C2": (8.5, 10),
+}
+
+
+def difficulty_range(level):
+    """The (min, max) difficulty, 0-10, of texts at `level` (read as
+    `readable` reads it), or None."""
+    return _DIFFICULTY_RANGES.get(readable(level))
 
 
 def up_to(level):

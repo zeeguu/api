@@ -15,9 +15,9 @@ offer it as a past context. A context the learner picked with the arrows is
 never switched (has_default_context).
 """
 
+from zeeguu.core import cefr
 from zeeguu.core.model import Bookmark
 from zeeguu.core.model.context_identifier import ContextIdentifier
-from zeeguu.core import cefr
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.model.example_sentence_misfit import ExampleSentenceMisfit
@@ -36,18 +36,6 @@ def learner_example_level(user, language):
         return user.cefr_level_for_language(language)
     except ValueError:
         return EXAMPLE_FALLBACK_LEVEL
-
-
-def levels_up_to(cefr_level):
-    """The CEFR levels at or below `cefr_level`, easiest first. A0 reads as A1.
-    A level we don't know (a client can send any) reads as
-    EXAMPLE_FALLBACK_LEVEL, not as all levels: callers sort the hardest first,
-    and too easy beats too hard."""
-    if cefr_level == "A0":
-        cefr_level = "A1"
-    if not cefr.is_level(cefr_level):
-        cefr_level = EXAMPLE_FALLBACK_LEVEL
-    return cefr.up_to(cefr_level)
 
 
 def anchorable_examples(examples, word, language):
@@ -131,7 +119,11 @@ def only_usable_examples(query, cefr_level=None):
     query = query.filter(~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()))
     if cefr_level is None:
         return query
-    return query.filter(ExampleSentence.cefr_level.in_(levels_up_to(cefr_level)))
+    # A level we don't know (a client can send any) reads as
+    # EXAMPLE_FALLBACK_LEVEL, not as all levels: callers sort the hardest
+    # first, and too easy beats too hard.
+    level = cefr.readable(cefr_level) or EXAMPLE_FALLBACK_LEVEL
+    return query.filter(ExampleSentence.cefr_level.in_(cefr.up_to(level)))
 
 
 def usable_examples_query(meaning_id, cefr_level=None):

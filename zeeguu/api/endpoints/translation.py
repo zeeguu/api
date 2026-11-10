@@ -9,7 +9,6 @@ from flask import request
 from python_translators.translation_query import TranslationQuery
 from sqlalchemy.orm.exc import NoResultFound
 
-from zeeguu.core import cefr
 from zeeguu.api.utils.input_limits import (
     abort_if_too_long,
     MAX_PHRASE_CHARS,
@@ -18,6 +17,7 @@ from zeeguu.api.utils.input_limits import (
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core import cefr
 from zeeguu.core.translation_services.translator import (
     get_next_results,
     contribute_trans,

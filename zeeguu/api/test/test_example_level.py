@@ -5,7 +5,7 @@ A2 school classes (feedback from user 6885, 9 Nov 2026).
 """
 
 from zeeguu.api.endpoints import generated_examples
-from zeeguu.core.exercises.example_contexts import levels_up_to, usable_examples_query
+from zeeguu.core.exercises.example_contexts import usable_examples_query
 from zeeguu.api.test.fixtures import logged_in_client
 from zeeguu.core.model import Language, Meaning, User, UserLanguage
 from zeeguu.core.model.example_sentence import ExampleSentence
@@ -59,18 +59,6 @@ def test_without_a_level_examples_fall_back_to_a2(logged_in_client, monkeypatch)
     assert levels_the_llm_was_asked_for(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en") == ["A2"]
 
 
-def test_levels_up_to():
-    assert levels_up_to("A2") == ["A1", "A2"]
-    assert levels_up_to("A1") == ["A1"]
-    assert levels_up_to("C2") == ["A1", "A2", "B1", "B2", "C1", "C2"]
-
-
-def test_levels_up_to_a_level_we_dont_know_is_the_fallback_not_everything():
-    assert levels_up_to("A0") == ["A1"]
-    assert levels_up_to("b1") == ["A1", "A2"]
-    assert levels_up_to(None) == ["A1", "A2"]
-
-
 def _meaning_with_examples(*levels):
     meaning = Meaning.find_or_create(db.session, "Haus", "de", "house", "en")
     for i, level in enumerate(levels):
@@ -100,3 +88,16 @@ def test_the_popup_reuses_easier_stored_examples(logged_in_client, monkeypatch):
     _meaning_with_examples("A1", "B2")
 
     assert levels_the_llm_was_asked_for(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en?translation=house") == []
+
+
+def test_a_level_we_dont_know_is_the_fallback_not_everything(logged_in_client):
+    meaning = _meaning_with_examples("A1", "A2", "B1", "C2")
+
+    assert _levels(usable_examples_query(meaning.id, "b1").all()) == ["A2", "A1"]
+    assert _levels(usable_examples_query(meaning.id, "nonsense").all()) == ["A2", "A1"]
+
+
+def test_a0_reads_the_a1_examples(logged_in_client):
+    meaning = _meaning_with_examples("A1", "A2")
+
+    assert _levels(usable_examples_query(meaning.id, "A0").all()) == ["A1"]
