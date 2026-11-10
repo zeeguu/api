@@ -623,8 +623,8 @@ def preview_learning_card():
     words, and into their exercises.
 
     Nothing of the learner's is written. What is written is shared: the
-    explanation and the word's CEFR level are cached on the Meaning, so the
-    next preview of that meaning, by anyone, needs no LLM call. That is also
+    explanation is cached on the Meaning, so the next preview of that
+    meaning, by anyone, needs no LLM call. That is also
     why the level stays DEFAULT_CEFR_LEVEL here and not the learner's: the
     cache is the same for every learner.
 
