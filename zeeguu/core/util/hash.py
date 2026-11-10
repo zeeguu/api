@@ -5,6 +5,11 @@ import bcrypt
 # Prefix to identify bcrypt hashes vs legacy SHA1 hashes
 BCRYPT_PREFIX = "$2b$"
 
+# 12 rounds (2^12 iterations): a good balance of security and speed in
+# production. A module global, read at call time, so the test suite can lower
+# it (see the root conftest.py): at 12 rounds every hash or verify costs ~0.17s.
+BCRYPT_ROUNDS = 12
+
 
 def text_hash(text: str) -> str:
     """
@@ -32,8 +37,7 @@ def password_hash_bcrypt(password: str) -> str:
     Returns the full bcrypt hash string including salt.
     """
     password_bytes = password.encode("utf-8")
-    # Use 12 rounds (2^12 = 4096 iterations) - good balance of security and speed
-    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=12))
+    hashed = bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=BCRYPT_ROUNDS))
     return hashed.decode("utf-8")
 
 

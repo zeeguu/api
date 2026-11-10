@@ -16,6 +16,17 @@ source $GH_FOLDER/zeeguu/api/.venv/bin/activate && python -m pytest
 source $GH_FOLDER/zeeguu/api/.venv/bin/activate && python <command>
 ```
 
+The full suite takes ~35s. Run it whole, not a guessed subset. If it creeps past
+a minute, find out why with `pytest --durations=20` before adding test selection.
+In the past the cause was real work leaking into tests: production bcrypt cost,
+live LLM calls. The root `conftest.py` turns both off.
+
+Tests run offline. The root `conftest.py` blocks outbound connections and fails
+any test that tries one, even if the code swallows the error. Mock the call
+(`_mock_web`, the fake Stanza service) rather than loosening the guard.
+`ZEEGUU_TEST_ALLOW_NETWORK=1` lifts it, and keeps the `ANTHROPIC_*` keys, for
+deliberate runs against the real services.
+
 ## Tool Scripts Structure
 - **All tool scripts that access the database MUST initialize Flask app context**
 - **Use `create_app_for_scripts()`, NOT `create_app()`** — the full factory loads endpoints, the Flask Monitoring Dashboard (APScheduler) and preloads wordstats. That adds several seconds to every tool startup. The lightweight factory only sets up DB/config.
