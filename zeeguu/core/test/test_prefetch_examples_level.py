@@ -2,16 +2,17 @@
 at the learner's level. An A2 learner's new words used to have no examples,
 or B1-C2 ones (user 6885, 9 Nov 2026)."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest import TestCase
 
 import zeeguu.core
-from tools.prefetch_example_sentences_for_users import get_user_words_needing_examples
+from tools.prefetch_example_sentences_for_users import CURRENT_PROMPT_VERSION, get_user_words_needing_examples
 from zeeguu.core.model import UserLanguage
 from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.user_rule import UserRule
+from zeeguu.core.util.time import server_now
 
 session = zeeguu.core.model.db.session
 
@@ -90,9 +91,10 @@ class PrefetchAtLearnerLevelTest(ModelTestMixIn, TestCase):
         self.assertEqual(len(get_user_words_needing_examples(limit=1)), 1)
 
 
-class ShortTriesPauseTest(ModelTestMixIn, TestCase):
+class TriesPauseTest(ModelTestMixIn, TestCase):
     """A meaning the LLM's sentences cannot be anchored for ("schreibt
-    darüber") would otherwise go to the LLM every night."""
+    darüber"), or whose examples the validator rejects, would otherwise go to
+    the LLM every night."""
 
     def setUp(self):
         super().setUp()
@@ -105,10 +107,10 @@ class ShortTriesPauseTest(ModelTestMixIn, TestCase):
         session.commit()
         self.meaning_id = self.user_word.meaning_id
 
-    def _short_try(self, when, prompt="v4"):
+    def _try(self, when, prompt="v4"):
         from zeeguu.core.model.example_generation_attempt import ExampleGenerationAttempt
 
-        ExampleGenerationAttempt.record_short_try(session, self.meaning_id, "A2", prompt, now=when)
+        ExampleGenerationAttempt.record_try(session, self.meaning_id, "A2", prompt, now=when)
         session.commit()
 
     def _paused(self, now, prompt="v4"):
@@ -116,41 +118,64 @@ class ShortTriesPauseTest(ModelTestMixIn, TestCase):
 
         return self.meaning_id in ExampleGenerationAttempt.paused_meaning_ids({self.meaning_id}, "A2", prompt, now)
 
-    def test_a_week_after_the_first_short_try_a_month_after_the_second_then_for_good(self):
-        from datetime import timedelta
+    def _listed(self, **kwargs):
+        return self.user_word.id in [uw.id for uw, _ in get_user_words_needing_examples(self.user, **kwargs)]
 
+    def test_a_week_after_the_first_try_a_month_after_the_second_then_for_good(self):
         start = datetime(2026, 11, 10)
-        self._short_try(start)
+        self._try(start)
         self.assertTrue(self._paused(start + timedelta(days=6)))
         self.assertFalse(self._paused(start + timedelta(days=8)))
 
-        self._short_try(start + timedelta(days=8))
+        self._try(start + timedelta(days=8))
         self.assertTrue(self._paused(start + timedelta(days=37)))
         self.assertFalse(self._paused(start + timedelta(days=39)))
 
-        self._short_try(start + timedelta(days=39))
+        self._try(start + timedelta(days=39))
         self.assertTrue(self._paused(start + timedelta(days=3650)))
 
-    def test_a_new_example_prompt_starts_over(self):
-        start = datetime(2026, 11, 10)
-        for _ in range(3):
-            self._short_try(start)
-        self.assertFalse(self._paused(start, prompt="v5"))
-
-        self._short_try(start, prompt="v5")
+    def test_no_tries_is_not_a_pause(self):
         from zeeguu.core.model.example_generation_attempt import ExampleGenerationAttempt
 
+        row = ExampleGenerationAttempt(
+            meaning_id=self.meaning_id, cefr_level="A2", prompt_version="v4", tries=0, last_try_at=server_now()
+        )
+        self.assertFalse(row.is_paused("v4", server_now()))
+
+    def test_a_new_example_prompt_starts_over(self):
+        from zeeguu.core.model.example_generation_attempt import ExampleGenerationAttempt
+
+        start = datetime(2026, 11, 10)
+        for _ in range(3):
+            self._try(start)
+        self.assertFalse(self._paused(start, prompt="v5"))
+
+        self._try(start, prompt="v5")
         row = ExampleGenerationAttempt.query.filter_by(meaning_id=self.meaning_id).one()
-        self.assertEqual((row.prompt_version, row.short_tries), ("v5", 1))
+        self.assertEqual((row.prompt_version, row.tries), ("v5", 1))
 
-    def test_a_paused_meaning_is_not_listed(self):
-        from tools.prefetch_example_sentences_for_users import CURRENT_PROMPT_VERSION
+    def test_a_meaning_short_again_after_a_try_is_not_listed(self):
+        # Also what happens when the validator rejects the examples after the
+        # try: the meaning is short again, and it already had its try
+        self.assertTrue(self._listed())
+        self._try(server_now(), prompt=CURRENT_PROMPT_VERSION)
+        self.assertFalse(self._listed())
 
-        self.assertIn(self.user_word.id, [uw.id for uw, _ in get_user_words_needing_examples(self.user)])
-        self._short_try(datetime.now(), prompt=CURRENT_PROMPT_VERSION)
-        self.assertNotIn(self.user_word.id, [uw.id for uw, _ in get_user_words_needing_examples(self.user)])
+    def test_a_covered_meaning_forgets_its_tries_but_not_in_a_dry_run(self):
+        from zeeguu.core.model.example_generation_attempt import ExampleGenerationAttempt
 
-    def test_a_generation_that_comes_out_short_is_recorded(self):
+        self._try(server_now() - timedelta(days=100), prompt=CURRENT_PROMPT_VERSION)
+        for i, level in enumerate(["A1", "A2", "A2"]):
+            session.add(ExampleSentence(f"satz {i}", self.user.learned_language, self.user_word.meaning, cefr_level=level))
+        session.commit()
+
+        self._listed()  # as the dry run calls it
+        self.assertEqual(ExampleGenerationAttempt.query.filter_by(meaning_id=self.meaning_id).count(), 1)
+
+        self._listed(forget_covered_tries=True)
+        self.assertEqual(ExampleGenerationAttempt.query.filter_by(meaning_id=self.meaning_id).count(), 0)
+
+    def test_every_generation_is_counted(self):
         from unittest.mock import patch
         from zeeguu.core.model.example_generation_attempt import ExampleGenerationAttempt
         from tools import prefetch_example_sentences_for_users as prefetch
@@ -166,4 +191,4 @@ class ShortTriesPauseTest(ModelTestMixIn, TestCase):
             prefetch.generate_examples_for_user_word(self.user_word, "A2")
 
         row = ExampleGenerationAttempt.query.filter_by(meaning_id=self.meaning_id, cefr_level="A2").one()
-        self.assertEqual(row.short_tries, 1)
+        self.assertEqual(row.tries, 1)

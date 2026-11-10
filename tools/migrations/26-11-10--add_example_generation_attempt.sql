@@ -1,13 +1,14 @@
--- (meaning, level) pairs the nightly prefetch fell short on: the LLM's
--- examples could not be anchored or were rejected. They pause (a week, a
--- month, then for good until the example prompt changes) instead of going to
--- the LLM every night. A new table, so nothing existing is rebuilt.
+-- How often the nightly prefetch wrote examples for a (meaning, level) since
+-- it last had enough. A meaning short again after a try (examples not
+-- anchorable, or rejected by the validator later) pauses: a week, a month,
+-- then for good until the example prompt changes, instead of going to the
+-- LLM every night. A new table, so nothing existing is rebuilt.
 CREATE TABLE example_generation_attempt (
     id INT(11) NOT NULL AUTO_INCREMENT,
     meaning_id INT(11) NOT NULL,
     cefr_level VARCHAR(2) NOT NULL,
     prompt_version VARCHAR(32) NOT NULL,
-    short_tries INT(11) NOT NULL DEFAULT 0,
+    tries INT(11) NOT NULL DEFAULT 0,
     last_try_at DATETIME NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY meaning_id (meaning_id, cefr_level),
