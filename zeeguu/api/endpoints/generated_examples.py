@@ -31,10 +31,10 @@ CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 INTERACTIVE_LLM = dict(timeout=20, max_retries=0)
 
 
-def _learner_cefr_level(user, language, requested=None):
+def _example_level(user, language, requested=None):
     """
-    The level to write or pick example sentences at: the one the caller asks
-    for, else the learner's own level in `language`, else B1. The web never
+    The CEFR level to write or pick example sentences at: the one the caller
+    asks for, else the learner's level in `language`, else B1. The web never
     sends one, so before this every example was asked for at B1, also for
     A1-A2 school classes.
     """
@@ -113,7 +113,7 @@ def alternative_sentences(user_word_id):
     if user_word.preferred_bookmark and user_word.preferred_bookmark.context:
         current_context = user_word.preferred_bookmark.get_context().strip().lower()
 
-    cefr_level = _learner_cefr_level(
+    cefr_level = _example_level(
         user, user_word.meaning.origin.language, request.args.get("cefr_level")
     )
 
@@ -441,7 +441,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
     if not origin_lang or not translation_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
 
-    cefr_level = _learner_cefr_level(user, origin_lang, request.args.get("cefr_level"))
+    cefr_level = _example_level(user, origin_lang, request.args.get("cefr_level"))
     translation = request.args.get("translation", "")
     abort_if_too_long("word", word, MAX_PHRASE_CHARS)
     abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
@@ -577,7 +577,7 @@ def add_word_to_learning():
     if not origin_lang or not target_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
 
-    cefr_level = _learner_cefr_level(user, origin_lang, data.get("cefr_level"))
+    cefr_level = _example_level(user, origin_lang, data.get("cefr_level"))
 
     try:
         # Call LLM to prepare the optimal learning card
