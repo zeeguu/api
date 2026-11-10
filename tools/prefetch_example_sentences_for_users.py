@@ -22,6 +22,7 @@ from typing import List, Optional, Tuple
 
 import zeeguu.core
 from zeeguu.core.model import User, UserWord, ExampleSentence
+from zeeguu.core.model.example_generation_attempt import ExampleGenerationAttempt
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.exercises.example_contexts import (
     CEFR_LEVELS,
@@ -113,8 +114,10 @@ def get_user_words_needing_examples(
     for each in users:
         level = learner_example_level(each, each.learned_language)
         words = words_the_exercises_will_show(each, all_words)
-        covered = meanings_with_examples_up_to(
-            {w.meaning_id for w in words}, level, target_examples
+        meaning_ids = {w.meaning_id for w in words}
+        # Paused: short of examples after earlier tries (ExampleGenerationAttempt)
+        covered = meanings_with_examples_up_to(meaning_ids, level, target_examples) | (
+            ExampleGenerationAttempt.paused_meaning_ids(meaning_ids, level, CURRENT_PROMPT_VERSION)
         )
         for user_word in words:
             key = (user_word.meaning_id, level)
@@ -202,9 +205,17 @@ def generate_examples_for_user_word(
             )
             created_examples.append(example_sentence)
 
-        # Commit immediately after creating each set of examples
         db.session.commit()
         log(f"Generated {len(created_examples)} examples for user_word {user_word.id}")
+
+        # Still short (sentences not anchorable, or not usable): pause this
+        # meaning at this level instead of asking the LLM again tomorrow
+        if usable_examples_query(user_word.meaning_id, cefr_level).count() < target_example_count:
+            ExampleGenerationAttempt.record_short_try(
+                db.session, user_word.meaning_id, cefr_level, CURRENT_PROMPT_VERSION
+            )
+            db.session.commit()
+            log(f"Meaning {user_word.meaning_id} still short of {cefr_level} examples; paused")
         return created_examples
 
     except Exception:
