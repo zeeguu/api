@@ -1,6 +1,5 @@
 import json
 import traceback
-import re
 
 import flask
 import sentry_sdk
@@ -668,7 +667,10 @@ def preview_learning_card():
         db_session, word, from_lang, translation, to_lang
     )
 
-    if meaning.translation_explanation and meaning.word_cefr_level:
+    # The explanation is the cache. It can also be the validator's, which
+    # writes the same column; the validator leaves it empty when it has no
+    # note, and then the card is written here.
+    if meaning.translation_explanation:
         # Return cached data - no LLM call needed
         return json_result({
             "word": word,
@@ -696,12 +698,9 @@ def preview_learning_card():
         if learning_card.get("explanation"):
             meaning.translation_explanation = learning_card["explanation"]
 
-        # Parse CEFR level from level_note (e.g., "appropriate for B1 - ..." → "B1")
-        level_note = learning_card.get("level_note", "")
-        cefr_match = re.search(r'\b(A1|A2|B1|B2|C1|C2)\b', level_note)
-        if cefr_match:
-            meaning.word_cefr_level = cefr_match.group(1)
-            learning_card["word_cefr_level"] = cefr_match.group(1)
+        # Not the word's level: level_note judges the word for the learner's
+        # level ("appropriate for B1"). The word's own comes from the validator.
+        learning_card["word_cefr_level"] = meaning.word_cefr_level
 
         db_session.add(meaning)
         db_session.commit()

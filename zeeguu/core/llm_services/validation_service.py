@@ -319,6 +319,9 @@ class UserWordValidationService:
         if result.phrase_type:
             meaning.phrase_type = PhraseType.from_string(result.phrase_type)
 
+        if result.cefr_level:
+            meaning.word_cefr_level = result.cefr_level
+
         if result.explanation:
             meaning.translation_explanation = result.explanation
 
@@ -424,6 +427,9 @@ class UserWordValidationService:
 
         if validation_result.phrase_type:
             new_meaning.phrase_type = PhraseType.from_string(validation_result.phrase_type)
+
+        if validation_result.cefr_level:
+            new_meaning.word_cefr_level = validation_result.cefr_level
 
         if validation_result.explanation:
             new_meaning.translation_explanation = validation_result.explanation
