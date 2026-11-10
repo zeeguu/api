@@ -95,9 +95,4 @@ def test_a_level_we_dont_know_is_the_fallback_not_everything(logged_in_client):
 
     assert _levels(usable_examples_query(meaning.id, "b1").all()) == ["A2", "A1"]
     assert _levels(usable_examples_query(meaning.id, "nonsense").all()) == ["A2", "A1"]
-
-
-def test_a0_reads_the_a1_examples(logged_in_client):
-    meaning = _meaning_with_examples("A1", "A2")
-
-    assert _levels(usable_examples_query(meaning.id, "A0").all()) == ["A1"]
+    assert _levels(usable_examples_query(meaning.id, "B1/B2").all()) == ["A2", "A1"]

@@ -119,10 +119,9 @@ def only_usable_examples(query, cefr_level=None):
     query = query.filter(~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()))
     if cefr_level is None:
         return query
-    # A level we don't know (a client can send any) reads as
-    # EXAMPLE_FALLBACK_LEVEL, not as all levels: callers sort the hardest
-    # first, and too easy beats too hard.
-    level = cefr.readable(cefr_level) or EXAMPLE_FALLBACK_LEVEL
+    # Anything but one of A1..C2 reads as EXAMPLE_FALLBACK_LEVEL, not as all
+    # levels: callers sort the hardest first, and too easy beats too hard.
+    level = cefr_level if cefr.is_level(cefr_level) else EXAMPLE_FALLBACK_LEVEL
     return query.filter(ExampleSentence.cefr_level.in_(cefr.up_to(level)))
 
 
@@ -171,11 +170,11 @@ def article_level(bookmark):
 # them average 10 words.
 MAX_EXERCISE_SENTENCE_WORDS = 15
 MAX_EXERCISE_SENTENCE_WORDS_BEGINNERS = 10
-BEGINNER_LEVELS = {"A1", "A2"}
+BEGINNERS_UP_TO = "A2"
 
 
 def max_exercise_sentence_words(cefr_level):
-    if cefr_level in BEGINNER_LEVELS:
+    if cefr.single(cefr_level) in cefr.up_to(BEGINNERS_UP_TO):
         return MAX_EXERCISE_SENTENCE_WORDS_BEGINNERS
     return MAX_EXERCISE_SENTENCE_WORDS
 

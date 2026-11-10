@@ -29,14 +29,6 @@ def test_up_to_and_below():
     assert cefr.below("B2") == ["A1", "A2", "B1"]
 
 
-def test_harder():
-    assert cefr.harder("B1", "B2") == "B2"
-    assert cefr.harder("C1", "A2") == "C1"
-    assert cefr.harder(None, "A2") == "A2"
-    assert cefr.harder("A2", None) == "A2"
-    assert cefr.harder("A2", "garbage") == "A2"
-
-
 def test_parse():
     assert cefr.parse(" b1 ") == "B1"
     assert cefr.parse("B1/B2") is None
@@ -70,9 +62,3 @@ def test_combine():
     assert cefr.combine(None, "C1") == "C1"
     assert cefr.combine(None, None) is None
 
-
-def test_difficulty_range():
-    assert cefr.difficulty_range("A1") == (0, 1.7)
-    assert cefr.difficulty_range("A0") == (0, 1.7)
-    assert cefr.difficulty_range("C2") == (8.5, 10)
-    assert cefr.difficulty_range(None) is None

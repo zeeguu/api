@@ -8,6 +8,7 @@ from flask import request, Response
 from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core import cefr
 from zeeguu.core.exercises.example_contexts import (
     anchorable_examples,
     bookmark_for_example,
@@ -41,7 +42,7 @@ def _example_level(user, language, requested=None):
     (web#1375 removed the Translate tab's, which read the wrong field), so
     before this every example was asked for at B1, also for A1-A2 classes.
     """
-    return requested or learner_example_level(user, language)
+    return cefr.parse(requested) or learner_example_level(user, language)
 
 
 def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):

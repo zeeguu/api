@@ -584,9 +584,8 @@ def _quantile(values, q):
 
 
 def _cefr_diff(a, b):
-    if a in CEFR and b in CEFR:
-        return abs(CEFR.index(a) - CEFR.index(b))
-    return None
+    ra, rb = cefr.rank(a), cefr.rank(b)
+    return None if ra is None or rb is None else abs(ra - rb)
 
 
 def _confusion(pairs, title, rows_label="A", cols_label="other"):

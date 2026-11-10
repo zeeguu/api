@@ -3,7 +3,8 @@ The CEFR levels: their order, and the one policy for a level between two.
 
 Every comparison of levels goes through here. The database keeps its own
 ENUMs (article.cefr_level, article_cefr_assessment.*), and the web its own
-copy (src/utils/misc/cefrScale.js), which counts a split level the same way.
+twin (src/utils/misc/cefr.js), which follows the same rules: keep the
+two in step.
 
 A split level ("B1/B2") is what ArticleCefrAssessment.update_effective_cefr_level
 writes when the LLM and the ML assessment disagree by one step. It counts as
@@ -69,24 +70,6 @@ def combine(level, other):
     return LEVELS[high]
 
 
-# Each level's band on the 0-10 difficulty scale articles were ranked by
-# before CEFR assessment: 0-100 split into six, rounded (16.67 ~ 17).
-_DIFFICULTY_RANGES = {
-    "A1": (0, 1.7),
-    "A2": (1.7, 3.4),
-    "B1": (3.4, 5.1),
-    "B2": (5.1, 6.8),
-    "C1": (6.8, 8.5),
-    "C2": (8.5, 10),
-}
-
-
-def difficulty_range(level):
-    """The (min, max) difficulty, 0-10, of texts at `level` (read as
-    `readable` reads it), or None."""
-    return _DIFFICULTY_RANGES.get(readable(level))
-
-
 def up_to(level):
     """The levels at or below `level`, easiest first; [] when it is not a level."""
     r = rank(level)
@@ -103,19 +86,6 @@ def is_above(level, other):
     """True when `level` is harder than `other`; False when either is not a level."""
     a, b = rank(level), rank(other)
     return a is not None and b is not None and a > b
-
-
-def harder(level, other):
-    """The harder of two levels. When one is missing, the other; when they
-    cannot be compared, `level`."""
-    if not level:
-        return other
-    if not other:
-        return level
-    a, b = rank(level), rank(other)
-    if a is None or b is None:
-        return level
-    return other if b > a else level
 
 
 def from_number(number):

@@ -1396,64 +1396,6 @@ class User(db.Model):
 
         return languages
 
-    def levels_for(self, language: Language):
-        """
-
-            the level that the system considers for this user
-
-            TODO: must think better about this...
-
-        :param language:
-
-        :return: pair of level_min and level_max for this user
-
-        """
-        from zeeguu.core.model import UserLanguage
-
-        lang_info = UserLanguage.with_language_id(language.id, self)
-
-        # default values, for when there's no corresponding setting
-        declared_level_min = -1
-        declared_level_max = 11
-
-        # start from user's levels if they exist
-        if lang_info.declared_level_min:
-            if lang_info.declared_level_min > 0:
-                declared_level_min = lang_info.declared_level_min
-
-        if lang_info.declared_level_max:
-            if lang_info.declared_level_max < 10:
-                declared_level_max = lang_info.declared_level_max
-
-        if lang_info.cefr_level is not None:
-            declared_level_min, declared_level_max = cefr.difficulty_range(
-                cefr.from_number(lang_info.cefr_level)
-            )
-
-        # ML, Sept 12, 2024
-        # This is too complicated stuff for something that I don't even remmeber anybody asking for
-        # The teacher overriding the difficulty levels of the student with micro granularity seems
-        # like more trouble than necessary.
-        # Commenting it out for now and I expect that we'll remove it eventually completely
-        # # If there's cohort info, consider it
-        # for cohortMap in self.cohorts:
-        #     each_cohort = cohortMap.cohort
-        #     if each_cohort.language and each_cohort.language == language:
-        #         if each_cohort.declared_level_min:
-        #             # min will be the max between the teacher's min and the student's min
-        #             # this means that if the teacher says 5 is min, the student can't reduce it...
-        #             # otoh, if the teacher says 5 is the min but the student wants 7 that will work
-        #             declared_level_min = max(
-        #                 declared_level_min, each_cohort.declared_level_min
-        #             )
-        #         if each_cohort.declared_level_max:
-        #             # a student is limited to the upper limit of his cohort
-        #             declared_level_max = min(
-        #                 declared_level_max, each_cohort.declared_level_max
-        #             )
-
-        return max(declared_level_min, 0), min(declared_level_max, 10)
-
     def has_feature(self, feature_name):
         from zeeguu.core.user_feature_toggles import is_feature_enabled_for_user
 

@@ -53,14 +53,6 @@ def compute_ml_assessment(content, language_code, fk_difficulty=None, word_count
         return None, None
 
 
-def get_max_level(level1, level2):
-    """
-    Return the harder (higher) of two CEFR levels.
-    Conservative approach: if either system thinks it's harder, trust that.
-    """
-    return cefr.harder(level1, level2)
-
-
 @api.route("/article/<int:article_id>/assess_ml", methods=["POST"])
 @cross_domain
 @requires_session
@@ -188,8 +180,8 @@ def initial_assessments(article_id):
         article.get_content(), article.language.code
     )
 
-    # Calculate effective level (conservative: max of LLM and ML)
-    effective_level = get_max_level(llm_assessment, ml_assessment)
+    # The level update_effective_cefr_level will store for these two
+    effective_level = cefr.combine(llm_assessment, ml_assessment)
 
     # Check for teacher override
     teacher_override = None

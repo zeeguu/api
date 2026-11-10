@@ -295,12 +295,11 @@ def active_users_by_segment(active_days, language_codes=None):
             continue
         if language_codes and lang.code not in language_codes:
             continue
-        level_int = cefr_int_by_user_lang.get((user.id, lang.id))
-        if level_int is None or not (0 <= level_int <= 6):
+        # A0 reads the A1 feed, so it is watched as A1.
+        level = cefr.readable(cefr.from_number(cefr_int_by_user_lang.get((user.id, lang.id))))
+        if level is None:
             continue
-        # A0 (0) reads the A1 feed, so it is watched as A1.
-        level_int = max(level_int, 1)
-        segments[Segment(lang.code, cefr.from_number(level_int))].append(
+        segments[Segment(lang.code, level)].append(
             (user, user.last_seen)
         )
 

@@ -101,6 +101,6 @@ def article_simplification_levels():
         )
 
     # Sort by CEFR level difficulty (A1 first, then A2, B1, etc.)
-    levels.sort(key=lambda x: cefr.rank(x["cefr_level"]) if cefr.is_level(x["cefr_level"]) else 999)
+    levels.sort(key=lambda x: cefr.rank(x["cefr_level"]) if cefr.rank(x["cefr_level"]) is not None else 999)
 
     return json_result(levels)
