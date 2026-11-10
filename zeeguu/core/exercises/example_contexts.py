@@ -8,10 +8,13 @@ so before a word's first exercise we swap such a context for one of the
 word's generated example sentences. The fragment stays among the word's
 bookmarks, and the exercise arrows still offer it as a past context.
 
-The same goes for a whole sentence from an article written above the
-learner's level: an A2 learner shown a B2 sentence in an exercise looks up
-half of it (user 6885, 9 Nov 2026). Such a context gives way only to an
-example at or below the learner's level.
+The same goes for any context that is not a good exercise sentence. On
+10 Nov 2026 only 24% of the contexts waiting to be practiced were: a whole
+sentence, at or below the learner's level, and short. The rest were
+fragments, titles, above the learner's level (an A2 learner shown B2
+sentences looked up half of each, user 6885), of unknown level, or long.
+So an example at or below the learner's level is the default, and the
+original stays only when it is good (is_good_exercise_context).
 """
 
 from zeeguu.core.model import Bookmark
@@ -171,11 +174,49 @@ def article_level(bookmark):
     return article.cefr_level
 
 
-def is_above_level(bookmark, cefr_level):
-    """The bookmark's sentence comes from an article written above
-    `cefr_level`. Even one level above is too much for an exercise sentence."""
+# Longer real sentences are mostly reading, not practice: on 10 Nov 2026 half
+# of the whole article sentences waiting to be practiced were longer.
+MAX_EXERCISE_SENTENCE_WORDS = 15
+
+# Written at the learner's level when they were made
+LEVEL_ADAPTED_CONTEXTS = {ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY, ContextType.LEVEL_ADAPTED_ARTICLE_TITLE}
+# Their level is the article's
+ARTICLE_CONTEXTS = {ContextType.ARTICLE_FRAGMENT, ContextType.ARTICLE_TITLE, ContextType.ARTICLE_SUMMARY}
+
+
+def why_not_a_good_exercise_context(bookmark, cefr_level):
+    """
+    None when the bookmark's context makes a good exercise sentence for a
+    learner at `cefr_level`; otherwise why not: "fragment", "too long",
+    "level unknown" or "above level".
+
+    Good means a whole sentence, at most MAX_EXERCISE_SENTENCE_WORDS words,
+    at or below the learner's level. A generated example is good as it is.
+    A context of unknown level (a web page, a video, an unassessed article)
+    is not: an example at the learner's level is the safer choice.
+    """
+    context = bookmark.context
+    context_type = context.context_type.type if context and context.context_type else None
+    if context_type == ContextType.EXAMPLE_SENTENCE:
+        return None
+    if is_fragment(bookmark):
+        return "fragment"
+    if len((bookmark.get_context() or "").split()) > MAX_EXERCISE_SENTENCE_WORDS:
+        return "too long"
+    if context_type in LEVEL_ADAPTED_CONTEXTS:
+        return None
+    if context_type not in ARTICLE_CONTEXTS:
+        return "level unknown"
     learner, article = _rank(cefr_level), _rank(article_level(bookmark))
-    return learner is not None and article is not None and article > learner
+    if learner is None or article is None:
+        return "level unknown"
+    if article > learner:  # even one level above is too much
+        return "above level"
+    return None
+
+
+def is_good_exercise_context(bookmark, cefr_level):
+    return why_not_a_good_exercise_context(bookmark, cefr_level) is None
 
 
 def next_unused_example_bookmark(session, user_word, skip_ids=(), max_level=None):
@@ -211,24 +252,22 @@ def replace_fragment_with_example(session, user_word):
     return _switch_to(session, user_word, bookmark, "FRAGMENT-CONTEXT")
 
 
-def replace_above_level_with_example(session, user_word):
+def replace_context_with_example(session, user_word):
     """
     Make an example at or below the learner's level the word's preferred
-    context, if the current one comes from an article above that level.
-    Returns True if it swapped.
+    context, unless the current one is a good exercise context. With no such
+    example yet, the context stays (the nightly prefetch writes examples at
+    the learner's level). Returns True if it swapped.
     """
+    if not user_word.preferred_bookmark:
+        return False
     level = learner_level(user_word)
-    if not user_word.preferred_bookmark or not is_above_level(user_word.preferred_bookmark, level):
+    why = why_not_a_good_exercise_context(user_word.preferred_bookmark, level)
+    if why is None:
         return False
 
     bookmark = next_unused_example_bookmark(session, user_word, max_level=level)
-    return _switch_to(session, user_word, bookmark, "ABOVE-LEVEL-CONTEXT")
-
-
-def replace_context_with_example(session, user_word):
-    return replace_fragment_with_example(session, user_word) or replace_above_level_with_example(
-        session, user_word
-    )
+    return _switch_to(session, user_word, bookmark, f"CONTEXT {why}")
 
 
 def _switch_to(session, user_word, bookmark, why):
@@ -246,9 +285,9 @@ def _switch_to(session, user_word, bookmark, why):
 
 def replace_hard_contexts_before_first_exercise(session, user_words):
     """
-    Swap fragment contexts, and sentences from articles above the learner's
-    level, for generated examples, but only for words that have never been
-    exercised: once a learner has seen a word's context they may have picked
+    Swap contexts that are not good exercise sentences for generated examples
+    at the learner's level (replace_context_with_example), but only for words
+    that have never been exercised: once a learner has seen a word's context they may have picked
     it themselves (nothing records that), and we must not switch it back
     behind their back.
 
@@ -274,12 +313,12 @@ def replace_hard_contexts_before_first_exercise(session, user_words):
             if replace_context_with_example(session, user_word):
                 swapped += 1
         except Exception as e:
-            # Serving the fragment is the old behaviour; never fail the
+            # Serving the original context is the old behavior; never fail the
             # exercise session over this. Each swap commits on its own
             # (Bookmark.find_or_create commits anyway), so this only drops
             # this word's half-done work. Roll back before anything touches
             # the session again: even reading user_word.id would raise.
             session.rollback()
-            log(f"[FRAGMENT-CONTEXT] user_word {user_word_id} not swapped: {e}")
+            log(f"[CONTEXT] user_word {user_word_id} not swapped: {e}")
 
     return swapped

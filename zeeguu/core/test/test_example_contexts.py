@@ -1,9 +1,9 @@
-"""Which words get their fragment context swapped for a generated example.
+"""Which words get their context swapped for a generated example.
 
 The swap itself (locating the word in an example, tokenizing) is the same
-code /alternative_sentences runs; these tests pin the gate: only fragments
-and sentences from articles above the learner's level, and only before the
-word's first exercise.
+code /alternative_sentences runs; these tests pin the gate: every context
+that is not a good exercise sentence (whole, short, at or below the
+learner's level), and only before the word's first exercise.
 """
 from unittest import TestCase
 from unittest.mock import patch
@@ -15,12 +15,13 @@ from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
 from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.exercises.example_contexts import (
+    MAX_EXERCISE_SENTENCE_WORDS,
     _rank,
-    is_above_level,
     is_fragment,
     next_unused_example_bookmark,
     replace_context_with_example,
     replace_hard_contexts_before_first_exercise,
+    why_not_a_good_exercise_context,
 )
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
@@ -95,9 +96,12 @@ class ExampleContextsTest(ModelTestMixIn, TestCase):
             self.assertEqual(replace_hard_contexts_before_first_exercise(session, [first, second]), 1)
 
 
-class AboveLevelContextTest(ModelTestMixIn, TestCase):
-    """An A2 learner got B2 article sentences in exercises and looked up half
-    of each (user 6885, 9 Nov 2026)."""
+class GoodExerciseContextTest(ModelTestMixIn, TestCase):
+    """Only 24% of the contexts waiting to be practiced were good exercise
+    sentences (10 Nov 2026); an A2 learner got B2 article sentences and looked
+    up half of each (user 6885, 9 Nov 2026)."""
+
+    SHORT = "Der Hund schläft im Garten."
 
     def setUp(self):
         super().setUp()
@@ -109,34 +113,68 @@ class AboveLevelContextTest(ModelTestMixIn, TestCase):
         user_language.cefr_level = level
         session.commit()
 
-    def _user_word(self, article_level):
+    def _user_word(self, article_level="A2", sentence=SHORT, context_type=ContextType.ARTICLE_FRAGMENT):
         bookmark = BookmarkRule(self.user).bookmark
         bookmark.text.article.cefr_level = article_level
+        bookmark.context.context_type = ContextType.find_by_type(context_type)
+        bookmark.context.text.content = sentence
         user_word = bookmark.user_word
         user_word.preferred_bookmark = bookmark
         session.add_all([bookmark, user_word])
         session.commit()
         return user_word
 
-    def test_even_one_level_above_is_too_much(self):
-        self.assertTrue(is_above_level(self._user_word("B1").preferred_bookmark, "A2"))
-        self.assertFalse(is_above_level(self._user_word("A2").preferred_bookmark, "A2"))
-        self.assertFalse(is_above_level(self._user_word("A1").preferred_bookmark, "A2"))
+    def _why(self, user_word, level="A2"):
+        return why_not_a_good_exercise_context(user_word.preferred_bookmark, level)
 
-    def test_unknown_levels_are_not_above(self):
-        self.assertFalse(is_above_level(self._user_word(None).preferred_bookmark, "A2"))
-        self.assertFalse(is_above_level(self._user_word("C1").preferred_bookmark, None))
+    def test_a_short_whole_sentence_at_or_below_the_level_is_good(self):
+        self.assertIsNone(self._why(self._user_word("A2")))
+        self.assertIsNone(self._why(self._user_word("A1")))
+
+    def test_even_one_level_above_is_too_much(self):
+        self.assertEqual(self._why(self._user_word("B1")), "above level")
 
     def test_a_split_assessment_counts_as_the_higher_level(self):
+        # Split levels only come from effective_cefr_level; the column can't hold them
         self.assertEqual(_rank("B1/B2"), _rank("B2"))
+        self.assertEqual(_rank("A2/B1"), _rank("B1"))
 
-    def test_an_above_level_context_asks_for_an_example_at_the_learners_level(self):
+    def test_a_long_sentence_is_not_good(self):
+        just_right = " ".join(["Wort"] * MAX_EXERCISE_SENTENCE_WORDS)
+        self.assertIsNone(self._why(self._user_word(sentence=just_right)))
+        self.assertEqual(self._why(self._user_word(sentence=just_right + " mehr")), "too long")
+
+    def test_a_fragment_is_not_good(self):
+        user_word = self._user_word()
+        user_word.preferred_bookmark.context.right_ellipsis = True
+        session.commit()
+        self.assertEqual(self._why(user_word), "fragment")
+
+    def test_an_unknown_level_is_not_good(self):
+        self.assertEqual(self._why(self._user_word(None)), "level unknown")
+        self.assertEqual(self._why(self._user_word(context_type=ContextType.WEB_FRAGMENT)), "level unknown")
+
+    def test_level_adapted_and_example_contexts_are_good(self):
+        adapted = self._user_word("C1", context_type=ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY)
+        self.assertIsNone(self._why(adapted))
+        example = self._user_word("C1", sentence="x " * 30, context_type=ContextType.EXAMPLE_SENTENCE)
+        self.assertIsNone(self._why(example))
+
+    def test_a_context_that_is_not_good_asks_for_an_example_at_the_learners_level(self):
         user_word = self._user_word("B2")
         with patch.object(example_contexts, "next_unused_example_bookmark", return_value=None) as find:
             self.assertFalse(replace_context_with_example(session, user_word))
         self.assertEqual(find.call_args.kwargs, {"max_level": "A2"})
 
-    def test_a_context_at_the_learners_level_stays(self):
+    def test_a_fragment_too_only_gets_an_example_at_the_learners_level(self):
+        user_word = self._user_word()
+        user_word.preferred_bookmark.context.left_ellipsis = True
+        session.commit()
+        with patch.object(example_contexts, "next_unused_example_bookmark", return_value=None) as find:
+            self.assertFalse(replace_context_with_example(session, user_word))
+        self.assertEqual([call.kwargs for call in find.call_args_list], [{"max_level": "A2"}])
+
+    def test_a_good_context_stays(self):
         user_word = self._user_word("A2")
         with patch.object(example_contexts, "next_unused_example_bookmark") as find:
             self.assertFalse(replace_context_with_example(session, user_word))

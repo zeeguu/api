@@ -57,9 +57,9 @@ def get_user_words_recommended_for_practice():
 
     user = User.find_by_id(flask.g.user_id)
     to_study = BasicSRSchedule.user_words_to_study(user)
-    # Before a word's first exercise, a context the reader cut short, or one
-    # from an article above the learner's level, gives way to a generated
-    # example sentence (see example_contexts).
+    # Before a word's first exercise, a context that is not a good exercise
+    # sentence (cut short, too long, above the learner's level or of unknown
+    # level) gives way to a generated example at that level (example_contexts).
     replace_hard_contexts_before_first_exercise(db_session, to_study)
     return _user_words_as_json_result(to_study)
 
