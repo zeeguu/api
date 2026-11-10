@@ -3,7 +3,7 @@ import traceback
 import flask
 from sqlalchemy.exc import NoResultFound
 
-from zeeguu.core.exercises.example_contexts import replace_fragments_before_first_exercise
+from zeeguu.core.exercises.example_contexts import replace_contexts_not_good_for_exercise
 from zeeguu.core.exercises.similar_words import similar_words
 from zeeguu.core.model.bookmark import Bookmark
 from zeeguu.core.model.user import User
@@ -57,9 +57,10 @@ def get_user_words_recommended_for_practice():
 
     user = User.find_by_id(flask.g.user_id)
     to_study = BasicSRSchedule.user_words_to_study(user)
-    # Before a word's first exercise, a context the reader cut short gives
-    # way to a generated example sentence (see example_contexts).
-    replace_fragments_before_first_exercise(db_session, to_study)
+    # A context that is not a good exercise sentence (cut short, too long,
+    # above the learner's level or of unknown level) gives way to a generated
+    # example at that level, unless the learner picked it (example_contexts).
+    replace_contexts_not_good_for_exercise(db_session, to_study)
     return _user_words_as_json_result(to_study)
 
 
