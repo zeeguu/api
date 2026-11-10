@@ -55,6 +55,10 @@ class PrefetchAtLearnerLevelTest(ModelTestMixIn, TestCase):
 
     def test_a_meaning_shared_at_one_level_comes_once(self):
         other = self._learner(level=2)
+        # Same language, or the scheduler's language filter hides the word
+        # and the test passes without any dedup
+        other.learned_language = self.user.learned_language
+        session.commit()
         other_word = BookmarkRule(other).bookmark.user_word
         other_word.meaning = self.user_word.meaning
         other_word.fit_for_study = True
@@ -76,3 +80,11 @@ class PrefetchAtLearnerLevelTest(ModelTestMixIn, TestCase):
 
         users_in_order = [uw.user_id for uw, _ in get_user_words_needing_examples()]
         self.assertLess(users_in_order.index(recent.id), users_in_order.index(self.user.id))
+
+    def test_the_list_stops_at_the_limit(self):
+        other = self._learner(level=2)
+        other_word = BookmarkRule(other).bookmark.user_word
+        other_word.fit_for_study = True
+        session.commit()
+
+        self.assertEqual(len(get_user_words_needing_examples(limit=1)), 1)

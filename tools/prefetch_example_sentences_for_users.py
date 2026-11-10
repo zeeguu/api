@@ -52,8 +52,10 @@ def words_the_exercises_will_show(user: User, all_words: bool = False) -> List[U
     from zeeguu.core.word_scheduling.basicSR.basicSR import BasicSRSchedule
 
     if all_words:
-        return BasicSRSchedule.user_words_not_scheduled(user, None) + (
-            BasicSRSchedule._scheduled_user_words_query(user).all()
+        # Scheduled first here too, so a run capped with --max-words still
+        # covers the words due now
+        return BasicSRSchedule._scheduled_user_words_query(user).all() + (
+            BasicSRSchedule.user_words_not_scheduled(user, None)
         )
     return BasicSRSchedule._scheduled_user_words_query(user).all() + (
         BasicSRSchedule.user_words_not_scheduled(user, NEW_WORDS_AHEAD)
@@ -81,6 +83,7 @@ def get_user_words_needing_examples(
     target_examples: int = EXAMPLES_PER_LEVEL,
     all_words: bool = False,
     days_active_threshold: int = 30,
+    limit: Optional[int] = None,
 ) -> List[Tuple[UserWord, str]]:
     """
     (user word, learner's level) for each word the exercises will show that
@@ -91,6 +94,9 @@ def get_user_words_needing_examples(
     Before 9 Nov 2026 examples were written at a level guessed from word rank,
     for scheduled words only, and an A2 learner's new words came with no
     examples or B1-C2 ones (user 6885).
+
+    With `limit`, stops once it has that many: the learners further down the
+    list would be cut anyway, so their words are not even loaded.
     """
     from datetime import timedelta
 
@@ -116,6 +122,8 @@ def get_user_words_needing_examples(
                 continue
             seen.add(key)
             needing.append((user_word, level))
+            if limit and len(needing) >= limit:
+                return needing
     return needing
 
 
@@ -136,14 +144,11 @@ def generate_examples_for_user_word(
     # Use the validated (possibly fixed) user_word
     user_word = validated_user_word
 
-    # Validation may have moved the word to another meaning
-    if user_word.meaning_id in meanings_with_examples_up_to(
-        {user_word.meaning_id}, cefr_level, target_example_count
-    ):
+    # Counted again: validation may have moved the word to another meaning
+    existing_count = usable_examples_query(user_word.meaning_id, cefr_level).count()
+    if existing_count >= target_example_count:
         log(f"User word {user_word.id} already has {target_example_count} examples up to {cefr_level}")
         return []
-
-    existing_count = usable_examples_query(user_word.meaning_id, cefr_level).count()
     examples_to_generate = target_example_count - existing_count
 
     origin_word = user_word.meaning.origin.content
@@ -300,11 +305,8 @@ def batch_generate_examples(
     start_time = datetime.now()
 
     user_words = get_user_words_needing_examples(
-        user, target_examples, all_words, days_active_threshold
+        user, target_examples, all_words, days_active_threshold, limit=max_words
     )
-
-    if max_words:
-        user_words = user_words[:max_words]
 
     total_words = len(user_words)
     processed = 0
@@ -320,6 +322,7 @@ def batch_generate_examples(
     log(f"Current ExampleSentence count in database: {current_count}")
 
     for i, (user_word, cefr_level) in enumerate(user_words):
+        user_word_id = user_word.id
         try:
             log(f"Processing {i+1}/{total_words}: {user_word.meaning.origin.content} ({cefr_level})")
 
@@ -349,7 +352,10 @@ def batch_generate_examples(
         except Exception as e:
             import traceback
 
-            log(f"Error processing user_word {user_word.id}: {e}")
+            # Roll back first: after a failed flush every later word in the
+            # run would fail too (validate_and_fix can raise one)
+            db.session.rollback()
+            log(f"Error processing user_word {user_word_id}: {e}")
             log(f"Full traceback: {traceback.format_exc()}")
             errors += 1
             continue
