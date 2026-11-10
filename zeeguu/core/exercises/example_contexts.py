@@ -14,7 +14,7 @@ sentence, at or below the learner's level, and short. The rest were
 fragments, titles, above the learner's level (an A2 learner shown B2
 sentences looked up half of each, user 6885), of unknown level, or long.
 So an example at or below the learner's level is the default, and the
-original stays only when it is good (is_good_exercise_context).
+original stays only when it is good (why_not_a_good_exercise_context).
 """
 
 from zeeguu.core.model import Bookmark
@@ -215,10 +215,6 @@ def why_not_a_good_exercise_context(bookmark, cefr_level):
     return None
 
 
-def is_good_exercise_context(bookmark, cefr_level):
-    return why_not_a_good_exercise_context(bookmark, cefr_level) is None
-
-
 def next_unused_example_bookmark(session, user_word, skip_ids=(), max_level=None):
     """The bookmark of the first usable example that anchors the word and is
     neither the word's preferred context nor one of `skip_ids`, or None.
@@ -287,9 +283,9 @@ def replace_hard_contexts_before_first_exercise(session, user_words):
     """
     Swap contexts that are not good exercise sentences for generated examples
     at the learner's level (replace_context_with_example), but only for words
-    that have never been exercised: once a learner has seen a word's context they may have picked
-    it themselves (nothing records that), and we must not switch it back
-    behind their back.
+    that have never been exercised: once a learner has seen a word's context
+    they may have picked it themselves (nothing records that), and we must
+    not switch it back behind their back.
 
     Returns the number of words swapped.
     """
