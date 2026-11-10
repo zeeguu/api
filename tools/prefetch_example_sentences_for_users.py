@@ -21,7 +21,7 @@ from datetime import datetime
 from typing import List, Optional, Tuple
 
 import zeeguu.core
-from zeeguu.core.model import User, UserWord, ExampleSentence
+from zeeguu.core.model import ExampleGenerationAttempt, ExampleSentence, User, UserWord
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.exercises.example_contexts import (
     CEFR_LEVELS,
@@ -31,11 +31,28 @@ from zeeguu.core.exercises.example_contexts import (
     usable_examples_query,
 )
 from zeeguu.core.llm_services import get_llm_service
+from zeeguu.core.llm_services import models
 from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.logging import log
 from zeeguu.core.model.db import db
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 
+
+GENERATOR_DESCRIPTION = "Batch example generation for language learning"
+
+
+def intended_generator():
+    """
+    (model, prompt version) the prefetch means to use: the model of the
+    configured provider (LLM_PROVIDER, as get_llm_service reads it) and the
+    current prompt. Tries pause per generator (ExampleGenerationAttempt): a
+    new model or prompt starts over, a night on the fallback does not.
+    """
+    import os
+
+    provider = os.environ.get("LLM_PROVIDER", "unified")
+    model = models.DEEPSEEK_GENERAL if provider == "deepseek" else models.ANTHROPIC_GENERAL
+    return model, CURRENT_PROMPT_VERSION
 
 EXAMPLES_PER_LEVEL = 3  # usable examples at or below the learner's level
 NEW_WORDS_AHEAD = 10  # unscheduled words the exercises will introduce next
@@ -84,6 +101,7 @@ def get_user_words_needing_examples(
     all_words: bool = False,
     days_active_threshold: int = 30,
     limit: Optional[int] = None,
+    respect_pause: bool = True,
 ) -> List[Tuple[UserWord, str]]:
     """
     (user word, learner's level) for each word the exercises will show that
@@ -97,6 +115,9 @@ def get_user_words_needing_examples(
 
     With `limit`, stops once it has that many: the learners further down the
     list would be cut anyway, so their words are not even loaded.
+
+    `respect_pause=False` lists paused meanings too (--ignore-pause), e.g.
+    after an anchoring fix that changes neither model nor prompt.
     """
     from datetime import timedelta
 
@@ -110,12 +131,15 @@ def get_user_words_needing_examples(
 
     needing = []
     seen = set()
+    generator = intended_generator()
     for each in users:
         level = learner_example_level(each, each.learned_language)
         words = words_the_exercises_will_show(each, all_words)
-        covered = meanings_with_examples_up_to(
-            {w.meaning_id for w in words}, level, target_examples
-        )
+        meaning_ids = {w.meaning_id for w in words}
+        covered = meanings_with_examples_up_to(meaning_ids, level, target_examples)
+        if respect_pause:
+            # Short again after earlier tries: paused (ExampleGenerationAttempt)
+            covered |= ExampleGenerationAttempt.paused_meaning_ids(meaning_ids - covered, level, generator)
         for user_word in words:
             key = (user_word.meaning_id, level)
             if user_word.meaning_id in covered or key in seen:
@@ -165,7 +189,7 @@ def generate_examples_for_user_word(
             f"Generating {examples_to_generate} {cefr_level} examples for '{origin_word}' -> '{translation}'"
         )
         # Generate the needed number of examples
-        examples = llm_service.generate_examples(
+        generated = llm_service.generate_examples(
             word=origin_word,
             translation=translation,
             source_lang=origin_lang,
@@ -174,7 +198,9 @@ def generate_examples_for_user_word(
             prompt_version=CURRENT_PROMPT_VERSION,
             count=examples_to_generate,
         )
-        examples = anchorable_examples(examples, origin_word, user_word.meaning.origin.language)
+        # Which model answered, before anchoring may drop every sentence
+        answered_by = generated[0].get("llm_model") if generated else None
+        examples = anchorable_examples(generated, origin_word, user_word.meaning.origin.language)
 
         # Get or create AIGenerator record
         llm_model = examples[0]["llm_model"] if examples else "unknown"
@@ -184,7 +210,7 @@ def generate_examples_for_user_word(
             db.session,
             llm_model,
             prompt_version,
-            description="Batch example generation for language learning",
+            description=GENERATOR_DESCRIPTION,
         )
 
         created_examples = []
@@ -202,9 +228,9 @@ def generate_examples_for_user_word(
             )
             created_examples.append(example_sentence)
 
-        # Commit immediately after creating each set of examples
         db.session.commit()
         log(f"Generated {len(created_examples)} examples for user_word {user_word.id}")
+        _record_try(user_word.meaning_id, cefr_level, answered_by)
         return created_examples
 
     except Exception:
@@ -212,6 +238,56 @@ def generate_examples_for_user_word(
         # count as "processed" and hide failures from the run summary.
         db.session.rollback()
         raise
+
+
+def forget_tries_of_covered_meanings(target_examples: int = EXAMPLES_PER_LEVEL):
+    """
+    Drop the tries of meanings that have enough examples at their level now,
+    so a later shortfall pauses for a week again, not a month or for good.
+    Over all rows, not per learner: a meaning whose learners fall past
+    --max-words must forget too. Few rows, so this is cheap. Not in a dry run.
+    """
+    try:
+        by_level = {}
+        for meaning_id, level in db.session.query(
+            ExampleGenerationAttempt.meaning_id, ExampleGenerationAttempt.cefr_level
+        ):
+            by_level.setdefault(level, set()).add(meaning_id)
+        for level, meaning_ids in by_level.items():
+            covered = meanings_with_examples_up_to(meaning_ids, level, target_examples)
+            if covered:
+                db.session.query(ExampleGenerationAttempt).filter(
+                    ExampleGenerationAttempt.cefr_level == level,
+                    ExampleGenerationAttempt.meaning_id.in_(covered),
+                ).delete(synchronize_session=False)
+        db.session.commit()
+    except Exception as e:
+        # Housekeeping: failing here must not stop the night's generation
+        db.session.rollback()
+        log(f"Could not forget the tries of covered meanings: {e}")
+
+
+def _record_try(meaning_id, cefr_level, answered_by):
+    """Count this generation for the meaning (ExampleGenerationAttempt). If it
+    is short again on a later night (not anchorable, or rejected by the
+    validator after we looked), it pauses instead of going to the LLM again.
+
+    Only when the intended model answered: a night on the fallback says
+    nothing about what the intended one can do, and must not pause it.
+    The examples are already committed; failing here must not undo them or
+    count the word as an error."""
+    model, prompt_version = intended_generator()
+    if answered_by != model:
+        log(f"Meaning {meaning_id} at {cefr_level}: answered by {answered_by}, not {model}; not counted")
+        return
+    try:
+        # No description: the live endpoint shares this row and sets its own
+        generator = AIGenerator.find_or_create(db.session, model, prompt_version)
+        ExampleGenerationAttempt.record_try(db.session, meaning_id, cefr_level, generator)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        log(f"Could not record the try for meaning {meaning_id} at {cefr_level}: {e}")
 
 
 def send_completion_notification(stats: dict, user: Optional[User] = None, send_email: bool = False):
@@ -287,6 +363,7 @@ def batch_generate_examples(
     all_words: bool = False,
     days_active_threshold: int = 30,
     send_email: bool = False,
+    respect_pause: bool = True,
 ) -> dict:
     """
     Main function to batch generate examples.
@@ -303,9 +380,10 @@ def batch_generate_examples(
         Dictionary with generation statistics
     """
     start_time = datetime.now()
+    forget_tries_of_covered_meanings(target_examples)
 
     user_words = get_user_words_needing_examples(
-        user, target_examples, all_words, days_active_threshold, limit=max_words
+        user, target_examples, all_words, days_active_threshold, limit=max_words, respect_pause=respect_pause
     )
 
     total_words = len(user_words)
@@ -438,6 +516,11 @@ def main():
         help="All the learner's words, not only those the exercises will show next",
     )
     parser.add_argument(
+        "--ignore-pause",
+        action="store_true",
+        help="Also generate for meanings paused after short tries (e.g. after an anchoring fix)",
+    )
+    parser.add_argument(
         "--send-email",
         action="store_true",
         help="Send completion notification email when finished",
@@ -457,7 +540,9 @@ def main():
             sys.exit(1)
 
     if args.dry_run:
-        user_words = get_user_words_needing_examples(user, args.target_examples, args.all_words, 30)
+        user_words = get_user_words_needing_examples(
+            user, args.target_examples, args.all_words, 30, respect_pause=not args.ignore_pause
+        )
         if args.max_words:
             user_words = user_words[: args.max_words]
 
@@ -479,6 +564,7 @@ def main():
         all_words=args.all_words,
         days_active_threshold=30,
         send_email=args.send_email,
+        respect_pause=not args.ignore_pause,
     )
 
     print(f"Generation completed:")
