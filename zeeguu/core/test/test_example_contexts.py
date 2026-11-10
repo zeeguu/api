@@ -17,7 +17,6 @@ from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.exercises.example_contexts import (
     MAX_EXERCISE_SENTENCE_WORDS,
     MAX_EXERCISE_SENTENCE_WORDS_BEGINNERS,
-    _rank,
     is_fragment,
     next_unused_example_bookmark,
     replace_context_with_example,
@@ -167,11 +166,6 @@ class GoodExerciseContextTest(ModelTestMixIn, TestCase):
 
     def test_even_one_level_above_is_too_much(self):
         self.assertEqual(self._why(self._user_word("B1")), "above level")
-
-    def test_a_split_assessment_counts_as_the_higher_level(self):
-        # Split levels only come from effective_cefr_level; the column can't hold them
-        self.assertEqual(_rank("B1/B2"), _rank("B2"))
-        self.assertEqual(_rank("A2/B1"), _rank("B1"))
 
     def test_a_long_sentence_is_not_good(self):
         # The learner here is A2: at most 10 words

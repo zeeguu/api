@@ -4,6 +4,7 @@ import flask
 import sqlalchemy
 from flask import request
 
+from zeeguu.core import cefr
 from zeeguu.core.model import Article, Language, CohortArticleMap, UserArticle, User
 from zeeguu.core.model.personal_copy import PersonalCopy
 
@@ -17,7 +18,6 @@ from zeeguu.api.utils.input_limits import (
 )
 from . import api, db_session
 
-CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
 def _language_from_form():
@@ -221,8 +221,8 @@ def simplify_own_text():
 
     if not content or not language_code:
         return make_error(400, "content and language are required")
-    if target_level not in CEFR_LEVELS:
-        return make_error(400, f"cefr_level must be one of {', '.join(CEFR_LEVELS)}")
+    if not cefr.is_level(target_level):
+        return make_error(400, f"cefr_level must be one of {', '.join(cefr.LEVELS)}")
     abort_if_too_long("title", title, MAX_TITLE_CHARS)
     if len(content) > MAX_OWN_TEXT_CHARS:
         return make_error(

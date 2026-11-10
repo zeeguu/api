@@ -10,6 +10,7 @@ from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
 import zeeguu.core
+from zeeguu.core import cefr
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model.db import db
 from zeeguu.core.model.language import Language
@@ -1354,9 +1355,6 @@ class User(db.Model):
     def word_count(self):
         return len(self.user_words())
 
-    # user_language.cefr_level is an index into this list; NULL means not set.
-    CEFR_LEVELS = ["A0", "A1", "A2", "B1", "B2", "C1", "C2"]
-
     def _stored_cefr_level(self, language):
         """The stored level as A0..C2; ValueError when there is none to use."""
         from zeeguu.core.model import UserLanguage
@@ -1365,10 +1363,10 @@ class User(db.Model):
             lang_info = UserLanguage.with_language_id(language.id, self)
         except NoResultFound:
             raise ValueError(f"no user_language for {language.code}")
-        level = lang_info.cefr_level
-        if level is None or not 0 <= level < len(self.CEFR_LEVELS):
-            raise ValueError(f"no usable CEFR level for {language.code}: {level}")
-        return self.CEFR_LEVELS[level]
+        level = cefr.from_number(lang_info.cefr_level)
+        if level is None:
+            raise ValueError(f"no usable CEFR level for {language.code}: {lang_info.cefr_level}")
+        return level
 
     def cefr_level_for_language(self, language):
         """

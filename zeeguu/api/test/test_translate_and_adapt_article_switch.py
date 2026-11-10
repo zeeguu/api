@@ -9,6 +9,7 @@ original, without a new translation.
 
 from unittest import mock
 
+from zeeguu.core import cefr
 from zeeguu.api.test.fixtures import create_and_get_article, logged_in_client
 from zeeguu.core.model import Article, Language, User, UserLanguage
 from zeeguu.core.model.article_fragment import ArticleFragment
@@ -50,7 +51,7 @@ def _simplified_version_of(original, level=None):
 
 def _set_level(user, language_code, level):
     user_language = UserLanguage.find_or_create(db.session, user, Language.find_or_create(language_code))
-    user_language.cefr_level = User.CEFR_LEVELS.index(level)
+    user_language.cefr_level = cefr.to_number(level)
     db.session.add(user_language)
     db.session.commit()
 

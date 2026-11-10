@@ -2,12 +2,9 @@ import json
 
 import sqlalchemy
 
+from zeeguu.core import cefr
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.db import db
-
-# CEFR levels, simplest → most complex. Used to pick the best available summary
-# for a learner's level.
-CEFR_ORDER = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
 def _parsed_tokens(value):
@@ -136,9 +133,9 @@ class LevelAdaptedArticleText(db.Model):
     def allowed_levels(user_level: str):
         """CEFR levels at or below ``user_level`` (the levels a learner can read),
         or None if the level is unknown."""
-        if user_level not in CEFR_ORDER:
+        if not cefr.is_level(user_level):
             return None
-        return set(CEFR_ORDER[: CEFR_ORDER.index(user_level) + 1])
+        return set(cefr.up_to(user_level))
 
     @staticmethod
     def pick_best(candidates, user_level: str, article_own_level: str = None):
@@ -160,15 +157,12 @@ class LevelAdaptedArticleText(db.Model):
         allowed = LevelAdaptedArticleText.allowed_levels(user_level)
         if not allowed:
             return None
-        if (
-            article_own_level in CEFR_ORDER
-            and CEFR_ORDER.index(user_level) >= CEFR_ORDER.index(article_own_level)
-        ):
+        if cefr.is_level(article_own_level) and not cefr.is_above(article_own_level, user_level):
             return None
         eligible = [c for c in candidates if c.cefr_level in allowed]
         if not eligible:
             return None
-        return max(eligible, key=lambda c: CEFR_ORDER.index(c.cefr_level))
+        return max(eligible, key=lambda c: cefr.rank(c.cefr_level))
 
     @classmethod
     def best_for_user_level(cls, article_id: int, user_level: str, article_own_level: str = None):

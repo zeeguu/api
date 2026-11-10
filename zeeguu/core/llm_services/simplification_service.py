@@ -7,6 +7,7 @@ import os
 import re
 import requests
 from typing import Dict, Optional
+from zeeguu.core import cefr
 from zeeguu.logging import log
 from zeeguu.core.language.generate_in_language import (
     LanguageMismatchError,
@@ -526,14 +527,13 @@ TOPIC: Business"""
             elif line.startswith("TOPIC:"):
                 topic = line.replace("TOPIC:", "").strip()
 
-        cefr_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-        if cefr_level not in cefr_levels:
+        if not cefr.is_level(cefr_level):
             # Last-ditch: grep the level out of unstructured output before giving up.
-            for level in cefr_levels:
+            for level in cefr.LEVELS:
                 if level in result.upper():
                     cefr_level = level
                     break
-            if cefr_level not in cefr_levels:
+            if not cefr.is_level(cefr_level):
                 log(f"Could not extract valid CEFR level from Anthropic response: {result}")
                 return None
 
@@ -614,10 +614,9 @@ TOPIC: [topic]"""
                     topic = line.replace("TOPIC:", "").strip()
             
             # Validate CEFR level
-            valid_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-            if cefr_level not in valid_levels:
+            if not cefr.is_level(cefr_level):
                 # Fallback: try to extract from anywhere in the response
-                for level in valid_levels:
+                for level in cefr.LEVELS:
                     if level in result.upper():
                         cefr_level = level
                         break

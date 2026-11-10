@@ -13,6 +13,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum
 from sqlalchemy.orm import relationship
 
+from zeeguu.core import cefr
 from zeeguu.core.model.db import db
 from zeeguu.core.model.race_safe import find_or_create
 
@@ -157,8 +158,6 @@ class ArticleCefrAssessment(db.Model):
         - Compound: "B1/B2" - adjacent disagreement
         - Conservative: "B2" - large disagreement resolved to higher level
         """
-        levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-
         # Priority 1: Teacher override always wins
         if self.teacher_cefr_level:
             self.effective_cefr_level = self.teacher_cefr_level
@@ -175,8 +174,8 @@ class ArticleCefrAssessment(db.Model):
             else:
                 # Disagreement
                 l1, l2 = effective_llm_level, self.ml_cefr_level
-                sorted_levels = sorted([l1, l2], key=lambda x: levels.index(x))
-                distance = abs(levels.index(l1) - levels.index(l2))
+                sorted_levels = sorted([l1, l2], key=cefr.rank)
+                distance = abs(cefr.rank(l1) - cefr.rank(l2))
 
                 if distance == 1:
                     # Adjacent levels - use compound

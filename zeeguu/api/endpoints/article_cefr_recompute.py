@@ -8,6 +8,7 @@ Used by teachers in the article editor to get assessments without saving to DB:
 """
 
 from flask import request
+from zeeguu.core import cefr
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.core.model import Article
@@ -57,18 +58,7 @@ def get_max_level(level1, level2):
     Return the harder (higher) of two CEFR levels.
     Conservative approach: if either system thinks it's harder, trust that.
     """
-    if not level1:
-        return level2
-    if not level2:
-        return level1
-
-    levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-    try:
-        idx1 = levels.index(level1)
-        idx2 = levels.index(level2)
-        return level1 if idx1 > idx2 else level2
-    except ValueError:
-        return level1  # Fallback
+    return cefr.harder(level1, level2)
 
 
 @api.route("/article/<int:article_id>/assess_ml", methods=["POST"])

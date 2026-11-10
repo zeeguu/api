@@ -3,6 +3,7 @@ import datetime
 from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, DateTime, UniqueConstraint
 from sqlalchemy.orm import relationship
 
+from zeeguu.core import cefr
 from zeeguu.core.model import User
 from zeeguu.core.util.time import user_local_today, user_local_day_start, to_user_local_date, server_now
 
@@ -172,7 +173,7 @@ class UserLanguage(db.Model):
         if isinstance(value, bool) or (isinstance(value, float) and not value.is_integer()):
             raise ValueError(f"CEFR level is not a whole number: {value!r}")
         level = int(value)
-        if not 0 <= level <= 6:
+        if cefr.from_number(level) is None:
             raise ValueError(f"CEFR level out of range: {value}")
         return level
 
@@ -186,7 +187,7 @@ class UserLanguage(db.Model):
         inferred_level_max=10,
         reading_news=False,
         doing_exercises=False,
-        # None, not 0: 0 is A0 (see User.CEFR_LEVELS). It used to be the default,
+        # None, not 0: 0 is A0 (see cefr.STORED_LEVELS). It used to be the default,
         # which made every unset level read as C2.
         cefr_level=None,
     ):

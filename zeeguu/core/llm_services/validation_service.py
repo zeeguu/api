@@ -26,6 +26,7 @@ Usage:
 
 from dataclasses import replace
 from typing import Optional
+from zeeguu.core import cefr
 from zeeguu.core.model.study_choice import UnfitReason
 from zeeguu.logging import log
 from zeeguu.core.llm_services.translation_validator import BROKEN_SENTENCE, WORD_NOT_FIT
@@ -530,4 +531,4 @@ def _word_cefr_level(value):
     The Anthropic path holds it to the schema, but fix_with_verdict also takes
     DeepSeek verdicts (the lesson check), and a "B1-B2" there would fail the
     commit and roll back the whole fix."""
-    return value if value in ("A1", "A2", "B1", "B2", "C1", "C2") else None
+    return value if cefr.is_level(value) else None

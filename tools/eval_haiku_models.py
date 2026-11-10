@@ -98,6 +98,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import anthropic
 
+from zeeguu.core import cefr
+
 HAIKU_45 = "claude-haiku-4-5-20251001"
 HAIKU_55 = "claude-haiku-5-5"
 DEEPSEEK = "deepseek-chat"  # models.DEEPSEEK_GENERAL; checked at startup
@@ -126,7 +128,7 @@ VARIANTS = {
 }
 
 TASKS = ["assess", "cefr_topic", "grammar"]
-CEFR = ["A1", "A2", "B1", "B2", "C1", "C2"]
+CEFR = cefr.LEVELS
 TOPICS = [
     "Sports", "Culture & Art", "Technology & Science", "Travel & Tourism",
     "Health & Society", "Business", "Politics", "Satire",
