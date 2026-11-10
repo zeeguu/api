@@ -38,9 +38,9 @@ INTERACTIVE_LLM = dict(timeout=20, max_retries=0)
 def _example_level(user, language, requested=None):
     """
     The CEFR level to write or pick example sentences at: the one the caller
-    asks for, else the learner's (learner_example_level). The web never sends
-    one, so before this every example was asked for at B1, also for A1-A2
-    school classes.
+    asks for, else the learner's (learner_example_level). The web sends none
+    (web#1375 removed the Translate tab's, which read the wrong field), so
+    before this every example was asked for at B1, also for A1-A2 classes.
     """
     return requested or learner_example_level(user, language)
 
@@ -624,9 +624,9 @@ def preview_learning_card():
 
     Nothing of the learner's is written. What is written is shared: the
     explanation is cached on the Meaning, so the next preview of that
-    meaning, by anyone, needs no LLM call. That is also
-    why the level stays DEFAULT_CEFR_LEVEL here and not the learner's: the
-    cache is the same for every learner.
+    meaning, by anyone, needs no LLM call. That is also why the level stays
+    DEFAULT_CEFR_LEVEL here and not the learner's: the cache is the same for
+    every learner.
 
     Request body (JSON):
     {
