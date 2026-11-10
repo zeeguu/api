@@ -9,7 +9,12 @@ from flask import request, Response
 from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.exercises.example_contexts import anchorable_examples, bookmark_for_example, usable_examples_query
+from zeeguu.core.exercises.example_contexts import (
+    anchorable_examples,
+    bookmark_for_example,
+    learner_example_level,
+    usable_examples_query,
+)
 from zeeguu.core.llm_services import get_llm_service
 from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
@@ -22,12 +27,22 @@ from . import api, db_session
 # Constants
 MAX_EXAMPLES_ALTERNATIVE = 5  # Max examples for alternative_sentences endpoint
 MAX_EXAMPLES_GENERATE = 3     # Max examples for generate_examples endpoint
-DEFAULT_CEFR_LEVEL = "B1"
+DEFAULT_CEFR_LEVEL = "B1"  # only /preview_learning_card, see there
 
 # A learner is waiting on these calls. With the service defaults (120s per
 # attempt, 2 SDK retries, then DeepSeek) one request ran for 15 minutes.
 # One 20s try per provider: at worst ~40s, then an error.
 INTERACTIVE_LLM = dict(timeout=20, max_retries=0)
+
+
+def _example_level(user, language, requested=None):
+    """
+    The CEFR level to write or pick example sentences at: the one the caller
+    asks for, else the learner's (learner_example_level). The web sends none
+    (web#1375 removed the Translate tab's, which read the wrong field), so
+    before this every example was asked for at B1, also for A1-A2 classes.
+    """
+    return requested or learner_example_level(user, language)
 
 
 def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):
@@ -90,21 +105,13 @@ def alternative_sentences(user_word_id):
     if user_word.preferred_bookmark and user_word.preferred_bookmark.context:
         current_context = user_word.preferred_bookmark.get_context().strip().lower()
 
-    # Determine CEFR level
-    cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
-
-    # First, try to get pre-generated examples from database
-    # Try exact CEFR level match first
-    db_examples = (
-        usable_examples_query(user_word.meaning_id)
-        .filter(ExampleSentence.cefr_level == cefr_level)
-        .limit(MAX_EXAMPLES_ALTERNATIVE)
-        .all()
+    cefr_level = _example_level(
+        user, user_word.meaning.origin.language, request.args.get("cefr_level")
     )
 
-    # If no exact match, try any CEFR level for this meaning
-    if not db_examples:
-        db_examples = usable_examples_query(user_word.meaning_id).limit(MAX_EXAMPLES_ALTERNATIVE).all()
+    # Pre-generated examples first, never above the level. With none at or
+    # below it, new ones are written at it below (the nightly job prefetches).
+    db_examples = usable_examples_query(user_word.meaning_id, cefr_level).limit(MAX_EXAMPLES_ALTERNATIVE).all()
 
     if db_examples:
         # Format database examples
@@ -396,7 +403,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
     :param from_lang: Source language code (e.g., 'da')
     :param to_lang: Target language code (e.g., 'en')
     :query translation: Optional translation/meaning to generate examples for specific sense
-    :query cefr_level: User's CEFR level for appropriate difficulty (default: B1)
+    :query cefr_level: CEFR level to write at (default: the learner's level in from_lang, else A2)
     :return: JSON array with example sentences
     """
     user = User.find_by_id(flask.g.user_id)
@@ -408,7 +415,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
     if not origin_lang or not translation_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
 
-    cefr_level = request.args.get("cefr_level", DEFAULT_CEFR_LEVEL)
+    cefr_level = _example_level(user, origin_lang, request.args.get("cefr_level"))
     translation = request.args.get("translation", "")
     abort_if_too_long("word", word, MAX_PHRASE_CHARS)
     abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
@@ -425,15 +432,10 @@ def generate_examples_for_word(word, from_lang, to_lang):
             )
             db_session.commit()
 
-            # Check for existing examples in DB for this meaning at user's CEFR level
-            db_examples = (
-                ExampleSentence.query.filter(
-                    ExampleSentence.meaning_id == meaning.id,
-                    ExampleSentence.cefr_level == cefr_level,
-                )
-                .limit(MAX_EXAMPLES_GENERATE)
-                .all()
-            )
+            # Stored examples at or below the level, as /alternative_sentences
+            # picks them. Popup results are not stored, so a miss here is an
+            # LLM call on every lookup: an A2 learner reuses A1 examples.
+            db_examples = usable_examples_query(meaning.id, cefr_level).limit(MAX_EXAMPLES_GENERATE).all()
 
             if db_examples:
                 log(f"Found {len(db_examples)} existing examples for meaning {meaning.id}")
@@ -537,15 +539,14 @@ def add_word_to_learning():
     abort_if_too_long("word", word, MAX_PHRASE_CHARS)
     abort_if_too_long("translation", translation, MAX_PHRASE_CHARS)
 
-    # Get user's CEFR level
-    cefr_level = data.get("cefr_level", DEFAULT_CEFR_LEVEL)
-
     # Get language objects
     origin_lang = Language.find(from_lang)
     target_lang = Language.find(to_lang)
 
     if not origin_lang or not target_lang:
         return json_result({"error": "Invalid language codes"}, status=400)
+
+    cefr_level = _example_level(user, origin_lang, data.get("cefr_level"))
 
     try:
         # Call LLM to prepare the optimal learning card
@@ -613,10 +614,19 @@ def add_word_to_learning():
 @requires_session
 def preview_learning_card():
     """
-    Preview a learning card without saving it.
+    The learning card for one candidate translation in the Translate tab
+    (web Translate.js, fetchCardPreview), shown before the learner decides.
 
-    Returns cached explanation/level_note from Meaning if available,
-    otherwise generates via LLM and caches for future use.
+    Why preview and not save: a lookup lists several translations and the
+    learner adds at most one, with the Add button (/add_word_to_learning).
+    Saving here would put every translation they only looked at among their
+    words, and into their exercises.
+
+    Nothing of the learner's is written. What is written is shared: the
+    explanation is cached on the Meaning, so the next preview of that
+    meaning, by anyone, needs no LLM call. That is also why the level stays
+    DEFAULT_CEFR_LEVEL here and not the learner's: the cache is the same for
+    every learner.
 
     Request body (JSON):
     {

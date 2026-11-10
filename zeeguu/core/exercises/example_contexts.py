@@ -18,6 +18,31 @@ from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.tokenization.word_position_finder import find_first_occurrence, find_word_positions_in_text
 from zeeguu.logging import log
 
+CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
+# For learners without a level: most are A2, and too easy beats too hard
+EXAMPLE_FALLBACK_LEVEL = "A2"
+
+
+def learner_example_level(user, language):
+    """The level to write and pick examples at for this learner in `language`:
+    their level (A0 reads as A1), or EXAMPLE_FALLBACK_LEVEL when none is set."""
+    try:
+        return user.cefr_level_for_language(language)
+    except ValueError:
+        return EXAMPLE_FALLBACK_LEVEL
+
+
+def levels_up_to(cefr_level):
+    """The CEFR levels at or below `cefr_level`, easiest first. A0 reads as A1.
+    A level we don't know (a client can send any) reads as
+    EXAMPLE_FALLBACK_LEVEL, not as all levels: callers sort the hardest first,
+    and too easy beats too hard."""
+    if cefr_level == "A0":
+        cefr_level = "A1"
+    if cefr_level not in CEFR_LEVELS:
+        cefr_level = EXAMPLE_FALLBACK_LEVEL
+    return CEFR_LEVELS[: CEFR_LEVELS.index(cefr_level) + 1]
+
 
 def anchorable_examples(examples, word, language):
     """
@@ -90,16 +115,25 @@ def is_fragment(bookmark):
     return bool(context and (context.left_ellipsis or context.right_ellipsis))
 
 
-def usable_examples_query(meaning_id):
-    """The meaning's generated examples, newest first, without those the
-    validator would not pass the meaning in (ExampleSentenceMisfit). Newest
-    first because newer examples come from newer prompts and models (the v4
-    example prompt, the 19 Oct cleanup), so they are the likeliest to be right.
-    A query, so callers can filter or limit it further."""
-    return ExampleSentence.query.filter(
+def usable_examples_query(meaning_id, cefr_level=None):
+    """
+    The meaning's generated examples without those the validator would not
+    pass the meaning in (ExampleSentenceMisfit). With `cefr_level`, only
+    those at or below it, closest to it first: an A2 learner gets A2, then A1.
+    Newest first within a level, because newer examples come from newer
+    prompts and models (the v4 example prompt, the 19 Oct cleanup), so they
+    are the likeliest to be right. A query, so callers can limit or count it.
+    """
+    query = ExampleSentence.query.filter(
         ExampleSentence.meaning_id == meaning_id,
         ~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()),
-    ).order_by(ExampleSentence.id.desc())
+    )
+    if cefr_level is None:
+        return query.order_by(ExampleSentence.id.desc())
+    # The level names sort as the levels do: "A1" < "A2" < ... < "C2"
+    return query.filter(ExampleSentence.cefr_level.in_(levels_up_to(cefr_level))).order_by(
+        ExampleSentence.cefr_level.desc(), ExampleSentence.id.desc()
+    )
 
 
 def usable_examples(meaning_id):
