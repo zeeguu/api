@@ -52,3 +52,9 @@ class ValidatorStoresWordLevelTest(ModelTestMixIn, TestCase):
         session.commit()
         self._validate(ValidationResult(is_valid=True))
         self.assertEqual(self.user_word.meaning.word_cefr_level, "B2")
+
+    def test_a_level_outside_the_enum_is_ignored(self):
+        self.user_word.meaning.word_cefr_level = "B2"
+        session.commit()
+        self._validate(ValidationResult(is_valid=True, cefr_level="B1-B2"))
+        self.assertEqual(self.user_word.meaning.word_cefr_level, "B2")
