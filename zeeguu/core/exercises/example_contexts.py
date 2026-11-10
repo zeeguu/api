@@ -155,11 +155,8 @@ def _rank(cefr_level):
 
 
 def learner_level(user_word):
-    """The learner's level in the word's language, A1..C2, or None if not set."""
-    try:
-        return user_word.user.cefr_level_for_language(user_word.meaning.origin.language)
-    except ValueError:
-        return None
+    """The level to pick examples at for this word's learner, A1..C2."""
+    return learner_example_level(user_word.user, user_word.meaning.origin.language)
 
 
 def article_level(bookmark):
@@ -208,10 +205,9 @@ def replace_fragment_with_example(session, user_word):
         return False
 
     # Any example beats a fragment, but one at the learner's level beats the rest
-    level = learner_level(user_word)
-    bookmark = (level and next_unused_example_bookmark(session, user_word, max_level=level)) or (
-        next_unused_example_bookmark(session, user_word)
-    )
+    bookmark = next_unused_example_bookmark(
+        session, user_word, max_level=learner_level(user_word)
+    ) or next_unused_example_bookmark(session, user_word)
     return _switch_to(session, user_word, bookmark, "FRAGMENT-CONTEXT")
 
 

@@ -142,12 +142,12 @@ class AboveLevelContextTest(ModelTestMixIn, TestCase):
             self.assertFalse(replace_context_with_example(session, user_word))
         find.assert_not_called()
 
-    def test_without_a_learner_level_nothing_is_swapped(self):
+    def test_without_a_learner_level_examples_are_picked_at_a2(self):
         self._set_level(None)
-        user_word = self._user_word("C2")
-        with patch.object(example_contexts, "next_unused_example_bookmark") as find:
+        user_word = self._user_word("B1")
+        with patch.object(example_contexts, "next_unused_example_bookmark", return_value=None) as find:
             self.assertFalse(replace_context_with_example(session, user_word))
-        find.assert_not_called()
+        self.assertEqual(find.call_args.kwargs, {"max_level": "A2"})
 
     def test_examples_above_the_learners_level_are_skipped(self):
         user_word = self._user_word("B2")

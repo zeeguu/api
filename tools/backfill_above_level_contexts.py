@@ -80,9 +80,6 @@ def main():
         if not words:
             continue
         level = learner_level(words[0])
-        if not level:
-            counts["learners without a level"] += 1
-            continue
         counts["learners"] += 1
 
         for user_word in words:
