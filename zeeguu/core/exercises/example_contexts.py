@@ -33,10 +33,14 @@ def learner_example_level(user, language):
 
 
 def levels_up_to(cefr_level):
-    """The CEFR levels at or below `cefr_level`, easiest first; all of them
-    for a level we don't know."""
+    """The CEFR levels at or below `cefr_level`, easiest first. A0 reads as A1.
+    A level we don't know (a client can send any) reads as
+    EXAMPLE_FALLBACK_LEVEL, not as all levels: callers sort the hardest first,
+    and too easy beats too hard."""
+    if cefr_level == "A0":
+        cefr_level = "A1"
     if cefr_level not in CEFR_LEVELS:
-        return CEFR_LEVELS
+        cefr_level = EXAMPLE_FALLBACK_LEVEL
     return CEFR_LEVELS[: CEFR_LEVELS.index(cefr_level) + 1]
 
 

@@ -61,6 +61,12 @@ def test_levels_up_to():
     assert levels_up_to("C2") == ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
+def test_levels_up_to_a_level_we_dont_know_is_the_fallback_not_everything():
+    assert levels_up_to("A0") == ["A1"]
+    assert levels_up_to("b1") == ["A1", "A2"]
+    assert levels_up_to(None) == ["A1", "A2"]
+
+
 def _meaning_with_examples(*levels):
     meaning = Meaning.find_or_create(db.session, "Haus", "de", "house", "en")
     for i, level in enumerate(levels):
