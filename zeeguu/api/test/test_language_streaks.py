@@ -34,7 +34,8 @@ def test_last_practiced_date_is_null_for_a_language_never_practiced(client: Logg
     assert _streaks_by_code(client)[code]["last_practiced_date"] is None
 
 
-def _never_practiced(client):
+def _never_practiced(client, goal_minutes=2):
+    client.post("/save_user_preferences", data={"daily_goal_minutes": str(goal_minutes)})
     user = User.find(client.email)
     ul = UserLanguage.find_or_create(db.session, user, user.learned_language)
     ul.last_practiced = None
@@ -120,3 +121,97 @@ def test_a_few_seconds_in_another_language_do_not_add_it(client: LoggedInClient)
     client.post("/browsing_session_update", data=dict(id=session_id, duration=5_000))
 
     assert UserLanguage.query.filter_by(user_id=user_id, language_id=other_id).first() is None
+
+
+def test_the_default_goal_is_five_minutes(client: LoggedInClient):
+    user = User.find(client.email)
+    ul = UserLanguage.find_or_create(db.session, user, user.learned_language)
+    ul.last_practiced = None
+    db.session.commit()
+    code = user.learned_language.code
+
+    preferences = client.get("/user_preferences")
+    assert preferences["daily_goal_minutes"] == "5"
+    assert preferences["daily_goal_set"] == "false"
+    assert _streaks_by_code(client)[code]["ms_to_streak"] == 300_000
+
+
+def test_the_streak_counts_against_the_learners_goal(client: LoggedInClient):
+    code = _never_practiced(client, goal_minutes=10)
+
+    preferences = client.get("/user_preferences")
+    assert preferences["daily_goal_minutes"] == "10"
+    assert preferences["daily_goal_set"] == "true"
+    _browse(client, 500)
+    entry = _streaks_by_code(client)[code]
+    assert entry["practiced_today"] is False
+    assert entry["ms_to_streak"] == 100_000
+
+    _browse(client, 100)
+    assert _streaks_by_code(client)[code]["practiced_today"] is True
+
+
+def test_a_goal_outside_the_choices_is_refused(client: LoggedInClient):
+    _never_practiced(client, goal_minutes=10)
+
+    response = client.response_from_post("/save_user_preferences", data={"daily_goal_minutes": "7"})
+
+    assert response.status_code == 400
+    assert client.get("/user_preferences")["daily_goal_minutes"] == "10"
+
+
+def test_lowering_the_goal_below_todays_study_counts_the_day(client: LoggedInClient):
+    code = _never_practiced(client, goal_minutes=10)
+    _browse(client, 420)
+    assert _streaks_by_code(client)[code]["practiced_today"] is False
+
+    client.post("/save_user_preferences", data={"daily_goal_minutes": "5"})
+
+    entry = _streaks_by_code(client)[code]
+    assert entry["practiced_today"] is True
+    assert entry["daily_streak"] == 1
+
+
+def test_a_duplicated_goal_row_does_not_break_session_updates(client: LoggedInClient):
+    from zeeguu.core.model import UserPreference
+
+    code = _never_practiced(client, goal_minutes=10)
+    user = User.find(client.email)
+    db.session.add(UserPreference(user, UserPreference.DAILY_GOAL_MINUTES, "5"))
+    db.session.commit()
+
+    _browse(client, 310)
+
+    assert _streaks_by_code(client)[code]["practiced_today"] is True
+
+
+def test_saving_the_goal_over_a_duplicated_row_works(client: LoggedInClient):
+    from zeeguu.core.model import UserPreference
+
+    _never_practiced(client, goal_minutes=10)
+    user = User.find(client.email)
+    db.session.add(UserPreference(user, UserPreference.DAILY_GOAL_MINUTES, "15"))
+    db.session.commit()
+
+    client.post("/save_user_preferences", data={"daily_goal_minutes": "20"})
+
+    assert client.get("/user_preferences")["daily_goal_minutes"] == "20"
+    user = User.find(client.email)
+    assert UserPreference.get_daily_goal_minutes(user) == 20
+    assert UserPreference.query.filter_by(user_id=user.id, key=UserPreference.DAILY_GOAL_MINUTES).count() == 1
+
+
+def test_the_grandfathered_two_minutes_does_not_count_as_chosen(client: LoggedInClient):
+    _never_practiced(client, goal_minutes=2)
+
+    preferences = client.get("/user_preferences")
+    assert preferences["daily_goal_minutes"] == "2"
+    assert preferences["daily_goal_set"] == "false"
+
+
+def test_an_empty_goal_is_ignored(client: LoggedInClient):
+    _never_practiced(client, goal_minutes=10)
+
+    client.post("/save_user_preferences", data={"daily_goal_minutes": ""})
+
+    assert client.get("/user_preferences")["daily_goal_minutes"] == "10"

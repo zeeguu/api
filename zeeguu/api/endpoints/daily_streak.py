@@ -7,6 +7,7 @@ from . import api
 from ...core.model import User
 from ...core.model.db import db
 from ...core.model.user_language import UserLanguage
+from ...core.model.user_preference import UserPreference
 
 
 @api.route("/daily_streak", methods=["GET"])
@@ -21,12 +22,13 @@ def get_daily_streak():
 def _ms_to_streak(ul, user, practiced_today):
     """Study time still needed today for the day to count; 0 once it has.
     Only for the language being learned now (the one the countdown shows):
-    this endpoint is polled, and the sum is five queries per language."""
+    this endpoint is polled, and each language costs two queries (the day's
+    sum and the goal)."""
     if practiced_today:
         return 0
     if ul.language_id != user.learned_language_id:
         return None
-    return max(0, UserLanguage.STREAK_MIN_STUDY_MS - ul.study_ms_today())
+    return max(0, UserPreference.get_daily_goal_ms(user) - ul.study_ms_today())
 
 
 def _language_streak(ul, user):

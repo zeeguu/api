@@ -46,6 +46,21 @@ class UserPreference(db.Model):
     SHOW_READING_TIMER = "show_reading_timer"  # Show timer in reader and exercises
     EMAIL_ON_ARTICLE_SHARED = "email_on_article_shared"  # Email me when a friend shares an article
 
+    # Minutes of study a day that count the day for the streak, counted in each
+    # language separately; Aiki mode and the study reminder (on the phone) read
+    # the same number. ADR 046. Unset means the default: learners from before
+    # the goal existed were given 2, the old fixed streak minimum, so no streak
+    # broke when it shipped (migration 26-11-09).
+    DAILY_GOAL_MINUTES = "daily_goal_minutes"
+    # What a learner picks. 2 is only the grandfathered value of learners from
+    # before the goal existed: still valid, but it does not count as chosen.
+    DAILY_GOAL_PICKER_CHOICES = (5, 10, 15, 20)
+    DAILY_GOAL_CHOICES = (2,) + DAILY_GOAL_PICKER_CHOICES
+    DEFAULT_DAILY_GOAL_MINUTES = 5
+    # Derived in all_for_user, not stored: whether the learner picked a goal.
+    # Aiki mode and the study reminder need one (ADR 046).
+    DAILY_GOAL_SET = "daily_goal_set"
+
     # Which character the learner plays in situation lessons: "man", "woman", or
     # "either" (alternate). Asked, never inferred -- not from the name either: a
     # wrong guess would address them, and in many languages drill their own
@@ -167,6 +182,48 @@ class UserPreference(db.Model):
         return setting and setting.value == "true"
 
     @classmethod
+    def parse_daily_goal_minutes(cls, value):
+        """A goal as sent by a client, as an int from DAILY_GOAL_CHOICES; None
+        when it is not one of them."""
+        try:
+            minutes = int(value)
+        except (TypeError, ValueError):
+            return None
+        return minutes if minutes in cls.DAILY_GOAL_CHOICES else None
+
+    @classmethod
+    def get_daily_goal_minutes(cls, user: User):
+        # .first(), not get()'s .one(): user_preference has no unique index on
+        # (user_id, key), so two concurrent saves can leave two rows, and this
+        # runs on every session update -- a duplicate must not 500 them all.
+        row = (
+            cls.query.filter_by(user_id=user.id, key=cls.DAILY_GOAL_MINUTES)
+            .order_by(cls.id.desc())
+            .first()
+        )
+        stored = cls.parse_daily_goal_minutes(row.value if row else None)
+        return stored or cls.DEFAULT_DAILY_GOAL_MINUTES
+
+    @classmethod
+    def set_daily_goal_minutes(cls, session, user: User, minutes: int):
+        """Writes the newest row and drops any duplicates: find_or_create's
+        .one() would 500 on them, and readers must all see the same goal."""
+        rows = (
+            cls.query.filter_by(user_id=user.id, key=cls.DAILY_GOAL_MINUTES)
+            .order_by(cls.id.desc())
+            .all()
+        )
+        for duplicate in rows[1:]:
+            session.delete(duplicate)
+        row = rows[0] if rows else cls(user, cls.DAILY_GOAL_MINUTES)
+        row.value = str(minutes)
+        session.add(row)
+
+    @classmethod
+    def get_daily_goal_ms(cls, user: User):
+        return cls.get_daily_goal_minutes(user) * 60_000
+
+    @classmethod
     def get_audio_lesson_character(cls, user: User):
         """'man' or 'woman' when the learner chose one; None for either or unset."""
         value = cls.get(user, cls.AUDIO_LESSON_CHARACTER)
@@ -203,7 +260,9 @@ class UserPreference(db.Model):
     @classmethod
     def all_for_user(cls, user: User):
         preferences_dict = {}
-        all_preference_objects = cls.query.filter_by(user=user).all()
+        # By id, so a key stored twice reads as its newest row, as the
+        # single-key getters (get_daily_goal_minutes) read it.
+        all_preference_objects = cls.query.filter_by(user=user).order_by(cls.id).all()
 
         for each in all_preference_objects:
             preferences_dict[each.key] = each.value
@@ -216,6 +275,13 @@ class UserPreference(db.Model):
             )
 
             preferences_dict[cls.MAX_WORDS_TO_SCHEDULE] = DEFAULT_MAX_WORDS_TO_SCHEDULE
+
+        # Always present, so clients show the goal the streak is counted with.
+        stored_goal = cls.parse_daily_goal_minutes(preferences_dict.get(cls.DAILY_GOAL_MINUTES))
+        preferences_dict[cls.DAILY_GOAL_SET] = (
+            "true" if stored_goal in cls.DAILY_GOAL_PICKER_CHOICES else "false"
+        )
+        preferences_dict[cls.DAILY_GOAL_MINUTES] = str(stored_goal or cls.DEFAULT_DAILY_GOAL_MINUTES)
 
         return preferences_dict
 

@@ -10,6 +10,7 @@ from sqlalchemy.orm.exc import NoResultFound, StaleDataError
 from zeeguu.core.model import User
 from zeeguu.core.model.user_exercise_session import UserExerciseSession
 from zeeguu.core.model.user_language import UserLanguage
+from zeeguu.core.model.user_preference import UserPreference
 
 
 def find_own_activity_session(session_class, session_id):
@@ -88,12 +89,13 @@ def _update_streak(db_session, session):
     if existing is not None and existing.practiced_today:
         return
     # The day counts once the learner's study time today, across all their
-    # sessions in this language, reaches the minimum. This session alone is
-    # enough for most study, which skips the sum; otherwise sum the day (this
+    # sessions in this language, reaches their daily goal. This session alone
+    # may be enough, which skips the sum; otherwise sum the day (this
     # session's update is in it: the query autoflushes it).
+    goal_ms = UserPreference.get_daily_goal_ms(user)
     if (
-        (session.duration or 0) < UserLanguage.STREAK_MIN_STUDY_MS
-        and UserLanguage.study_ms_today_for(user, language.id) < UserLanguage.STREAK_MIN_STUDY_MS
+        (session.duration or 0) < goal_ms
+        and UserLanguage.study_ms_today_for(user, language.id) < goal_ms
     ):
         return
     UserLanguage.find_or_create(db_session, user, language).update_streak_if_needed(user, db_session)

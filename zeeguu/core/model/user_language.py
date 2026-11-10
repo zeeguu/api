@@ -77,8 +77,8 @@ class UserLanguage(db.Model):
     # is read in whatever locale it was read in before varieties existed.
     dialect = Column(String(2))
 
-    # Study time in a day (all sessions in this language) that keeps the streak.
-    STREAK_MIN_STUDY_MS = 120_000
+    # A day counts for the streak once the study time in this language reaches
+    # the learner's daily goal: UserPreference.get_daily_goal_ms (ADR 046).
 
     last_practiced = Column(DateTime, nullable=True)
     daily_streak = Column(Integer, default=0)
@@ -114,8 +114,8 @@ class UserLanguage(db.Model):
     def study_ms_today_for(user, language_id):
         """Milliseconds the learner spent on this language today, summed over
         every kind of activity session. A day counts for the streak once this
-        reaches STREAK_MIN_STUDY_MS, however it is split (45 s of exercises
-        plus 90 s of reading counts).
+        reaches the learner's daily goal, however it is split (5 minutes of
+        exercises plus 5 of reading count for a 10-minute goal).
 
         A session counts for the day it was last active in, whole: one that
         runs from 23:55 to 00:30 counts for the new day. Crediting happens in
@@ -133,6 +133,8 @@ class UserLanguage(db.Model):
 
         since = user_local_day_start(user)
 
+        # One scalar subquery per session table, added up in a single round
+        # trip: this runs on session updates until the day reaches the goal.
         def total(session_class, language_column, *joins):
             query = db.session.query(func.coalesce(func.sum(session_class.duration), 0))
             for target, on in joins:
@@ -141,17 +143,19 @@ class UserLanguage(db.Model):
                 session_class.user_id == user.id,
                 session_class.last_action_time >= since,
                 language_column == language_id,
-            ).scalar()
+            ).scalar_subquery()
 
         return int(
-            total(UserExerciseSession, UserExerciseSession.language_id)
-            + total(UserBrowsingSession, UserBrowsingSession.language_id)
-            + total(UserReadingSession, Article.language_id,
-                    (Article, UserReadingSession.article_id == Article.id))
-            + total(UserListeningSession, DailyAudioLesson.language_id,
-                    (DailyAudioLesson, UserListeningSession.daily_audio_lesson_id == DailyAudioLesson.id))
-            + total(UserWatchingSession, Video.language_id,
-                    (Video, UserWatchingSession.video_id == Video.id))
+            db.session.query(
+                total(UserExerciseSession, UserExerciseSession.language_id)
+                + total(UserBrowsingSession, UserBrowsingSession.language_id)
+                + total(UserReadingSession, Article.language_id,
+                        (Article, UserReadingSession.article_id == Article.id))
+                + total(UserListeningSession, DailyAudioLesson.language_id,
+                        (DailyAudioLesson, UserListeningSession.daily_audio_lesson_id == DailyAudioLesson.id))
+                + total(UserWatchingSession, Video.language_id,
+                        (Video, UserWatchingSession.video_id == Video.id))
+            ).scalar()
         )
 
     @staticmethod
