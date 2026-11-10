@@ -149,11 +149,15 @@ class Meaning(db.Model):
         comment="Optional explanation of translation usage, nuances, or context",
     )
 
+    # The validator's `cefr`: the level at which learners should know this
+    # meaning. Until 10 Nov 2026 /preview_learning_card wrote the learner's
+    # level here instead, parsed from its level note, so every previewed
+    # meaning read B1 (warum too); migration 26-11-10 cleared those.
     word_cefr_level = db.Column(
         db.Enum('A1', 'A2', 'B1', 'B2', 'C1', 'C2', name='cefr_level'),
         nullable=True,
         default=None,
-        comment="CEFR level this word/meaning is appropriate for",
+        comment="CEFR level at which learners should know this meaning, from the validator",
     )
 
     literal_meaning = db.Column(

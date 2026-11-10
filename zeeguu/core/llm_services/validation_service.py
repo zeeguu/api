@@ -319,6 +319,8 @@ class UserWordValidationService:
         if result.phrase_type:
             meaning.phrase_type = PhraseType.from_string(result.phrase_type)
 
+        meaning.word_cefr_level = _word_cefr_level(result.cefr_level) or meaning.word_cefr_level
+
         if result.explanation:
             meaning.translation_explanation = result.explanation
 
@@ -425,6 +427,10 @@ class UserWordValidationService:
         if validation_result.phrase_type:
             new_meaning.phrase_type = PhraseType.from_string(validation_result.phrase_type)
 
+        new_meaning.word_cefr_level = (
+            _word_cefr_level(validation_result.cefr_level) or new_meaning.word_cefr_level
+        )
+
         if validation_result.explanation:
             new_meaning.translation_explanation = validation_result.explanation
 
@@ -517,3 +523,11 @@ class UserWordValidationService:
 
             db_session.commit()
             return user_word
+
+
+def _word_cefr_level(value):
+    """The validator's cefr if it fits meaning.word_cefr_level's ENUM, else None.
+    The Anthropic path holds it to the schema, but fix_with_verdict also takes
+    DeepSeek verdicts (the lesson check), and a "B1-B2" there would fail the
+    commit and roll back the whole fix."""
+    return value if value in ("A1", "A2", "B1", "B2", "C1", "C2") else None
