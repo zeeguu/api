@@ -47,10 +47,10 @@ def test_an_explicit_level_still_wins(logged_in_client, monkeypatch):
     assert levels == ["C1"]
 
 
-def test_without_a_level_examples_fall_back_to_b1(logged_in_client, monkeypatch):
+def test_without_a_level_examples_fall_back_to_a2(logged_in_client, monkeypatch):
     _set_german_level(logged_in_client.email, None)
 
-    assert _requested_level(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en") == ["B1"]
+    assert _requested_level(logged_in_client, monkeypatch, "/generate_examples/Haus/de/en") == ["A2"]
 
 
 def test_levels_up_to():

@@ -22,7 +22,8 @@ from . import api, db_session
 # Constants
 MAX_EXAMPLES_ALTERNATIVE = 5  # Max examples for alternative_sentences endpoint
 MAX_EXAMPLES_GENERATE = 3     # Max examples for generate_examples endpoint
-DEFAULT_CEFR_LEVEL = "B1"
+DEFAULT_CEFR_LEVEL = "B1"  # only /preview_learning_card, see there
+EXAMPLE_FALLBACK_LEVEL = "A2"  # learners without a level: most are A2, and too easy beats too hard
 CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 # A learner is waiting on these calls. With the service defaults (120s per
@@ -34,7 +35,7 @@ INTERACTIVE_LLM = dict(timeout=20, max_retries=0)
 def _example_level(user, language, requested=None):
     """
     The CEFR level to write or pick example sentences at: the one the caller
-    asks for, else the learner's level in `language`, else B1. The web never
+    asks for, else the learner's level in `language`, else A2. The web never
     sends one, so before this every example was asked for at B1, also for
     A1-A2 school classes.
     """
@@ -43,7 +44,7 @@ def _example_level(user, language, requested=None):
     try:
         return user.cefr_level_for_language(language)
     except ValueError:
-        return DEFAULT_CEFR_LEVEL
+        return EXAMPLE_FALLBACK_LEVEL
 
 
 def _levels_up_to(cefr_level):
@@ -429,7 +430,7 @@ def generate_examples_for_word(word, from_lang, to_lang):
     :param from_lang: Source language code (e.g., 'da')
     :param to_lang: Target language code (e.g., 'en')
     :query translation: Optional translation/meaning to generate examples for specific sense
-    :query cefr_level: CEFR level to write at (default: the learner's level in from_lang, else B1)
+    :query cefr_level: CEFR level to write at (default: the learner's level in from_lang, else A2)
     :return: JSON array with example sentences
     """
     user = User.find_by_id(flask.g.user_id)
