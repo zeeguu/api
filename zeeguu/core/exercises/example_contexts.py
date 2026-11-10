@@ -182,8 +182,19 @@ def article_level(bookmark):
 
 
 # Longer real sentences are mostly reading, not practice: on 10 Nov 2026 half
-# of the whole article sentences waiting to be practiced were longer.
+# of the whole article sentences waiting to be practiced were over 15 words.
+# A1-A2 learners get 10: an A2 learner looked up three words in a 12-word
+# sentence from an A2 summary (user 6885), and the A2 examples written for
+# them average 10 words.
 MAX_EXERCISE_SENTENCE_WORDS = 15
+MAX_EXERCISE_SENTENCE_WORDS_BEGINNERS = 10
+BEGINNER_LEVELS = {"A1", "A2"}
+
+
+def max_exercise_sentence_words(cefr_level):
+    if cefr_level in BEGINNER_LEVELS:
+        return MAX_EXERCISE_SENTENCE_WORDS_BEGINNERS
+    return MAX_EXERCISE_SENTENCE_WORDS
 
 # Written at the learner's level when they were made
 LEVEL_ADAPTED_CONTEXTS = {ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY, ContextType.LEVEL_ADAPTED_ARTICLE_TITLE}
@@ -206,7 +217,7 @@ def why_not_a_good_exercise_context(bookmark, cefr_level):
     learner at `cefr_level`; otherwise why not: "fragment", "too long",
     "level unknown" or "above level".
 
-    Good means a whole sentence, at most MAX_EXERCISE_SENTENCE_WORDS words,
+    Good means a whole sentence, at most max_exercise_sentence_words words,
     at or below the learner's level: an A2 learner sees A2, also in a
     generated example (most older examples were written at B1). A context of
     unknown level (a web page, a video, an unassessed article or example) is
@@ -221,7 +232,7 @@ def why_not_a_good_exercise_context(bookmark, cefr_level):
     is_example = context_type == ContextType.EXAMPLE_SENTENCE
     if is_fragment(bookmark):
         return "fragment"
-    if not is_example and len((bookmark.get_context() or "").split()) > MAX_EXERCISE_SENTENCE_WORDS:
+    if not is_example and len((bookmark.get_context() or "").split()) > max_exercise_sentence_words(cefr_level):
         return "too long"
     if context_type in LEVEL_ADAPTED_CONTEXTS:
         return None
