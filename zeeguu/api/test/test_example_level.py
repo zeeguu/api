@@ -5,8 +5,7 @@ A2 school classes (feedback from user 6885, 9 Nov 2026).
 """
 
 from zeeguu.api.endpoints import generated_examples
-from zeeguu.api.endpoints.generated_examples import _stored_examples_for_level
-from zeeguu.core.exercises.example_contexts import levels_up_to
+from zeeguu.core.exercises.example_contexts import levels_up_to, usable_examples_query
 from zeeguu.api.test.fixtures import logged_in_client
 from zeeguu.core.model import Language, Meaning, User, UserLanguage
 from zeeguu.core.model.example_sentence import ExampleSentence
@@ -82,10 +81,10 @@ def _levels(examples):
 def test_one_example_at_the_level_does_not_hide_the_easier_ones(logged_in_client):
     meaning = _meaning_with_examples("A1", "A1", "A2", "A1", "B1")
 
-    assert _levels(_stored_examples_for_level(meaning.id, "A2")) == ["A2", "A1", "A1", "A1"]
+    assert _levels(usable_examples_query(meaning.id, "A2").all()) == ["A2", "A1", "A1", "A1"]
 
 
-def test_harder_examples_only_when_there_is_nothing_easier(logged_in_client):
+def test_never_an_example_above_the_level(logged_in_client):
     meaning = _meaning_with_examples("B2", "C1")
 
-    assert sorted(_levels(_stored_examples_for_level(meaning.id, "A2"))) == ["B2", "C1"]
+    assert usable_examples_query(meaning.id, "A2").all() == []

@@ -45,18 +45,6 @@ def _example_level(user, language, requested=None):
     return requested or learner_example_level(user, language)
 
 
-def _stored_examples_for_level(meaning_id, cefr_level, limit=MAX_EXAMPLES_ALTERNATIVE):
-    """
-    The meaning's usable examples at or below `cefr_level`, closest to it
-    first. Examples of any level only when there are none of those: a harder
-    example still beats an LLM call while the learner waits.
-    """
-    return (
-        usable_examples_query(meaning_id, cefr_level).limit(limit).all()
-        or usable_examples_query(meaning_id).limit(limit).all()
-    )
-
-
 def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):
     """
     Find or create a Bookmark for an ExampleSentence and return its full
@@ -121,8 +109,9 @@ def alternative_sentences(user_word_id):
         user, user_word.meaning.origin.language, request.args.get("cefr_level")
     )
 
-    # First, try to get pre-generated examples from database
-    db_examples = _stored_examples_for_level(user_word.meaning_id, cefr_level)
+    # Pre-generated examples first. Never above the learner's level: with none at or below it, new ones are
+    # written at that level below (the nightly job prefetches them).
+    db_examples = usable_examples_query(user_word.meaning_id, cefr_level).limit(MAX_EXAMPLES_ALTERNATIVE).all()
 
     if db_examples:
         # Format database examples
