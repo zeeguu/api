@@ -5,9 +5,10 @@ A2 school classes (feedback from user 6885, 9 Nov 2026).
 """
 
 from zeeguu.api.endpoints import generated_examples
-from zeeguu.api.endpoints.generated_examples import _levels_up_to
+from zeeguu.api.endpoints.generated_examples import _levels_up_to, _stored_examples_for_level
 from zeeguu.api.test.fixtures import logged_in_client
-from zeeguu.core.model import Language, User, UserLanguage
+from zeeguu.core.model import Language, Meaning, User, UserLanguage
+from zeeguu.core.model.example_sentence import ExampleSentence
 from zeeguu.core.model.db import db
 
 
@@ -57,3 +58,27 @@ def test_levels_up_to():
     assert _levels_up_to("A2") == ["A1", "A2"]
     assert _levels_up_to("A1") == ["A1"]
     assert _levels_up_to("C2") == ["A1", "A2", "B1", "B2", "C1", "C2"]
+
+
+def _meaning_with_examples(*levels):
+    meaning = Meaning.find_or_create(db.session, "Haus", "de", "house", "en")
+    for i, level in enumerate(levels):
+        db.session.add(ExampleSentence(f"Das Haus {i} {level}.", Language.find("de"), meaning, cefr_level=level))
+    db.session.commit()
+    return meaning
+
+
+def _levels(examples):
+    return [example.cefr_level for example in examples]
+
+
+def test_one_example_at_the_level_does_not_hide_the_easier_ones(logged_in_client):
+    meaning = _meaning_with_examples("A1", "A1", "A2", "A1", "B1")
+
+    assert _levels(_stored_examples_for_level(meaning.id, "A2")) == ["A2", "A1", "A1", "A1"]
+
+
+def test_harder_examples_only_when_there_is_nothing_easier(logged_in_client):
+    meaning = _meaning_with_examples("B2", "C1")
+
+    assert sorted(_levels(_stored_examples_for_level(meaning.id, "A2"))) == ["B2", "C1"]

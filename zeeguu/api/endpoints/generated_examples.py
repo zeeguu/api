@@ -54,6 +54,25 @@ def _levels_up_to(cefr_level):
     return CEFR_LEVELS[: CEFR_LEVELS.index(cefr_level) + 1]
 
 
+def _stored_examples_for_level(meaning_id, cefr_level, limit=MAX_EXAMPLES_ALTERNATIVE):
+    """
+    The meaning's usable examples at or below `cefr_level`, closest to it
+    first (an A2 learner gets A2, then A1), newest first within a level.
+    Examples of any level only when there are none of those: a harder
+    example still beats an LLM call while the learner waits.
+    """
+    # The level names sort as the levels do: "A1" < "A2" < ... < "C2"
+    easier = (
+        usable_examples_query(meaning_id)
+        .filter(ExampleSentence.cefr_level.in_(_levels_up_to(cefr_level)))
+        .order_by(None)
+        .order_by(ExampleSentence.cefr_level.desc(), ExampleSentence.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return easier or usable_examples_query(meaning_id).limit(limit).all()
+
+
 def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):
     """
     Find or create a Bookmark for an ExampleSentence and return its full
@@ -119,26 +138,7 @@ def alternative_sentences(user_word_id):
     )
 
     # First, try to get pre-generated examples from database
-    # Try exact CEFR level match first
-    db_examples = (
-        usable_examples_query(user_word.meaning_id)
-        .filter(ExampleSentence.cefr_level == cefr_level)
-        .limit(MAX_EXAMPLES_ALTERNATIVE)
-        .all()
-    )
-
-    # Then easier ones: an A2 learner is better off with A1 than with B1
-    if not db_examples:
-        db_examples = (
-            usable_examples_query(user_word.meaning_id)
-            .filter(ExampleSentence.cefr_level.in_(_levels_up_to(cefr_level)))
-            .limit(MAX_EXAMPLES_ALTERNATIVE)
-            .all()
-        )
-
-    # If still nothing, try any CEFR level for this meaning
-    if not db_examples:
-        db_examples = usable_examples_query(user_word.meaning_id).limit(MAX_EXAMPLES_ALTERNATIVE).all()
+    db_examples = _stored_examples_for_level(user_word.meaning_id, cefr_level)
 
     if db_examples:
         # Format database examples
