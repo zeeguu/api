@@ -9,7 +9,11 @@ from flask import request, Response
 from zeeguu.api.utils.input_limits import abort_if_too_long, MAX_PHRASE_CHARS
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.exercises.example_contexts import anchorable_examples, bookmark_for_example, usable_examples_query
+from zeeguu.core.exercises.example_contexts import (
+    anchorable_examples,
+    bookmark_for_example,
+    usable_examples_query,
+)
 from zeeguu.core.llm_services import get_llm_service
 from zeeguu.core.llm_services.prompts import CURRENT_PROMPT_VERSION
 from zeeguu.core.llm_services.llm_service import prepare_learning_card
@@ -24,7 +28,6 @@ MAX_EXAMPLES_ALTERNATIVE = 5  # Max examples for alternative_sentences endpoint
 MAX_EXAMPLES_GENERATE = 3     # Max examples for generate_examples endpoint
 DEFAULT_CEFR_LEVEL = "B1"  # only /preview_learning_card, see there
 EXAMPLE_FALLBACK_LEVEL = "A2"  # learners without a level: most are A2, and too easy beats too hard
-CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 # A learner is waiting on these calls. With the service defaults (120s per
 # attempt, 2 SDK retries, then DeepSeek) one request ran for 15 minutes.
@@ -47,30 +50,16 @@ def _example_level(user, language, requested=None):
         return EXAMPLE_FALLBACK_LEVEL
 
 
-def _levels_up_to(cefr_level):
-    """The CEFR levels at or below `cefr_level`, easiest first."""
-    if cefr_level not in CEFR_LEVELS:
-        return CEFR_LEVELS
-    return CEFR_LEVELS[: CEFR_LEVELS.index(cefr_level) + 1]
-
-
 def _stored_examples_for_level(meaning_id, cefr_level, limit=MAX_EXAMPLES_ALTERNATIVE):
     """
     The meaning's usable examples at or below `cefr_level`, closest to it
-    first (an A2 learner gets A2, then A1), newest first within a level.
-    Examples of any level only when there are none of those: a harder
+    first. Examples of any level only when there are none of those: a harder
     example still beats an LLM call while the learner waits.
     """
-    # The level names sort as the levels do: "A1" < "A2" < ... < "C2"
-    easier = (
-        usable_examples_query(meaning_id)
-        .filter(ExampleSentence.cefr_level.in_(_levels_up_to(cefr_level)))
-        .order_by(None)
-        .order_by(ExampleSentence.cefr_level.desc(), ExampleSentence.id.desc())
-        .limit(limit)
-        .all()
+    return (
+        usable_examples_query(meaning_id, cefr_level).limit(limit).all()
+        or usable_examples_query(meaning_id).limit(limit).all()
     )
-    return easier or usable_examples_query(meaning_id).limit(limit).all()
 
 
 def _build_bookmark_dict_for_example(user, user_word, example_sentence_obj):

@@ -5,7 +5,8 @@ A2 school classes (feedback from user 6885, 9 Nov 2026).
 """
 
 from zeeguu.api.endpoints import generated_examples
-from zeeguu.api.endpoints.generated_examples import _levels_up_to, _stored_examples_for_level
+from zeeguu.api.endpoints.generated_examples import _stored_examples_for_level
+from zeeguu.core.exercises.example_contexts import levels_up_to
 from zeeguu.api.test.fixtures import logged_in_client
 from zeeguu.core.model import Language, Meaning, User, UserLanguage
 from zeeguu.core.model.example_sentence import ExampleSentence
@@ -55,9 +56,9 @@ def test_without_a_level_examples_fall_back_to_a2(logged_in_client, monkeypatch)
 
 
 def test_levels_up_to():
-    assert _levels_up_to("A2") == ["A1", "A2"]
-    assert _levels_up_to("A1") == ["A1"]
-    assert _levels_up_to("C2") == ["A1", "A2", "B1", "B2", "C1", "C2"]
+    assert levels_up_to("A2") == ["A1", "A2"]
+    assert levels_up_to("A1") == ["A1"]
+    assert levels_up_to("C2") == ["A1", "A2", "B1", "B2", "C1", "C2"]
 
 
 def _meaning_with_examples(*levels):
