@@ -5,8 +5,6 @@ This validates that a translation is correct for the specific word,
 and classifies its frequency and phrase type - all in a single LLM call.
 """
 
-from zeeguu.core import cefr
-
 # Bump on every change to the prompt, and run the regression set with --save
 # (tools/run_validator_regression.py); the results are kept per version in
 # zeeguu/core/llm_services/regression/results/translation_validator/.
@@ -175,7 +173,7 @@ VALIDATION_SCHEMA = {
         "correction_in_sentence": {"type": "string"},
         "correction_reads_right": {"type": "boolean"},
         "frequency": {"type": "string", "enum": ["unique", "common", "uncommon", "rare"]},
-        "cefr": {"type": "string", "enum": list(cefr.LEVELS)},
+        "cefr": {"type": "string", "enum": ["A1", "A2", "B1", "B2", "C1", "C2"]},
         "phrase_type": {
             "type": "string",
             "enum": ["single_word", "collocation", "idiom", "expression", "arbitrary_multi_word"],
