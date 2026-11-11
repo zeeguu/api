@@ -263,7 +263,8 @@ def delete_articles_in_batches(db_session, ids, batch_size=BATCH_SIZE, skip_binl
             print("    An article is still referenced — the FK below blocked its")
             print("    deletion, so referenced_article_ids() is missing a table.")
             print("    Add it to PROTECTING_TABLES (PROTECTING_COLUMNS if its column")
-            print("    is not article_id), or, if disposable, make its FK ON DELETE")
+            print("    is not article_id; PROTECTING_VIA_OWNED_ROWS if it points at a")
+            print("    row the article owns), or, if disposable, make its FK ON DELETE")
             print("    CASCADE, and re-run. No referenced data was lost.")
             print(f"\n    {e.orig}")
             raise
