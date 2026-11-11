@@ -4,7 +4,13 @@ whole run aborts, as article_upload and shared_article did for 11 nights."""
 from unittest import TestCase
 
 import zeeguu.core.model  # noqa: F401 (registers every table on the metadata)
-from zeeguu.core.article_pruning import PROTECTING_COLUMNS, articles_with_level_adapted_contexts
+from zeeguu.core.article_pruning import (
+    PROTECTING_COLUMNS,
+    PROTECTING_VIA_OWNED_ROWS,
+    articles_with_contexts_in_owned_rows,
+)
+from zeeguu.core.model.article_fragment import ArticleFragment
+from zeeguu.core.model.article_fragment_context import ArticleFragmentContext
 from zeeguu.core.model.level_adapted_article_summary_context import LevelAdaptedArticleSummaryContext
 from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
 from zeeguu.core.model.level_adapted_article_title_context import LevelAdaptedArticleTitleContext
@@ -60,35 +66,62 @@ def test_no_column_is_both_protecting_and_cascading():
     assert not set(PROTECTING_COLUMNS) & CASCADE_OWNED_COLUMNS
 
 
-class LevelAdaptedContextsKeepTheirArticle(ModelTestMixIn, TestCase):
-    """A bookmark met in a level-adapted summary or title points at the
-    level-adapted text, which cascades away with its article."""
+
+def test_every_foreign_key_into_a_row_the_article_owns_has_a_pruning_decision():
+    owned_tables = {table for table, _ in CASCADE_OWNED_COLUMNS if table != "article"}
+    into_owned_rows = {
+        (table.name, foreign_key.parent.name, foreign_key.column.table.name)
+        for table in db.metadata.tables.values()
+        for foreign_key in table.foreign_keys
+        if foreign_key.column.table.name in owned_tables
+    }
+
+    undecided = into_owned_rows - set(PROTECTING_VIA_OWNED_ROWS)
+
+    assert not undecided, (
+        f"{sorted(undecided)} point at rows that are deleted with their article. "
+        "If their rows keep the article alive, add them to PROTECTING_VIA_OWNED_ROWS."
+    )
+
+
+class ContextsInOwnedRowsKeepTheirArticle(ModelTestMixIn, TestCase):
+    """A bookmark context in a level-adapted summary or title, or in a fragment,
+    points at a row the article owns, not at the article."""
 
     def setUp(self):
         super().setUp()
         self.user = UserRule().user
 
     def _level_adapted_text(self):
-        article = ArticleRule().article
         return LevelAdaptedArticleText.find_or_create(
-            db.session, article, cefr_level="A2",
+            db.session, ArticleRule().article, cefr_level="A2",
             summary="summary at A2", tokenized_summary=[], title="title at A2",
         )
+
+    def _bookmark(self):
+        return BookmarkRule(self.user).bookmark
 
     def test_a_bookmarked_level_adapted_summary_keeps_its_article(self):
         bookmarked = self._level_adapted_text()
         unbookmarked = self._level_adapted_text()
-        db.session.add(LevelAdaptedArticleSummaryContext(BookmarkRule(self.user).bookmark, bookmarked))
+        db.session.add(LevelAdaptedArticleSummaryContext(self._bookmark(), bookmarked))
         db.session.commit()
 
-        protected = articles_with_level_adapted_contexts(db.session)
+        kept = articles_with_contexts_in_owned_rows(db.session)
 
-        assert bookmarked.article_id in protected
-        assert unbookmarked.article_id not in protected
+        assert bookmarked.article_id in kept
+        assert unbookmarked.article_id not in kept
 
     def test_a_bookmarked_level_adapted_title_keeps_its_article(self):
         bookmarked = self._level_adapted_text()
-        db.session.add(LevelAdaptedArticleTitleContext(BookmarkRule(self.user).bookmark, bookmarked))
+        db.session.add(LevelAdaptedArticleTitleContext(self._bookmark(), bookmarked))
         db.session.commit()
 
-        assert bookmarked.article_id in articles_with_level_adapted_contexts(db.session)
+        assert bookmarked.article_id in articles_with_contexts_in_owned_rows(db.session)
+
+    def test_a_bookmarked_fragment_keeps_its_article(self):
+        fragment = ArticleFragment.find_or_create(db.session, ArticleRule().article, "Ein Satz.", 0)
+        db.session.add(ArticleFragmentContext(self._bookmark(), fragment))
+        db.session.commit()
+
+        assert fragment.article_id in articles_with_contexts_in_owned_rows(db.session)

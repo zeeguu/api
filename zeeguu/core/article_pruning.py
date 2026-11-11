@@ -96,13 +96,17 @@ PROTECTING_COLUMNS = [(tbl, "article_id") for tbl in PROTECTING_TABLES] + [
     ("shared_article", "delivery_article_id"),
 ]
 
-# Bookmark contexts in a level-adapted summary or title. They point at the
-# level-adapted text, not at the article, and that text goes with its article
-# (ON DELETE CASCADE), taking the contexts with it. So the article is kept
-# through a join instead of a column.
-PROTECTING_VIA_LEVEL_ADAPTED_TEXT = [
-    "level_adapted_article_summary_context",
-    "level_adapted_article_title_context",
+# Bookmark contexts that point at a row the article owns, not at the article.
+# That row goes with its article (ON DELETE CASCADE), and then the context is
+# either deleted with it (level-adapted summaries and titles) or blocks the
+# delete (fragments: NO ACTION). Either way the article must be kept, found
+# through a join: (context table, its column, the owned table).
+# test_article_pruning.py fails on a foreign key into an owned table that is
+# not listed here.
+PROTECTING_VIA_OWNED_ROWS = [
+    ("level_adapted_article_summary_context", "level_adapted_article_text_id", "level_adapted_article_text"),
+    ("level_adapted_article_title_context", "level_adapted_article_text_id", "level_adapted_article_text"),
+    ("article_fragment_context", "article_fragment_id", "article_fragment"),
 ]
 
 BATCH_SIZE = 1000
@@ -112,15 +116,16 @@ def _ids(db_session, sql):
     return [r[0] for r in db_session.execute(text(sql))]
 
 
-def articles_with_level_adapted_contexts(db_session):
-    """Articles whose level-adapted summary or title holds a bookmark context."""
+def articles_with_contexts_in_owned_rows(db_session):
+    """Articles with a bookmark context in one of their owned rows: a
+    level-adapted summary or title, or a fragment."""
     ids = set()
-    for tbl in PROTECTING_VIA_LEVEL_ADAPTED_TEXT:
+    for context_table, column, owned_table in PROTECTING_VIA_OWNED_ROWS:
         ids.update(
             _ids(
                 db_session,
-                f"SELECT DISTINCT t.article_id FROM {tbl} c "
-                f"JOIN level_adapted_article_text t ON t.id = c.level_adapted_article_text_id",
+                f"SELECT DISTINCT o.article_id FROM {context_table} c "
+                f"JOIN {owned_table} o ON o.id = c.{column}",
             )
         )
     return ids
@@ -143,9 +148,9 @@ def referenced_article_ids(db_session, verbose=True):
             print(f"  {tbl}.{column}: +{len(ref) - before} (total {len(ref)})")
 
     before = len(ref)
-    ref.update(articles_with_level_adapted_contexts(db_session))
+    ref.update(articles_with_contexts_in_owned_rows(db_session))
     if verbose:
-        print(f"  level-adapted summary/title contexts: +{len(ref) - before} (total {len(ref)})")
+        print(f"  contexts in level-adapted texts and fragments: +{len(ref) - before} (total {len(ref)})")
 
     # Activity can reference an article via source_id -> article.source_id.
     source_ids = set(
