@@ -96,11 +96,39 @@ PROTECTING_COLUMNS = [(tbl, "article_id") for tbl in PROTECTING_TABLES] + [
     ("shared_article", "delivery_article_id"),
 ]
 
+# Bookmark contexts that point at a row the article owns, not at the article.
+# That row goes with its article (ON DELETE CASCADE), and then the context is
+# either deleted with it (level-adapted summaries and titles) or blocks the
+# delete (fragments: NO ACTION). Either way the article must be kept, found
+# through a join: (context table, its column, the owned table).
+# test_article_pruning.py fails on a foreign key into an owned table that is
+# not listed here.
+PROTECTING_VIA_OWNED_ROWS = [
+    ("level_adapted_article_summary_context", "level_adapted_article_text_id", "level_adapted_article_text"),
+    ("level_adapted_article_title_context", "level_adapted_article_text_id", "level_adapted_article_text"),
+    ("article_fragment_context", "article_fragment_id", "article_fragment"),
+]
+
 BATCH_SIZE = 1000
 
 
 def _ids(db_session, sql):
     return [r[0] for r in db_session.execute(text(sql))]
+
+
+def articles_with_contexts_in_owned_rows(db_session):
+    """Articles with a bookmark context in one of their owned rows: a
+    level-adapted summary or title, or a fragment."""
+    ids = set()
+    for context_table, column, owned_table in PROTECTING_VIA_OWNED_ROWS:
+        ids.update(
+            _ids(
+                db_session,
+                f"SELECT DISTINCT o.article_id FROM {context_table} c "
+                f"JOIN {owned_table} o ON o.id = c.{column}",
+            )
+        )
+    return ids
 
 
 def referenced_article_ids(db_session, verbose=True):
@@ -118,6 +146,11 @@ def referenced_article_ids(db_session, verbose=True):
         )
         if verbose:
             print(f"  {tbl}.{column}: +{len(ref) - before} (total {len(ref)})")
+
+    before = len(ref)
+    ref.update(articles_with_contexts_in_owned_rows(db_session))
+    if verbose:
+        print(f"  contexts in level-adapted texts and fragments: +{len(ref) - before} (total {len(ref)})")
 
     # Activity can reference an article via source_id -> article.source_id.
     source_ids = set(
@@ -230,7 +263,8 @@ def delete_articles_in_batches(db_session, ids, batch_size=BATCH_SIZE, skip_binl
             print("    An article is still referenced — the FK below blocked its")
             print("    deletion, so referenced_article_ids() is missing a table.")
             print("    Add it to PROTECTING_TABLES (PROTECTING_COLUMNS if its column")
-            print("    is not article_id), or, if disposable, make its FK ON DELETE")
+            print("    is not article_id; PROTECTING_VIA_OWNED_ROWS if it points at a")
+            print("    row the article owns), or, if disposable, make its FK ON DELETE")
             print("    CASCADE, and re-run. No referenced data was lost.")
             print(f"\n    {e.orig}")
             raise
