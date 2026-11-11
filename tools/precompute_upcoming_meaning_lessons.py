@@ -309,6 +309,15 @@ for user, last_activity in user_activity_map:
 
         cefr_level = word_lesson_level(user.audio_lesson_level_for_learned_language())
 
+        # The teacher speaks the native language. With no voice for it every
+        # lesson fails at synthesis, so skip the user, as the live path does
+        # (prepare_lesson_generation tells them lessons are not available yet).
+        if not is_language_supported_for_audio(user.native_language.code):
+            output(
+                f"   Skipping - no teacher voice for speakers of {user.native_language.name}"
+            )
+            continue
+
         # Get all languages for this user
         user_languages = user.get_all_languages()
         user_meanings_count = 0
