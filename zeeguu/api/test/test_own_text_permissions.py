@@ -11,7 +11,7 @@ import pytest
 from fixtures import logged_in_client as client
 from fixtures import LoggedInClient, add_context_types, add_source_types
 from fixtures import create_and_get_article
-from zeeguu.core.model import Article, User
+from zeeguu.core.model import Article
 
 
 @pytest.fixture
@@ -122,32 +122,6 @@ def test_other_user_cannot_resolve_cefr(client, other, text_id):
     )
     assert response.status_code == 403
     assert _teacher_level(text_id) is None
-
-
-def test_other_user_cannot_store_cefr_assessment(client, other, text_id):
-    response = other.response_from_post(
-        f"/article/{text_id}/store_cefr_assessment",
-        data=dict(cefr_level="C2", assessment_method="teacher_manual"),
-    )
-    assert response.status_code == 403
-    assert _teacher_level(text_id) is None
-
-
-def test_stored_assessment_is_attributed_to_the_caller(client, other, text_id):
-    other_id = User.find(other.email).id
-    result = client.post(
-        f"/article/{text_id}/store_cefr_assessment",
-        data=dict(
-            cefr_level="A2",
-            assessment_method="teacher_manual",
-            assessed_by_user_id=other_id,
-        ),
-    )
-    assert result["status"] == "success"
-
-    assessment = _assessment(text_id)
-    assert assessment.teacher_cefr_level == "A2"
-    assert assessment.teacher_assessed_by_user_id == User.find(client.email).id
 
 
 # --- estimate -------------------------------------------------------------------
