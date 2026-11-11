@@ -12,6 +12,7 @@ from flask import request
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core import cefr
 from zeeguu.core.model import Article, User, ArticleCefrAssessment
 from . import api, db_session
 
@@ -57,9 +58,8 @@ def resolve_cefr(article_id):
         flask.abort(400, "Missing required parameter: cefr_level")
 
     # Validate CEFR level
-    valid_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-    if cefr_level not in valid_levels:
-        flask.abort(400, f"Invalid CEFR level. Must be one of: {', '.join(valid_levels)}")
+    if not cefr.is_level(cefr_level):
+        flask.abort(400, f"Invalid CEFR level. Must be one of: {', '.join(cefr.LEVELS)}")
 
     # Get or create assessment record (1:1)
     assessment = ArticleCefrAssessment.find_or_create(db_session, article_id, commit=False)
@@ -83,4 +83,3 @@ def resolve_cefr(article_id):
         # Keep display_cefr for backward compatibility
         "display_cefr": assessment.effective_cefr_level
     })
-

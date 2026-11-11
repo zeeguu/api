@@ -71,6 +71,7 @@ from collections import defaultdict, namedtuple
 from datetime import datetime, timedelta
 from functools import lru_cache
 
+from zeeguu.core import cefr
 from zeeguu.core.model import User, Language
 from zeeguu.core.emailer.zeeguu_mailer import ZeeguuMailer
 from zeeguu.operations.task_status import set_summary
@@ -279,8 +280,7 @@ def active_users_by_segment(active_days, language_codes=None):
     )
 
     # Batch: one query for these users' UserLanguage rows -> {(user_id,
-    # language_id): cefr_level int}, where cefr_level is 1..6 (A1..C2).
-    levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
+    # language_id): cefr_level int}, where cefr_level is 0..6 (A0..C2).
     ul_rows = UserLanguage.query.filter(
         UserLanguage.user_id.in_([u.id for u in users])
     ).all()
@@ -295,12 +295,11 @@ def active_users_by_segment(active_days, language_codes=None):
             continue
         if language_codes and lang.code not in language_codes:
             continue
-        level_int = cefr_int_by_user_lang.get((user.id, lang.id))
-        if level_int is None or not (0 <= level_int <= 6):
+        # A0 reads the A1 feed, so it is watched as A1.
+        level = cefr.readable(cefr.from_number(cefr_int_by_user_lang.get((user.id, lang.id))))
+        if level is None:
             continue
-        # A0 (0) reads the A1 feed, so it is watched as A1.
-        level_int = max(level_int, 1)
-        segments[Segment(lang.code, levels[level_int - 1])].append(
+        segments[Segment(lang.code, level)].append(
             (user, user.last_seen)
         )
 

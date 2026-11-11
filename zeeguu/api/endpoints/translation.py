@@ -17,6 +17,7 @@ from zeeguu.api.utils.input_limits import (
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core import cefr
 from zeeguu.core.translation_services.translator import (
     get_next_results,
     contribute_trans,
@@ -38,7 +39,6 @@ from zeeguu.logging import log as zeeguu_log
 punctuation_extended = "»«" + punctuation
 
 # Bounds for /explain_selection. See the endpoint for why each exists.
-EXPLANATION_CEFR_LEVELS = {"A1", "A2", "B1", "B2", "C1", "C2"}
 MAX_EXPLAINED_SELECTION_CHARS = 200
 MAX_EXPLANATION_CONTEXT_CHARS = 2000
 MAX_TRANSLATION_HISTORY = 500
@@ -1015,9 +1015,7 @@ def explain_selection_endpoint(from_lang_code, to_lang_code):
     # free text: a VARCHAR(2) column, and the prompt itself -- an unconstrained
     # string interpolated into an LLM prompt is an injection vector, and this
     # one has six legal values.
-    cefr_level = request.json.get("cefr_level", "A1").strip().upper()
-    if cefr_level not in EXPLANATION_CEFR_LEVELS:
-        cefr_level = "A1"
+    cefr_level = cefr.parse(request.json.get("cefr_level")) or "A1"
 
     if not selection:
         flask.abort(400, "Missing selection")

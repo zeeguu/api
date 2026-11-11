@@ -17,6 +17,7 @@ from datetime import datetime
 import copy
 import re
 from requests.exceptions import Timeout, RequestException
+from zeeguu.core import cefr
 from zeeguu.logging import log
 from zeeguu.core.language.language_check import describe_mismatches
 from zeeguu.core.language.generate_in_language import (
@@ -623,7 +624,7 @@ def _parse_assessment_and_summary(result: str, provider: str, model_name: str) -
 
     # Per-level preview summaries (one per level simpler than the original).
     level_summaries = {}
-    for level in ["A1", "A2", "B1", "B2", "C1", "C2"]:
+    for level in cefr.LEVELS:
         raw = sections.get(f"{level}_SUMMARY")
         if raw:
             text = _strip_markdown_from_summary(_clean_text(raw))
@@ -633,7 +634,7 @@ def _parse_assessment_and_summary(result: str, provider: str, model_name: str) -
     # Per-level headlines, same shape as the summaries. A title is one line by
     # construction, so collapse any stray wrapping the section parser picked up.
     level_titles = {}
-    for level in ["A1", "A2", "B1", "B2", "C1", "C2"]:
+    for level in cefr.LEVELS:
         raw = sections.get(f"{level}_TITLE")
         if raw:
             text = _strip_markdown_from_summary(_clean_text(raw))
@@ -806,19 +807,13 @@ def get_target_levels_for_original_level(original_level: str) -> list[str]:
     Returns:
         List of CEFR levels to create simplified versions for
     """
-    # CEFR levels in order from simplest to most complex
-    cefr_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-
-    if original_level not in cefr_levels:
+    if not cefr.is_level(original_level):
         # If invalid or unknown level, default to creating A1 and A2
         log(f"Unknown original CEFR level '{original_level}', defaulting to A1 and A2")
         return ["A1", "A2"]
 
-    # Find the index of the original level
-    original_index = cefr_levels.index(original_level)
-
-    # Return all levels simpler than the original
-    target_levels = cefr_levels[:original_index]
+    # All levels simpler than the original
+    target_levels = cefr.below(original_level)
 
     if not target_levels:
         # If original is already A1, no simpler versions needed
@@ -922,8 +917,7 @@ def _parse_adaptive_response(result: str, provider: str, model_name: str) -> dic
         simplified_levels = []
 
     # Validate CEFR level
-    valid_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-    if original_level not in valid_levels:
+    if not cefr.is_level(original_level):
         log(
             f"Warning: Invalid original CEFR level '{original_level}', defaulting to 'B2'"
         )
@@ -1520,17 +1514,13 @@ def create_user_specific_simplified_version(session, article, target_level):
         original_level = article.cefr_level or fk_to_cefr(article.get_fk_difficulty())
 
         # Don't simplify if target level is same or higher than original
-        cefr_order = ["A1", "A2", "B1", "B2", "C1", "C2"]
-        if target_level not in cefr_order or original_level not in cefr_order:
+        if not cefr.is_level(target_level) or not cefr.is_level(original_level):
             log(
                 f"Invalid CEFR levels: original={original_level}, target={target_level}"
             )
             return None
 
-        target_index = cefr_order.index(target_level)
-        original_index = cefr_order.index(original_level)
-
-        if target_index >= original_index:
+        if not cefr.is_above(original_level, target_level):
             log(
                 f"Target level {target_level} is not simpler than original {original_level}"
             )
@@ -1791,8 +1781,7 @@ def create_simplified_version_from_upload(session, upload, target_level):
     """
     log(f"Creating simplified article from upload {upload.id} at level {target_level}")
 
-    cefr_order = ["A1", "A2", "B1", "B2", "C1", "C2"]
-    if target_level not in cefr_order:
+    if not cefr.is_level(target_level):
         log(f"Invalid target CEFR level: {target_level}")
         return None
 

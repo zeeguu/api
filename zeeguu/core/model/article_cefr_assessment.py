@@ -13,6 +13,7 @@ from datetime import datetime
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum
 from sqlalchemy.orm import relationship
 
+from zeeguu.core import cefr
 from zeeguu.core.model.db import db
 from zeeguu.core.model.race_safe import find_or_create
 
@@ -157,8 +158,6 @@ class ArticleCefrAssessment(db.Model):
         - Compound: "B1/B2" - adjacent disagreement
         - Conservative: "B2" - large disagreement resolved to higher level
         """
-        levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-
         # Priority 1: Teacher override always wins
         if self.teacher_cefr_level:
             self.effective_cefr_level = self.teacher_cefr_level
@@ -167,37 +166,9 @@ class ArticleCefrAssessment(db.Model):
         # Determine effective LLM level (explicit assessment or simplification target)
         effective_llm_level = self.llm_cefr_level or self.simplification_target_level
 
-        # Priority 2: LLM (or simplification target) and ML synthesis
-        if effective_llm_level and self.ml_cefr_level:
-            if effective_llm_level == self.ml_cefr_level:
-                # Agreement
-                self.effective_cefr_level = effective_llm_level
-            else:
-                # Disagreement
-                l1, l2 = effective_llm_level, self.ml_cefr_level
-                sorted_levels = sorted([l1, l2], key=lambda x: levels.index(x))
-                distance = abs(levels.index(l1) - levels.index(l2))
-
-                if distance == 1:
-                    # Adjacent levels - use compound
-                    self.effective_cefr_level = f"{sorted_levels[0]}/{sorted_levels[1]}"
-                else:
-                    # Large disagreement (2+ levels) - pick higher (conservative)
-                    self.effective_cefr_level = sorted_levels[1]
-            return
-
-        # Priority 3: LLM only (or simplification target only)
-        if effective_llm_level:
-            self.effective_cefr_level = effective_llm_level
-            return
-
-        # Priority 4: ML only
-        if self.ml_cefr_level:
-            self.effective_cefr_level = self.ml_cefr_level
-            return
-
-        # No assessments yet
-        self.effective_cefr_level = None
+        # Priorities 2-4: LLM (or simplification target) and ML combined,
+        # or whichever of them there is (zeeguu.core.cefr.combine)
+        self.effective_cefr_level = cefr.combine(effective_llm_level, self.ml_cefr_level)
 
     def as_dict(self):
         """

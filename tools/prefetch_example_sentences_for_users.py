@@ -20,11 +20,11 @@ import sys
 from datetime import datetime
 from typing import List, Optional, Tuple
 
+from zeeguu.core import cefr
 import zeeguu.core
 from zeeguu.core.model import ExampleGenerationAttempt, ExampleSentence, User, UserWord
 from zeeguu.core.model.ai_generator import AIGenerator
 from zeeguu.core.exercises.example_contexts import (
-    CEFR_LEVELS,
     anchorable_examples,
     learner_example_level,
     only_usable_examples,
@@ -547,7 +547,7 @@ def main():
             user_words = user_words[: args.max_words]
 
         print(f"Would process {len(user_words)} user words")
-        for level in CEFR_LEVELS:
+        for level in cefr.LEVELS:
             at_level = sum(1 for _, each in user_words if each == level)
             if at_level:
                 print(f"  {level}: {at_level}")

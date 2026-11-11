@@ -9,6 +9,7 @@ from sqlalchemy import Column, Boolean, case, func, select
 from sqlalchemy.orm import relationship, joinedload
 from sqlalchemy.orm.exc import NoResultFound
 
+from zeeguu.core import cefr
 import zeeguu.core
 from zeeguu.core.language.difficulty_estimator_factory import DifficultyEstimatorFactory
 from zeeguu.core.model.db import db
@@ -21,19 +22,6 @@ from zeeguu.core.util.hash import (
 )
 from zeeguu.logging import log
 from zeeguu.logging import warning
-
-# This mapping reflects splitting
-# the scale of 0 - 100 into 6 bands.
-# Rounded up (16.6666 ~ 17)
-CEFR_TO_DIFFICULTY_MAPPING = {
-    1: (0, 1.7),
-    2: (1.7, 3.4),
-    3: (3.4, 5.1),
-    4: (5.1, 6.8),
-    5: (6.8, 8.5),
-    6: (8.5, 10),
-}
-
 
 class User(db.Model):
     __table_args__ = {"mysql_collate": "utf8_bin"}
@@ -1354,9 +1342,6 @@ class User(db.Model):
     def word_count(self):
         return len(self.user_words())
 
-    # user_language.cefr_level is an index into this list; NULL means not set.
-    CEFR_LEVELS = ["A0", "A1", "A2", "B1", "B2", "C1", "C2"]
-
     def _stored_cefr_level(self, language):
         """The stored level as A0..C2; ValueError when there is none to use."""
         from zeeguu.core.model import UserLanguage
@@ -1365,10 +1350,10 @@ class User(db.Model):
             lang_info = UserLanguage.with_language_id(language.id, self)
         except NoResultFound:
             raise ValueError(f"no user_language for {language.code}")
-        level = lang_info.cefr_level
-        if level is None or not 0 <= level < len(self.CEFR_LEVELS):
-            raise ValueError(f"no usable CEFR level for {language.code}: {level}")
-        return self.CEFR_LEVELS[level]
+        level = cefr.from_number(lang_info.cefr_level)
+        if level is None:
+            raise ValueError(f"no usable CEFR level for {language.code}: {lang_info.cefr_level}")
+        return level
 
     def cefr_level_for_language(self, language):
         """
@@ -1380,8 +1365,7 @@ class User(db.Model):
         reads the easiest texts there are. Only the audio lessons go below A1,
         and they ask for audio_lesson_level_for_learned_language instead.
         """
-        level = self._stored_cefr_level(language)
-        return "A1" if level == "A0" else level
+        return cefr.readable(self._stored_cefr_level(language))
 
     def cefr_level_for_learned_language(self):
         return self.cefr_level_for_language(self.learned_language)
@@ -1411,65 +1395,6 @@ class User(db.Model):
         )
 
         return languages
-
-    def levels_for(self, language: Language):
-        """
-
-            the level that the system considers for this user
-
-            TODO: must think better about this...
-
-        :param language:
-
-        :return: pair of level_min and level_max for this user
-
-        """
-        from zeeguu.core.model import UserLanguage
-
-        lang_info = UserLanguage.with_language_id(language.id, self)
-
-        # default values, for when there's no corresponding setting
-        declared_level_min = -1
-        declared_level_max = 11
-
-        # start from user's levels if they exist
-        if lang_info.declared_level_min:
-            if lang_info.declared_level_min > 0:
-                declared_level_min = lang_info.declared_level_min
-
-        if lang_info.declared_level_max:
-            if lang_info.declared_level_max < 10:
-                declared_level_max = lang_info.declared_level_max
-
-        if lang_info.cefr_level is not None:
-            # A0 (0) reads the A1 range: see cefr_level_for_language.
-            declared_level_min, declared_level_max = CEFR_TO_DIFFICULTY_MAPPING[
-                max(lang_info.cefr_level, 1)
-            ]
-
-        # ML, Sept 12, 2024
-        # This is too complicated stuff for something that I don't even remmeber anybody asking for
-        # The teacher overriding the difficulty levels of the student with micro granularity seems
-        # like more trouble than necessary.
-        # Commenting it out for now and I expect that we'll remove it eventually completely
-        # # If there's cohort info, consider it
-        # for cohortMap in self.cohorts:
-        #     each_cohort = cohortMap.cohort
-        #     if each_cohort.language and each_cohort.language == language:
-        #         if each_cohort.declared_level_min:
-        #             # min will be the max between the teacher's min and the student's min
-        #             # this means that if the teacher says 5 is min, the student can't reduce it...
-        #             # otoh, if the teacher says 5 is the min but the student wants 7 that will work
-        #             declared_level_min = max(
-        #                 declared_level_min, each_cohort.declared_level_min
-        #             )
-        #         if each_cohort.declared_level_max:
-        #             # a student is limited to the upper limit of his cohort
-        #             declared_level_max = min(
-        #                 declared_level_max, each_cohort.declared_level_max
-        #             )
-
-        return max(declared_level_min, 0), min(declared_level_max, 10)
 
     def has_feature(self, feature_name):
         from zeeguu.core.user_feature_toggles import is_feature_enabled_for_user

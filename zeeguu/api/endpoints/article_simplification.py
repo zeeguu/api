@@ -7,6 +7,7 @@ from flask import request
 
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
+from zeeguu.core import cefr
 from zeeguu.core.model import Article
 from . import api
 
@@ -100,11 +101,6 @@ def article_simplification_levels():
         )
 
     # Sort by CEFR level difficulty (A1 first, then A2, B1, etc.)
-    cefr_order = ["A1", "A2", "B1", "B2", "C1", "C2"]
-    levels.sort(
-        key=lambda x: (
-            cefr_order.index(x["cefr_level"]) if x["cefr_level"] in cefr_order else 999
-        )
-    )
+    levels.sort(key=lambda x: cefr.rank(x["cefr_level"]) if cefr.rank(x["cefr_level"]) is not None else 999)
 
     return json_result(levels)

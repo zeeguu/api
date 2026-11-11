@@ -10,6 +10,7 @@ Used by teachers in the article editor to get assessments without saving to DB:
 from flask import request
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
+from zeeguu.core import cefr
 from zeeguu.core.model import Article
 from zeeguu.logging import log
 from . import api
@@ -50,25 +51,6 @@ def compute_ml_assessment(content, language_code, fk_difficulty=None, word_count
     except Exception as e:
         log(f"Error computing ML assessment: {e}")
         return None, None
-
-
-def get_max_level(level1, level2):
-    """
-    Return the harder (higher) of two CEFR levels.
-    Conservative approach: if either system thinks it's harder, trust that.
-    """
-    if not level1:
-        return level2
-    if not level2:
-        return level1
-
-    levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-    try:
-        idx1 = levels.index(level1)
-        idx2 = levels.index(level2)
-        return level1 if idx1 > idx2 else level2
-    except ValueError:
-        return level1  # Fallback
 
 
 @api.route("/article/<int:article_id>/assess_ml", methods=["POST"])
@@ -198,8 +180,8 @@ def initial_assessments(article_id):
         article.get_content(), article.language.code
     )
 
-    # Calculate effective level (conservative: max of LLM and ML)
-    effective_level = get_max_level(llm_assessment, ml_assessment)
+    # The level update_effective_cefr_level will store for these two
+    effective_level = cefr.combine(llm_assessment, ml_assessment)
 
     # Check for teacher override
     teacher_override = None

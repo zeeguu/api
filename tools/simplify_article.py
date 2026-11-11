@@ -24,6 +24,7 @@ import sys
 import argparse
 from datetime import date
 from zeeguu.api.app import create_app_for_scripts
+from zeeguu.core import cefr
 from zeeguu.core.model import Article, db
 from zeeguu.core.llm_services.simplification_and_classification import (
     create_simplified_article_adaptive,
@@ -120,10 +121,9 @@ def simplify_single_article(article_id, cefr_level):
     print(f"Creating {cefr_level} simplified version for article {article_id}...")
 
     # Validate CEFR level
-    valid_levels = ["A1", "A2", "B1", "B2", "C1", "C2"]
-    if cefr_level not in valid_levels:
+    if not cefr.is_level(cefr_level):
         print(f"❌ Invalid CEFR level: {cefr_level}")
-        print(f"Valid levels: {', '.join(valid_levels)}")
+        print(f"Valid levels: {', '.join(cefr.LEVELS)}")
         return False
 
     # Find the original article

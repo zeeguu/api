@@ -15,6 +15,7 @@ offer it as a past context. A context the learner picked with the arrows is
 never switched (has_default_context).
 """
 
+from zeeguu.core import cefr
 from zeeguu.core.model import Bookmark
 from zeeguu.core.model.context_identifier import ContextIdentifier
 from zeeguu.core.model.context_type import ContextType
@@ -24,7 +25,6 @@ from zeeguu.core.model.exercise import Exercise
 from zeeguu.core.tokenization.word_position_finder import find_first_occurrence, find_word_positions_in_text
 from zeeguu.logging import log
 
-CEFR_LEVELS = ["A1", "A2", "B1", "B2", "C1", "C2"]
 # For learners without a level: most are A2, and too easy beats too hard
 EXAMPLE_FALLBACK_LEVEL = "A2"
 
@@ -36,18 +36,6 @@ def learner_example_level(user, language):
         return user.cefr_level_for_language(language)
     except ValueError:
         return EXAMPLE_FALLBACK_LEVEL
-
-
-def levels_up_to(cefr_level):
-    """The CEFR levels at or below `cefr_level`, easiest first. A0 reads as A1.
-    A level we don't know (a client can send any) reads as
-    EXAMPLE_FALLBACK_LEVEL, not as all levels: callers sort the hardest first,
-    and too easy beats too hard."""
-    if cefr_level == "A0":
-        cefr_level = "A1"
-    if cefr_level not in CEFR_LEVELS:
-        cefr_level = EXAMPLE_FALLBACK_LEVEL
-    return CEFR_LEVELS[: CEFR_LEVELS.index(cefr_level) + 1]
 
 
 def anchorable_examples(examples, word, language):
@@ -131,7 +119,10 @@ def only_usable_examples(query, cefr_level=None):
     query = query.filter(~ExampleSentence.id.in_(ExampleSentenceMisfit.ids()))
     if cefr_level is None:
         return query
-    return query.filter(ExampleSentence.cefr_level.in_(levels_up_to(cefr_level)))
+    # Anything but one of A1..C2 reads as EXAMPLE_FALLBACK_LEVEL, not as all
+    # levels: callers sort the hardest first, and too easy beats too hard.
+    level = cefr_level if cefr.is_level(cefr_level) else EXAMPLE_FALLBACK_LEVEL
+    return query.filter(ExampleSentence.cefr_level.in_(cefr.up_to(level)))
 
 
 def usable_examples_query(meaning_id, cefr_level=None):
@@ -153,15 +144,6 @@ def usable_examples_query(meaning_id, cefr_level=None):
 
 def usable_examples(meaning_id):
     return usable_examples_query(meaning_id).all()
-
-
-def _rank(cefr_level):
-    """A1 -> 0 .. C2 -> 5; None for anything else. An assessment between two
-    levels ("B1/B2") counts as the higher one."""
-    if not cefr_level:
-        return None
-    ranks = [CEFR_LEVELS.index(level) for level in cefr_level.split("/") if level in CEFR_LEVELS]
-    return max(ranks) if ranks else None
 
 
 def learner_level(user_word):
@@ -188,11 +170,11 @@ def article_level(bookmark):
 # them average 10 words.
 MAX_EXERCISE_SENTENCE_WORDS = 15
 MAX_EXERCISE_SENTENCE_WORDS_BEGINNERS = 10
-BEGINNER_LEVELS = {"A1", "A2"}
+BEGINNERS_UP_TO = "A2"
 
 
 def max_exercise_sentence_words(cefr_level):
-    if cefr_level in BEGINNER_LEVELS:
+    if cefr.single(cefr_level) in cefr.up_to(BEGINNERS_UP_TO):
         return MAX_EXERCISE_SENTENCE_WORDS_BEGINNERS
     return MAX_EXERCISE_SENTENCE_WORDS
 
@@ -242,7 +224,7 @@ def why_not_a_good_exercise_context(bookmark, cefr_level):
         level = article_level(bookmark)
     else:
         return "level unknown"
-    learner, context_rank = _rank(cefr_level), _rank(level)
+    learner, context_rank = cefr.rank(cefr_level), cefr.rank(level)
     if learner is None or context_rank is None:
         return "level unknown"
     if context_rank > learner:  # even one level above is too much

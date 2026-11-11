@@ -163,9 +163,9 @@ def _summary_levels(article):
     `level` is what ?level= takes to show it; the original's is None when the
     article has no single CEFR level. Only stored text: a visitor switching
     levels never sets off a new summary."""
-    from zeeguu.core.model.level_adapted_article_text import CEFR_ORDER
+    from zeeguu.core import cefr
 
-    own = article.cefr_level if article.cefr_level in CEFR_ORDER else None
+    own = article.cefr_level if cefr.is_level(article.cefr_level) else None
     stored = {
         level
         for (level,) in LevelAdaptedArticleText.query.with_entities(LevelAdaptedArticleText.cefr_level).filter(
@@ -174,7 +174,7 @@ def _summary_levels(article):
             LevelAdaptedArticleText.tokenized_summary.isnot(None),
         )
     }
-    below = [l for l in CEFR_ORDER if l in stored and (own is None or CEFR_ORDER.index(l) < CEFR_ORDER.index(own))]
+    below = [l for l in (cefr.below(own) if own else cefr.LEVELS) if l in stored]
     return [{"level": l, "original": False} for l in below] + [{"level": own, "original": True}]
 
 
