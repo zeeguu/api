@@ -97,21 +97,11 @@ def tokenize_for_reader(text, language):
 
 
 def translate_whole_text(text, from_lang_code, to_lang_code):
-    """The whole message in the learner's language, or None."""
-    from python_translators.translation_query import TranslationQuery
-    from zeeguu.core.translation_services.translator import get_next_results
+    """The whole text in the learner's language, or None."""
+    from zeeguu.core.translation_services.translator import translate_without_context
 
-    data = {
-        "from_lang_code": from_lang_code,
-        "to_lang_code": to_lang_code,
-        "word": text,
-        "query": TranslationQuery.for_word_occurrence(text, "", 1, 7),
-        "context": "",
-    }
-    translations = get_next_results(data, number_of_results=1).translations
-    if not translations:
-        return None
-    return translations[0]["translation"]
+    best = translate_without_context(text, from_lang_code, to_lang_code)
+    return best["translation"] if best else None
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +129,9 @@ def shared_text_prepare():
             return make_error(406, f"Zeeguu can't read texts in '{requested}' yet.")
     else:
         language = guess_language(text, user.learned_language)
+        if not language:
+            # No learned language to fall back on, and no confident guess
+            return make_error(406, "Couldn't tell the language of this text.")
 
     return json_result(
         {

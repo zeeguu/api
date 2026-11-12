@@ -14,12 +14,14 @@ from zeeguu.api.utils.input_limits import (
     MAX_PHRASE_CHARS,
     MAX_CONTEXT_CHARS,
 )
+from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.parse_json_boolean import parse_json_boolean
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core import cefr
 from zeeguu.core.translation_services.translator import (
     get_next_results,
+    translate_without_context,
     contribute_trans,
     get_best_translation,
     get_all_translations,
@@ -905,24 +907,13 @@ def basic_translate(from_lang_code, to_lang_code):
     phrase = request.form["phrase"].strip(punctuation_extended)
     abort_if_too_long("phrase", phrase, MAX_PHRASE_CHARS)
 
-    query = TranslationQuery.for_word_occurrence(phrase, "", 1, 7)
+    best = translate_without_context(phrase, from_lang_code, to_lang_code)
+    if best is None:
+        return make_error(502, "Could not translate this right now.")
 
-    payload = {
-        "from_lang_code": from_lang_code,
-        "to_lang_code": to_lang_code,
-        "word": phrase,
-        "query": query,
-        "context": "",
-    }
-
-    translations = get_next_results(
-        payload,
-        number_of_results=1,
-    ).translations
-
-    best_guess = translations[0]["translation"]
-    likelihood = translations[0].pop("quality")
-    source = translations[0].pop("service_name")
+    best_guess = best["translation"]
+    likelihood = best.pop("quality")
+    source = best.pop("service_name")
 
     return json_result(
         {

@@ -107,25 +107,40 @@ def test_failed_whole_message_translation_is_reported(client, monkeypatch):
     assert response.status_code == 502
 
 
-def test_word_from_a_shared_message_becomes_a_bookmark(client):
-    from zeeguu.core.model.context_identifier import ContextIdentifier
+def test_no_language_to_read_in_is_refused_not_a_crash(client, monkeypatch):
+    # An account with no learned language, and langdetect unsure
+    monkeypatch.setattr(shared_text, "guess_language", lambda text, learned: None)
+    assert _prepare(client, GERMAN_MESSAGE).status_code == 406
+
+
+def test_tapped_word_in_a_shared_text_becomes_a_bookmark(client):
+    """Through /translate_word, the way the reader sends a tap. (Tests run
+    with DEV_SKIP_TRANSLATION, so no translator is called.)"""
+    from zeeguu.core.model import Bookmark
     from zeeguu.core.model.context_type import ContextType
 
     add_context_types()
     add_source_types()
 
-    # No article, no source: the message only exists on the learner's phone
+    # No article, no source: the text only exists on the learner's phone
     result = client.post(
-        "/contribute_translation/de/en",
+        "/translate_word/de/en",
         json={
             "word": "Training",
-            "translation": "practice",
             "context": "Das Training morgen fällt leider aus",
-            "context_identifier": ContextIdentifier(ContextType.SHARED_TEXT).as_dictionary(),
+            "source_id": None,
+            "w_sent_i": 0,
+            "w_token_i": 1,
+            "w_total_tokens": 1,
+            "c_paragraph_i": 0,
+            "c_sent_i": 0,
+            "c_token_i": 0,
+            "left_ellipsis": False,
+            "right_ellipsis": False,
+            "context_identifier": {"context_type": ContextType.SHARED_TEXT},
+            "translation_source": "reading",
         },
     )
-
-    from zeeguu.core.model import Bookmark
 
     bookmark = Bookmark.find(result["bookmark_id"])
     assert bookmark.context.context_type.type == ContextType.SHARED_TEXT
