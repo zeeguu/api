@@ -13,8 +13,10 @@ class SourceType(db.Model):
 
     VIDEO = "Video"
     ARTICLE = "Article"
+    # A text a learner brought to read: a chat message, a mail paragraph
+    SHORT_TEXT = "ShortText"
 
-    ALL_TYPES = [VIDEO, ARTICLE]
+    ALL_TYPES = [VIDEO, ARTICLE, SHORT_TEXT]
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
