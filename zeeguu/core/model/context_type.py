@@ -22,6 +22,8 @@ class ContextType(db.Model):
     USER_EDITED_TEXT = "UserEditedText"
     ORPHAN_CONTEXT = "OrphanContext"
     EXAMPLE_SENTENCE = "ExampleSentence"
+    # A message shared in from another app (e.g. WhatsApp); not stored as content
+    SHARED_TEXT = "SharedText"
 
     ALL_TYPES = [
         ARTICLE_FRAGMENT,
@@ -35,6 +37,7 @@ class ContextType(db.Model):
         USER_EDITED_TEXT,
         ORPHAN_CONTEXT,
         EXAMPLE_SENTENCE,
+        SHARED_TEXT,
     ]
 
     __table_args__ = {"mysql_collate": "utf8_bin"}

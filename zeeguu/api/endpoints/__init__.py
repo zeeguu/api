@@ -58,3 +58,4 @@ from . import public_article
 from . import onboarding_funnel
 from . import leaderboards
 from . import status
+from . import shared_text
