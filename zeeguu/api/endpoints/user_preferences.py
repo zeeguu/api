@@ -38,6 +38,16 @@ def save_user_preferences():
             f"{', '.join(UserPreference.AUDIO_LESSON_CHARACTERS)}",
         )
 
+    study_reminder_values = {
+        key: data[key]
+        for key in UserPreference.STUDY_REMINDER_KEYS
+        if data.get(key) is not None
+    }
+    for key, value in study_reminder_values.items():
+        error = UserPreference.study_reminder_error(key, value)
+        if error:
+            return make_error(400, error)
+
     # Empty means not sent, as for the other preferences here.
     daily_goal_value = data.get(UserPreference.DAILY_GOAL_MINUTES) or None
     daily_goal_minutes = UserPreference.parse_daily_goal_minutes(daily_goal_value)
@@ -150,6 +160,11 @@ def save_user_preferences():
         )
         audio_lesson_character.value = audio_lesson_character_value
         db_session.add(audio_lesson_character)
+
+    for key, value in study_reminder_values.items():
+        pref = UserPreference.find_or_create(db_session, user, key)
+        pref.value = value
+        db_session.add(pref)
 
     # ---- LEGACY DAILY-AUDIO COMPAT (remove ~2026-06-05) ---------------------
     # Daily-audio config now lives in DailyAudioSubscription, written by the
