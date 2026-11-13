@@ -231,17 +231,19 @@ class UserPreference(db.Model):
 
     @classmethod
     def set_daily_goal_minutes(cls, session, user: User, minutes: int):
-        """Writes the newest row and drops any duplicates: find_or_create's
-        .one() would 500 on them, and readers must all see the same goal."""
-        rows = (
-            cls.query.filter_by(user_id=user.id, key=cls.DAILY_GOAL_MINUTES)
-            .order_by(cls.id.desc())
-            .all()
-        )
+        cls.set_dropping_duplicates(session, user, cls.DAILY_GOAL_MINUTES, str(minutes))
+
+    @classmethod
+    def set_dropping_duplicates(cls, session, user: User, key: str, value: str):
+        """Writes the newest row and drops any duplicates, without committing.
+        user_preference has no unique index on (user_id, key), so two
+        concurrent first saves can leave two rows; find_or_create's .one()
+        would then 500 on every later save, and readers must all see one value."""
+        rows = cls.query.filter_by(user_id=user.id, key=key).order_by(cls.id.desc()).all()
         for duplicate in rows[1:]:
             session.delete(duplicate)
-        row = rows[0] if rows else cls(user, cls.DAILY_GOAL_MINUTES)
-        row.value = str(minutes)
+        row = rows[0] if rows else cls(user, key)
+        row.value = value
         session.add(row)
 
     @classmethod

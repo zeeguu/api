@@ -39,3 +39,19 @@ def test_a_malformed_reminder_value_is_refused_and_nothing_is_saved(client: Logg
     preferences = client.get("/user_preferences")
     assert "study_reminder_time" not in preferences
     assert preferences["daily_goal_minutes"] != "20"
+
+
+def test_saving_over_a_duplicated_row_works(client: LoggedInClient):
+    from zeeguu.core.model import User, UserPreference
+    from zeeguu.core.model.db import db
+
+    user = User.find(client.email)
+    for value in ("06:00", "06:15"):  # as two concurrent first saves can leave them
+        db.session.add(UserPreference(user, "study_reminder_time", value))
+    db.session.commit()
+
+    client.post("/save_user_preferences", data={"study_reminder_time": "08:00"})
+
+    assert client.get("/user_preferences")["study_reminder_time"] == "08:00"
+    user = User.find(client.email)
+    assert UserPreference.query.filter_by(user_id=user.id, key="study_reminder_time").count() == 1

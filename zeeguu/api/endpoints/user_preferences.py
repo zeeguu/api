@@ -162,9 +162,7 @@ def save_user_preferences():
         db_session.add(audio_lesson_character)
 
     for key, value in study_reminder_values.items():
-        pref = UserPreference.find_or_create(db_session, user, key)
-        pref.value = value
-        db_session.add(pref)
+        UserPreference.set_dropping_duplicates(db_session, user, key, value)
 
     # ---- LEGACY DAILY-AUDIO COMPAT (remove ~2026-06-05) ---------------------
     # Daily-audio config now lives in DailyAudioSubscription, written by the
