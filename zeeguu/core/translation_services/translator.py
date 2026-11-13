@@ -228,7 +228,7 @@ def get_next_results(
 def translate_without_context(text, from_lang_code, to_lang_code):
     """
     The best machine translation of `text` on its own, with no surrounding
-    sentence: a phrase looked up in the Translate page.
+    sentence: a phrase looked up in the Translate page, or a whole text.
     Returns the translation dict (translation, quality, service_name), or
     None when no translator answered.
     """

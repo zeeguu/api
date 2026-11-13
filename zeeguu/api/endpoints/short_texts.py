@@ -2,8 +2,8 @@
 Short texts a learner brings to read word by word: a WhatsApp message, a
 paragraph from a mail, pasted or shared from another app.
 
-Stored once as a ShortText (deduplicated through Source, tokens kept) and
-listed per learner in UserShortText; see
+Stored once as a ShortText (deduplicated through Source, tokens and whole-text
+translations kept) and listed per learner in UserShortText; see
 zeeguu/core/model/short_text.py. Taps go
 through /translate_word like any other, with the text's source_id and the
 ShortText context type, so a reopened text shows the words tapped before.
@@ -18,6 +18,7 @@ from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import Bookmark, ShortText, User, UserShortText
+from zeeguu.core.model.short_text import ShortTextTranslation
 from zeeguu.logging import log
 from zeeguu.core.model.language import Language
 
@@ -124,6 +125,14 @@ def _with_mwes(paragraphs, language):
     except Exception as e:
         log(f"[SHORT-TEXT] MWE detection failed, reading without: {e}")
         return paragraphs
+
+
+def translate_whole_text(text, from_lang_code, to_lang_code):
+    """The whole text in the learner's language, or None."""
+    from zeeguu.core.translation_services.translator import translate_without_context
+
+    best = translate_without_context(text, from_lang_code, to_lang_code)
+    return best["translation"] if best else None
 
 
 def _users_short_text_or_404(user, short_text_id):
@@ -235,3 +244,31 @@ def short_text_forget(short_text_id):
     _users_short_text_or_404(user, short_text_id).forget(db_session)
     db_session.commit()
     return "OK"
+
+
+# ---------------------------------------------------------------------------
+@api.route("/short_texts/<int:short_text_id>/translate/<to_lang_code>", methods=["POST"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def short_text_translate(short_text_id, to_lang_code):
+    """
+    The whole text translated, for when single words aren't enough. Kept per
+    language: the translators bill every call.
+    """
+    if to_lang_code not in Language.LANGUAGE_NAMES:
+        return make_error(406, f"Unknown language '{to_lang_code}'.")
+    user = User.find_by_id(flask.g.user_id)
+    short_text = _users_short_text_or_404(user, short_text_id).short_text
+
+    translation = ShortTextTranslation.find_or_translate(
+        db_session,
+        short_text,
+        Language.find_or_create(to_lang_code),
+        # Looked up at call time, so a test can stand in for the translator
+        lambda *args: translate_whole_text(*args),
+    )
+    if translation is None:
+        return make_error(502, "Could not translate this text right now.")
+    db_session.commit()
+    return json_result({"translation": translation})
