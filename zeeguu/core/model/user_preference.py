@@ -1,3 +1,4 @@
+import re
 from datetime import time
 
 import sqlalchemy
@@ -60,6 +61,18 @@ class UserPreference(db.Model):
     # Derived in all_for_user, not stored: whether the learner picked a goal.
     # Aiki mode and the study reminder need one (ADR 046).
     DAILY_GOAL_SET = "daily_goal_set"
+
+    # The daily study reminder (ADR 046) is scheduled on the phone, which keeps
+    # its own copy of the setting; these copies are what the server knows, so
+    # it can tell which days a reminder would have fired (enabled, a time, the
+    # goal not met by then, notifications allowed). Written by the app.
+    STUDY_REMINDER_ENABLED = "study_reminder_enabled"  # "true" | "false"
+    STUDY_REMINDER_TIME = "study_reminder_time"  # "HH:MM", the learner's local time
+    # Whether the phone lets the app show notifications at all, as the OS last
+    # told the app: iOS and Android settings can turn them off behind its back.
+    NOTIFICATIONS_PERMISSION = "notifications_permission"
+    NOTIFICATIONS_PERMISSIONS = ("granted", "denied", "prompt")
+    STUDY_REMINDER_KEYS = (STUDY_REMINDER_ENABLED, STUDY_REMINDER_TIME, NOTIFICATIONS_PERMISSION)
 
     # Which character the learner plays in situation lessons: "man", "woman", or
     # "either" (alternate). Asked, never inferred -- not from the name either: a
@@ -192,6 +205,18 @@ class UserPreference(db.Model):
         return minutes if minutes in cls.DAILY_GOAL_CHOICES else None
 
     @classmethod
+    def study_reminder_error(cls, key, value):
+        """Why a study reminder value sent by a client is refused; None when it
+        is fine or not one of the study reminder keys."""
+        if key == cls.STUDY_REMINDER_ENABLED and value not in ("true", "false"):
+            return f"{key} must be true or false"
+        if key == cls.STUDY_REMINDER_TIME and not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", value):
+            return f"{key} must be a time as HH:MM"
+        if key == cls.NOTIFICATIONS_PERMISSION and value not in cls.NOTIFICATIONS_PERMISSIONS:
+            return f"{key} must be one of {', '.join(cls.NOTIFICATIONS_PERMISSIONS)}"
+        return None
+
+    @classmethod
     def get_daily_goal_minutes(cls, user: User):
         # .first(), not get()'s .one(): user_preference has no unique index on
         # (user_id, key), so two concurrent saves can leave two rows, and this
@@ -206,17 +231,19 @@ class UserPreference(db.Model):
 
     @classmethod
     def set_daily_goal_minutes(cls, session, user: User, minutes: int):
-        """Writes the newest row and drops any duplicates: find_or_create's
-        .one() would 500 on them, and readers must all see the same goal."""
-        rows = (
-            cls.query.filter_by(user_id=user.id, key=cls.DAILY_GOAL_MINUTES)
-            .order_by(cls.id.desc())
-            .all()
-        )
+        cls.set_dropping_duplicates(session, user, cls.DAILY_GOAL_MINUTES, str(minutes))
+
+    @classmethod
+    def set_dropping_duplicates(cls, session, user: User, key: str, value: str):
+        """Writes the newest row and drops any duplicates, without committing.
+        user_preference has no unique index on (user_id, key), so two
+        concurrent first saves can leave two rows; find_or_create's .one()
+        would then 500 on every later save, and readers must all see one value."""
+        rows = cls.query.filter_by(user_id=user.id, key=key).order_by(cls.id.desc()).all()
         for duplicate in rows[1:]:
             session.delete(duplicate)
-        row = rows[0] if rows else cls(user, cls.DAILY_GOAL_MINUTES)
-        row.value = str(minutes)
+        row = rows[0] if rows else cls(user, key)
+        row.value = value
         session.add(row)
 
     @classmethod
