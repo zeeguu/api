@@ -6,18 +6,22 @@ they are; a long text with a title is an Article the learner uploaded instead.
 ShortText is the content, once: a Source of type ShortText, which already
 deduplicates by (content, language), so the same message shared by two parents
 of the same club is stored and tokenized once. UserShortText is a learner's
-own list of them; deleting that row is how a learner forgets a text. Nothing
-here is ever recommended or shown to anyone but the learners who added it.
+own list of them. When the last learner forgets a text, the text itself is
+deleted (see UserShortText.forget). Nothing here is ever recommended or shown
+to anyone but the learners who added it.
 """
 
+import json
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, UnicodeText, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
+from zeeguu.core.model.language import Language
 from zeeguu.core.model.race_safe import find_or_create
 from zeeguu.core.model.source import Source
+from zeeguu.core.model.source_text import SourceText
 from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.model.user import User
 
@@ -26,7 +30,7 @@ class ShortText(db.Model):
     __tablename__ = "short_text"
     __table_args__ = (
         UniqueConstraint("source_id", name="short_text_source_unique"),
-        {"mysql_collate": "utf8_bin"},
+        {"mysql_collate": "utf8mb4_bin"},
     )
 
     id = Column(Integer, primary_key=True)
@@ -35,6 +39,10 @@ class ShortText(db.Model):
     source = relationship(Source)
 
     created_at = Column(DateTime, nullable=False)
+
+    # The tokens the reader gets, as JSON; computed on the first read. The
+    # text never changes, so it is tokenized (and its MWEs found) once.
+    tokenized_paragraphs = Column(UnicodeText)
 
     def __init__(self, source):
         self.source = source
@@ -48,22 +56,77 @@ class ShortText(db.Model):
     def language(self):
         return self.source.language
 
+    def tokens(self, session, tokenize):
+        """The cached tokens, computed with `tokenize(content, language)` the first time."""
+        if self.tokenized_paragraphs is None:
+            self.tokenized_paragraphs = json.dumps(tokenize(self.content, self.language))
+            session.add(self)
+        return json.loads(self.tokenized_paragraphs)
+
     @classmethod
     def find_by_id(cls, short_text_id):
         return cls.query.filter_by(id=short_text_id).one_or_none()
 
     @classmethod
     def find_or_create(cls, session, content, language):
-        source = Source.find_or_create(
-            session,
-            content,
-            SourceType.find_by_type(SourceType.SHORT_TEXT),
-            language,
-            broken=0,
-            commit=False,
+        source_type = SourceType.find_by_type(SourceType.SHORT_TEXT)
+        source_text = SourceText.find_or_create(session, content, commit=False)
+        # Not Source.find_or_create: nothing keeps (text, type, language)
+        # unique, so two learners adding the same text at once can make two
+        # Sources, and its .one() would then fail on every later add. Here a
+        # duplicate is only a second copy.
+        source = (
+            Source.query.filter_by(source_text=source_text, source_type=source_type, language=language)
+            .order_by(Source.id)
+            .first()
         )
-        session.flush()
+        if not source:
+            source = Source(source_text, source_type, language)
+            session.add(source)
+            session.flush()
         return find_or_create(session, cls, {"source_id": source.id}, lambda: cls(source))
+
+
+class ShortTextTranslation(db.Model):
+    """The whole text in one language, kept: translators bill every call."""
+
+    __tablename__ = "short_text_translation"
+    __table_args__ = (
+        UniqueConstraint("short_text_id", "language_id", name="short_text_translation_unique"),
+        {"mysql_collate": "utf8mb4_bin"},
+    )
+
+    id = Column(Integer, primary_key=True)
+
+    short_text_id = Column(Integer, ForeignKey(ShortText.id), nullable=False)
+    short_text = relationship(ShortText)
+
+    language_id = Column(Integer, ForeignKey(Language.id), nullable=False)
+    language = relationship(Language)
+
+    content = Column(UnicodeText, nullable=False)
+
+    def __init__(self, short_text, language, content):
+        self.short_text = short_text
+        self.language = language
+        self.content = content
+
+    @classmethod
+    def find_or_translate(cls, session, short_text, language, translate):
+        """The kept translation, or `translate(text, from, to)`'s, kept. None if that failed."""
+        existing = cls.query.filter_by(short_text_id=short_text.id, language_id=language.id).one_or_none()
+        if existing:
+            return existing.content
+        translation = translate(short_text.content, short_text.language.code, language.code)
+        if translation is None:
+            return None
+        find_or_create(
+            session,
+            cls,
+            {"short_text_id": short_text.id, "language_id": language.id},
+            lambda: cls(short_text, language, translation),
+        )
+        return translation
 
 
 class UserShortText(db.Model):
@@ -111,6 +174,36 @@ class UserShortText(db.Model):
     @classmethod
     def all_for(cls, user):
         return cls.query.filter_by(user_id=user.id).order_by(cls.last_opened_at.desc()).all()
+
+    def forget(self, session):
+        """
+        Off the learner's list. When no learner has the text any more, the
+        text goes too: it is often other people's messages. Words learned from
+        it stay; their bookmarks keep only the sentence they were tapped in.
+        """
+        from zeeguu.core.model.bookmark import Bookmark
+        from zeeguu.core.model.user_activitiy_data import UserActivityData
+
+        short_text = self.short_text
+        session.delete(self)
+        session.flush()
+        if UserShortText.query.filter_by(short_text_id=short_text.id).count():
+            return
+
+        source = short_text.source
+        source_text = source.source_text
+        for referencing in (Bookmark, UserActivityData):
+            referencing.query.filter_by(source_id=source.id).update(
+                {"source_id": None}, synchronize_session=False
+            )
+        ShortTextTranslation.query.filter_by(short_text_id=short_text.id).delete()
+        session.delete(short_text)
+        session.flush()
+        session.delete(source)
+        session.flush()
+        # The same content can be another source's (an identical article)
+        if source_text and not Source.query.filter_by(source_text_id=source_text.id).count():
+            session.delete(source_text)
 
     def as_list_item(self):
         content = self.short_text.content

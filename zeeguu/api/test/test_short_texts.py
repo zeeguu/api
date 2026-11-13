@@ -1,5 +1,7 @@
 """Short texts a learner brings (a WhatsApp message...) are kept and read word by word."""
 
+import uuid
+
 import pytest
 
 from fixtures import LoggedInClient, add_context_types, add_source_types
@@ -71,13 +73,12 @@ def test_the_same_text_twice_is_one_text(client):
 def test_two_learners_share_the_stored_text_but_not_their_lists(client, app):
     mine = _add(client, GERMAN_MESSAGE).json["id"]
 
-    with app.test_client() as other_flask_client:
-        other = LoggedInClient(other_flask_client, email="other@mir.lu", username="other")
-        assert other.client.get(other.append_session(f"/short_texts/{mine}")).status_code == 404
-        assert other.get("/short_texts") == []
+    other = LoggedInClient(app.test_client(), email="other@mir.lu", username="other")
+    assert other.client.get(other.append_session(f"/short_texts/{mine}")).status_code == 404
+    assert other.get("/short_texts") == []
 
-        theirs = _add(other, GERMAN_MESSAGE).json["id"]
-        assert theirs == mine
+    theirs = _add(other, GERMAN_MESSAGE).json["id"]
+    assert theirs == mine
 
 
 def test_list_is_most_recently_opened_first_with_a_preview(client):
@@ -212,3 +213,117 @@ def test_tapped_word_becomes_a_bookmark_shown_again_on_reopening(client):
 
     reopened = client.get(f"/short_texts/{text['id']}")
     assert [b["id"] for b in reopened["past_bookmarks"]] == [bookmark.id]
+
+
+def test_tokens_are_computed_once(client, monkeypatch):
+    calls = []
+    real = short_texts.tokenize_for_reader
+
+    def counting(text, language):
+        calls.append(text)
+        return real(text, language)
+
+    monkeypatch.setattr(short_texts, "tokenize_for_reader", counting)
+    text_id = _add(client, GERMAN_MESSAGE).json["id"]
+
+    first = client.get(f"/short_texts/{text_id}")
+    second = client.get(f"/short_texts/{text_id}")
+
+    assert len(calls) == 1
+    assert first["tokenized_paragraphs"] == second["tokenized_paragraphs"]
+
+
+def test_whole_text_translation_is_kept_per_language(client, monkeypatch):
+    calls = []
+
+    def fake_translate(text, from_lang, to_lang):
+        calls.append(to_lang)
+        return f"translated to {to_lang}"
+
+    monkeypatch.setattr(short_texts, "translate_whole_text", fake_translate)
+    text_id = _add(client, "Hallo zusammen!").json["id"]
+
+    for to in ["en", "en", "da"]:
+        client.response_from_post(f"/short_texts/{text_id}/translate/{to}")
+
+    assert calls == ["en", "da"]
+    assert client.post(f"/short_texts/{text_id}/translate/en") == {"translation": "translated to en"}
+
+
+def test_translating_into_an_unknown_language_is_refused(client, monkeypatch):
+    monkeypatch.setattr(short_texts, "translate_whole_text", lambda *a: pytest.fail("translator called"))
+    text_id = _add(client, "Hallo zusammen!").json["id"]
+
+    assert client.response_from_post(f"/short_texts/{text_id}/translate/undefined").status_code == 406
+
+
+def _forget(client, text_id):
+    return client.client.delete(client.append_session(f"/short_texts/{text_id}"))
+
+
+def test_forgetting_the_last_copy_deletes_the_text_but_keeps_the_words(client, monkeypatch):
+    from zeeguu.core.model import Bookmark, ShortText
+    from zeeguu.core.model.source import Source
+    from zeeguu.core.model.source_text import SourceText
+
+    monkeypatch.setattr(short_texts, "translate_whole_text", lambda *a: "Hello")
+    # A text of its own: source and source_text outlive each test (conftest
+    # _KEEP_TABLES), and a source left from another test would keep the
+    # content alive, rightly
+    text = _read(client, f"{GERMAN_MESSAGE} {uuid.uuid4().hex}")
+    client.response_from_post(f"/short_texts/{text['id']}/translate/en")
+    bookmark_id = client.post(
+        "/translate_word/de/en",
+        json={
+            "word": "Training",
+            "context": "Das Training morgen fällt leider aus",
+            "source_id": text["source_id"],
+            "w_sent_i": 0, "w_token_i": 1, "w_total_tokens": 1,
+            "c_paragraph_i": 0, "c_sent_i": 1, "c_token_i": 0,
+            "context_identifier": {"context_type": "ShortText"},
+        },
+    )["bookmark_id"]
+    source_text_id = Source.find_by_id(text["source_id"]).source_text_id
+
+    assert _forget(client, text["id"]).status_code == 200
+
+    assert ShortText.find_by_id(text["id"]) is None
+    assert Source.find_by_id(text["source_id"]) is None
+    assert SourceText.query.filter_by(id=source_text_id).one_or_none() is None
+    bookmark = Bookmark.find(bookmark_id)
+    assert bookmark.source_id is None
+    assert "Training" in bookmark.context.get_content()
+
+
+def test_forgetting_keeps_the_text_for_other_learners(client, app):
+    from zeeguu.core.model import ShortText
+
+    text_id = _add(client, GERMAN_MESSAGE).json["id"]
+    other = LoggedInClient(app.test_client(), email="other@mir.lu", username="other")
+    _add(other, GERMAN_MESSAGE)
+
+    _forget(client, text_id)
+
+    assert ShortText.find_by_id(text_id) is not None
+    assert other.get(f"/short_texts/{text_id}")["text"] == GERMAN_MESSAGE
+
+
+def test_a_duplicate_source_from_a_race_does_not_break_adding(client, app):
+    # Nothing keeps (text, type, language) unique in source; two learners
+    # adding the same text at once can leave two rows
+    from zeeguu.core.model.db import db
+    from zeeguu.core.model.language import Language
+    from zeeguu.core.model.source import Source
+    from zeeguu.core.model.source_text import SourceText
+    from zeeguu.core.model.source_type import SourceType
+
+    source_text = SourceText.find_or_create(db.session, GERMAN_MESSAGE)
+    for _ in range(2):
+        db.session.add(Source(source_text, SourceType.find_by_type(SourceType.SHORT_TEXT), Language.find("de")))
+    db.session.commit()
+
+    first = _add(client, GERMAN_MESSAGE)
+    second = _add(client, GERMAN_MESSAGE)
+
+    assert first.status_code == second.status_code == 200
+    assert first.json["id"] == second.json["id"]

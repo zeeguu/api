@@ -2,8 +2,9 @@
 Short texts a learner brings to read word by word: a WhatsApp message, a
 paragraph from a mail, pasted or shared from another app.
 
-Stored once as a ShortText (deduplicated through Source) and listed per
-learner in UserShortText; see zeeguu/core/model/short_text.py. Taps go
+Stored once as a ShortText (deduplicated through Source, tokens and whole-text
+translations kept) and listed per learner in UserShortText; see
+zeeguu/core/model/short_text.py. Taps go
 through /translate_word like any other, with the text's source_id and the
 ShortText context type, so a reopened text shows the words tapped before.
 """
@@ -17,6 +18,8 @@ from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.core.model import Bookmark, ShortText, User, UserShortText
+from zeeguu.core.model.short_text import ShortTextTranslation
+from zeeguu.logging import log
 from zeeguu.core.model.language import Language
 
 from . import api, db_session
@@ -107,7 +110,21 @@ def tokenize_for_reader(text, language):
                 token["paragraph_i"] = line_i
         sentences_before += len(sentences)
         paragraphs.append(sentences)
-    return paragraphs
+
+    return _with_mwes(paragraphs, language)
+
+
+def _with_mwes(paragraphs, language):
+    # The multi-word expressions the article reader groups (e.g. Danish
+    # particle verbs), detected the way article fragments are. Fails open:
+    # tapping still works word by word without them.
+    from zeeguu.core.mwe import enrich_tokens_with_mwe
+
+    try:
+        return enrich_tokens_with_mwe(paragraphs, language.code)
+    except Exception as e:
+        log(f"[SHORT-TEXT] MWE detection failed, reading without: {e}")
+        return paragraphs
 
 
 def translate_whole_text(text, from_lang_code, to_lang_code):
@@ -196,13 +213,15 @@ def short_text_get(short_text_id):
     db_session.commit()
 
     short_text = row.short_text
+    tokens = short_text.tokens(db_session, tokenize_for_reader)
+    db_session.commit()
     return json_result(
         {
             "id": short_text.id,
             "text": short_text.content,
             "language": short_text.language.code,
             "source_id": short_text.source_id,
-            "tokenized_paragraphs": tokenize_for_reader(short_text.content, short_text.language),
+            "tokenized_paragraphs": tokens,
             "past_bookmarks": [
                 each.to_json(True)
                 for each in Bookmark.find_all_for_user_and_source(user, short_text.source)
@@ -217,9 +236,12 @@ def short_text_get(short_text_id):
 @cross_domain
 @requires_session
 def short_text_forget(short_text_id):
-    """Takes the text off the learner's list. Words learned from it stay."""
+    """
+    Takes the text off the learner's list, and deletes it once no learner has
+    it. Words learned from it stay.
+    """
     user = User.find_by_id(flask.g.user_id)
-    db_session.delete(_users_short_text_or_404(user, short_text_id))
+    _users_short_text_or_404(user, short_text_id).forget(db_session)
     db_session.commit()
     return "OK"
 
@@ -230,11 +252,23 @@ def short_text_forget(short_text_id):
 @cross_domain
 @requires_session
 def short_text_translate(short_text_id, to_lang_code):
-    """The whole text translated, for when single words aren't enough."""
+    """
+    The whole text translated, for when single words aren't enough. Kept per
+    language: the translators bill every call.
+    """
+    if to_lang_code not in Language.LANGUAGE_NAMES:
+        return make_error(406, f"Unknown language '{to_lang_code}'.")
     user = User.find_by_id(flask.g.user_id)
     short_text = _users_short_text_or_404(user, short_text_id).short_text
 
-    translation = translate_whole_text(short_text.content, short_text.language.code, to_lang_code)
+    translation = ShortTextTranslation.find_or_translate(
+        db_session,
+        short_text,
+        Language.find_or_create(to_lang_code),
+        # Looked up at call time, so a test can stand in for the translator
+        lambda *args: translate_whole_text(*args),
+    )
     if translation is None:
         return make_error(502, "Could not translate this text right now.")
+    db_session.commit()
     return json_result({"translation": translation})
