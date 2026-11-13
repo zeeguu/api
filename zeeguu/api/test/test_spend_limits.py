@@ -52,7 +52,6 @@ def test_paid_endpoints_are_limited_per_account(app):
         "endpoints.translate_and_adapt_article",
         "endpoints.article_upload_simplify",
         "endpoints.article_upload_translate_and_adapt",
-        "endpoints.short_text_translate",
     ):
         limit = RATE_LIMITS[endpoint]
         assert limit.key == "user", f"{endpoint} is not limited per account"

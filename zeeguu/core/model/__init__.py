@@ -19,7 +19,7 @@ from .meaning_alternative import MeaningAlternative
 from .translation_service import TranslationService
 from .user_word import UserWord
 from .bookmark import Bookmark
-from .short_text import ShortText, ShortTextTranslation, UserShortText
+from .short_text import ShortText, UserShortText
 
 from .user_preference import UserPreference
 from .session import Session

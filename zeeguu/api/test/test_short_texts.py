@@ -152,34 +152,6 @@ def test_overlong_text_is_refused(client):
     assert _add(client, too_long).status_code == 413
 
 
-def test_whole_text_translation(client, monkeypatch):
-    calls = []
-
-    def fake_translate(text, from_lang, to_lang):
-        calls.append((text, from_lang, to_lang))
-        return "Hello everyone!"
-
-    monkeypatch.setattr(short_texts, "translate_whole_text", fake_translate)
-    text_id = _add(client, "Hallo zusammen!").json["id"]
-
-    response = client.response_from_post(f"/short_texts/{text_id}/translate/en")
-
-    assert response.status_code == 200
-    assert response.json == {"translation": "Hello everyone!"}
-    assert calls == [("Hallo zusammen!", "de", "en")]
-
-
-def test_failed_whole_text_translation_is_reported(client, monkeypatch):
-    monkeypatch.setattr(short_texts, "translate_whole_text", lambda *a: None)
-    text_id = _add(client, "Hallo zusammen!").json["id"]
-
-    assert client.response_from_post(f"/short_texts/{text_id}/translate/en").status_code == 502
-
-
-def test_cannot_translate_someone_elses_text(client):
-    assert client.response_from_post("/short_texts/123456/translate/en").status_code == 404
-
-
 def test_tapped_word_becomes_a_bookmark_shown_again_on_reopening(client):
     """Through /translate_word, the way the reader sends a tap. (Tests run
     with DEV_SKIP_TRANSLATION, so no translator is called.)"""
@@ -233,30 +205,6 @@ def test_tokens_are_computed_once(client, monkeypatch):
     assert first["tokenized_paragraphs"] == second["tokenized_paragraphs"]
 
 
-def test_whole_text_translation_is_kept_per_language(client, monkeypatch):
-    calls = []
-
-    def fake_translate(text, from_lang, to_lang):
-        calls.append(to_lang)
-        return f"translated to {to_lang}"
-
-    monkeypatch.setattr(short_texts, "translate_whole_text", fake_translate)
-    text_id = _add(client, "Hallo zusammen!").json["id"]
-
-    for to in ["en", "en", "da"]:
-        client.response_from_post(f"/short_texts/{text_id}/translate/{to}")
-
-    assert calls == ["en", "da"]
-    assert client.post(f"/short_texts/{text_id}/translate/en") == {"translation": "translated to en"}
-
-
-def test_translating_into_an_unknown_language_is_refused(client, monkeypatch):
-    monkeypatch.setattr(short_texts, "translate_whole_text", lambda *a: pytest.fail("translator called"))
-    text_id = _add(client, "Hallo zusammen!").json["id"]
-
-    assert client.response_from_post(f"/short_texts/{text_id}/translate/undefined").status_code == 406
-
-
 def _forget(client, text_id):
     return client.client.delete(client.append_session(f"/short_texts/{text_id}"))
 
@@ -266,12 +214,10 @@ def test_forgetting_the_last_copy_deletes_the_text_but_keeps_the_words(client, m
     from zeeguu.core.model.source import Source
     from zeeguu.core.model.source_text import SourceText
 
-    monkeypatch.setattr(short_texts, "translate_whole_text", lambda *a: "Hello")
     # A text of its own: source and source_text outlive each test (conftest
     # _KEEP_TABLES), and a source left from another test would keep the
     # content alive, rightly
     text = _read(client, f"{GERMAN_MESSAGE} {uuid.uuid4().hex}")
-    client.response_from_post(f"/short_texts/{text['id']}/translate/en")
     bookmark_id = client.post(
         "/translate_word/de/en",
         json={

@@ -23,18 +23,6 @@ CREATE TABLE short_text (
     CONSTRAINT fk_short_text_source FOREIGN KEY (source_id) REFERENCES source (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
 
--- The whole text translated, kept per language: translators bill every call.
-CREATE TABLE short_text_translation (
-    id INT NOT NULL AUTO_INCREMENT,
-    short_text_id INT NOT NULL,
-    language_id INT NOT NULL,
-    content MEDIUMTEXT NOT NULL,
-    PRIMARY KEY (id),
-    UNIQUE KEY short_text_translation_unique (short_text_id, language_id),
-    CONSTRAINT fk_short_text_translation_short_text FOREIGN KEY (short_text_id) REFERENCES short_text (id),
-    CONSTRAINT fk_short_text_translation_language FOREIGN KEY (language_id) REFERENCES language (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin;
-
 CREATE TABLE user_short_text (
     id INT NOT NULL AUTO_INCREMENT,
     user_id INT NOT NULL,

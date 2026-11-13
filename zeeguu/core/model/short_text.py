@@ -18,7 +18,6 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, UnicodeText, Uniqu
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.db import db
-from zeeguu.core.model.language import Language
 from zeeguu.core.model.race_safe import find_or_create
 from zeeguu.core.model.source import Source
 from zeeguu.core.model.source_text import SourceText
@@ -85,48 +84,6 @@ class ShortText(db.Model):
             session.add(source)
             session.flush()
         return find_or_create(session, cls, {"source_id": source.id}, lambda: cls(source))
-
-
-class ShortTextTranslation(db.Model):
-    """The whole text in one language, kept: translators bill every call."""
-
-    __tablename__ = "short_text_translation"
-    __table_args__ = (
-        UniqueConstraint("short_text_id", "language_id", name="short_text_translation_unique"),
-        {"mysql_collate": "utf8mb4_bin"},
-    )
-
-    id = Column(Integer, primary_key=True)
-
-    short_text_id = Column(Integer, ForeignKey(ShortText.id), nullable=False)
-    short_text = relationship(ShortText)
-
-    language_id = Column(Integer, ForeignKey(Language.id), nullable=False)
-    language = relationship(Language)
-
-    content = Column(UnicodeText, nullable=False)
-
-    def __init__(self, short_text, language, content):
-        self.short_text = short_text
-        self.language = language
-        self.content = content
-
-    @classmethod
-    def find_or_translate(cls, session, short_text, language, translate):
-        """The kept translation, or `translate(text, from, to)`'s, kept. None if that failed."""
-        existing = cls.query.filter_by(short_text_id=short_text.id, language_id=language.id).one_or_none()
-        if existing:
-            return existing.content
-        translation = translate(short_text.content, short_text.language.code, language.code)
-        if translation is None:
-            return None
-        find_or_create(
-            session,
-            cls,
-            {"short_text_id": short_text.id, "language_id": language.id},
-            lambda: cls(short_text, language, translation),
-        )
-        return translation
 
 
 class UserShortText(db.Model):
@@ -196,7 +153,6 @@ class UserShortText(db.Model):
             referencing.query.filter_by(source_id=source.id).update(
                 {"source_id": None}, synchronize_session=False
             )
-        ShortTextTranslation.query.filter_by(short_text_id=short_text.id).delete()
         session.delete(short_text)
         session.flush()
         session.delete(source)
