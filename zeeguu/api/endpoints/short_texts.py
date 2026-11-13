@@ -28,6 +28,11 @@ from . import api, db_session
 # pasted into a chat, and the reader for those is the article flow.
 MAX_SHORT_TEXT_CHARS = 5000
 
+# Whole-text translation only for a message-sized text: it is a way out when
+# a few lines won't come together, not a substitute for reading. Longer than
+# this, the learner reads it word by word.
+MAX_WORDS_FOR_WHOLE_TEXT_TRANSLATION = 60
+
 # Below this, langdetect's guess is too often wrong to override the language
 # the learner is learning: "Ok", "Tak!", a name and an emoji.
 _MIN_CONFIDENCE_TO_OVERRIDE = 0.9
@@ -135,6 +140,10 @@ def translate_whole_text(text, from_lang_code, to_lang_code):
     return best["translation"] if best else None
 
 
+def can_translate_whole(text):
+    return len(text.split()) <= MAX_WORDS_FOR_WHOLE_TEXT_TRANSLATION
+
+
 def _users_short_text_or_404(user, short_text_id):
     # Only learners who brought a text can read it: it is often someone
     # else's message, never public.
@@ -221,6 +230,8 @@ def short_text_get(short_text_id):
             "text": short_text.content,
             "language": short_text.language.code,
             "source_id": short_text.source_id,
+            # Whether the reader offers "Translate the whole text"
+            "can_translate_whole": can_translate_whole(short_text.content),
             "tokenized_paragraphs": tokens,
             "past_bookmarks": [
                 each.to_json(True)
@@ -253,13 +264,19 @@ def short_text_forget(short_text_id):
 @requires_session
 def short_text_translate(short_text_id, to_lang_code):
     """
-    The whole text translated, for when single words aren't enough. Kept per
-    language: the translators bill every call.
+    The whole text translated, for when single words aren't enough; only for
+    texts of up to MAX_WORDS_FOR_WHOLE_TEXT_TRANSLATION words, and only when
+    the learner asks. Kept per language: the translators bill every call.
     """
     if to_lang_code not in Language.LANGUAGE_NAMES:
         return make_error(406, f"Unknown language '{to_lang_code}'.")
     user = User.find_by_id(flask.g.user_id)
     short_text = _users_short_text_or_404(user, short_text_id).short_text
+    if not can_translate_whole(short_text.content):
+        return make_error(
+            422,
+            f"Only texts of up to {MAX_WORDS_FOR_WHOLE_TEXT_TRANSLATION} words are translated whole.",
+        )
 
     translation = ShortTextTranslation.find_or_translate(
         db_session,

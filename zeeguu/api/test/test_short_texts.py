@@ -327,3 +327,17 @@ def test_a_duplicate_source_from_a_race_does_not_break_adding(client, app):
 
     assert first.status_code == second.status_code == 200
     assert first.json["id"] == second.json["id"]
+
+
+def test_a_long_text_is_not_translated_whole(client, monkeypatch):
+    monkeypatch.setattr(short_texts, "translate_whole_text", lambda *a: pytest.fail("translator called"))
+    words = ["Wort"] * (short_texts.MAX_WORDS_FOR_WHOLE_TEXT_TRANSLATION + 1)
+    text_id = _add(client, " ".join(words) + ".").json["id"]
+
+    assert client.get(f"/short_texts/{text_id}")["can_translate_whole"] is False
+    assert client.response_from_post(f"/short_texts/{text_id}/translate/en").status_code == 422
+
+
+def test_a_message_sized_text_can_be_translated_whole(client):
+    text_id = _add(client, GERMAN_MESSAGE).json["id"]
+    assert client.get(f"/short_texts/{text_id}")["can_translate_whole"] is True
