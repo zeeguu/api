@@ -22,6 +22,8 @@ class ContextType(db.Model):
     USER_EDITED_TEXT = "UserEditedText"
     ORPHAN_CONTEXT = "OrphanContext"
     EXAMPLE_SENTENCE = "ExampleSentence"
+    # A short text the learner brought: a chat message, a mail paragraph
+    SHORT_TEXT = "ShortText"
 
     ALL_TYPES = [
         ARTICLE_FRAGMENT,
@@ -35,6 +37,7 @@ class ContextType(db.Model):
         USER_EDITED_TEXT,
         ORPHAN_CONTEXT,
         EXAMPLE_SENTENCE,
+        SHORT_TEXT,
     ]
 
     __table_args__ = {"mysql_collate": "utf8_bin"}

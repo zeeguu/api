@@ -177,6 +177,14 @@ RATE_LIMITS = {
     # cache-miss budget charged inside the view (public_article.GLOBAL_MISS_LIMIT);
     # this per-IP limit just keeps one host from walking positions quickly. The
     # page's "10 words" is a separate, client-side nudge.
+    # Whole-text translation of a learner's short text (a chat message...).
+    # Each call sends up to MAX_SHORT_TEXT_CHARS to a paid translator; a
+    # learner reads a handful of messages a day, so this only stops a script.
+    # Keeping a short text: each new one is a Stanza call and up to
+    # MAX_SHORT_TEXT_CHARS stored. A learner brings a few a day.
+    "endpoints.short_text_add": Limit("30 per minute;300 per day", key="user"),
+    "endpoints.short_text_translate": Limit("30 per minute;300 per day", key="user"),
+
     "endpoints.public_translate": Limit("20 per minute;60 per hour;200 per day"),
     # Content fetch: cheap once the article is tokenized, but a cold article
     # triggers Stanza tokenization, so don't let one host walk the id space.

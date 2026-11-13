@@ -225,6 +225,26 @@ def get_next_results(
     return response
 
 
+def translate_without_context(text, from_lang_code, to_lang_code):
+    """
+    The best machine translation of `text` on its own, with no surrounding
+    sentence: a phrase looked up in the Translate page, or a whole text.
+    Returns the translation dict (translation, quality, service_name), or
+    None when no translator answered.
+    """
+    from python_translators.translation_query import TranslationQuery
+
+    data = {
+        "from_lang_code": from_lang_code,
+        "to_lang_code": to_lang_code,
+        "word": text,
+        "query": TranslationQuery.for_word_occurrence(text, "", 1, 7),
+        "context": "",
+    }
+    translations = get_next_results(data, number_of_results=1).translations
+    return translations[0] if translations else None
+
+
 def contribute_trans(data):
     logger.debug(
         "Preferred service: %s" % json.dumps(data, ensure_ascii=False).encode("utf-8")

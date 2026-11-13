@@ -83,6 +83,8 @@ POLICIES = {
     ("user_onboarding_message", "user_id"): MOVE,
     ("user_preference", "user_id"): MOVE,
     ("user_reading_session", "user_id"): MOVE,
+    # A text both accounts kept stays the target's (unique per user and text).
+    ("user_short_text", "user_id"): MOVE,
     ("user_video", "user_id"): MOVE,
     ("user_watching_session", "user_id"): MOVE,
     ("word_report", "user_id"): MOVE,
