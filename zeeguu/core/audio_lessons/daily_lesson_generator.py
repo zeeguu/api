@@ -28,6 +28,8 @@ from zeeguu.core.audio_lessons.voice_config import (
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
 from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
+from zeeguu.core.audio_lessons.lesson_tuning import tuning_for
+from zeeguu.core.audio_lessons.next_situations import suggest_next_situations
 from zeeguu.core.model import (
     db,
     User,
@@ -37,6 +39,7 @@ from zeeguu.core.model import (
     AudioLessonGenerationProgress,
 )
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
+from zeeguu.core.model.audio_lesson_feedback import AudioLessonFeedback
 from zeeguu.core.model.audio_lesson_refusal import AudioLessonRefusal
 from zeeguu.core.model.db import db as flask_db  # the module `db` above has no engine
 from zeeguu.core.model.user_language import UserLanguage
@@ -394,6 +397,7 @@ class DailyLessonGenerator:
         heard = None
         learner_character = None
         past_titles = None
+        tuning = None
 
         if builds_on_history:
             heard = heard_lessons(user, learned_lang)
@@ -402,6 +406,9 @@ class DailyLessonGenerator:
             learner_character = UserPreference.get_audio_lesson_character(user) or (
                 "man" if history_lesson_count(user, learned_lang) % 2 == 0 else "woman"
             )
+            # What the learner said about their earlier lessons: pace,
+            # repetition, new words (lesson_tuning.py).
+            tuning = tuning_for(user, learned_lang)
             is_general = False
         else:
             # Try to find an existing dialogue the user hasn't heard yet.
@@ -448,6 +455,7 @@ class DailyLessonGenerator:
             past_titles=past_titles,
             heard=heard,
             learner_character=learner_character,
+            tuning=tuning,
         )
 
         if progress:
@@ -596,6 +604,11 @@ class DailyLessonGenerator:
                 daily_lesson.add_dialogue_segment(
                     audio_lesson_dialogue=audio_lesson_dialogue, sequence_order=1
                 )
+                if audio_lesson_dialogue.builds_on_history:
+                    # Offered when the lesson ends, next to "stay here".
+                    daily_lesson.next_situations = suggest_next_situations(
+                        user, daily_lesson.language, canonical_suggestion
+                    )
             else:
                 # Auto mode: generate individual meaning lessons per word
                 for idx, user_word in enumerate(selected_words):
@@ -800,7 +813,26 @@ class DailyLessonGenerator:
             "language_code": lesson.language.code if lesson.language else None,
             "title": lesson.display_title(),
             "cefr_level": lesson.cefr_level(),
+            # What the learner said about this lesson (AudioLessonFeedback),
+            # and for A0 the situations they could move on to.
+            "feedback": AudioLessonFeedback.for_lesson(lesson),
+            "next_situations": lesson.next_situations or [],
+            "situation_lesson_count": self._situation_lesson_count(lesson),
         }
+
+    @staticmethod
+    def _situation_lesson_count(lesson):
+        """Which lesson this is in its situation, counting the learner's lessons
+        in the same language with the same canonical_suggestion up to this one.
+        None for a lesson without a situation."""
+        if not lesson.canonical_suggestion:
+            return None
+        return DailyAudioLesson.query.filter(
+            DailyAudioLesson.user_id == lesson.user_id,
+            DailyAudioLesson.language_id == lesson.language_id,
+            DailyAudioLesson.canonical_suggestion == lesson.canonical_suggestion,
+            DailyAudioLesson.id <= lesson.id,
+        ).count()
 
     def get_shared_lesson_view(self, share_uuid):
         """Public-safe view for share links: no owner playback state, no UserWord rows.
@@ -1190,6 +1222,41 @@ class DailyLessonGenerator:
                 run_in_background(schedule_words_after_lesson, user.id, lesson.id)
             except Exception as e:
                 log(f"[schedule_words_taught_to_say] lesson {lesson.id}: {e}")
+
+    def record_lesson_feedback(self, user, lesson_id, aspect, value):
+        """
+        Record what the learner said about a lesson (AudioLessonFeedback).
+
+        Pace, repetition and new words tune their next A0 lessons
+        (lesson_tuning.py). A situation moves the daily lessons: one of the
+        lesson's next_situations becomes the subscription's subject, and "stay"
+        puts back this lesson's own, undoing an earlier choice.
+        """
+        from zeeguu.core.audio_lessons import lesson_tuning
+        from zeeguu.core.model.daily_audio_subscription import DailyAudioSubscription
+
+        lesson = DailyAudioLesson.query.filter_by(id=lesson_id, user_id=user.id).first()
+        if not lesson:
+            return {"error": "Lesson not found", "status_code": 404}
+        if not lesson_tuning.is_valid(aspect, value, lesson):
+            return {"error": f"Invalid feedback: {aspect}={value}", "status_code": 400}
+
+        AudioLessonFeedback.set(user, lesson, aspect, value)
+
+        if aspect == lesson_tuning.SITUATION:
+            # Only the subject changes: not configure(), which also turns the
+            # lessons back on for a learner who turned them off.
+            subscription = DailyAudioSubscription.find(user, lesson.language)
+            if subscription:
+                if value != lesson_tuning.STAY:
+                    subscription.lesson_type = "situation"
+                    subscription.raw_suggestion = value
+                elif lesson.raw_suggestion or lesson.canonical_suggestion:
+                    subscription.lesson_type = lesson.lesson_type or "situation"
+                    subscription.raw_suggestion = lesson.raw_suggestion or lesson.canonical_suggestion
+
+        db.session.commit()
+        return {"lesson_id": lesson.id, "feedback": AudioLessonFeedback.for_lesson(lesson)}
 
     def update_lesson_state_for_user(self, user, lesson_id, state_data):
         """

@@ -399,6 +399,7 @@ def generate_dialogue_script(
     past_titles: list = None,
     heard: list = None,
     learner_character: str = None,
+    tuning=None,
 ) -> tuple:
     """
     Generate a single flowing dialogue script about a topic or situation.
@@ -407,6 +408,8 @@ def generate_dialogue_script(
     heard: the lessons the learner heard before (words_heard.heard_lessons);
     [] or None when they have heard nothing yet.
     learner_character: "man" or "woman", the character the learner plays.
+    tuning: the learner's LessonTuning (lesson_tuning.py); None is the lesson
+    as it was before tuning.
     Such a lesson is written in two calls, see _dialogue_for_beginner.
 
     Returns:
@@ -427,17 +430,23 @@ def generate_dialogue_script(
     if builds_on_history(cefr_level):
         # One prompt for topics and situations: at A0 a topic is a situation
         # where people talk about it.
-        prompt_file = "a0_dialogue_lesson--pimsleur_style_situation-v1.txt"
+        from zeeguu.core.audio_lessons.lesson_tuning import LessonTuning, prompt_values
+
+        prompt_file = A0_LESSON_PROMPT
         heard = heard or []
+        tuning = tuning or LessonTuning()
         learner_role = (learner_character or "man").capitalize()
         dialogue = _dialogue_for_beginner(
-            origin_language, translation_language, suggestion, heard, learner_role
+            origin_language, translation_language, suggestion, heard, learner_role, tuning
         )
+        values = prompt_values(tuning)
         prompt = get_prompt_template(prompt_file).format(
             **common,
+            **values,
             history=history_table(heard) or "Nothing yet: this is their first lesson.",
             dialogue=dialogue.script,
             learner_role=learner_role,
+            normal_speed_example=_normal_speed_example(learner_role, values),
         )
     else:
         dialogue = None
@@ -481,7 +490,18 @@ def generate_dialogue_script(
         raise Exception(f"Failed to generate dialogue script: {str(e)}")
 
 
-def _dialogue_for_beginner(origin_language, translation_language, suggestion, heard, learner_role):
+A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v2.txt"
+A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v2.txt"
+
+
+def _normal_speed_example(learner_role, values):
+    """The example's lines after the slow one: one per time the word is said
+    at normal speed."""
+    times = 1 if values["normal_speed_repeats"] == "once" else 2
+    return f"    {learner_role}: <the word> [{values['repeat_pause']} seconds]\n" * times
+
+
+def _dialogue_for_beginner(origin_language, translation_language, suggestion, heard, learner_role, tuning=None):
     """
     The dialogue a beginner's lesson is built around, written on its own.
 
@@ -517,7 +537,12 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
         else ""
     )
 
-    prompt = get_prompt_template("a0_dialogue--natural_exchange-v1.txt").format(
+    from zeeguu.core.audio_lessons.lesson_tuning import LessonTuning, dialogue_line_range
+
+    min_lines, max_lines = dialogue_line_range(tuning or LessonTuning())
+    prompt = get_prompt_template(A0_DIALOGUE_PROMPT).format(
+        min_lines=min_lines,
+        max_lines=max_lines,
         target_language=origin_lang_name,
         suggestion=suggestion,
         known_words=known_words,
@@ -535,7 +560,8 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
     # The lesson around it may not change it, so it is checked here: only the
     # speakers' lines (a preamble like "Here is the dialogue:" is dropped), and
     # 2 to 6 of them. Fewer, or more, means the model did not write what was
-    # asked -- possibly cut off -- and the lesson is not built on it.
+    # asked -- possibly cut off -- and the lesson is not built on it. (2 to 6 is
+    # the untuned range; the learner's new_words tuning moves it.)
     lines = []
     for line in dialogue.splitlines():
         # **Woman:** and WOMAN: are the same speaker as Woman:
@@ -546,13 +572,13 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
             # Text after the dialogue has started that is not a speaker's line:
             # a lost turn or a comment. Not dropped silently.
             raise Exception(f"A0 dialogue for '{suggestion}' has a line that is not a speaker's: {line.strip()[:120]!r}")
-    if not 2 <= len(lines) <= 6:
+    if not min_lines <= len(lines) <= max_lines:
         raise Exception(
-            f"A0 dialogue for '{suggestion}' has {len(lines)} lines, not 2-6: "
+            f"A0 dialogue for '{suggestion}' has {len(lines)} lines, not {min_lines}-{max_lines}: "
             f"{dialogue.strip()[:300]!r}"
         )
     return GeneratedScript(
         "\n".join(lines),
         model_name,
-        prompt_version_of("a0_dialogue--natural_exchange-v1.txt"),
+        prompt_version_of(A0_DIALOGUE_PROMPT),
     )

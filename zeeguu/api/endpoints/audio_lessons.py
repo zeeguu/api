@@ -500,6 +500,32 @@ def update_lesson_state(lesson_id):
     return json_result(result), status_code
 
 
+@api.route("/audio_lesson_feedback/<int:lesson_id>", methods=["POST"])
+@cross_domain
+@requires_session
+def audio_lesson_feedback(lesson_id):
+    """
+    What the learner thought of a lesson, one aspect per call.
+
+    JSON payload: {"aspect": ..., "value": ...}
+        pace:       slower | just_right | faster
+        repetition: more | just_right | less
+        new_words:  fewer | just_right | more
+        situation:  stay | one of the lesson's next_situations
+
+    Returns {"lesson_id", "feedback": {aspect: value}}.
+    """
+    user = User.find_by_id(flask.g.user_id)
+    data = flask.request.get_json(silent=True) or {}
+    aspect, value = data.get("aspect"), data.get("value")
+    if not isinstance(aspect, str) or not isinstance(value, str):
+        return json_result({"error": "Missing 'aspect' or 'value'"}), 400
+
+    result = DailyLessonGenerator().record_lesson_feedback(user, lesson_id, aspect, value)
+    status_code = result.pop("status_code", 200)
+    return json_result(result), status_code
+
+
 @api.route("/audio_lesson_generation_progress", methods=["GET"])
 @cross_domain
 @requires_session
