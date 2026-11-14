@@ -153,3 +153,4 @@ from .onboarding_funnel_event import OnboardingFunnelEvent
 
 
 from .skipped_url import SkippedUrl
+from .evergreen_impression import EvergreenImpression

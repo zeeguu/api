@@ -170,6 +170,36 @@ def user_articles_recommended(count: int = 15, page: int = 0):
     return json_result(content_infos)
 
 
+# ---------------------------------------------------------------------------
+@api.route("/user_articles/evergreen", methods=("GET",))
+@api.route("/user_articles/evergreen/<int:count>", methods=("GET",))
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def user_articles_evergreen(count: int = 12):
+    """
+    The Evergreen tab: articles that don't go out of date, on the learner's
+    topics and keywords, with something new on every visit. Each article info
+    carries `evergreen_new`: true when the tab shows it for the first time
+    today. Ranking is in content_recommender/evergreen.py.
+    """
+    from zeeguu.core.content_recommender.evergreen import (
+        evergreen_recommendations_for_user,
+    )
+
+    count = min(count, MAX_RECOMMENDED_COUNT)
+    user = User.find_by_id(flask.g.user_id)
+    articles, new_today = evergreen_recommendations_for_user(
+        user, user.learned_language, count
+    )
+    infos = UserArticle.article_infos(user, articles, select_appropriate=True)
+    for info in infos:
+        # a simplified version stands in for its original: key by the original
+        original_id = info.get("parent_article_id") or info.get("id")
+        info["evergreen_new"] = original_id in new_today or info.get("id") in new_today
+    return json_result(infos)
+
+
 @api.route("/user_articles/saved", methods=["GET"])
 @api.route("/user_articles/saved/<int:page>", methods=["GET"])
 @cross_domain
