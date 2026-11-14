@@ -35,6 +35,27 @@ MAX_ARTICLES_PER_TOPIC = 20
 MAX_RECOMMENDED_COUNT = 100
 
 
+def _requested_language(user):
+    """The language the client asks for (?language=), falling back to the
+    user's persisted learned language. On a language switch the client sends
+    the new language so the list is right at once, without waiting for (or
+    racing) the separate user_settings save that persists it."""
+    requested_language_code = request.args.get("language", None)
+    if not requested_language_code:
+        return user.learned_language
+    try:
+        candidate = Language.find(requested_language_code)
+        # Only honor a language the user actually studies. Otherwise the
+        # downstream per-language CEFR lookup (UserLanguage row) misses and
+        # the whole recommendation silently degrades to the no-CEFR DB
+        # fallback. The switcher only offers active languages, which always
+        # have a row, so this just guards against stray/hand-crafted codes.
+        UserLanguage.with_language_id(candidate.id, user)
+        return candidate
+    except Exception:
+        return user.learned_language
+
+
 # ---------------------------------------------------------------------------
 @api.route("/user_articles/recommended", methods=("GET",))
 @api.route("/user_articles/recommended/<int:count>", methods=("GET",))
@@ -64,25 +85,7 @@ def user_articles_recommended(count: int = 15, page: int = 0):
     count = min(count, MAX_RECOMMENDED_COUNT)
 
     user = User.find_by_id(flask.g.user_id)
-
-    # Recommend for the language the client asks for, falling back to the
-    # user's persisted learned language. On a language switch the client sends
-    # the new language here so the feed is correct immediately, without waiting
-    # for (or racing) the separate user_settings save that persists it.
-    requested_language_code = request.args.get("language", None)
-    language = user.learned_language
-    if requested_language_code:
-        try:
-            candidate = Language.find(requested_language_code)
-            # Only honor a language the user actually studies. Otherwise the
-            # downstream per-language CEFR lookup (UserLanguage row) misses and
-            # the whole recommendation silently degrades to the no-CEFR DB
-            # fallback. The switcher only offers active languages, which always
-            # have a row, so this just guards against stray/hand-crafted codes.
-            UserLanguage.with_language_id(candidate.id, user)
-            language = candidate
-        except Exception:
-            language = user.learned_language
+    language = _requested_language(user)
 
     # Get exclusion parameters from request args
     exclude_saved = request.args.get("exclude_saved", "false").lower() == "true"
@@ -179,7 +182,8 @@ def user_articles_recommended(count: int = 15, page: int = 0):
 def user_articles_evergreen(count: int = 12):
     """
     The Evergreen tab: articles that don't go out of date, on the learner's
-    topics and keywords, with something new on every visit. Each article info
+    topics and keywords, with something new on every visit. ?topic=<title> or
+    ?keyword=<text> narrows it to one pill of the filter row. Each article info
     carries `evergreen_new`: true when the tab shows it for the first time
     today. Ranking is in content_recommender/evergreen.py.
     """
@@ -187,10 +191,25 @@ def user_articles_evergreen(count: int = 12):
         evergreen_recommendations_for_user,
     )
 
+    from zeeguu.core.model.topic import Topic
+
     count = min(count, MAX_RECOMMENDED_COUNT)
     user = User.find_by_id(flask.g.user_id)
+
+    # A pill picked in the tab's filter row: ?topic=<title> or ?keyword=<text>
+    only_topic_id = None
+    topic_title = request.args.get("topic")
+    if topic_title:
+        topic = Topic.find(topic_title)
+        only_topic_id = topic.id if topic else -1  # unknown topic: empty list
+    only_keyword = (request.args.get("keyword") or "").strip() or None
+
     articles, new_today = evergreen_recommendations_for_user(
-        user, user.learned_language, count
+        user,
+        _requested_language(user),
+        count,
+        only_topic_id=only_topic_id,
+        only_keyword=only_keyword,
     )
     infos = UserArticle.article_infos(user, articles, select_appropriate=True)
     for info in infos:

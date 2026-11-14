@@ -124,3 +124,35 @@ class EvergreenRecommenderTest(ModelTestMixIn):
         # a second request that read the impressions before the first wrote
         EvergreenImpression.record(session, self.user.id, [article.id], known={}, when=TODAY)
         assert len(EvergreenImpression.for_user(self.user.id)) == 1
+
+    def test_reading_a_simplified_version_takes_the_original_off_the_tab(self):
+        original = self._article("Read at B1", topic=self.science)
+        self._article("Not read", topic=self.science)
+        simplified = ArticleRule().article
+        simplified.language = self.language
+        simplified.parent_article_id = original.id
+        session.add(simplified)
+        session.add(UserArticle(self.user, simplified, opened=TODAY - timedelta(days=1)))
+        session.commit()
+
+        assert self._titles() == ["Not read"]
+
+    def test_a_picked_keyword_narrows_the_list_to_its_matches(self):
+        self._article("How stars are born", topic=self.science)
+        self._article("Wolves are back", summary="the ulv returns")
+        self._subscribe_to_keyword("ulv")
+
+        articles, _ = evergreen_recommendations_for_user(
+            self.user, self.language, 12, now=TODAY, only_keyword="ulv"
+        )
+        assert [a.title for a in articles] == ["Wolves are back"]
+
+    def test_a_picked_topic_narrows_the_list_to_that_topic(self):
+        culture = TopicRule.get_or_create_topic(2)
+        self._article("How stars are born", topic=self.science)
+        self._article("A history of painting", topic=culture)
+
+        articles, _ = evergreen_recommendations_for_user(
+            self.user, self.language, 12, now=TODAY, only_topic_id=culture.id
+        )
+        assert [a.title for a in articles] == ["A history of painting"]
