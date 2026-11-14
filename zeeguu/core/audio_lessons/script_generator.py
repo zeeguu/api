@@ -497,7 +497,7 @@ A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
 def _normal_speed_example(learner_role, values):
     """The example's lines after the slow one: one per time the word is said
     at normal speed."""
-    times = 1 if values["normal_speed_repeats"] == "once" else 2
+    times = values["normal_speed_repeat_count"]
     return f"    {learner_role}: <the word> [{values['repeat_pause']} seconds]\n" * times
 
 

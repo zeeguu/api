@@ -13,7 +13,7 @@ The levels fill in the numbers of the A0 lesson prompt (prompt_values). Only
 A0 lessons are tuned: the other levels' prompts have no such numbers.
 """
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 from zeeguu.core.model.audio_lesson_feedback import AudioLessonFeedback
 
@@ -53,7 +53,7 @@ def tuning_for(user, language) -> LessonTuning:
 
 
 def as_dict(tuning: LessonTuning) -> dict:
-    return {"pace": tuning.pace, "repetition": tuning.repetition, "length": tuning.length}
+    return asdict(tuning)
 
 
 # The prompt's numbers per level, -2..+2. Level 0 is the prompt as it was (v1).
@@ -69,7 +69,8 @@ _REPEAT_PAUSE = (4, 4, 3, 3, 2)
 # heard too often.
 _RECALLS_TO_SAY = (7, 6, 5, 4, 2)
 _RECALLS_TO_UNDERSTAND = (4, 4, 3, 2, 1)
-_NORMAL_SPEED_REPEATS = ("twice", "twice", "twice", "twice", "once")
+_NORMAL_SPEED_REPEATS = (2, 2, 2, 2, 1)
+_TIMES = {1: "once", 2: "twice", 3: "three times"}
 _EARLIER_WORDS_RECALLS = (
     "many times", "several times", "several times", "two or three times", "once",
 )
@@ -90,7 +91,8 @@ def prompt_values(tuning: LessonTuning) -> dict:
         repeat_pause=_REPEAT_PAUSE[p],
         recalls_to_say=_RECALLS_TO_SAY[r],
         recalls_to_understand=_RECALLS_TO_UNDERSTAND[r],
-        normal_speed_repeats=_NORMAL_SPEED_REPEATS[r],
+        normal_speed_repeats=_TIMES[_NORMAL_SPEED_REPEATS[r]],
+        normal_speed_repeat_count=_NORMAL_SPEED_REPEATS[r],
         earlier_words_recalls=_EARLIER_WORDS_RECALLS[r],
         max_lines=max_lines,
         max_minutes=round(max_lines * _SECONDS_PER_LINE / 60),

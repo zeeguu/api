@@ -134,6 +134,16 @@ def test_a_situation_answer_on_an_older_lesson_does_not_move_the_lessons(logged_
     assert DailyAudioSubscription.query.get(sub_id).raw_suggestion == "at the bakery"
 
 
+def test_a_situation_answer_on_yesterdays_lesson_counts_while_nothing_moved(logged_in_client):
+    """The learner finishes yesterday's lesson after today's was made."""
+    sub_id = _subscribe(logged_in_client.email)
+    yesterday = _lesson_for(logged_in_client.email)
+    _lesson_for(logged_in_client.email)
+
+    _say(logged_in_client, yesterday, "situation", "at the bakery")
+    assert DailyAudioSubscription.query.get(sub_id).raw_suggestion == "at the bakery"
+
+
 def test_only_a0_lessons_take_feedback(logged_in_client):
     lesson = _lesson_for(logged_in_client.email, a0=False)
 

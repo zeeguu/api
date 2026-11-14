@@ -26,12 +26,14 @@ HOW_MANY = 3
 def past_situations(user, language):
     """[(situation, lesson count)] of the learner's lessons in this language,
     in the order they first had them."""
-    lessons = (
+    rows = (
         DailyAudioLesson.query.filter_by(user_id=user.id, language_id=language.id)
+        .filter(DailyAudioLesson.canonical_suggestion.isnot(None))
         .order_by(DailyAudioLesson.id)
+        .with_entities(DailyAudioLesson.canonical_suggestion)
         .all()
     )
-    names = [l.canonical_suggestion for l in lessons if l.canonical_suggestion]
+    names = [name for (name,) in rows]
     counts = Counter(names)
     return [(name, counts[name]) for name in dict.fromkeys(names)]
 
