@@ -9,7 +9,6 @@ import pytest
 
 from zeeguu.core.audio_lessons.lesson_tuning import (
     LessonTuning,
-    dialogue_line_range,
     is_valid,
     prompt_values,
     tuning_from,
@@ -27,12 +26,11 @@ def _rows(*pairs):
 
 def test_no_feedback_is_the_lesson_as_it_was():
     assert tuning_from([]) == LessonTuning(0, 0, 0)
-    assert dialogue_line_range(LessonTuning()) == (2, 6)
 
 
 def test_each_answer_moves_one_step_and_just_right_keeps_it():
     rows = _rows(("pace", "faster"), ("pace", "just_right"), ("repetition", "less"))
-    assert tuning_from(rows) == LessonTuning(pace=1, repetition=1, new_words=0)
+    assert tuning_from(rows) == LessonTuning(pace=1, repetition=1, length=0)
 
 
 def test_levels_stay_within_two_at_every_step():
@@ -65,13 +63,15 @@ def test_untuned_v2_prompt_is_exactly_v1():
     assert _lesson_prompt("v2", prompt_values(LessonTuning())) == _lesson_prompt("v1")
 
 
-def test_faster_and_less_repetitive_prompt():
-    prompt = _lesson_prompt("v2", prompt_values(LessonTuning(pace=2, repetition=2)))
+def test_faster_less_repetitive_shorter_prompt():
+    prompt = _lesson_prompt("v2", prompt_values(LessonTuning(pace=2, repetition=2, length=2)))
     assert "[3 seconds] so the learner can answer" in prompt
     assert "Between repetitions, use [2 seconds]" in prompt
     assert "then once at normal speed" in prompt
     assert "about 2 times over the lesson" in prompt
     assert "At most 120 lines" in prompt and "about 7 minutes" in prompt
+    # Words from earlier lessons come back less too ("tak", "hej").
+    assert "come back once in the recalls" in prompt
     # The example drills the word once at normal speed, after the slow time.
     assert prompt.count("Man: <the word> [2 seconds]") == 3
 
@@ -85,7 +85,8 @@ def test_slower_prompt_gives_more_time():
 @pytest.mark.parametrize("aspect,value,ok", [
     ("pace", "faster", True),
     ("repetition", "less", True),
-    ("new_words", "more", True),
+    ("length", "shorter", True),
+    ("new_words", "more", False),
     ("pace", "more", False),
     ("situation", "stay", True),
     ("situation", "at the bakery", True),
@@ -107,3 +108,10 @@ def test_suggestions_are_cleaned():
 def test_an_answer_that_is_not_a_list_fails():
     with pytest.raises(Exception):
         parse_suggestions('{"situations": []}')
+
+
+def test_length_and_repetition_are_separate():
+    """A long lesson with little repetition: the length is the limit, repetition
+    is how the lines inside it are spent."""
+    values = prompt_values(LessonTuning(repetition=2, length=-2))
+    assert values["max_lines"] == 250 and values["recalls_to_say"] == 2

@@ -407,7 +407,7 @@ class DailyLessonGenerator:
                 "man" if history_lesson_count(user, learned_lang) % 2 == 0 else "woman"
             )
             # What the learner said about their earlier lessons: pace,
-            # repetition, new words (lesson_tuning.py).
+            # repetition, length (lesson_tuning.py).
             tuning = tuning_for(user, learned_lang)
             is_general = False
         else:
@@ -1227,7 +1227,7 @@ class DailyLessonGenerator:
         """
         Record what the learner said about a lesson (AudioLessonFeedback).
 
-        Pace, repetition and new words tune their next A0 lessons
+        Pace, repetition and length tune their next A0 lessons
         (lesson_tuning.py). A situation moves the daily lessons: one of the
         lesson's next_situations becomes the subscription's subject, and "stay"
         puts back this lesson's own, undoing an earlier choice.

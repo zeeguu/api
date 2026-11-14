@@ -437,7 +437,7 @@ def generate_dialogue_script(
         tuning = tuning or LessonTuning()
         learner_role = (learner_character or "man").capitalize()
         dialogue = _dialogue_for_beginner(
-            origin_language, translation_language, suggestion, heard, learner_role, tuning
+            origin_language, translation_language, suggestion, heard, learner_role
         )
         values = prompt_values(tuning)
         prompt = get_prompt_template(prompt_file).format(
@@ -491,7 +491,7 @@ def generate_dialogue_script(
 
 
 A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v2.txt"
-A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v2.txt"
+A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
 
 
 def _normal_speed_example(learner_role, values):
@@ -501,7 +501,7 @@ def _normal_speed_example(learner_role, values):
     return f"    {learner_role}: <the word> [{values['repeat_pause']} seconds]\n" * times
 
 
-def _dialogue_for_beginner(origin_language, translation_language, suggestion, heard, learner_role, tuning=None):
+def _dialogue_for_beginner(origin_language, translation_language, suggestion, heard, learner_role):
     """
     The dialogue a beginner's lesson is built around, written on its own.
 
@@ -537,12 +537,7 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
         else ""
     )
 
-    from zeeguu.core.audio_lessons.lesson_tuning import LessonTuning, dialogue_line_range
-
-    min_lines, max_lines = dialogue_line_range(tuning or LessonTuning())
     prompt = get_prompt_template(A0_DIALOGUE_PROMPT).format(
-        min_lines=min_lines,
-        max_lines=max_lines,
         target_language=origin_lang_name,
         suggestion=suggestion,
         known_words=known_words,
@@ -560,8 +555,7 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
     # The lesson around it may not change it, so it is checked here: only the
     # speakers' lines (a preamble like "Here is the dialogue:" is dropped), and
     # 2 to 6 of them. Fewer, or more, means the model did not write what was
-    # asked -- possibly cut off -- and the lesson is not built on it. (2 to 6 is
-    # the untuned range; the learner's new_words tuning moves it.)
+    # asked -- possibly cut off -- and the lesson is not built on it.
     lines = []
     for line in dialogue.splitlines():
         # **Woman:** and WOMAN: are the same speaker as Woman:
@@ -572,9 +566,9 @@ def _dialogue_for_beginner(origin_language, translation_language, suggestion, he
             # Text after the dialogue has started that is not a speaker's line:
             # a lost turn or a comment. Not dropped silently.
             raise Exception(f"A0 dialogue for '{suggestion}' has a line that is not a speaker's: {line.strip()[:120]!r}")
-    if not min_lines <= len(lines) <= max_lines:
+    if not 2 <= len(lines) <= 6:
         raise Exception(
-            f"A0 dialogue for '{suggestion}' has {len(lines)} lines, not {min_lines}-{max_lines}: "
+            f"A0 dialogue for '{suggestion}' has {len(lines)} lines, not 2-6: "
             f"{dialogue.strip()[:300]!r}"
         )
     return GeneratedScript(

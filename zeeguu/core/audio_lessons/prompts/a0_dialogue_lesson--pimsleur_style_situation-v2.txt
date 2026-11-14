@@ -33,7 +33,7 @@ This lesson follows the method of Pimsleur's first lessons: very few new words, 
 
 5. NEW SENTENCES: where the words allow it, ask the learner for short sentences that are not in the dialogue but that someone in the situation would say ("Ask her whether she understands English"). With only a few words there are only a few such sentences; then recall more and combine less.
 
-6. THE EARLIER LESSONS: words from the most recent lessons in the table come back several times in the recalls of step 4, words from older lessons now and then, so they are not forgotten. When they belong to another situation, the Teacher sets that situation in one sentence ("You are at the café again. Order a coffee."). If the table is empty, this is the first lesson.
+6. THE EARLIER LESSONS: words from the most recent lessons in the table come back {earlier_words_recalls} in the recalls of step 4, words from older lessons now and then, so they are not forgotten. When they belong to another situation, the Teacher sets that situation in one sentence ("You are at the café again. Order a coffee."). If the table is empty, this is the first lesson.
 
 7. THE END: the Teacher tells the learner, in {source_language}, to listen to the conversation again and notice that they understand it now. Then the dialogue from step 1 once more.
 

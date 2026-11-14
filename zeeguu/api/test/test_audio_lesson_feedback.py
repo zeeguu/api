@@ -1,7 +1,7 @@
 """
 Feedback after a daily audio lesson: /audio_lesson_feedback.
 
-Pace, repetition and new words are recorded per lesson and tune the next A0
+Pace, repetition and length are recorded per lesson and tune the next A0
 lessons; a situation moves the daily lessons on (or back, with "stay").
 """
 
@@ -57,7 +57,7 @@ def test_feedback_tunes_the_next_lessons(logged_in_client):
     second = _lesson_for(logged_in_client.email)
     _say(logged_in_client, first, "repetition", "less")
     _say(logged_in_client, second, "repetition", "less")
-    _say(logged_in_client, second, "new_words", "fewer")
+    _say(logged_in_client, second, "length", "longer")
 
     user = User.find(logged_in_client.email)
     assert tuning_for(user, user.learned_language) == LessonTuning(0, 2, -1)

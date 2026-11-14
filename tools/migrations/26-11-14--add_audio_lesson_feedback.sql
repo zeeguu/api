@@ -1,5 +1,5 @@
 -- What learners say about a daily audio lesson after hearing it (pace,
--- repetition, new words, and for A0 whether to stay in the situation or move
+-- repetition, length, and for A0 whether to stay in the situation or move
 -- on). One row per lesson and aspect; tapping again changes the value.
 -- The next lessons are tuned from these rows (audio_lessons/lesson_tuning.py).
 

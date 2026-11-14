@@ -19,12 +19,12 @@ from zeeguu.core.model.audio_lesson_feedback import AudioLessonFeedback
 
 LEVELS = (-2, -1, 0, 1, 2)
 
-# aspect -> {value: step}. A positive step is a faster, less repetitive lesson
-# with more new words.
+# aspect -> {value: step}. A positive step is a faster, less repetitive,
+# shorter lesson.
 ASPECTS = {
     "pace": {"slower": -1, "just_right": 0, "faster": 1},
     "repetition": {"more": -1, "just_right": 0, "less": 1},
-    "new_words": {"fewer": -1, "just_right": 0, "more": 1},
+    "length": {"longer": -1, "just_right": 0, "shorter": 1},
 }
 
 SITUATION = "situation"
@@ -35,7 +35,7 @@ STAY = "stay"
 class LessonTuning:
     pace: int = 0
     repetition: int = 0
-    new_words: int = 0
+    length: int = 0
 
 
 def tuning_from(rows) -> LessonTuning:
@@ -59,35 +59,38 @@ _ANSWER_PAUSE = (7, 6, 5, 4, 3)
 _REPEAT_PAUSE = (4, 4, 3, 3, 2)
 # repetition (+ is less): how often a word to say, and a line to understand,
 # comes back in the recalls; how often a new word is said at normal speed after
-# the slow time; and the lesson's longest length, in lines.
+# the slow time; and how often words from the latest earlier lessons come back.
+# A learner who finds a lesson repetitive does not care whether the word was
+# new today: "tak" and "hej" from earlier lessons were what one participant
+# heard too often.
 _RECALLS_TO_SAY = (7, 6, 5, 4, 2)
 _RECALLS_TO_UNDERSTAND = (4, 4, 3, 2, 1)
 _NORMAL_SPEED_REPEATS = ("twice", "twice", "twice", "twice", "once")
-_MAX_LINES = (200, 200, 200, 160, 120)
-# new_words: the dialogue the lesson is built around. Its lines are where the
-# new words come from, so more lines means more new words.
-_DIALOGUE_LINES = ((2, 3), (2, 4), (2, 6), (3, 7), (4, 8))
+_EARLIER_WORDS_RECALLS = (
+    "many times", "several times", "several times", "two or three times", "once",
+)
+# length (+ is shorter): the lesson's longest length, in lines. The prompt says
+# the length follows from the content, so with a lot of repetition in a short
+# lesson the model fits fewer recalls in, rather than running over.
+_MAX_LINES = (250, 225, 200, 160, 120)
 
 # 200 lines measured about 12 minutes.
 _SECONDS_PER_LINE = 12 * 60 / 200
 
 
 def prompt_values(tuning: LessonTuning) -> dict:
-    p, r, n = tuning.pace + 2, tuning.repetition + 2, tuning.new_words + 2
-    max_lines = _MAX_LINES[r]
+    p, r, n = tuning.pace + 2, tuning.repetition + 2, tuning.length + 2
+    max_lines = _MAX_LINES[n]
     return dict(
         answer_pause=_ANSWER_PAUSE[p],
         repeat_pause=_REPEAT_PAUSE[p],
         recalls_to_say=_RECALLS_TO_SAY[r],
         recalls_to_understand=_RECALLS_TO_UNDERSTAND[r],
         normal_speed_repeats=_NORMAL_SPEED_REPEATS[r],
+        earlier_words_recalls=_EARLIER_WORDS_RECALLS[r],
         max_lines=max_lines,
         max_minutes=round(max_lines * _SECONDS_PER_LINE / 60),
     )
-
-
-def dialogue_line_range(tuning: LessonTuning) -> tuple:
-    return _DIALOGUE_LINES[tuning.new_words + 2]
 
 
 def is_valid(aspect, value, lesson=None) -> bool:

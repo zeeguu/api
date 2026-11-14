@@ -11,7 +11,7 @@ from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 class AudioLessonFeedback(db.Model):
     """
     What a learner said about one daily audio lesson, after hearing it: one row
-    per lesson and aspect (pace, repetition, new_words, situation). Tapping
+    per lesson and aspect (pace, repetition, length, situation). Tapping
     again on the same lesson changes the row's value, so the row is the
     learner's last word on that lesson.
 

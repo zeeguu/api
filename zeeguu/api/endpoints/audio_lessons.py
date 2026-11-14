@@ -510,7 +510,7 @@ def audio_lesson_feedback(lesson_id):
     JSON payload: {"aspect": ..., "value": ...}
         pace:       slower | just_right | faster
         repetition: more | just_right | less
-        new_words:  fewer | just_right | more
+        length:     longer | just_right | shorter
         situation:  stay | one of the lesson's next_situations
 
     Returns {"lesson_id", "feedback": {aspect: value}}.
