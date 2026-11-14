@@ -101,8 +101,13 @@ def _disturbing_ids(article_ids):
 
 
 def _excluded_article_ids(user):
+    # Opening and hiding are recorded on the version the learner had in front
+    # of them, which may be a simplified one. The tab lists originals, so
+    # exclude the original of each such version too, or a text read at B1
+    # stays on the tab as unread.
     opened_or_hidden = (
-        db.session.query(UserArticle.article_id)
+        db.session.query(UserArticle.article_id, Article.parent_article_id)
+        .join(Article, Article.id == UserArticle.article_id)
         .filter(UserArticle.user_id == user.id)
         .filter(or_(UserArticle.opened.isnot(None), UserArticle.hidden.isnot(None)))
         .all()
@@ -112,7 +117,12 @@ def _excluded_article_ids(user):
         .filter(UserArticleBrokenReport.user_id == user.id)
         .all()
     )
-    return {row[0] for row in opened_or_hidden + reported}
+    excluded = {row[0] for row in reported}
+    for article_id, parent_id in opened_or_hidden:
+        excluded.add(article_id)
+        if parent_id:
+            excluded.add(parent_id)
+    return excluded
 
 
 def _mentions(article, keywords):

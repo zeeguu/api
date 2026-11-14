@@ -124,3 +124,15 @@ class EvergreenRecommenderTest(ModelTestMixIn):
         # a second request that read the impressions before the first wrote
         EvergreenImpression.record(session, self.user.id, [article.id], known={}, when=TODAY)
         assert len(EvergreenImpression.for_user(self.user.id)) == 1
+
+    def test_reading_a_simplified_version_takes_the_original_off_the_tab(self):
+        original = self._article("Read at B1", topic=self.science)
+        self._article("Not read", topic=self.science)
+        simplified = ArticleRule().article
+        simplified.language = self.language
+        simplified.parent_article_id = original.id
+        session.add(simplified)
+        session.add(UserArticle(self.user, simplified, opened=TODAY - timedelta(days=1)))
+        session.commit()
+
+        assert self._titles() == ["Not read"]
