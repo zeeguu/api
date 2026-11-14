@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy.exc import IntegrityError
 
 from zeeguu.core.model.db import db
 
@@ -57,4 +58,9 @@ class EvergreenImpression(db.Model):
             elif impression.last_shown.date() != when.date():
                 impression.last_shown = when
                 impression.times_shown += 1
-        session.commit()
+        try:
+            session.commit()
+        except IntegrityError:
+            # Two loads of the tab at once both inserted the same article.
+            # The other one recorded it: losing this write loses nothing.
+            session.rollback()

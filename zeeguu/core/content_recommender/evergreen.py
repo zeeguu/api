@@ -25,7 +25,7 @@ thousand general articles, and the candidate pool is capped.
 from datetime import datetime
 
 from sqlalchemy import or_
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import load_only, selectinload
 
 from zeeguu.core.model import Article, UserArticle, UserArticleBrokenReport
 from zeeguu.core.model.article_classification import ArticleClassification
@@ -50,7 +50,13 @@ MAX_TOPIC_CANDIDATES = 2000
 
 
 def _evergreen_articles(language):
-    return Article.query.options(selectinload(Article.topics)).filter(
+    # Only what scoring reads: the pool can be a couple of thousand rows, and
+    # content/htmlContent would make that tens of MB per page load. The chosen
+    # few are fetched in full at the end.
+    return Article.query.options(
+        load_only(Article.id, Article.title, Article.summary),
+        selectinload(Article.topics),
+    ).filter(
         Article.language_id == language.id,
         Article.article_type == "general",
         Article.parent_article_id.is_(None),
@@ -170,14 +176,23 @@ def evergreen_recommendations_for_user(user, language, count=12, now=None):
         ranked.append((-score(article), hash((user.id, article.id)), article))
 
     ranked.sort(key=lambda r: (r[0], r[1]))
-    chosen = [r[2] for r in ranked[:count]]
+    chosen_ids = [r[2].id for r in ranked[:count]]
 
     new_today = {
-        a.id
-        for a in chosen
-        if a.id not in impressions or impressions[a.id].first_shown.date() == now.date()
+        i
+        for i in chosen_ids
+        if i not in impressions or impressions[i].first_shown.date() == now.date()
     }
     EvergreenImpression.record(
-        db.session, user.id, [a.id for a in chosen], known=impressions, when=now
+        db.session, user.id, chosen_ids, known=impressions, when=now
     )
-    return chosen, new_today
+
+    # The pool was loaded with only the columns scoring needs; the article
+    # infos need the whole row.
+    full = {
+        a.id: a
+        for a in Article.query.populate_existing()
+        .filter(Article.id.in_(chosen_ids))
+        .all()
+    }
+    return [full[i] for i in chosen_ids if i in full], new_today

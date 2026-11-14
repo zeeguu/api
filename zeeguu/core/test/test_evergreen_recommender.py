@@ -110,3 +110,17 @@ class EvergreenRecommenderTest(ModelTestMixIn):
         session.commit()
 
         assert self._titles() == ["A cheerful history"]
+
+    def test_the_chosen_articles_come_back_whole(self):
+        self._article("Long explainer", topic=self.science)
+        articles, _ = evergreen_recommendations_for_user(self.user, self.language, 1, now=TODAY)
+        # content was not loaded for scoring; the returned article has it
+        assert articles[0].content
+
+    def test_a_concurrent_duplicate_impression_does_not_fail(self):
+        article = self._article("Shown twice at once", topic=self.science)
+        session.add(EvergreenImpression(self.user.id, article.id, TODAY))
+        session.commit()
+        # a second request that read the impressions before the first wrote
+        EvergreenImpression.record(session, self.user.id, [article.id], known={}, when=TODAY)
+        assert len(EvergreenImpression.for_user(self.user.id)) == 1
