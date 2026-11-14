@@ -28,24 +28,37 @@ from abc import ABC, abstractmethod
 from .lexicon_matcher import LexiconMatcher, merge_lexicon_with_stanza
 
 
-def match_article_noun(tokens: List[Dict], head):
+# What may stand between an article and its noun: "en meget stor kikkert",
+# 'en "tv-skandale"'. Anything else in between (another article, a noun, a
+# verb) means the parser attached the article to the wrong noun.
+_BETWEEN_ARTICLE_AND_NOUN = {"ADJ", "ADV", "NUM", "PUNCT"}
+
+
+def match_article_noun(tokens: List[Dict], head, det_idx: int = None):
     """
     DET pointing at a NOUN/PROPN. Tapping the article alone returns nonsense
     because alignment fuses it into the noun's translation
     (e.g. da "en kikkert" -> "binoculars", el "ο ηθοποιός" -> "actor",
     fr "le chocolat" -> often dropped to "chocolate").
     Returns (mwe_type, head_idx) or (None, None). `head` is the 1-based
-    Stanza head value; 0 means ROOT.
+    Stanza head value; 0 means ROOT. `det_idx` is the article's own index;
+    when given, the article must be the noun's own (see
+    _BETWEEN_ARTICLE_AND_NOUN). Stanza attached the first "en" in
+    'en 'sticky crisis' (en klæbrig krise)' to "krise".
     """
     if head is None or head == 0:
         return None, None
     candidate = head - 1
-    if (
+    if not (
         0 <= candidate < len(tokens)
         and tokens[candidate].get("pos") in ("NOUN", "PROPN")
     ):
-        return "article_noun", candidate
-    return None, None
+        return None, None
+    if det_idx is not None:
+        lo, hi = sorted((det_idx, candidate))
+        if any(tokens[j].get("pos") not in _BETWEEN_ARTICLE_AND_NOUN for j in range(lo + 1, hi)):
+            return None, None
+    return "article_noun", candidate
 
 
 class MWEStrategy(ABC):
@@ -119,7 +132,7 @@ class StanzaMWEStrategy(MWEStrategy):
 
             # Article + noun
             elif dep == "det":
-                mwe_type, head_idx = match_article_noun(tokens, head)
+                mwe_type, head_idx = match_article_noun(tokens, head, i)
 
             if mwe_type and head_idx is not None and head_idx != i:
                 # Validate head_idx is within bounds
@@ -237,7 +250,7 @@ class GermanicStrategy(StanzaMWEStrategy):
 
             # Article + noun
             elif dep == "det":
-                mwe_type, head_idx = match_article_noun(tokens, head)
+                mwe_type, head_idx = match_article_noun(tokens, head, i)
 
             if mwe_type and head_idx is not None and head_idx != i:
                 if not (0 <= head_idx < len(tokens)):
@@ -366,7 +379,7 @@ class AuxOnlyStrategy(MWEStrategy):
 
             # Article + noun (Romance / Romanian indefinite "un"/"o")
             elif dep == "det":
-                mwe_type, head_idx = match_article_noun(tokens, head)
+                mwe_type, head_idx = match_article_noun(tokens, head, i)
 
             if mwe_type and head_idx is not None and head_idx != i:
                 existing_group = self._find_group_by_head(mwe_groups, head_idx)

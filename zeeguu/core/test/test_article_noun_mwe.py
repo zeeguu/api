@@ -29,6 +29,40 @@ class ArticleNounMWETest(TestCase):
         self.assertEqual(g["head_idx"], 2)  # kikkert
         self.assertIn(1, g["dependent_indices"])  # en
 
+    def test_adjectives_between_article_and_noun_are_fine(self):
+        # "en meget stor kikkert"
+        tokens = [
+            tok("en", "DET", dep="det", head=4),
+            tok("meget", "ADV", dep="advmod", head=3),
+            tok("stor", "ADJ", dep="amod", head=4),
+            tok("kikkert", "NOUN", dep="obj", head=0),
+        ]
+        groups = [g for g in self.strategy.detect(tokens) if g["type"] == "article_noun"]
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["head_idx"], 3)
+
+    def test_an_article_attached_to_a_far_noun_is_not_grouped(self):
+        # kalder en 'sticky crisis' (en klæbrig krise): Stanza attached both
+        # articles to "krise". Only the second one is krise's.
+        tokens = [
+            tok("kalder", "VERB", dep="root", head=0),
+            tok("en", "DET", dep="det", head=10),
+            tok("'", "PUNCT", dep="punct", head=4),
+            tok("sticky", "X", dep="flat", head=4),
+            tok("crisis", "X", dep="obj", head=1),
+            tok("'", "PUNCT", dep="punct", head=4),
+            tok("(", "PUNCT", dep="punct", head=10),
+            tok("en", "DET", dep="det", head=10),
+            tok("klæbrig", "ADJ", dep="amod", head=10),
+            tok("krise", "NOUN", dep="appos", head=5),
+            tok(")", "PUNCT", dep="punct", head=10),
+        ]
+        groups = [g for g in self.strategy.detect(tokens) if g["type"] == "article_noun"]
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(groups[0]["head_idx"], 9)  # krise
+        self.assertNotIn(1, groups[0]["dependent_indices"])  # the first "en"
+        self.assertIn(7, groups[0]["dependent_indices"])  # the second "en"
+
     def test_det_pointing_at_non_noun_not_grouped(self):
         # "den" pointing at an adjective should not produce article_noun
         tokens = [
