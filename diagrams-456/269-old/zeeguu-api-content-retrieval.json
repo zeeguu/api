@@ -1,0 +1,171 @@
+{
+    "title": "zeeguu-api-content-retrieval",
+    "packages": [
+        {
+            "name": "core.content_retriever",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.content_quality",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.elastic",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.feed_handler",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.semantic_search",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.ml_models",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.nlp_pipeline",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.tokenization",
+            "state": "NEUTRAL"
+        },
+        {
+            "name": "core.content_cleaning",
+            "state": "NEUTRAL"
+        }
+    ],
+    "edges": [
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_retriever",
+            "toPackage": "core.content_cleaning",
+            "label": "2",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_retriever/__init__.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_cleaning/__init__.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "article_downloader.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_retriever/article_downloader.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_cleaning/__init__.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_retriever",
+            "toPackage": "core.content_quality",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "article_downloader.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_retriever/article_downloader.py"
+                    },
+                    "to_file": {
+                        "name": "quality_filter.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_quality/quality_filter.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_retriever",
+            "toPackage": "core.semantic_search",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "article_downloader.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_retriever/article_downloader.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/semantic_search/__init__.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_retriever",
+            "toPackage": "core.elastic",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "article_downloader.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_retriever/article_downloader.py"
+                    },
+                    "to_file": {
+                        "name": "indexing.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/elastic/indexing.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.content_quality",
+            "toPackage": "core.ml_models",
+            "label": "1",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "quality_filter.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/content_quality/quality_filter.py"
+                    },
+                    "to_file": {
+                        "name": "__init__.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/ml_models/__init__.py"
+                    }
+                }
+            ]
+        },
+        {
+            "state": "NEUTRAL",
+            "fromPackage": "core.semantic_search",
+            "toPackage": "core.elastic",
+            "label": "2",
+            "relations": [
+                {
+                    "from_file": {
+                        "name": "elastic_semantic_search.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/semantic_search/elastic_semantic_search.py"
+                    },
+                    "to_file": {
+                        "name": "elastic_query_builder.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/elastic/elastic_query_builder.py"
+                    }
+                },
+                {
+                    "from_file": {
+                        "name": "elastic_semantic_search.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/semantic_search/elastic_semantic_search.py"
+                    },
+                    "to_file": {
+                        "name": "settings.py",
+                        "path": "/Users/gh/zeeguu/api/zeeguu/core/elastic/settings.py"
+                    }
+                }
+            ]
+        }
+    ]
+}
