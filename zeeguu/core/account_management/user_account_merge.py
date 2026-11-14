@@ -47,6 +47,7 @@ POLICIES = {
     ("article_share_link", "user_id"): MOVE,
     ("article_topic_user_feedback", "user_id"): MOVE,
     ("article_upload", "user_id"): MOVE,
+    ("audio_lesson_feedback", "user_id"): MOVE,
     ("audio_lesson_generation_progress", "user_id"): MOVE,
     ("daily_audio_lesson", "user_id"): MOVE,
     ("daily_audio_subscription", "user_id"): MOVE,

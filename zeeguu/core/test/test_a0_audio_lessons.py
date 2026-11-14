@@ -266,7 +266,7 @@ def test_each_of_the_two_calls_records_its_own_model(monkeypatch):
         "da", "en", "at a café", "situation", cefr_level="A0", heard=[], learner_character="man"
     )
     assert generated.model_name == "claude-sonnet-5-5"
-    assert generated.prompt_version == "a0_dialogue_lesson-v1"
+    assert generated.prompt_version == "a0_dialogue_lesson-v2"
     assert generated.dialogue.model_name == "deepseek-chat"
     assert generated.dialogue.script.startswith("Woman: Hej!")
 
@@ -309,7 +309,7 @@ def test_slow_variants_are_not_read_aloud():
 def test_the_example_drills_the_learners_own_voice():
     from zeeguu.core.audio_lessons.script_generator import get_prompt_template
 
-    prompt = get_prompt_template("a0_dialogue_lesson--pimsleur_style_situation-v1.txt")
+    prompt = get_prompt_template("a0_dialogue_lesson--pimsleur_style_situation-v2.txt")
     assert "{learner_role}: <the word> [slow]" in prompt
     assert "Woman: <the word>" not in prompt
 

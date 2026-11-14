@@ -1,0 +1,16 @@
+An absolute beginner is learning {target_language} with short daily audio lessons. Each lesson is set in an everyday situation and teaches the few words that situation needs.
+
+Their lessons so far, oldest first, with how many lessons they had in each situation:
+{past_situations}
+
+Their latest lesson was in: "{current_situation}".
+
+Suggest three situations they could move on to next. Good next situations:
+- are everyday moments a newcomer to a {target_language}-speaking country really meets in their first weeks;
+- are small and concrete (a short exchange with one person), not broad topics;
+- build on what they know: at least one stays close to the latest situation, and reuses many of its words;
+- are not one they already had.
+
+Write each one in {native_language}, lowercase, 2 to 5 words, the way a learner would name it (for example: "at the bakery", "asking for directions", "buying a train ticket").
+
+Reply with ONLY a JSON array of three strings, no other text.

@@ -58,6 +58,11 @@ class DailyAudioLesson(db.Model):
     # fails, so it is tried again. NULL for every other lesson.
     words_scheduled_at = Column(DateTime, nullable=True)
 
+    # A0 lessons: three situations the learner could move on to next, suggested
+    # when the lesson was generated (audio_lessons/next_situations.py), so they
+    # are there without waiting when the lesson ends. NULL for other lessons.
+    next_situations = Column(JSON, nullable=True)
+
     # NULL until the owner first generates a share link.
     share_uuid = Column(db.String(36), unique=True, nullable=True)
 
@@ -176,6 +181,15 @@ class DailyAudioLesson(db.Model):
         # High-water mark: only ever grows, so a rewind-then-pause can't erase
         # the fact that the learner already heard further. Engagement reads this.
         self.max_position_seconds = max(self.max_position_seconds or 0, clamped)
+
+    @property
+    def builds_on_history(self):
+        """An A0 lesson: its dialogue was written from the learner's own
+        history (see audio_lessons/words_heard.py)."""
+        return any(
+            s.audio_lesson_dialogue is not None and s.audio_lesson_dialogue.builds_on_history
+            for s in self.segments
+        )
 
     @property
     def is_completed(self):
