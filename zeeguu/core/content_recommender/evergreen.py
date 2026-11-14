@@ -1,22 +1,33 @@
 """
 The Evergreen tab: articles that don't go out of date, on the learner's
-topics and keywords, with something new on every visit.
+topics and keywords, a few new ones every day.
 
 The crawler's LLM pass already labels every article `news` or `general`
 (article.article_type). The home feed ignores the label and favors what is
 recent, so the general ones sink within days. This recommender takes only
-the general ones and ranks them without looking at the date:
+the general ones and ranks them without looking at the date.
 
+Relevance:
 1. matches one of the learner's keywords (search subscriptions)  +3
-2. is in one of the learner's topics                              +1
-3. never shown on the tab before, or first shown today            +2
-4. shown on an earlier day and not opened                         -1 per day shown
+2. comes from a perennial feed (science, history: feed.retention_class)  +2
+3. is in one of the learner's topics                              +1
 
-Opened articles leave the tab: they are in the learner's history. Within a
-day the list stays the same (today's new ones keep their bonus), and the next
-day the ones passed by drop behind ones never seen. Ties are broken by a
-per-learner shuffle that does not change between visits, so two learners
-with the same topics don't get the same list.
+"General" also catches soft features from news sites (an author's weekend,
+a new film), which do date; the perennial-feed weight puts the real
+explainers above them.
+
+The daily list (no pill picked) is a slow conveyor, so a small pool lasts:
+- on the first visit ever, the whole list is new;
+- after that, up to NEW_PER_DAY never-shown articles a day go on top,
+- and the rest are the most recently shown articles not yet opened, each for
+  at most MAX_DAYS_SHOWN days; older ones wait at the back and return only
+  when nothing else is left.
+Within a day the list stays the same. Opened, hidden and reported articles
+leave the tab. Ties are broken by a per-learner shuffle that does not change
+between visits, so two learners with the same topics don't get the same list.
+
+A picked pill (one topic or keyword) is browsing, not the daily list: it
+shows that pill's articles, never-shown first, and records nothing.
 
 Runs on the database alone, not Elasticsearch: one language has a few
 thousand general articles, and the candidate pool is capped.
@@ -32,6 +43,7 @@ from zeeguu.core.model.article_classification import ArticleClassification
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
 from zeeguu.core.model.db import db
 from zeeguu.core.model.evergreen_impression import EvergreenImpression
+from zeeguu.core.model.feed import Feed
 from zeeguu.core.model.search import Search
 from zeeguu.core.model.search_filter import SearchFilter
 from zeeguu.core.model.search_subscription import SearchSubscription
@@ -40,8 +52,12 @@ from zeeguu.core.model.topic_subscription import TopicSubscription
 from zeeguu.core.model.user_preference import UserPreference
 
 KEYWORD_WEIGHT = 3
+PERENNIAL_WEIGHT = 2
 TOPIC_WEIGHT = 1
-UNSEEN_BONUS = 2
+
+DEFAULT_COUNT = 10
+NEW_PER_DAY = 3
+MAX_DAYS_SHOWN = 4
 
 # Caps on the candidate pool, so a language with many general articles still
 # costs a bounded query.
@@ -54,7 +70,7 @@ def _evergreen_articles(language):
     # content/htmlContent would make that tens of MB per page load. The chosen
     # few are fetched in full at the end.
     return Article.query.options(
-        load_only(Article.id, Article.title, Article.summary),
+        load_only(Article.id, Article.title, Article.summary, Article.feed_id),
         selectinload(Article.topics),
     ).filter(
         Article.language_id == language.id,
@@ -130,14 +146,32 @@ def _mentions(article, keywords):
     return any(k.lower() in text for k in keywords)
 
 
+def _perennial_feed_ids(language):
+    return {
+        row[0]
+        for row in db.session.query(Feed.id)
+        .filter(Feed.language_id == language.id)
+        .filter(Feed.retention_class == "perennial")
+        .all()
+    }
+
+
 def evergreen_recommendations_for_user(
-    user, language, count=12, now=None, only_topic_id=None, only_keyword=None
+    user,
+    language,
+    count=DEFAULT_COUNT,
+    now=None,
+    only_topic_id=None,
+    only_keyword=None,
 ):
-    """Returns (articles, ids_new_today). Records the impressions.
+    """Returns (articles, ids_new_today). Records the impressions of the daily
+    list (not of a picked pill).
 
     only_topic_id / only_keyword: a pill picked in the tab's filter row; the
     list is then that topic's or that keyword's articles alone."""
     now = now or datetime.now()
+    today = now.date()
+    browsing_a_pill = bool(only_topic_id or only_keyword)
 
     keywords = _keywords(SearchSubscription, user, language)
     avoided = _keywords(SearchFilter, user, language)
@@ -173,22 +207,24 @@ def evergreen_recommendations_for_user(
     if UserPreference.is_filter_disturbing_content_enabled(user):
         excluded |= _disturbing_ids(list(candidates))
     impressions = EvergreenImpression.for_user(user.id)
+    perennial_feeds = _perennial_feed_ids(language)
 
-    def score(article):
-        article_topics = {t.topic_id for t in article.topics}
+    def relevance(article):
         s = 0
         if keywords and _mentions(article, keywords):
             s += KEYWORD_WEIGHT
-        if article_topics & topic_ids:
+        if article.feed_id in perennial_feeds:
+            s += PERENNIAL_WEIGHT
+        if {t.topic_id for t in article.topics} & topic_ids:
             s += TOPIC_WEIGHT
-        seen = impressions.get(article.id)
-        if seen is None or seen.first_shown.date() == now.date():
-            s += UNSEEN_BONUS
-        else:
-            s -= seen.times_shown
         return s
 
-    ranked = []
+    def by_relevance(article):
+        # hash of an int tuple is stable across processes: the same shuffle
+        # on every visit, a different one per learner
+        return (-relevance(article), hash((user.id, article.id)))
+
+    eligible = []
     for article in candidates.values():
         if article.id in excluded:
             continue
@@ -196,21 +232,25 @@ def evergreen_recommendations_for_user(
             continue
         if avoided_topic_ids and {t.topic_id for t in article.topics} & avoided_topic_ids:
             continue
-        # hash of an int tuple is stable across processes: the same shuffle
-        # on every visit, a different one per learner
-        ranked.append((-score(article), hash((user.id, article.id)), article))
+        eligible.append(article)
 
-    ranked.sort(key=lambda r: (r[0], r[1]))
-    chosen_ids = [r[2].id for r in ranked[:count]]
+    def is_new_today(article):
+        seen = impressions.get(article.id)
+        return seen is None or seen.first_shown.date() == today
 
-    new_today = {
-        i
-        for i in chosen_ids
-        if i not in impressions or impressions[i].first_shown.date() == now.date()
-    }
-    EvergreenImpression.record(
-        db.session, user.id, chosen_ids, known=impressions, when=now
-    )
+    if browsing_a_pill:
+        chosen = sorted(eligible, key=lambda a: (not is_new_today(a), by_relevance(a)))[
+            :count
+        ]
+    else:
+        chosen = _daily_list(eligible, impressions, today, count, by_relevance)
+
+    chosen_ids = [a.id for a in chosen]
+    new_today = {a.id for a in chosen if is_new_today(a)}
+    if not browsing_a_pill:
+        EvergreenImpression.record(
+            db.session, user.id, chosen_ids, known=impressions, when=now
+        )
 
     # The pool was loaded with only the columns scoring needs; the article
     # infos need the whole row.
@@ -221,3 +261,43 @@ def evergreen_recommendations_for_user(
         .all()
     }
     return [full[i] for i in chosen_ids if i in full], new_today
+
+
+def _daily_list(eligible, impressions, today, count, by_relevance):
+    """Up to NEW_PER_DAY never-shown articles on top (the whole list on the
+    first visit ever), then the most recently shown unopened ones, each for at
+    most MAX_DAYS_SHOWN days. Whatever is short is filled with more new ones,
+    then with the ones waiting at the back."""
+    first_today, never_shown, carried, waiting = [], [], [], []
+    for article in eligible:
+        seen = impressions.get(article.id)
+        if seen is None:
+            never_shown.append(article)
+        elif seen.first_shown.date() == today:
+            first_today.append(article)
+        elif seen.last_shown.date() == today or seen.times_shown < MAX_DAYS_SHOWN:
+            carried.append(article)
+        else:
+            waiting.append(article)
+
+    first_today.sort(key=by_relevance)
+    never_shown.sort(key=by_relevance)
+    # shown today first (the list holds still within a day), then the most
+    # recently introduced
+    carried.sort(
+        key=lambda a: (
+            impressions[a.id].last_shown.date() != today,
+            -impressions[a.id].first_shown.timestamp(),
+            by_relevance(a),
+        )
+    )
+    waiting.sort(key=lambda a: (impressions[a.id].times_shown, by_relevance(a)))
+
+    new_quota = count if not impressions else NEW_PER_DAY
+    new_slots = max(0, new_quota - len(first_today))
+    chosen = first_today + never_shown[:new_slots] + carried
+    if len(chosen) < count:
+        chosen += never_shown[new_slots:]
+    if len(chosen) < count:
+        chosen += waiting
+    return chosen[:count]

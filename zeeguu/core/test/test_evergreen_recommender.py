@@ -7,7 +7,10 @@ what the learner has not seen before what they passed by.
 from datetime import datetime, timedelta
 
 import zeeguu.core
-from zeeguu.core.content_recommender.evergreen import evergreen_recommendations_for_user
+from zeeguu.core.content_recommender.evergreen import (
+    NEW_PER_DAY,
+    evergreen_recommendations_for_user,
+)
 from zeeguu.core.model import Search, UserArticle, UserPreference
 from zeeguu.core.model.article_classification import ArticleClassification
 from zeeguu.core.model.article_topic_map import ArticleTopicMap, TopicOriginType
@@ -33,8 +36,11 @@ class EvergreenRecommenderTest(ModelTestMixIn):
         session.add(TopicSubscription(self.user, self.science))
         session.commit()
 
-    def _article(self, title, article_type="general", topic=None, summary="x"):
+    def _article(self, title, article_type="general", topic=None, summary="x", perennial=False):
         article = ArticleRule().article
+        if perennial:
+            article.feed.retention_class = "perennial"
+        article.feed.language = self.language
         article.title = title
         article.summary = summary
         article.language = self.language
@@ -156,3 +162,32 @@ class EvergreenRecommenderTest(ModelTestMixIn):
             self.user, self.language, 12, now=TODAY, only_topic_id=culture.id
         )
         assert [a.title for a in articles] == ["A history of painting"]
+
+
+    def test_explainers_from_perennial_feeds_rank_above_news_site_features(self):
+        self._article("An author's weekend", topic=self.science)
+        self._article("Why orcas don't eat humans", topic=self.science, perennial=True)
+
+        assert self._titles()[0] == "Why orcas don't eat humans"
+
+    def test_after_the_first_visit_only_a_few_new_ones_a_day_the_rest_stays(self):
+        for i in range(10):
+            self._article(f"Explainer {i}", topic=self.science)
+        day_one = self._titles(count=10, now=TODAY)
+        assert len(day_one) == 10
+
+        for i in range(10):
+            self._article(f"Fresh {i}", topic=self.science)
+        day_two = self._titles(count=10, now=TODAY + timedelta(days=1))
+
+        fresh = [t for t in day_two if t.startswith("Fresh")]
+        assert len(fresh) == NEW_PER_DAY
+        assert day_two[:NEW_PER_DAY] == fresh  # the new ones on top
+        assert set(day_two[NEW_PER_DAY:]) <= set(day_one)  # then yesterday's, still unread
+
+    def test_browsing_a_pill_records_nothing(self):
+        self._article("Wolves are back", summary="the ulv returns")
+        evergreen_recommendations_for_user(
+            self.user, self.language, 10, now=TODAY, only_keyword="ulv"
+        )
+        assert EvergreenImpression.for_user(self.user.id) == {}

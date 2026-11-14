@@ -179,7 +179,7 @@ def user_articles_recommended(count: int = 15, page: int = 0):
 # ---------------------------------------------------------------------------
 @cross_domain
 @requires_session
-def user_articles_evergreen(count: int = 12):
+def user_articles_evergreen(count: int = None):
     """
     The Evergreen tab: articles that don't go out of date, on the learner's
     topics and keywords, with something new on every visit. ?topic=<title> or
@@ -193,7 +193,9 @@ def user_articles_evergreen(count: int = 12):
 
     from zeeguu.core.model.topic import Topic
 
-    count = min(count, MAX_RECOMMENDED_COUNT)
+    from zeeguu.core.content_recommender.evergreen import DEFAULT_COUNT
+
+    count = min(count or DEFAULT_COUNT, MAX_RECOMMENDED_COUNT)
     user = User.find_by_id(flask.g.user_id)
 
     # A pill picked in the tab's filter row: ?topic=<title> or ?keyword=<text>
