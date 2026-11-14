@@ -136,3 +136,23 @@ class EvergreenRecommenderTest(ModelTestMixIn):
         session.commit()
 
         assert self._titles() == ["Not read"]
+
+    def test_a_picked_keyword_narrows_the_list_to_its_matches(self):
+        self._article("How stars are born", topic=self.science)
+        self._article("Wolves are back", summary="the ulv returns")
+        self._subscribe_to_keyword("ulv")
+
+        articles, _ = evergreen_recommendations_for_user(
+            self.user, self.language, 12, now=TODAY, only_keyword="ulv"
+        )
+        assert [a.title for a in articles] == ["Wolves are back"]
+
+    def test_a_picked_topic_narrows_the_list_to_that_topic(self):
+        culture = TopicRule.get_or_create_topic(2)
+        self._article("How stars are born", topic=self.science)
+        self._article("A history of painting", topic=culture)
+
+        articles, _ = evergreen_recommendations_for_user(
+            self.user, self.language, 12, now=TODAY, only_topic_id=culture.id
+        )
+        assert [a.title for a in articles] == ["A history of painting"]

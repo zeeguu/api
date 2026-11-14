@@ -130,8 +130,13 @@ def _mentions(article, keywords):
     return any(k.lower() in text for k in keywords)
 
 
-def evergreen_recommendations_for_user(user, language, count=12, now=None):
-    """Returns (articles, ids_new_today). Records the impressions."""
+def evergreen_recommendations_for_user(
+    user, language, count=12, now=None, only_topic_id=None, only_keyword=None
+):
+    """Returns (articles, ids_new_today). Records the impressions.
+
+    only_topic_id / only_keyword: a pill picked in the tab's filter row; the
+    list is then that topic's or that keyword's articles alone."""
     now = now or datetime.now()
 
     keywords = _keywords(SearchSubscription, user, language)
@@ -139,18 +144,28 @@ def evergreen_recommendations_for_user(user, language, count=12, now=None):
     topic_ids = {s.topic_id for s in TopicSubscription.all_for_user(user)}
     avoided_topic_ids = {f.topic_id for f in TopicFilter.all_for_user(user)}
 
+    if only_keyword:
+        keywords, topic_ids = [only_keyword], set()
+    elif only_topic_id:
+        keywords, topic_ids = [], {only_topic_id}
+
     candidates = {}
     for keyword in keywords:
         for article in _keyword_matches(language, keyword):
             candidates[article.id] = article
 
-    topic_query = _evergreen_articles(language)
-    if topic_ids:
-        topic_query = topic_query.filter(
-            Article.topics.any(ArticleTopicMap.topic_id.in_(topic_ids))
-        )
-    for article in topic_query.order_by(Article.id.desc()).limit(MAX_TOPIC_CANDIDATES):
-        candidates.setdefault(article.id, article)
+    # Unfiltered, a learner without topics still gets the language's general
+    # articles; filtered by a keyword, only that keyword's matches.
+    if not only_keyword:
+        topic_query = _evergreen_articles(language)
+        if topic_ids:
+            topic_query = topic_query.filter(
+                Article.topics.any(ArticleTopicMap.topic_id.in_(topic_ids))
+            )
+        for article in topic_query.order_by(Article.id.desc()).limit(
+            MAX_TOPIC_CANDIDATES
+        ):
+            candidates.setdefault(article.id, article)
 
     excluded = _excluded_article_ids(user)
     # the same safety setting the home feed honors (a teacher or a parent may
