@@ -939,7 +939,9 @@ def disable_mwe_grouping():
     - article_id: The article containing the MWE
     - mwe_expression: The MWE text (e.g., "har lavet") - robust to re-tokenization
     - sentence_text: The sentence text (used to compute hash for robust matching)
-    - bookmark_id: The bookmark to delete
+    - bookmark_id: The bookmark to delete. Optional: a separated MWE has no
+      bookmark (see get_one_translation), and the learner must still be able
+      to ungroup it.
 
     :return: Success status
     """
@@ -948,13 +950,13 @@ def disable_mwe_grouping():
     sentence_text = request.json.get("sentence_text")
     bookmark_id = request.json.get("bookmark_id")
 
-    if not all([article_id, mwe_expression, sentence_text, bookmark_id]):
+    if not all([article_id, mwe_expression, sentence_text]):
         return json_result({"error": "Missing required parameters"}, status=400)
 
     user = User.find_by_id(flask.g.user_id)
 
     # Delete the MWE bookmark (same logic as delete_bookmark endpoint)
-    bookmark = Bookmark.find(bookmark_id)
+    bookmark = Bookmark.find(bookmark_id) if bookmark_id else None
     if bookmark and bookmark.user_word.user.id == user.id:
         user_word = bookmark.user_word
 
