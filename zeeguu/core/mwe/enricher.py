@@ -33,6 +33,17 @@ logger = logging.getLogger(__name__)
 HYBRID_LANGUAGES = set()  # Empty = use fast Stanza-only for all languages
 
 
+def _gaps_are_only_punctuation(tokens: List[Dict], indices: List[int]) -> bool:
+    """True if every token between the sorted MWE indices is punctuation or a symbol."""
+    gap = [
+        tokens[i]
+        for a, b in zip(indices, indices[1:])
+        for i in range(a + 1, b)
+        if 0 <= i < len(tokens)
+    ]
+    return bool(gap) and all(t.get("is_punct") or t.get("is_symbol") for t in gap)
+
+
 class MWEDetector:
     """Detects multi-word expressions in tokenized sentences."""
 
@@ -115,6 +126,15 @@ class MWEDetector:
             # Calculate if MWE is separated (has non-MWE words between partners)
             all_indices = sorted([head_idx] + dependent_indices)
             is_separated = self._check_if_separated(all_indices)
+
+            # Only punctuation between the parts: Rasmus Wallbridge blev
+            # "offentligt ydmyget". The expression is right, but the quote mark
+            # makes it a separated MWE, which is never saved as a bookmark and
+            # can't be ungrouped; fusing it would put the quote into the saved
+            # word. Leave the words ungrouped; the learner can still select the
+            # phrase. Real gaps ("rufe dich an") are unaffected.
+            if is_separated and _gaps_are_only_punctuation(tokens, all_indices):
+                continue
 
             # Log for debugging (only at DEBUG level)
             if logger.isEnabledFor(logging.DEBUG):
