@@ -21,3 +21,7 @@ CREATE TABLE audio_lesson_feedback (
 -- Three situations an A0 learner could move on to next, suggested when the
 -- lesson is generated (audio_lessons/next_situations.py). NULL for other lessons.
 ALTER TABLE daily_audio_lesson ADD COLUMN next_situations JSON NULL;
+
+-- The tuning levels an A0 dialogue was written with ({"pace", "repetition",
+-- "length"}, -2..+2). The feedback rows can change afterwards; this cannot.
+ALTER TABLE audio_lesson_dialogue ADD COLUMN tuning JSON NULL;

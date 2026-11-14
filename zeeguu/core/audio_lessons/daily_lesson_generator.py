@@ -28,6 +28,7 @@ from zeeguu.core.audio_lessons.voice_config import (
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
 from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
+from zeeguu.core.audio_lessons import lesson_tuning
 from zeeguu.core.audio_lessons.lesson_tuning import tuning_for
 from zeeguu.core.audio_lessons.next_situations import suggest_next_situations
 from zeeguu.core.model import (
@@ -480,6 +481,8 @@ class DailyLessonGenerator:
                 _ai_generator_for(generated.dialogue) if generated.dialogue else None
             ),
         )
+        if tuning is not None:
+            dialogue.tuning = lesson_tuning.as_dict(tuning)
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
 
@@ -822,17 +825,29 @@ class DailyLessonGenerator:
 
     @staticmethod
     def _situation_lesson_count(lesson):
-        """Which lesson this is in its situation, counting the learner's lessons
-        in the same language with the same canonical_suggestion up to this one.
-        None for a lesson without a situation."""
+        """Which lesson this is in the learner's current run in its situation:
+        their lessons in this language up to this one, counted back until one
+        is in another situation. Someone back in "grocery shopping" after two
+        lessons at the bakery is at 1 again. None for a lesson without one."""
         if not lesson.canonical_suggestion:
             return None
-        return DailyAudioLesson.query.filter(
-            DailyAudioLesson.user_id == lesson.user_id,
-            DailyAudioLesson.language_id == lesson.language_id,
-            DailyAudioLesson.canonical_suggestion == lesson.canonical_suggestion,
-            DailyAudioLesson.id <= lesson.id,
-        ).count()
+        recent = (
+            DailyAudioLesson.query.filter(
+                DailyAudioLesson.user_id == lesson.user_id,
+                DailyAudioLesson.language_id == lesson.language_id,
+                DailyAudioLesson.id <= lesson.id,
+            )
+            .order_by(DailyAudioLesson.id.desc())
+            .limit(100)
+            .with_entities(DailyAudioLesson.canonical_suggestion)
+            .all()
+        )
+        run = 0
+        for (situation,) in recent:
+            if situation != lesson.canonical_suggestion:
+                break
+            run += 1
+        return run
 
     def get_shared_lesson_view(self, share_uuid):
         """Public-safe view for share links: no owner playback state, no UserWord rows.
@@ -1232,18 +1247,27 @@ class DailyLessonGenerator:
         lesson's next_situations becomes the subscription's subject, and "stay"
         puts back this lesson's own, undoing an earlier choice.
         """
-        from zeeguu.core.audio_lessons import lesson_tuning
         from zeeguu.core.model.daily_audio_subscription import DailyAudioSubscription
+
+        from sqlalchemy.exc import IntegrityError
 
         lesson = DailyAudioLesson.query.filter_by(id=lesson_id, user_id=user.id).first()
         if not lesson:
             return {"error": "Lesson not found", "status_code": 404}
         if not lesson_tuning.is_valid(aspect, value, lesson):
             return {"error": f"Invalid feedback: {aspect}={value}", "status_code": 400}
+        # Only A0 lessons are tuned: recorded on another lesson, an answer would
+        # still move the learner's next A0 lessons (tuning_for reads them all).
+        if not lesson.builds_on_history:
+            return {"error": "Only A0 lessons take feedback", "status_code": 400}
 
         AudioLessonFeedback.set(user, lesson, aspect, value)
 
-        if aspect == lesson_tuning.SITUATION:
+        # A situation answer moves the daily lessons only from the latest
+        # lesson. On an older one ("stay" on a lesson still waiting to be heard)
+        # it would undo a move the learner made since.
+        latest = DailyAudioLesson.latest_for_language(user, lesson.language_id)
+        if aspect == lesson_tuning.SITUATION and latest and latest.id == lesson.id:
             # Only the subject changes: not configure(), which also turns the
             # lessons back on for a learner who turned them off.
             subscription = DailyAudioSubscription.find(user, lesson.language)
@@ -1255,7 +1279,14 @@ class DailyLessonGenerator:
                     subscription.lesson_type = lesson.lesson_type or "situation"
                     subscription.raw_suggestion = lesson.raw_suggestion or lesson.canonical_suggestion
 
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # Two taps at once: the other request created the row first. Ours
+            # is the later answer, so it goes into that row.
+            db.session.rollback()
+            AudioLessonFeedback.set(user, lesson, aspect, value)
+            db.session.commit()
         return {"lesson_id": lesson.id, "feedback": AudioLessonFeedback.for_lesson(lesson)}
 
     def update_lesson_state_for_user(self, user, lesson_id, state_data):

@@ -44,12 +44,16 @@ def tuning_from(rows) -> LessonTuning:
     for row in rows:
         step = ASPECTS.get(row.aspect, {}).get(row.value)
         if step:
-            levels[row.aspect] = max(-2, min(2, levels[row.aspect] + step))
+            levels[row.aspect] = max(LEVELS[0], min(LEVELS[-1], levels[row.aspect] + step))
     return LessonTuning(**levels)
 
 
 def tuning_for(user, language) -> LessonTuning:
     return tuning_from(AudioLessonFeedback.history(user, language.id))
+
+
+def as_dict(tuning: LessonTuning) -> dict:
+    return {"pace": tuning.pace, "repetition": tuning.repetition, "length": tuning.length}
 
 
 # The prompt's numbers per level, -2..+2. Level 0 is the prompt as it was (v1).

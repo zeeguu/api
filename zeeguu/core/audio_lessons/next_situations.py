@@ -11,6 +11,7 @@ learner does not wait for them; a failure leaves the lesson without them.
 """
 
 import json
+import re
 from collections import Counter
 
 from zeeguu.core.audio_lessons.script_generator import get_prompt_template
@@ -35,12 +36,37 @@ def past_situations(user, language):
     return [(name, counts[name]) for name in dict.fromkeys(names)]
 
 
+def lessons_per_situation(user, language):
+    """[{raw_suggestion, canonical_suggestion, lessons}] of the learner's
+    lessons in this language, for the settings dialog to show next to each
+    situation how many lessons they have had in it."""
+    from sqlalchemy import func
+
+    rows = (
+        DailyAudioLesson.query.filter(
+            DailyAudioLesson.user_id == user.id,
+            DailyAudioLesson.language_id == language.id,
+            DailyAudioLesson.canonical_suggestion.isnot(None),
+        )
+        .with_entities(
+            DailyAudioLesson.raw_suggestion,
+            DailyAudioLesson.canonical_suggestion,
+            func.count(DailyAudioLesson.id),
+        )
+        .group_by(DailyAudioLesson.raw_suggestion, DailyAudioLesson.canonical_suggestion)
+        .all()
+    )
+    return [
+        {"raw_suggestion": raw, "canonical_suggestion": canonical, "lessons": n}
+        for raw, canonical, n in rows
+    ]
+
+
 def parse_suggestions(text, already_had=()):
     """The model's JSON array, cleaned: strings only, no repeats, none the
     learner already had, at most HOW_MANY. Raises on anything not a JSON array."""
-    text = text.strip()
-    if text.startswith("```"):
-        text = text.split("\n", 1)[1].rsplit("```", 1)[0].strip()
+    # A code fence around the answer, on its own lines or on the same line.
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip())
     items = json.loads(text)
     if not isinstance(items, list):
         raise ValueError(f"not a list: {text[:200]!r}")

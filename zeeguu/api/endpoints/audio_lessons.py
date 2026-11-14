@@ -526,6 +526,26 @@ def audio_lesson_feedback(lesson_id):
     return json_result(result), status_code
 
 
+@api.route("/audio_lesson_situations", methods=["GET"])
+@cross_domain
+@requires_session
+def audio_lesson_situations():
+    """
+    How many lessons the learner has had in each situation, in one language
+    (?language=da; default: the learned language). The settings dialog shows
+    the count next to each situation.
+
+    Returns [{raw_suggestion, canonical_suggestion, lessons}].
+    """
+    from zeeguu.core.audio_lessons.next_situations import lessons_per_situation
+
+    user = User.find_by_id(flask.g.user_id)
+    language = _resolve_subscription_language(user, flask.request.args.get("language"))
+    if language is None:
+        return json_result({"error": "Unknown language"}), 400
+    return json_result(lessons_per_situation(user, language))
+
+
 @api.route("/audio_lesson_generation_progress", methods=["GET"])
 @cross_domain
 @requires_session

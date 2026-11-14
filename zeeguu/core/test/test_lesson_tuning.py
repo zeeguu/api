@@ -105,6 +105,12 @@ def test_suggestions_are_cleaned():
     ]
 
 
+def test_a_fence_on_one_line_is_stripped():
+    assert parse_suggestions('```["at the bakery", "asking the time"]```') == [
+        "at the bakery", "asking the time",
+    ]
+
+
 def test_an_answer_that_is_not_a_list_fails():
     with pytest.raises(Exception):
         parse_suggestions('{"situations": []}')

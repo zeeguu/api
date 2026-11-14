@@ -8,13 +8,15 @@ lessons; a situation moves the daily lessons on (or back, with "stay").
 from zeeguu.api.test.fixtures import logged_in_client, LoggedInClient
 from zeeguu.core.audio_lessons.lesson_tuning import LessonTuning, tuning_for
 from zeeguu.core.model import User
+from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.model.audio_lesson_feedback import AudioLessonFeedback
+from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
 from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 from zeeguu.core.model.daily_audio_subscription import DailyAudioSubscription
 from zeeguu.core.model.db import db
 
 
-def _lesson_for(email, situation="grocery shopping"):
+def _lesson_for(email, situation="grocery shopping", a0=True):
     user = User.find(email)
     lesson = DailyAudioLesson(
         user=user, created_by="test", duration_seconds=300,
@@ -22,6 +24,14 @@ def _lesson_for(email, situation="grocery shopping"):
     )
     lesson.next_situations = ["at the bakery", "asking the time", "taking the bus"]
     db.session.add(lesson)
+    dialogue = AudioLessonDialogue(
+        script="Man: Hej.", canonical_suggestion=situation, lesson_type="situation",
+        language=user.learned_language, builds_on_history=a0,
+    )
+    db.session.add(dialogue)
+    db.session.add(
+        DailyAudioLessonSegment(lesson, segment_type="dialogue_lesson", audio_lesson_dialogue=dialogue)
+    )
     db.session.commit()
     return lesson.id
 
@@ -100,11 +110,43 @@ def test_choosing_a_situation_does_not_turn_lessons_back_on(logged_in_client):
     assert sub.raw_suggestion == "at the bakery" and sub.enabled is False
 
 
-def test_situation_lesson_count(logged_in_client):
+def test_situation_lesson_count_is_the_current_run(logged_in_client):
     from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
 
-    _lesson_for(logged_in_client.email, "at a café")
-    _lesson_for(logged_in_client.email)
-    third = _lesson_for(logged_in_client.email)
+    def count(lesson_id):
+        return DailyLessonGenerator._situation_lesson_count(DailyAudioLesson.query.get(lesson_id))
 
-    assert DailyLessonGenerator._situation_lesson_count(DailyAudioLesson.query.get(third)) == 2
+    _lesson_for(logged_in_client.email)
+    _lesson_for(logged_in_client.email)
+    _lesson_for(logged_in_client.email, "at the bakery")
+    back = _lesson_for(logged_in_client.email)
+    again = _lesson_for(logged_in_client.email)
+
+    assert count(back) == 1 and count(again) == 2
+
+
+def test_a_situation_answer_on_an_older_lesson_does_not_move_the_lessons(logged_in_client):
+    sub_id = _subscribe(logged_in_client.email, "at the bakery")
+    older = _lesson_for(logged_in_client.email)
+    _lesson_for(logged_in_client.email, "at the bakery")
+
+    assert _say(logged_in_client, older, "situation", "stay").status_code == 200
+    assert DailyAudioSubscription.query.get(sub_id).raw_suggestion == "at the bakery"
+
+
+def test_only_a0_lessons_take_feedback(logged_in_client):
+    lesson = _lesson_for(logged_in_client.email, a0=False)
+
+    assert _say(logged_in_client, lesson, "length", "shorter").status_code == 400
+
+
+def test_lessons_per_situation(logged_in_client):
+    _lesson_for(logged_in_client.email)
+    _lesson_for(logged_in_client.email)
+    _lesson_for(logged_in_client.email, "at the bakery")
+
+    response = logged_in_client.client.get(logged_in_client.append_session("/audio_lesson_situations"))
+
+    assert sorted((r["raw_suggestion"], r["lessons"]) for r in response.json) == [
+        ("at the bakery", 1), ("grocery shopping", 2),
+    ]

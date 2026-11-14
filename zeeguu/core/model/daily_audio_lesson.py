@@ -183,6 +183,15 @@ class DailyAudioLesson(db.Model):
         self.max_position_seconds = max(self.max_position_seconds or 0, clamped)
 
     @property
+    def builds_on_history(self):
+        """An A0 lesson: its dialogue was written from the learner's own
+        history (see audio_lessons/words_heard.py)."""
+        return any(
+            s.audio_lesson_dialogue is not None and s.audio_lesson_dialogue.builds_on_history
+            for s in self.segments
+        )
+
+    @property
     def is_completed(self):
         """Check if lesson has been completed (sticky once true)."""
         return self.last_completed_at is not None
