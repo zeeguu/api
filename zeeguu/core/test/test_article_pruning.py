@@ -34,6 +34,7 @@ CASCADE_OWNED_COLUMNS = {
     ("article_topic_map", "article_id"),
     ("article_url_keyword_map", "article_id"),
     ("difficulty_lingo_rank", "article_id"),
+    ("evergreen_impression", "article_id"),
     ("grammar_correction_log", "article_id"),
     ("level_adapted_article_text", "article_id"),
     ("public_translation", "article_id"),

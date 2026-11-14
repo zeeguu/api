@@ -50,6 +50,7 @@ POLICIES = {
     ("audio_lesson_generation_progress", "user_id"): MOVE,
     ("daily_audio_lesson", "user_id"): MOVE,
     ("daily_audio_subscription", "user_id"): MOVE,
+    ("evergreen_impression", "user_id"): MOVE,
     ("example_sentence", "user_id"): MOVE,
     # A cloze verdict kept for this learner only (not yet shared).
     ("meaning_alternative", "user_id"): MOVE,
