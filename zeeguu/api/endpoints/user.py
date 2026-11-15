@@ -432,7 +432,10 @@ def _page_path(url):
     capacitor://localhost, and the platform says where it came from."""
     if not url:
         return None
-    parts = urlsplit(url)
+    try:
+        parts = urlsplit(url)
+    except ValueError:  # e.g. "http://[abc/x"; better the raw URL than no mail
+        return url
     page = parts.path or "/"
     if parts.query:
         page += "?" + parts.query
