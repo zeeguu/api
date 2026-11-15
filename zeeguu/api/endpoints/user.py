@@ -1,4 +1,5 @@
 import re
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import flask
@@ -11,6 +12,8 @@ from zeeguu.api.endpoints.feature_toggles import features_for_user
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
+from zeeguu.api.utils.session_helpers import platform_from_form
+from zeeguu.core.constants import PLATFORM_NAMES
 from zeeguu.core.friends.friend_streak import compute_current_streak
 from zeeguu.core.model import Language, User
 from zeeguu.core.model.feedback_component import FeedbackComponent
@@ -423,6 +426,21 @@ def user_settings():
         return make_error(400, "Could not update user settings")
 
 
+def _page_path(url):
+    """The page the feedback was sent from, without the origin: inside the
+    mobile apps that is the WebView's fake https://localhost or
+    capacitor://localhost, and the platform says where it came from."""
+    if not url:
+        return None
+    parts = urlsplit(url)
+    page = parts.path or "/"
+    if parts.query:
+        page += "?" + parts.query
+    if parts.fragment:
+        page += "#" + parts.fragment
+    return page
+
+
 @api.route("/send_feedback", methods=["POST"])
 @cross_domain
 @requires_session
@@ -430,6 +448,7 @@ def send_feedback():
     session = zeeguu.core.model.db.session
     message = flask.request.form.get("message", "")
     url = flask.request.form.get("currentUrl", None)
+    platform = PLATFORM_NAMES.get(platform_from_form())
 
     # Get component name from frontend
     component_name = flask.request.form.get("feedbackComponentName", "")
@@ -449,8 +468,9 @@ def send_feedback():
         component_name,
         message,
         user,
-        url,
+        _page_path(url),
         origin,
+        platform,
     )
 
     try:

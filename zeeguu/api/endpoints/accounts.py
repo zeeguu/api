@@ -10,7 +10,7 @@ from zeeguu.core.model import UserAvatar
 from zeeguu.core.model.unique_code import UniqueCode
 from zeeguu.api.endpoints.sessions import get_anon_session
 from zeeguu.api.utils.abort_handling import make_error
-from zeeguu.api.utils.session_helpers import end_other_sessions
+from zeeguu.api.utils.session_helpers import end_other_sessions, platform_from_form
 
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session, allows_unverified
 from . import api, db_session
@@ -56,7 +56,7 @@ def add_user(email):
     # None, not 0, when the client sends none: 0 is A0.
     learned_cefr_level = request.form.get("learned_cefr_level", None)
     invite_code = request.form.get("invite_code")
-    platform = request.form.get("platform")
+    platform = platform_from_form()
 
     # Checked before the account is created: create_account commits the user
     # before it stores the level, so a bad level there would leave the account
@@ -82,7 +82,7 @@ def add_user(email):
             learned_cefr_level,
             creation_platform=platform,
         )
-        new_session = Session.create_for_user(new_user)
+        new_session = Session.create_for_user(new_user, platform)
         db_session.add(new_session)
         db_session.commit()
         return new_session.uuid
@@ -121,13 +121,13 @@ def add_basic_user(email):
     password = request.form.get("password")
     username = request.form.get("username")
     invite_code = request.form.get("invite_code")
-    platform = request.form.get("platform")
+    platform = platform_from_form()
 
     try:
         new_user = create_basic_account(
             db_session, username, password, invite_code, email, creation_platform=platform
         )
-        new_session = Session.create_for_user(new_user)
+        new_session = Session.create_for_user(new_user, platform)
         db_session.add(new_session)
         db_session.commit()
         return str(new_session.id)
@@ -156,7 +156,7 @@ def add_anon_user():
     language_code = request.form.get("learned_language_code", None)
     native_code = request.form.get("native_language_code", None)
     cefr_level = request.form.get("learned_cefr_level", None)
-    platform = request.form.get("platform", None)
+    platform = platform_from_form()
     # Stripped of surrounding spaces, which the class lookup ignores too.
     invite_code = (request.form.get("invite_code") or "").strip() or None
 

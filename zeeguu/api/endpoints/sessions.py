@@ -2,7 +2,11 @@ import flask
 from flask import request, make_response, current_app
 from zeeguu.core.model import Session, User
 from zeeguu.api.utils.abort_handling import make_error
-from zeeguu.api.utils.session_helpers import is_session_too_old, force_user_to_relog
+from zeeguu.api.utils.session_helpers import (
+    is_session_too_old,
+    force_user_to_relog,
+    platform_from_form,
+)
 
 from zeeguu.api.utils.route_wrappers import (
     cross_domain,
@@ -45,7 +49,7 @@ def get_session(email):
         return make_error(401, "Invalid credentials")
     
     log(f"LOGIN SUCCESS: email='{email}' - Creating session for user_id={user.id}")
-    session = Session.create_for_user(user)
+    session = Session.create_for_user(user, platform_from_form())
     db_session.add(session)
     db_session.commit()
     resp = make_response({"session": session.uuid})
@@ -82,7 +86,7 @@ def get_anon_session(uuid):
     user = User.authorize_anonymous(uuid, password)
     if user is None:
         flask.abort(401)
-    session = Session.create_for_user(user)
+    session = Session.create_for_user(user, platform_from_form())
     db_session.add(session)
     db_session.commit()
     return session.uuid

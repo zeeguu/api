@@ -23,10 +23,15 @@ class Session(db.Model):
     user = db.relationship(User)
     last_use = db.Column(db.DateTime)
     uuid = db.Column(db.String(36), nullable=False)
+    # Where the client logged in from (constants.PLATFORM_*). The token stays
+    # on that device or browser, so it is the platform of every request
+    # carrying it.
+    platform = db.Column(db.SmallInteger)
 
-    def __init__(self, user, _uuid: str):
+    def __init__(self, user, _uuid: str, platform: int = None):
         self.uuid = _uuid
         self.user = user
+        self.platform = platform
         self.update_use_date()
 
     def update_use_date(self):
@@ -45,7 +50,7 @@ class Session(db.Model):
             return None
 
     @classmethod
-    def create_for_user(cls, user):
+    def create_for_user(cls, user, platform: int = None):
         # The collision check used to be cls.query.get(_uuid), which is a PRIMARY
         # KEY lookup -- and the primary key here is the integer id, not the uuid.
         # It asked "is there a session whose id equals this hex string", which is
@@ -53,7 +58,7 @@ class Session(db.Model):
         _uuid = uuid.uuid4().hex
         while cls.query.filter(cls.uuid == _uuid).first() is not None:
             _uuid = uuid.uuid4().hex
-        return cls(user, _uuid)
+        return cls(user, _uuid, platform)
 
     @classmethod
     def delete_all_for_user(cls, user_id, except_uuid: str = None):
