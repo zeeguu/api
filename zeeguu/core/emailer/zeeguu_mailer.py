@@ -50,8 +50,10 @@ class ZeeguuMailer(object):
         return message.as_string()
 
     @classmethod
-    def send_feedback(cls, subject, component, message, user, url=None, origin=None):
-        where = " · ".join(x for x in [component, origin, url] if x)
+    def send_feedback(
+        cls, subject, component, message, user, page=None, origin=None, platform=None
+    ):
+        where = " · ".join(x for x in [component, origin, platform, page] if x)
         body = (
             f"{message}\n\n"
             + "—\n"

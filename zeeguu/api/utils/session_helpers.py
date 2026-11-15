@@ -1,7 +1,20 @@
 from datetime import datetime
+
+import flask
+
+from zeeguu.core.constants import PLATFORM_NAMES
 from zeeguu.core.model.db import db
 
 DAYS_BEFORE_EXPIRE = 30  # Days
+
+
+def platform_from_form():
+    """The client's constants.PLATFORM_* code, or None when it sent no valid one."""
+    try:
+        platform = int(flask.request.form.get("platform", ""))
+    except ValueError:
+        return None
+    return platform if platform in PLATFORM_NAMES else None
 
 
 def is_session_too_old(session_object):

@@ -41,17 +41,33 @@ def test_mail_shows_message_origin_and_what_happened_before(client):
         origin="Sidebar",
         feedbackComponentName="Exercises",
         currentUrl="https://www.zeeguu.org/exercises/summary",
+        platform="1",
     )
     print(sent["body"])
 
     body = sent["body"]
     assert body.startswith("love it 💗")
-    assert "Exercises · Sidebar · https://www.zeeguu.org/exercises/summary" in body
+    assert "Exercises · Sidebar · web_desktop · /exercises/summary" in body
     assert "Learning: " in body
     assert "completed exercises: UMR" in body
     assert "keep exercising ×2: UMR" in body
     assert "speak text" not in body
     assert UserFeedback.query.one().message == "Sidebar - love it 💗"
+
+
+def test_mail_shows_app_page_without_the_webview_origin(client):
+    # The apps' WebView reports a fake origin (https://localhost/...).
+    _, sent = _send_feedback(
+        client,
+        message="hi",
+        origin="Sidebar",
+        feedbackComponentName="Exercises",
+        currentUrl="https://localhost/activity-history?tab=week",
+        platform="4",
+    )
+
+    assert "Exercises · Sidebar · android_app · /activity-history?tab=week" in sent["body"]
+    assert "localhost" not in sent["body"]
 
 
 def test_feedback_is_mailed_even_when_storing_fails(client):

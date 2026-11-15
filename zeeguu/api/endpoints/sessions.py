@@ -1,8 +1,14 @@
+from urllib.parse import unquote_plus
+
 import flask
 from flask import request, make_response, current_app
 from zeeguu.core.model import Session, User
 from zeeguu.api.utils.abort_handling import make_error
-from zeeguu.api.utils.session_helpers import is_session_too_old, force_user_to_relog
+from zeeguu.api.utils.session_helpers import (
+    is_session_too_old,
+    force_user_to_relog,
+    platform_from_form,
+)
 
 from zeeguu.api.utils.route_wrappers import (
     cross_domain,
@@ -11,6 +17,20 @@ from zeeguu.api.utils.route_wrappers import (
     evict_from_session_cache,
 )
 from . import api, db_session
+
+
+def _as_old_clients_sent(password):
+    """The password as the server got it before the web encoded the form body.
+
+    Signup and login used to send `password=${password}` unencoded, so
+    everything from the first & was cut off, + became a space and %XX was
+    decoded; that is what accounts made that way have stored. Checked in the
+    same request as the real password so a wrong guess costs one failure
+    against the login rate limit, not two.
+    """
+    if password is None:
+        return None
+    return unquote_plus(password.split("&", 1)[0])
 
 
 @api.route("/session/<email>", methods=["POST"])
@@ -39,13 +59,15 @@ def get_session(email):
 
     log(f"LOGIN: email='{email}' - Email exists, attempting authorization")
     user = User.authorize(email, password)
-    
+    if user is None and _as_old_clients_sent(password) not in (None, "", password):
+        user = User.authorize(email, _as_old_clients_sent(password))
+
     if user is None:
         log(f"LOGIN FAILED: email='{email}' - User.authorize() returned None (invalid credentials)")
         return make_error(401, "Invalid credentials")
     
     log(f"LOGIN SUCCESS: email='{email}' - Creating session for user_id={user.id}")
-    session = Session.create_for_user(user)
+    session = Session.create_for_user(user, platform_from_form())
     db_session.add(session)
     db_session.commit()
     resp = make_response({"session": session.uuid})
@@ -82,7 +104,7 @@ def get_anon_session(uuid):
     user = User.authorize_anonymous(uuid, password)
     if user is None:
         flask.abort(401)
-    session = Session.create_for_user(user)
+    session = Session.create_for_user(user, platform_from_form())
     db_session.add(session)
     db_session.commit()
     return session.uuid
