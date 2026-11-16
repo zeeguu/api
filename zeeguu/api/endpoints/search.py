@@ -249,6 +249,8 @@ def search_for_search_terms(search_terms, page: int = 0):
         # instruction now, and it outranks a standing preference set earlier.
         # (The disturbing-content filter still applies -- see the callee.)
         honor_avoid_keywords=False,
+        # The card shows where in the text the term occurs.
+        with_snippets=True,
     )
     
     # Filter out hidden articles
