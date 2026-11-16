@@ -108,3 +108,18 @@ def test_a_guest_removed_from_the_class_is_not_put_back_at_upgrade(client, _mock
     assert rv.status_code == 200
     with client.application.app_context():
         assert User.find("removed@zeeguu.test").cohorts == []
+
+
+def test_guest_who_joins_a_class_with_a_goal_gets_it(client, _mock_web):
+    from zeeguu.core.model import UserPreference
+
+    cohort_id = _cohort(client, "study-class", 30)
+    with client.application.app_context():
+        Cohort.query.get(cohort_id).daily_goal_minutes = 10
+        db.session.commit()
+
+    _guest_signup(client, "guest-goal", "study-class")
+
+    with client.application.app_context():
+        guest = User.find("guest-goal" + User.ANONYMOUS_EMAIL_DOMAIN)
+        assert UserPreference.get_daily_goal_minutes(guest) == 10

@@ -653,7 +653,19 @@ class User(db.Model):
 
         new_cohort = UserCohortMap(user=self, cohort=cohort)
         session.add(new_cohort)
+        self._take_daily_goal_of_class(cohort, session)
         session.commit()
+
+    def _take_daily_goal_of_class(self, cohort, session):
+        """A class with a daily goal (a study asking for 10 minutes a day)
+        raises the learner's goal to it; it never lowers it."""
+        from zeeguu.core.model.user_preference import UserPreference
+
+        goal = cohort.daily_goal_minutes
+        if goal not in UserPreference.DAILY_GOAL_CHOICES:
+            return
+        if UserPreference.get_daily_goal_minutes(self) < goal:
+            UserPreference.set_daily_goal_minutes(session, self, goal)
 
     def join_class_of_invite_code(self, invite_code, session, include_teacher_classes=False):
         """Join the class whose invite code a guest gave; the class, or None.

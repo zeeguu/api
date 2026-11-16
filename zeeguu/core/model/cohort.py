@@ -32,6 +32,11 @@ class Cohort(db.Model):
     # numbers.
     is_study = Column(Boolean, nullable=False, default=False)
 
+    # When set, a learner who joins the class gets this daily goal (ADR 046),
+    # e.g. the 10 minutes a study asks for. It never lowers a goal the learner
+    # already has. NULL leaves the learner's goal alone.
+    daily_goal_minutes = Column(Integer, nullable=True)
+
     users = relationship("UserCohortMap", back_populates="cohort")
 
     def __init__(

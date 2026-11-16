@@ -89,3 +89,58 @@ def test_a_member_of_a_full_class_can_rejoin_it(client, _mock_web):
 
     assert _join(student, "full-once-in").status_code == 200
     assert _join(student, "full-once-in").status_code == 200
+
+
+def _goal(student):
+    return student.get("/user_preferences")["daily_goal_minutes"]
+
+
+def _cohort_with_goal(code, minutes):
+    cohort_id = _cohort(code, 30)
+    cohort = Cohort.query.get(cohort_id)
+    cohort.daily_goal_minutes = minutes
+    db.session.commit()
+    return cohort_id
+
+
+def test_a_class_with_a_daily_goal_sets_it_for_who_joins(client, _mock_web):
+    student = LoggedInClient(client, email="student@zeeguu.test")
+    _cohort_with_goal("study-class", 10)
+    assert _goal(student) == "5"
+
+    assert _join(student, "study-class").status_code == 200
+
+    assert _goal(student) == "10"
+
+
+def test_a_class_goal_never_lowers_the_learners_goal(client, _mock_web):
+    student = LoggedInClient(client, email="student@zeeguu.test")
+    student.post("/save_user_preferences", data={"daily_goal_minutes": "15"})
+    _cohort_with_goal("study-class", 10)
+
+    _join(student, "study-class")
+
+    assert _goal(student) == "15"
+
+
+def test_a_class_without_a_goal_leaves_the_learners_goal(client, _mock_web):
+    student = LoggedInClient(client, email="student@zeeguu.test")
+    _cohort("plain-class", 30)
+
+    _join(student, "plain-class")
+
+    assert _goal(student) == "5"
+
+
+def test_signing_up_with_the_code_of_a_class_with_a_goal(client, _mock_web):
+    from zeeguu.core.model import UserPreference
+
+    with client.application.app_context():
+        _cohort_with_goal("study-signup", 10)
+    data = dict(password="test", username="newbie", learned_language="de", invite_code="study-signup")
+    assert client.post("/add_user/newbie@zeeguu.test", data=data).status_code == 200
+
+    with client.application.app_context():
+        newbie = User.find("newbie@zeeguu.test")
+        assert newbie.is_member_of_cohort(Cohort.find_by_code("study-signup").id)
+        assert UserPreference.get_daily_goal_minutes(newbie) == 10
