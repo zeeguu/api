@@ -16,7 +16,7 @@ from zeeguu.core.util.url import remove_tracking_query_params
 
 # Signed image URLs (Guardian, BRUZZ) run to 300+ characters; at 255 their
 # articles were saved without an image. 700 keeps the (path, domain_name_id)
-# unique key under InnoDB's 3072-byte limit even in utf8mb4.
+# unique key under InnoDB's 3072-byte limit (the column is utf8 in prod).
 MAX_PATH_LENGTH = 700
 
 
