@@ -368,12 +368,15 @@ def article_and_video_search_for_user(
 
     content_objects = _content_from_ES_hits(hit_list)
 
-    # Same order as the hits, None where a row is gone (see _content_from_ES_hits).
     if with_snippets:
-        for hit, content in zip(hit_list, content_objects):
-            snippets = hit.get("highlight", {}).get("content")
-            if snippets and type(content) is Article:
-                content._search_snippet = snippets[0]
+        snippet_by_article_id = {
+            hit["_source"]["article_id"]: hit["highlight"]["content"][0]
+            for hit in hit_list
+            if "article_id" in hit["_source"] and hit.get("highlight", {}).get("content")
+        }
+        for content in content_objects:
+            if type(content) is Article and content.id in snippet_by_article_id:
+                content._search_snippet = snippet_by_article_id[content.id]
 
     final_mix = [
         each for each in content_objects if each is not None and not each.broken
