@@ -32,6 +32,23 @@ class UrlTest(ModelTestMixIn, TestCase):
         url = "https://www.bt.dk/krimi/x?gaa_sig=AAAA&page=2"
         self.assertEqual(Url.get_path(url), "/krimi/x?page=2")
 
+    def test_find_or_create_keeps_long_signed_image_url(self):
+        # A real Guardian lead image: its path is 336 chars and the s=
+        # signature is required (401 without it). At 255 it was dropped.
+        _url = (
+            "https://i.guim.co.uk/img/media/c469d7289945936c8cab9b52372ccb1661c66e4d"
+            "/1255_425_2883_2308/master/2883.jpg?width=1200&height=630&quality=85"
+            "&auto=format&fit=crop&precrop=40:21,offset-x50,offset-y0"
+            "&overlay-align=bottom%2Cleft&overlay-width=100p"
+            "&overlay-base64=L2ltZy9zdGF0aWMvb3ZlcmxheXMvdGctb3BpbmlvbnMucG5n"
+            "&enable=upscale&s=b65ef0f0204df26631566663d2a788e4"
+        )
+
+        url = Url.find_or_create(db_session, _url)
+
+        self.assertIsNotNone(url)
+        self.assertEqual(url.as_string(), _url)
+
     def test_find_or_create_works(self):
 
         _url = self.url_rule.url.as_string()
