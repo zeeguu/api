@@ -268,11 +268,14 @@ def skipped_before_by_simhash(content, feed):
     return None
 
 
+# Some sites block the default python-requests User-Agent: atlasmag.dk pages,
+# videnskab.dk images (403, so every videnskab.dk article lost its image).
+CRAWLER_HEADERS = {"User-Agent": "Mozilla/5.0 (compatible; ZeeguuBot/1.0)"}
+
+
 def _url_after_redirects(url):
     # solve redirects and save the clean url
-    # Some sites block requests without User-Agent (e.g. atlasmag.dk)
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; ZeeguuBot/1.0)"}
-    response = requests.get(url, headers=headers, timeout=10)
+    response = requests.get(url, headers=CRAWLER_HEADERS, timeout=10)
     return response.url
 
 
@@ -315,7 +318,7 @@ def extract_article_image(np_article):
             # connection but never sends the body wedged the whole crawler for
             # 3 days (June 2026) — the per-article SIGALRM watchdog now caps it
             # regardless, but bound the call itself too.
-            response = requests.get(np_article.top_image, timeout=10)
+            response = requests.get(np_article.top_image, headers=CRAWLER_HEADERS, timeout=10)
             im = Image.open(BytesIO(response.content))
             im_x, im_y = im.size
             # Quality Check that the image is at least 300x300 ( not an icon )
