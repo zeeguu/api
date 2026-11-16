@@ -14,11 +14,17 @@ from zeeguu.core.model.race_safe import find_or_create
 from zeeguu.core.util.url import remove_tracking_query_params
 
 
+# Signed image URLs (Guardian, BRUZZ) run to 300+ characters; at 255 their
+# articles were saved without an image. 700 keeps the (path, domain_name_id)
+# unique key under InnoDB's 3072-byte limit (the column is utf8 in prod).
+MAX_PATH_LENGTH = 700
+
+
 class Url(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(2083))
 
-    path = db.Column(db.String(255))
+    path = db.Column(db.String(MAX_PATH_LENGTH))
 
     domain_name_id = db.Column(db.Integer, db.ForeignKey(DomainName.id))
     domain = db.relationship(DomainName)
@@ -79,7 +85,7 @@ class Url(db.Model):
     def get_path(cls, url: str):
         # Strip tracking cruft (gaa_*, utm_*, ...) before extracting the path,
         # so the stored path stays canonical and short. Some publishers append
-        # long signed access tokens that otherwise overflow the 255-char column.
+        # long signed access tokens that otherwise overflow the path column.
         url = remove_tracking_query_params(url)
 
         protocol_re = "(.*://)?"
@@ -94,8 +100,8 @@ class Url(db.Model):
 
         domain = DomainName.find_or_create(session, _url)
         path = Url.get_path(_url)
-        if len(path) > 255:
-            print(f"Path was too long. Was: {len(path)}, max: 255.")
+        if len(path) > MAX_PATH_LENGTH:
+            print(f"Path was too long. Was: {len(path)}, max: {MAX_PATH_LENGTH}.")
             return None
 
         # Two requests saving the same url (e.g. two articles that share an

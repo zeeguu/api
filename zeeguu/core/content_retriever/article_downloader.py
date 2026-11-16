@@ -32,6 +32,7 @@ from zeeguu.core.model import Url, Feed, UrlKeyword, Topic, SkippedUrl
 from zeeguu.core.model.article_topic_map import TopicOriginType
 from zeeguu.core.model.source_type import SourceType
 from zeeguu.core.model.source import Source
+from zeeguu.core.model.url import MAX_PATH_LENGTH
 
 import requests
 
@@ -640,7 +641,7 @@ def download_feed_item(session, feed, feed_item, url, crawl_report, simplificati
 
     # Skip URLs with paths too long for the database
     url_path = Url.get_path(url)
-    if len(url_path) > 255:
+    if len(url_path) > MAX_PATH_LENGTH:
         log(f"   Skipping: URL path too long ({len(url_path)} chars)")
         raise SkippedForLongUrl()
 
