@@ -28,6 +28,7 @@ USAGE (inside the api container). Without --apply nothing is written.
 """
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from itertools import batched
 
 # The app must exist before the model imports below can talk to the database.
 from zeeguu.api.app import create_app_for_scripts
@@ -181,12 +182,6 @@ def is_rejection(error):
 # ---------------------------------------------------------------------------
 
 
-def split_into_chunks(items, size):
-    """[1,2,3,4,5], 2  ->  [1,2], [3,4], [5]"""
-    for start in range(0, len(items), size):
-        yield items[start : start + size]
-
-
 def print_dry_run(ids):
     print("\n[dry run] nothing written. Newest candidates:")
     newest = Article.query.filter(Article.id.in_(ids[:15])).order_by(Article.id.desc())
@@ -213,7 +208,7 @@ def run_backfill(ids, workers, provider):
     chunk_size = workers * 4
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        for chunk_ids in split_into_chunks(ids, chunk_size):
+        for chunk_ids in batched(ids, chunk_size):  # tuples of up to chunk_size ids
             articles, too_short = load_articles_for_llm(chunk_ids)
             counts["short"] += too_short
 
