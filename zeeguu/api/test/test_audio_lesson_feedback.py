@@ -1,13 +1,14 @@
 """
 Feedback after a daily audio lesson: /audio_lesson_feedback.
 
-Pace, repetition and length are recorded per lesson and tune the next A0
-lessons; a situation moves the daily lessons on (or back, with "stay").
+Pace, repetition and length are recorded per lesson and tune the next dialogue
+lessons of the same kind (A0, or the other levels); a situation moves the
+daily lessons on (or back, with "stay").
 """
 
 from zeeguu.api.test.fixtures import logged_in_client, LoggedInClient
 from zeeguu.core.audio_lessons.lesson_tuning import LessonTuning, tuning_for
-from zeeguu.core.model import User
+from zeeguu.core.model import Language, User
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
 from zeeguu.core.model.audio_lesson_feedback import AudioLessonFeedback
 from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
@@ -144,10 +145,35 @@ def test_a_situation_answer_on_yesterdays_lesson_counts_while_nothing_moved(logg
     assert DailyAudioSubscription.query.get(sub_id).raw_suggestion == "at the bakery"
 
 
-def test_only_a0_lessons_take_feedback(logged_in_client):
+def test_dialogue_lessons_above_a0_take_feedback_too(logged_in_client):
     lesson = _lesson_for(logged_in_client.email, a0=False)
 
-    assert _say(logged_in_client, lesson, "length", "shorter").status_code == 400
+    assert _say(logged_in_client, lesson, "length", "shorter").status_code == 200
+    user = User.find(logged_in_client.email)
+    assert tuning_for(user, user.learned_language, builds_on_history=False) == LessonTuning(length=1)
+
+
+def test_a0_and_other_lessons_are_tuned_apart(logged_in_client):
+    """A0 lessons are built on drilling: "less repetition" there says nothing
+    about an A1 lesson, nor the other way round."""
+    a0 = _lesson_for(logged_in_client.email)
+    a1 = _lesson_for(logged_in_client.email, a0=False)
+    _say(logged_in_client, a0, "repetition", "less")
+    _say(logged_in_client, a1, "pace", "slower")
+
+    user = User.find(logged_in_client.email)
+    assert tuning_for(user, user.learned_language) == LessonTuning(repetition=1)
+    assert tuning_for(user, user.learned_language, builds_on_history=False) == LessonTuning(pace=-1)
+
+
+def test_word_lessons_take_no_feedback(logged_in_client):
+    user = User.find(logged_in_client.email)
+    lesson = DailyAudioLesson(user=user, created_by="test", duration_seconds=300)
+    db.session.add(lesson)
+    db.session.commit()
+
+    assert _say(logged_in_client, lesson.id, "length", "shorter").status_code == 400
+    assert AudioLessonFeedback.query.count() == 0
 
 
 def test_lessons_per_situation(logged_in_client):
@@ -160,3 +186,64 @@ def test_lessons_per_situation(logged_in_client):
     assert sorted((r["raw_suggestion"], r["lessons"]) for r in response.json) == [
         ("at the bakery", 1), ("grocery shopping", 2),
     ]
+
+
+def _generator_writing(monkeypatch, written):
+    """A DailyLessonGenerator whose script and audio calls are stubbed: each
+    script written is recorded in `written` with the tuning it was asked for."""
+    from types import SimpleNamespace
+
+    from zeeguu.core.audio_lessons import daily_lesson_generator as module
+    from zeeguu.core.audio_lessons.script_generator import GeneratedScript
+
+    def write(**kwargs):
+        written.append(kwargs["tuning"])
+        return "A title", GeneratedScript("Man: Hej. [1 seconds]", "test-model", "v3")
+
+    monkeypatch.setattr(module, "generate_dialogue_script", write)
+    generator = module.DailyLessonGenerator()
+    generator._voice_synthesizer = SimpleNamespace(
+        generate_dialogue_audio=lambda **_: "/dev/null", get_audio_duration=lambda _: 60
+    )
+    return generator
+
+
+def _dialogue_for(generator, user):
+    return generator.generate_audio_lesson_dialogue(
+        user, user.learned_language.code, "en", "B1", "at a café", "situation",
+        is_general=True, voice_variety=None,
+    )
+
+
+def test_an_untuned_learner_above_a0_gets_a_shared_dialogue(logged_in_client, monkeypatch):
+    user = User.find(logged_in_client.email)
+    shared = AudioLessonDialogue(
+        script="Man: Hej.", canonical_suggestion="at a café", lesson_type="situation",
+        language=user.learned_language, teacher_language=Language.find_or_create("en"),
+        difficulty_level="B1", is_general=True,
+    )
+    db.session.add(shared)
+    db.session.commit()
+    written = []
+
+    assert _dialogue_for(_generator_writing(monkeypatch, written), user) == shared
+    assert written == []
+
+
+def test_a_tuned_learner_above_a0_gets_a_dialogue_of_their_own(logged_in_client, monkeypatch):
+    _say(logged_in_client, _lesson_for(logged_in_client.email, a0=False), "pace", "slower")
+    user = User.find(logged_in_client.email)
+    shared = AudioLessonDialogue(
+        script="Man: Hej.", canonical_suggestion="at a café", lesson_type="situation",
+        language=user.learned_language, teacher_language=Language.find_or_create("en"),
+        difficulty_level="B1", is_general=True,
+    )
+    db.session.add(shared)
+    db.session.commit()
+    written = []
+
+    dialogue = _dialogue_for(_generator_writing(monkeypatch, written), user)
+
+    assert dialogue != shared and written == [LessonTuning(pace=-1)]
+    assert dialogue.is_general is False
+    assert dialogue.tuning == {"pace": -1, "repetition": 0, "length": 0}

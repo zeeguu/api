@@ -404,12 +404,13 @@ def generate_dialogue_script(
     """
     Generate a single flowing dialogue script about a topic or situation.
 
+    tuning: the learner's LessonTuning (lesson_tuning.py), at any level; None
+    is the lesson as it was before tuning.
+
     At a level that builds_on_history:
     heard: the lessons the learner heard before (words_heard.heard_lessons);
     [] or None when they have heard nothing yet.
     learner_character: "man" or "woman", the character the learner plays.
-    tuning: the learner's LessonTuning (lesson_tuning.py); None is the lesson
-    as it was before tuning.
     Such a lesson is written in two calls, see _dialogue_for_beginner.
 
     Returns:
@@ -449,12 +450,17 @@ def generate_dialogue_script(
             normal_speed_example=_normal_speed_example(learner_role, values),
         )
     else:
+        from zeeguu.core.audio_lessons.lesson_tuning import LessonTuning, dialogue_prompt_values
+
         dialogue = None
         if lesson_type == "situation":
-            prompt_file = "dialogue_lesson--situation-v2.txt"
+            prompt_file = DIALOGUE_SITUATION_PROMPT
         else:
-            prompt_file = "dialogue_lesson--topic-v2.txt"
-        prompt = get_prompt_template(prompt_file).format(**common)
+            prompt_file = DIALOGUE_TOPIC_PROMPT
+        values = dialogue_prompt_values(tuning or LessonTuning())
+        # The review section names the teacher's language too.
+        values["review_section"] = values["review_section"].format(**common)
+        prompt = get_prompt_template(prompt_file).format(**common, **values)
 
     if past_titles:
         titles_list = "\n".join([f"- {t}" for t in past_titles])
@@ -490,6 +496,8 @@ def generate_dialogue_script(
         raise Exception(f"Failed to generate dialogue script: {str(e)}")
 
 
+DIALOGUE_SITUATION_PROMPT = "dialogue_lesson--situation-v3.txt"
+DIALOGUE_TOPIC_PROMPT = "dialogue_lesson--topic-v3.txt"
 A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v2.txt"
 A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
 

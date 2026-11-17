@@ -1,5 +1,5 @@
 """
-Tuning a learner's next A0 lessons from what they said about the earlier ones.
+Tuning a learner's next dialogue lessons from what they said about the earlier ones.
 
 After a lesson the learner can say, for each of three aspects, that it should
 go one way, the other way, or stay as it was (AudioLessonFeedback). Each aspect
@@ -9,8 +9,12 @@ moves the level one step, and the level stays within -2..+2 at every step: so
 after "faster" three times, one "slower" already slows the next lesson down.
 "Just right" leaves the level where it is.
 
-The levels fill in the numbers of the A0 lesson prompt (prompt_values). Only
-A0 lessons are tuned: the other levels' prompts have no such numbers.
+The levels fill in the numbers of the lesson prompt: the A0 prompt
+(prompt_values) and, from A1 up, the topic and situation prompts
+(dialogue_prompt_values). The two kinds of lesson are tuned apart: an A0
+lesson is built on drilling, so "less repetition" there says nothing about an
+A1 lesson. Word lessons (auto mode) are not tuned: each is one word's lesson,
+shared by every learner of that word.
 """
 
 from dataclasses import asdict, dataclass
@@ -48,8 +52,14 @@ def tuning_from(rows) -> LessonTuning:
     return LessonTuning(**levels)
 
 
-def tuning_for(user, language) -> LessonTuning:
-    return tuning_from(AudioLessonFeedback.history(user, language.id))
+def tuning_for(user, language, builds_on_history=True) -> LessonTuning:
+    """From the learner's answers on the lessons of the same kind: A0 lessons
+    (builds_on_history) or the dialogue lessons of the other levels."""
+    return tuning_from(AudioLessonFeedback.history(user, language.id, builds_on_history))
+
+
+def is_untuned(tuning) -> bool:
+    return tuning is None or tuning == LessonTuning()
 
 
 def as_dict(tuning: LessonTuning) -> dict:
@@ -96,6 +106,58 @@ def prompt_values(tuning: LessonTuning) -> dict:
         earlier_words_recalls=_EARLIER_WORDS_RECALLS[r],
         max_lines=max_lines,
         max_minutes=round(max_lines * _SECONDS_PER_LINE / 60),
+    )
+
+
+# The topic and situation prompts, from A1 up. Level 0 is the prompt as it was
+# (v2), so a learner who never answered gets the same lesson, and the dialogue
+# can still be shared with other learners.
+# pace: as at A0, the pause for the learner to answer a challenge, and between
+# repetitions of the answer.
+# repetition (+ is less): how many times the answer is said after a challenge;
+# how many earlier challenges are asked again at the end; and, at the far end,
+# no phrase asked for twice.
+_ANSWER_TIMES = (3, 2, 2, 1, 1)
+_REVIEW_CHALLENGES = (6, 4, 0, 0, 0)
+_NO_PHRASE_TWICE = (False, False, False, False, True)
+# length (+ is shorter): the dialogue's lines, the challenges on it, and the
+# challenges beyond it.
+_DIALOGUE_LINES = ("about 24", "about 20", "at least 14", "about 11", "about 8")
+_CHALLENGES = ("about 14", "about 11", "at least 8", "about 6", "about 4")
+_EXTRA_CHALLENGES = (6, 5, 4, 3, 2)
+
+
+def _answer_lines(times, repeat_pause):
+    lines = [f"    Man: <target language phrase> [{repeat_pause} seconds]"]
+    lines += [f"    Man: <repeat same phrase> [{repeat_pause} seconds]"] * (times - 1)
+    return "\n".join(lines) + "\n"
+
+
+def dialogue_prompt_values(tuning: LessonTuning) -> dict:
+    """The numbers of dialogue_lesson--{situation,topic}-v3.txt."""
+    p, r, n = tuning.pace + 2, tuning.repetition + 2, tuning.length + 2
+    times, review = _ANSWER_TIMES[r], _REVIEW_CHALLENGES[r]
+    repeat_rule = ""
+    if times == 1:
+        repeat_rule += " The phrase is said once after each challenge, not repeated."
+    if _NO_PHRASE_TWICE[r]:
+        repeat_rule += " Never ask for the same phrase twice: every challenge practises something new."
+    review_section = ""
+    if review:
+        review_section = (
+            "\n    Finally, add a short introduction IN {source_language} (similar to \"Let's go\n"
+            f"    over some of these again\" but in {{source_language}}), and ask {review} of the\n"
+            "    earlier challenges again, in a different order, answered as before.\n"
+        )
+    return dict(
+        answer_pause=_ANSWER_PAUSE[p],
+        repeat_pause=_REPEAT_PAUSE[p],
+        answer_lines=_answer_lines(times, _REPEAT_PAUSE[p]),
+        repeat_rule=repeat_rule,
+        review_section=review_section,
+        dialogue_lines=_DIALOGUE_LINES[n],
+        challenges=_CHALLENGES[n],
+        extra_challenges=_EXTRA_CHALLENGES[n],
     )
 
 

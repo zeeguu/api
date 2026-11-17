@@ -15,6 +15,7 @@ class AudioLessonFeedback(db.Model):
     again on the same lesson changes the row's value, so the row is the
     learner's last word on that lesson.
 
+    Only dialogue lessons (topic or situation, at any level) take feedback.
     The next lessons are tuned from these rows (audio_lessons/lesson_tuning.py),
     and the study reads them to see, lesson by lesson, what each learner asked for.
     """
@@ -69,11 +70,32 @@ class AudioLessonFeedback(db.Model):
         return {row.aspect: row.value for row in rows}
 
     @classmethod
-    def history(cls, user, language_id):
-        """The learner's rows for lessons in this language, oldest lesson first."""
+    def history(cls, user, language_id, builds_on_history=True):
+        """The learner's rows for lessons in this language, oldest lesson first:
+        on A0 lessons (builds_on_history), or on the dialogue lessons of the
+        other levels."""
+        from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
+        from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
+
+        of_this_kind = (
+            db.session.query(DailyAudioLessonSegment.id)
+            .join(
+                AudioLessonDialogue,
+                AudioLessonDialogue.id == DailyAudioLessonSegment.audio_lesson_dialogue_id,
+            )
+            .filter(
+                DailyAudioLessonSegment.daily_audio_lesson_id == DailyAudioLesson.id,
+                AudioLessonDialogue.builds_on_history.is_(bool(builds_on_history)),
+            )
+            .exists()
+        )
         return (
             cls.query.join(DailyAudioLesson, DailyAudioLesson.id == cls.daily_audio_lesson_id)
-            .filter(cls.user_id == user.id, DailyAudioLesson.language_id == language_id)
+            .filter(
+                cls.user_id == user.id,
+                DailyAudioLesson.language_id == language_id,
+                of_this_kind,
+            )
             .order_by(DailyAudioLesson.id, cls.id)
             .all()
         )

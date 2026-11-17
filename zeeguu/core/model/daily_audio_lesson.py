@@ -192,6 +192,13 @@ class DailyAudioLesson(db.Model):
         )
 
     @property
+    def takes_feedback(self):
+        """A dialogue lesson, at any level: the learner can say what they thought
+        of its pace, repetition and length (AudioLessonFeedback). Word lessons
+        do not: each is one word's lesson, shared by every learner of it."""
+        return any(s.audio_lesson_dialogue is not None for s in self.segments)
+
+    @property
     def is_completed(self):
         """Check if lesson has been completed (sticky once true)."""
         return self.last_completed_at is not None

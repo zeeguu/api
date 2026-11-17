@@ -1,0 +1,75 @@
+Create a language learning audio script with a single flowing conversation set in this situation: "{suggestion}".
+Choose roles appropriate to the scenario. If the situation names a specific person — real, historical, fictional, or religious (e.g. "discussion with Einstein about gravity", "imaginary chat with St. Augustine", "imaginary discussion with Jesus about social media") — cast that person as one speaker and a curious modern conversation partner as the other; treat the dialogue as imaginary, framed as if such a meeting could happen. Otherwise, choose realistic roles that fit the scenario naturally (e.g. a customer and waiter at a restaurant, a patient and doctor at a clinic, neighbors meeting on the stairway).
+Note that the lesson is for somebody who is CEFR level {cefr_level} so ensure that sentences are of the appropriate difficulty.
+
+CRITICAL: The Teacher MUST speak {source_language} throughout the entire script. All teacher instructions, introductions, and challenges must be written in {source_language}. The Man and Woman speak {target_language}.
+
+IMPORTANT: On the very first line, output a short descriptive title for this specific dialogue IN {source_language} (5-10 words, describing what happens in the conversation — not just the situation). Then a blank line, then the script. Do not include any other explanations or preamble.
+
+Use this exact format:
+
+    <title in {source_language}, 5-10 words, describing what happens — not just the situation>
+
+    Teacher: [Introduction IN {source_language} setting the scene for the situation "{suggestion}".
+    Explain who the characters are and what is happening.] [0.5 seconds]
+
+    [1 seconds]
+
+    Create a single flowing dialogue of {dialogue_lines} lines between Man and Woman that feels
+    like a real conversation in the given situation.
+    EVERY "Man:" and "Woman:" line in this dialogue MUST be written in {target_language}.
+    This dialogue is the part the learner listens to in order to hear {target_language};
+    a dialogue written in {source_language} is worthless to them and counts as a failed
+    script. Do not translate the lines and do not gloss them.
+    In between lines add one second break annotations with: [1 seconds]
+
+
+
+    Next, add the teacher's voice with an introduction IN {source_language} inviting the listener
+    to practice speaking (similar to "Let's practice some key phrases from the conversation"
+    but in {source_language}).
+
+    Go through the dialogue and for each interesting phrase, have the teacher add
+    a challenge for the listener IN {source_language}. The challenge asks the listener to
+    produce a target-language phrase, and MUST make explicit (a) WHO is the subject of the
+    sentence the listener will speak, and (b) WHO they are addressing, when there is an
+    addressee. Rotate between patterns such as:
+
+      Listener speaks ABOUT themselves (first-person sentence):
+        - "How would you tell someone you're [doing X]?"
+        - "Tell your friend that you [verb]."
+        - "Say that you [verb]."
+
+      Listener speaks TO another person (question or request):
+        - "Ask your friend to open the window."
+        - "Ask the waiter for the bill."
+        - "Ask whether the shop is open."
+
+    The listener must never have to guess whether "you" in the challenge refers to themselves
+    or to someone else.
+
+    Teacher: [Challenge in {source_language}, following the patterns above] [{answer_pause} seconds]
+{answer_lines}
+    Include {challenges} challenges.{repeat_rule}
+
+
+
+    Add a short introduction IN {source_language} (similar to "Let's continue practicing
+    in this scenario" but in {source_language}).
+
+    Add {extra_challenges} more challenges from the teacher IN {source_language}, still set in the
+    {suggestion} scenario. These should use different exchanges than the dialogue,
+    but remain within the same situation.
+{review_section}
+
+RULES:
+- Use only "Teacher:", "TeacherL2:", "Man:", "Woman:" labels
+- TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
+- Include [X seconds] timing for pauses
+- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
+- Man and Woman must be adults. Never create child characters — dialogues are voiced by TTS and we only have adult voices available, so even fictional or imagined children cannot speak.
+- Every dialogue is between exactly one man ("Man:") and one woman ("Woman:") — we have only one male and one female TTS voice available for dialogue speakers. Names and gender-marked titles MUST reflect this pairing: the "Man:" character takes a male name/title (e.g. Herr Schmidt, Mr Jones, Señor García, Monsieur Dupont), the "Woman:" character takes a female name/title (e.g. Frau Jensen, Mrs Smith, Señora García, Madame Dupont). Keep each name attached to the same speaker label throughout.
+- Do NOT include greetings like "welcome to today's lesson" — this script is one segment of a larger lesson.
+- For student response pauses, use [{answer_pause} seconds] after teacher questions
+- For repetitions, use [{repeat_pause} seconds] between repeats
+- No explanatory text or translations in the script

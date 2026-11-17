@@ -398,7 +398,9 @@ class DailyLessonGenerator:
         heard = None
         learner_character = None
         past_titles = None
-        tuning = None
+        # What the learner said about their earlier lessons of this kind: pace,
+        # repetition, length (lesson_tuning.py).
+        tuning = tuning_for(user, learned_lang, builds_on_history)
 
         if builds_on_history:
             heard = heard_lessons(user, learned_lang)
@@ -407,15 +409,20 @@ class DailyLessonGenerator:
             learner_character = UserPreference.get_audio_lesson_character(user) or (
                 "man" if history_lesson_count(user, learned_lang) % 2 == 0 else "woman"
             )
-            # What the learner said about their earlier lessons: pace,
-            # repetition, length (lesson_tuning.py).
-            tuning = tuning_for(user, learned_lang)
+            is_general = False
+        elif not lesson_tuning.is_untuned(tuning):
+            # Written to this learner's pace, repetition and length, so for no
+            # one else: it is not general, and nothing general (all untuned)
+            # is reused for them.
             is_general = False
         else:
+            tuning = None
+
+        if not builds_on_history:
             # Try to find an existing dialogue the user hasn't heard yet.
             # Only general dialogues are reused across users; niche dialogues are
             # too specific to be safely served to anyone but the original requester.
-            existing = AudioLessonDialogue.find_unheard(
+            existing = tuning is None and AudioLessonDialogue.find_unheard(
                 canonical_suggestion=canonical_suggestion,
                 lesson_type=lesson_type,
                 language=learned_lang,
@@ -816,20 +823,30 @@ class DailyLessonGenerator:
             "language_code": lesson.language.code if lesson.language else None,
             "title": lesson.display_title(),
             "cefr_level": lesson.cefr_level(),
-            # What the learner said about this lesson (AudioLessonFeedback),
-            # and for A0 the situations they could move on to.
+            # Whether the learner can say what they thought of this lesson,
+            # what they said (AudioLessonFeedback), and for A0 the situations
+            # they could move on to.
             **self._feedback_fields(lesson),
         }
 
     def _feedback_fields(self, lesson):
-        """Only A0 lessons take feedback: other lessons are spared the queries
-        on every poll of today's lesson."""
-        if not lesson.builds_on_history:
-            return {"feedback": {}, "next_situations": [], "situation_lesson_count": None}
+        """Only dialogue lessons take feedback: word lessons are spared the
+        queries on every poll of today's lesson. Only A0 lessons suggest
+        situations to move on to."""
+        if not lesson.takes_feedback:
+            return {
+                "takes_feedback": False,
+                "feedback": {},
+                "next_situations": [],
+                "situation_lesson_count": None,
+            }
         return {
+            "takes_feedback": True,
             "feedback": AudioLessonFeedback.for_lesson(lesson),
             "next_situations": lesson.next_situations or [],
-            "situation_lesson_count": self._situation_lesson_count(lesson),
+            "situation_lesson_count": (
+                self._situation_lesson_count(lesson) if lesson.next_situations else None
+            ),
         }
 
     @staticmethod
@@ -1251,8 +1268,8 @@ class DailyLessonGenerator:
         """
         Record what the learner said about a lesson (AudioLessonFeedback).
 
-        Pace, repetition and length tune their next A0 lessons
-        (lesson_tuning.py). A situation moves the daily lessons: one of the
+        Pace, repetition and length tune their next dialogue lessons of the
+        same kind, A0 or not (lesson_tuning.py). A situation moves the daily lessons: one of the
         lesson's next_situations becomes the subscription's subject, and "stay"
         puts back this lesson's own, undoing an earlier choice.
         """
@@ -1263,10 +1280,10 @@ class DailyLessonGenerator:
             return {"error": "Lesson not found", "status_code": 404}
         if not lesson_tuning.is_valid(aspect, value, lesson):
             return {"error": f"Invalid feedback: {aspect}={value}", "status_code": 400}
-        # Only A0 lessons are tuned: recorded on another lesson, an answer would
-        # still move the learner's next A0 lessons (tuning_for reads them all).
-        if not lesson.builds_on_history:
-            return {"error": "Only A0 lessons take feedback", "status_code": 400}
+        # Word lessons are not tuned: an answer recorded there would tune
+        # nothing, yet read as if it had.
+        if not lesson.takes_feedback:
+            return {"error": "Only dialogue lessons take feedback", "status_code": 400}
 
         def record():
             AudioLessonFeedback.set(user, lesson, aspect, value)

@@ -1,5 +1,5 @@
 """
-Tuning a learner's next A0 lessons from their feedback (lesson_tuning.py),
+Tuning a learner's next dialogue lessons from their feedback (lesson_tuning.py),
 and the situations suggested for moving on (next_situations.py).
 """
 
@@ -9,6 +9,7 @@ import pytest
 
 from zeeguu.core.audio_lessons.lesson_tuning import (
     LessonTuning,
+    dialogue_prompt_values,
     is_valid,
     prompt_values,
     tuning_from,
@@ -121,3 +122,55 @@ def test_length_and_repetition_are_separate():
     is how the lines inside it are spent."""
     values = prompt_values(LessonTuning(repetition=2, length=-2))
     assert values["max_lines"] == 250 and values["recalls_to_say"] == 2
+
+
+def _dialogue_prompt(kind, version, tuning=None):
+    common = dict(
+        target_language="Danish", source_language="English", cefr_level="B1",
+        suggestion="at a café",
+    )
+    template = get_prompt_template(f"dialogue_lesson--{kind}-{version}.txt")
+    if tuning is None:
+        return template.format(**common)
+    values = dialogue_prompt_values(tuning)
+    values["review_section"] = values["review_section"].format(**common)
+    return template.format(**common, **values)
+
+
+@pytest.mark.parametrize("kind", ["situation", "topic"])
+def test_untuned_v3_dialogue_prompt_is_exactly_v2(kind):
+    """Above A0 too, a learner who never tapped anything gets the lesson they
+    had before, and such a dialogue can still be shared."""
+    assert _dialogue_prompt(kind, "v3", LessonTuning()) == _dialogue_prompt(kind, "v2")
+
+
+def test_faster_less_repetitive_shorter_dialogue_prompt():
+    prompt = _dialogue_prompt("situation", "v3", LessonTuning(pace=2, repetition=2, length=2))
+    assert "[3 seconds] after teacher questions" in prompt
+    assert "use [2 seconds] between repeats" in prompt
+    assert "<repeat same phrase>" not in prompt
+    assert "said once after each challenge" in prompt
+    assert "Never ask for the same phrase twice" in prompt
+    assert "dialogue of about 8 lines" in prompt
+    assert "Include about 4 challenges" in prompt
+    assert "Add 2 more challenges" in prompt
+    assert "over some of these again" not in prompt
+
+
+def test_slower_more_repetitive_longer_dialogue_prompt():
+    prompt = _dialogue_prompt("topic", "v3", LessonTuning(pace=-2, repetition=-2, length=-2))
+    assert "[7 seconds] after teacher questions" in prompt
+    assert prompt.count("Man: <repeat same phrase> [4 seconds]") == 2
+    assert "ask 6 of the" in prompt and "but in English" in prompt
+    assert "dialogue of about 24 lines" in prompt
+    assert "Add 6 more challenges" in prompt
+    assert "{" not in prompt
+
+
+@pytest.mark.parametrize("aspect", ["pace", "repetition", "length"])
+def test_every_dialogue_level_is_a_different_prompt(aspect):
+    prompts = {
+        _dialogue_prompt("situation", "v3", LessonTuning(**{aspect: level}))
+        for level in (-2, -1, 0, 1, 2)
+    }
+    assert len(prompts) == 5

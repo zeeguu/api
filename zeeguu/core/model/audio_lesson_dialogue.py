@@ -67,10 +67,12 @@ class AudioLessonDialogue(db.Model):
     # daily lesson segments that already reference it keep playing as before.
     deprecated_at = Column(DateTime, nullable=True)
 
-    # A0 dialogues: the learner's tuning levels the lesson was written with
-    # ({"pace", "repetition", "length"}, each -2..+2; lesson_tuning.py). The
-    # feedback rows they come from can still change afterwards, so the study
-    # reads what a lesson was made with here. NULL for other dialogues.
+    # The learner's tuning levels the lesson was written with ({"pace",
+    # "repetition", "length"}, each -2..+2; lesson_tuning.py). The feedback
+    # rows they come from can still change afterwards, so the study reads what
+    # a lesson was made with here. Always set on A0 dialogues; on the others
+    # only when tuned (such a dialogue is written for one learner and never
+    # shared), NULL meaning the prompt as it was.
     tuning = Column(JSON, nullable=True)
 
     def __init__(
