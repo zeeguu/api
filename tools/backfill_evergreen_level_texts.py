@@ -27,6 +27,7 @@ USAGE (inside the api container). Without --apply nothing is written.
     python tools/backfill_evergreen_level_texts.py --apply          # every language
 """
 import argparse
+from collections import Counter
 
 # The app must exist before the model imports below can talk to the database.
 from zeeguu.api.app import create_app_for_scripts
@@ -147,6 +148,37 @@ def is_rejection(error):
     return message.startswith("PAYWALL") or message.startswith("ADVERTORIAL")
 
 
+def try_to_save(article, answer, error):
+    """Save the LLM's answer if there is one.
+
+    Returns (what to count, what to print). The labels it counts:
+      ok        assessed and saved
+      titled    ... and got at least one level title
+      now_news  ... and is now classed `news`, so it leaves Evergreen
+      rejected  the LLM said paywall or advertorial; article left untouched
+      failed    LLM error or save error
+    """
+    if error and is_rejection(error):
+        return ["rejected"], f"SKIP ({str(error).split(':')[0]})"
+    if error:
+        return ["failed"], f"FAIL: {str(error)[:100]}"
+
+    try:
+        save_answer(article["id"], answer)
+    except Exception as e:
+        session.rollback()
+        return ["failed"], f"FAIL saving: {str(e)[:100]}"
+
+    labels = ["ok"]
+    n_titles = len(answer.get("level_titles") or {})
+    if n_titles > 0:
+        labels.append("titled")
+    if answer.get("article_type") == "news":
+        labels.append("now_news")
+    level = answer["original_cefr_level"]
+    return labels, f"OK {level} {answer.get('article_type')} titles={n_titles}"
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -163,14 +195,7 @@ def print_dry_run(ids):
 
 
 def run_backfill(ids, workers, provider):
-    counts = {
-        "ok": 0,  # assessed and saved
-        "titled": 0,  # ... and got at least one level title
-        "now_news": 0,  # ... and is now classed `news` (leaves Evergreen)
-        "rejected": 0,  # LLM said paywall or advertorial; left untouched
-        "short": 0,  # under MIN_WORDS, skipped
-        "failed": 0,  # LLM error or save error
-    }
+    counts = Counter()  # a dict that starts every key at 0
 
     # Like article_for_llm, but also counts the articles that are too short.
     def prepare(article):
@@ -188,35 +213,9 @@ def run_backfill(ids, workers, provider):
     )
 
     for done, (article, answer, error) in enumerate(results, start=1):
-        prefix = f"  [{done}/{len(ids)}] article {article['id']}"
-
-        if error and is_rejection(error):
-            counts["rejected"] += 1
-            print(f"{prefix} -> SKIP ({str(error).split(':')[0]})")
-            continue
-        if error:
-            counts["failed"] += 1
-            print(f"{prefix} -> FAIL: {str(error)[:100]}")
-            continue
-
-        try:
-            save_answer(article["id"], answer)
-        except Exception as e:
-            session.rollback()
-            counts["failed"] += 1
-            print(f"{prefix} -> FAIL saving: {str(e)[:100]}")
-            continue
-
-        n_titles = len(answer.get("level_titles") or {})
-        counts["ok"] += 1
-        if n_titles > 0:
-            counts["titled"] += 1
-        if answer.get("article_type") == "news":
-            counts["now_news"] += 1
-        print(
-            f"{prefix} -> OK {answer['original_cefr_level']}"
-            f" {answer.get('article_type')} titles={n_titles}"
-        )
+        labels, message = try_to_save(article, answer, error)
+        counts.update(labels)  # +1 for each label
+        print(f"  [{done}/{len(ids)}] article {article['id']} -> {message}")
 
     print(
         f"\n=== DONE: {counts['ok']} assessed ({counts['titled']} got level titles,"
