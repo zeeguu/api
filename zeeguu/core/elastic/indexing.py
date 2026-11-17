@@ -217,6 +217,17 @@ def create_or_update_article(article, session):
     return res
 
 
+def update_article_if_indexed(article, session):
+    """Refresh the article's ES document if it has one. Does not add articles
+    that are not in the index. Returns True if a document was updated."""
+    hit = get_article_hit_in_es(article.id)
+    if not hit:
+        return False
+    doc = document_from_article(article, session, hit.to_dict())
+    es_update(id=hit.meta.id, body={"doc": doc})
+    return True
+
+
 def index_video(video, session):
 
     doc = document_from_video(video, session)

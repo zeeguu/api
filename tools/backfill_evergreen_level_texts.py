@@ -19,12 +19,24 @@ WHAT THIS SCRIPT DOES
     Saving rewrites the article's cefr_level, article_type and summary too.
     So if the LLM now says an article is `news`, it leaves the Evergreen tab.
     That is on purpose: it is what would happen if we crawled it today.
+    Likewise, an article the LLM rejects as paywall or advertorial is marked
+    broken, as the crawler does, and removed from the search index.
+
+WHERE IT DIFFERS FROM THE CRAWLER (old articles have state new ones don't)
+    - The tokenized summary cached for the card is cleared, so it is rebuilt
+      from the new summary. The cache never refills a summary it already has.
+    - Articles whose level summaries carry learners' bookmarks are skipped:
+      rewriting those texts would put old bookmarks over new words.
+    - Articles with an article_cefr_assessment row are skipped: the card shows
+      that row's level, which this script does not update (59 on 18 Nov 2026).
 
 USAGE (inside the api container). Without --apply nothing is written.
     python tools/backfill_evergreen_level_texts.py --language da
     python tools/backfill_evergreen_level_texts.py --language da --apply --limit 20
     python tools/backfill_evergreen_level_texts.py --language da --apply
-    python tools/backfill_evergreen_level_texts.py --apply          # every language
+
+    --language is required: without it the candidate query would scan the
+    whole article table.
 """
 import argparse
 from collections import Counter
@@ -35,24 +47,31 @@ from zeeguu.api.app import create_app_for_scripts
 app = create_app_for_scripts()
 app.app_context().push()
 
-from sqlalchemy import or_
+from sqlalchemy import exists, or_
 
-from zeeguu.core.content_retriever.article_downloader import _save_classifications
-from zeeguu.core.elastic.indexing import create_or_update_article, get_article_hit_in_es
+from zeeguu.core.content_retriever.article_downloader import (
+    MIN_WORDS_TO_ASSESS,
+    _is_paywall,
+    _save_classifications,
+)
+from zeeguu.core.elastic.indexing import remove_from_index, update_article_if_indexed
 from zeeguu.core.llm_services.simplification_and_classification import (
     assess_and_summarize,
     save_assessment,
 )
 from zeeguu.core.model import db
 from zeeguu.core.model.article import Article
+from zeeguu.core.model.article_broken_code_map import LowQualityTypes
+from zeeguu.core.model.article_cefr_assessment import ArticleCefrAssessment
+from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
 from zeeguu.core.model.language import Language
+from zeeguu.core.model.level_adapted_article_summary_context import (
+    LevelAdaptedArticleSummaryContext,
+)
 from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
 from zeeguu.core.util.parallel import process_in_parallel
 
 session = db.session
-
-# The crawler does not assess articles shorter than this, so neither do we.
-MIN_WORDS = 100
 
 # How many articles we send to the LLM at the same time.
 DEFAULT_WORKERS = 6
@@ -66,11 +85,21 @@ DEFAULT_WORKERS = 6
 def find_article_ids_without_level_titles(language):
     """IDs of Evergreen articles that have no level title, newest first."""
 
-    # Every article that already has at least one level title.
-    rows = session.query(LevelAdaptedArticleText.article_id).filter(
-        LevelAdaptedArticleText.title.isnot(None)
+    # "There is a level text with a title for this article." The database
+    # checks it per article; `~` in front of it below means NOT.
+    has_level_title = exists().where(
+        LevelAdaptedArticleText.article_id == Article.id,
+        LevelAdaptedArticleText.title.isnot(None),
     )
-    ids_with_titles = {row.article_id for row in rows}
+    # "A learner bookmarked a word in one of this article's level summaries."
+    has_bookmarked_level_text = exists().where(
+        LevelAdaptedArticleText.article_id == Article.id,
+        LevelAdaptedArticleSummaryContext.level_adapted_article_text_id
+        == LevelAdaptedArticleText.id,
+    )
+    has_cefr_assessment = exists().where(
+        ArticleCefrAssessment.article_id == Article.id
+    )
 
     # The Evergreen pool: the same filters as content_recommender/evergreen.py.
     query = session.query(Article.id).filter(
@@ -82,12 +111,14 @@ def find_article_ids_without_level_titles(language):
         or_(Article.video.is_(None), Article.video == 0),
         # An A1 article has no simpler level to write a title for.
         or_(Article.cefr_level.is_(None), Article.cefr_level != "A1"),
+        ~has_level_title,
+        ~has_bookmarked_level_text,  # see the module docstring
+        ~has_cefr_assessment,  # see the module docstring
     )
-    if language:
-        query = query.filter(Article.language_id == language.id)
+    # language_id is the first column of the index this query can use.
+    query = query.filter(Article.language_id == language.id)
 
-    all_ids = [row.id for row in query.order_by(Article.id.desc())]
-    return [article_id for article_id in all_ids if article_id not in ids_with_titles]
+    return [row.id for row in query.order_by(Article.id.desc())]
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +129,7 @@ def find_article_ids_without_level_titles(language):
 def article_for_llm(article):
     """Copy what the LLM needs out of the article into a plain dict.
     Runs on the main thread. None means: skip this article."""
-    if article.get_word_count() < MIN_WORDS:
+    if article.get_word_count() < MIN_WORDS_TO_ASSESS:
         return None
     return {
         "id": article.id,
@@ -125,7 +156,8 @@ def ask_llm(article, provider):
 
 
 def save_answer(article_id, answer):
-    """Save the LLM's answer exactly as the crawler would. Main thread only."""
+    """Save the LLM's answer as the crawler would. Main thread only.
+    Returns how many level titles were stored."""
     article = Article.find_by_id(article_id)
 
     # Writes cefr_level, article_type, summary and the level titles/summaries.
@@ -133,19 +165,46 @@ def save_answer(article_id, answer):
     # Writes the DISTURBING flag, if the LLM set it.
     _save_classifications(session, article, classifications)
 
-    # Update the search index, but only if the article is already in it.
+    # The card shows the cached tokenized summary, and the cache never
+    # refills a summary it already has: clear it so the new one is used.
+    cache = ArticleTokenizationCache.get_for_article(session, article.id)
+    if cache and cache.tokenized_summary:
+        cache.tokenized_summary = None
+        session.add(cache)
+        session.commit()
+
     try:
-        if get_article_hit_in_es(article.id):
-            create_or_update_article(article, session)
+        update_article_if_indexed(article, session)
     except Exception as e:
         print(f"    (Elasticsearch update failed for {article_id}: {str(e)[:80]})")
 
+    # Count what was stored, not what the LLM sent: a title whose summary
+    # failed the language check is dropped.
+    return LevelAdaptedArticleText.query.filter(
+        LevelAdaptedArticleText.article_id == article_id,
+        LevelAdaptedArticleText.title.isnot(None),
+    ).count()
 
-def is_rejection(error):
-    """True if the LLM refused the article on purpose (paywall, advertorial).
-    Those are expected, not failures."""
-    message = str(error)
-    return message.startswith("PAYWALL") or message.startswith("ADVERTORIAL")
+
+def rejection_code(error):
+    """The broken code the crawler uses when the LLM refuses an article
+    (see _mark_llm_rejection in article_downloader), or None."""
+    if "advertorial" in str(error).lower():
+        return LowQualityTypes.ADVERTORIAL_LLM
+    if _is_paywall(error):
+        return LowQualityTypes.LLM_PAYWALL_PATTERN
+    return None
+
+
+def mark_rejected(article_id, code):
+    """Mark the article broken, as the crawler does, and take it out of the
+    search index so it is no longer recommended."""
+    article = Article.find_by_id(article_id)
+    article.set_as_broken(session, code)
+    try:
+        remove_from_index(article)
+    except Exception as e:
+        print(f"    (Elasticsearch removal failed for {article_id}: {str(e)[:80]})")
 
 
 def try_to_save(article, answer, error):
@@ -153,26 +212,30 @@ def try_to_save(article, answer, error):
 
     Returns (what to count, what to print). The labels it counts:
       ok        assessed and saved
-      titled    ... and got at least one level title
+      titled    ... and at least one level title was stored
+      untitled  ... but no level title was stored (it stays a candidate)
       now_news  ... and is now classed `news`, so it leaves Evergreen
-      rejected  the LLM said paywall or advertorial; article left untouched
+      rejected  the LLM said paywall or advertorial; marked broken
       failed    LLM error or save error
     """
-    if error and is_rejection(error):
-        return ["rejected"], f"SKIP ({str(error).split(':')[0]})"
+    code = rejection_code(error) if error else None
+    if code:
+        try:
+            mark_rejected(article["id"], code)
+        except Exception as e:
+            session.rollback()
+            return ["failed"], f"FAIL marking broken: {str(e)[:100]}"
+        return ["rejected"], f"BROKEN ({code})"
     if error:
         return ["failed"], f"FAIL: {str(error)[:100]}"
 
     try:
-        save_answer(article["id"], answer)
+        n_titles = save_answer(article["id"], answer)
     except Exception as e:
         session.rollback()
         return ["failed"], f"FAIL saving: {str(e)[:100]}"
 
-    labels = ["ok"]
-    n_titles = len(answer.get("level_titles") or {})
-    if n_titles > 0:
-        labels.append("titled")
+    labels = ["ok", "titled" if n_titles > 0 else "untitled"]
     if answer.get("article_type") == "news":
         labels.append("now_news")
     level = answer["original_cefr_level"]
@@ -212,22 +275,24 @@ def run_backfill(ids, workers, provider):
         workers=workers,
     )
 
-    for done, (article, answer, error) in enumerate(results, start=1):
+    for article, answer, error in results:
         labels, message = try_to_save(article, answer, error)
         counts.update(labels)  # +1 for each label
+        # Short articles are skipped before they get here; count them as done.
+        done = counts["ok"] + counts["rejected"] + counts["failed"] + counts["short"]
         print(f"  [{done}/{len(ids)}] article {article['id']} -> {message}")
 
     print(
         f"\n=== DONE: {counts['ok']} assessed ({counts['titled']} got level titles,"
-        f" {counts['now_news']} now classed news), {counts['rejected']} rejected"
-        f" (paywall/advertorial), {counts['short']} under {MIN_WORDS} words,"
-        f" {counts['failed']} failed ==="
+        f" {counts['untitled']} got none, {counts['now_news']} now classed news),"
+        f" {counts['rejected']} marked broken (paywall/advertorial),"
+        f" {counts['short']} under {MIN_WORDS_TO_ASSESS} words, {counts['failed']} failed ==="
     )
 
 
 def main():
     parser = argparse.ArgumentParser(description="Level titles for Evergreen articles")
-    parser.add_argument("--language", help="language code; default: every language")
+    parser.add_argument("--language", required=True, help="language code, e.g. da")
     parser.add_argument("--apply", action="store_true", help="write (else dry run)")
     parser.add_argument("--limit", type=int, default=0, help="max articles (0 = all)")
     parser.add_argument(
@@ -239,15 +304,13 @@ def main():
     )
     args = parser.parse_args()
 
-    language = None
-    if args.language:
-        language = Language.query.filter_by(code=args.language).first()
-        if language is None:
-            print(f"Unknown language code: {args.language}")
-            return
+    language = Language.query.filter_by(code=args.language).first()
+    if language is None:
+        print(f"Unknown language code: {args.language}")
+        return
 
     ids = find_article_ids_without_level_titles(language)
-    print(f"\n=== Evergreen level titles: {language.name if language else 'all languages'} ===")
+    print(f"\n=== Evergreen level titles: {language.name} ===")
     print(f"general originals without a level title: {len(ids)}")
 
     if args.limit:

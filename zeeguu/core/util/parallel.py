@@ -20,13 +20,15 @@ def process_in_parallel(model, ids, prepare, work, workers=6):
                     database: SQLAlchemy sessions are not safe to share
                     between threads.
 
-    You get back, one by one and in the same order as the rows:
+    You get back, one by one and in the order of `ids`:
 
         (data, result, error)
 
-    where exactly one of result and error is None. A failing row gives you its
-    error instead of stopping the whole run. You handle (e.g. save) each result
-    in your own loop, which is back on the main thread.
+    If `work` raised, `error` is the exception and `result` is None; otherwise
+    `error` is None. A failing row (in `prepare` or `work`) gives you its error
+    instead of stopping the whole run; if `prepare` failed, `data` is
+    {"id": <the row's id>}. You handle (e.g. save) each result in your own loop,
+    which is back on the main thread.
 
     Example:
         for data, result, error in process_in_parallel(Article, ids, prepare, work):
@@ -35,9 +37,10 @@ def process_in_parallel(model, ids, prepare, work, workers=6):
             else:
                 save(data["id"], result)
 
-    Memory: rows are loaded `workers * 4` at a time, and the session forgets
-    each chunk before loading the next one. So commit what you save before
-    moving on; anything not yet committed is dropped between chunks.
+    Memory: rows are loaded `workers * 4` at a time, and each chunk's rows are
+    removed from the session before the next chunk loads. Commit what you
+    save before moving on: changes to those rows that were not yet flushed
+    are lost when they are removed.
     """
     # Imported here so this module can be imported before the app exists.
     from zeeguu.core.model import db
@@ -54,15 +57,22 @@ def process_in_parallel(model, ids, prepare, work, workers=6):
             return data, None, error
 
     # A ThreadPoolExecutor is a group of `workers` threads that wait for jobs.
-    # `with` makes sure the threads are shut down at the end, even after an
-    # error.
-    with ThreadPoolExecutor(max_workers=workers) as pool:
+    pool = ThreadPoolExecutor(max_workers=workers)
+    try:
         for chunk_ids in batched(ids, chunk_size):
+            # The database returns rows in its own order; put them back in
+            # the order of `ids`.
             rows = model.query.filter(model.id.in_(chunk_ids)).all()
+            position = {row_id: i for i, row_id in enumerate(chunk_ids)}
+            rows.sort(key=lambda row: position[row.id])
 
             jobs = []
             for row in rows:
-                data = prepare(row)
+                try:
+                    data = prepare(row)
+                except Exception as error:
+                    yield {"id": row.id}, None, error
+                    continue
                 if data is not None:
                     jobs.append(data)
 
@@ -73,11 +83,18 @@ def process_in_parallel(model, ids, prepare, work, workers=6):
 
             # Pass each result on to the caller's `for` loop. This function
             # pauses here until the caller asks for the next result, so the
-            # caller saves each one before we go on. (`yield from results` is
-            # the short way of writing this loop.)
+            # caller saves each one before we go on.
             for result in results:
                 yield result
 
             # The caller has handled the whole chunk: forget its rows so that
-            # memory does not grow with every chunk.
-            db.session.expunge_all()
+            # memory does not grow with every chunk. Only these rows: the
+            # caller's other objects stay in the session.
+            for row in rows:
+                if row in db.session:
+                    db.session.expunge(row)
+    finally:
+        # Normally all jobs are done here. If the caller stopped early (an
+        # exception, Ctrl-C), drop the jobs that have not started, so we do
+        # not keep paying for LLM calls nobody will read.
+        pool.shutdown(wait=True, cancel_futures=True)
