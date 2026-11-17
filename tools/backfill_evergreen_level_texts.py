@@ -27,8 +27,6 @@ USAGE (inside the api container). Without --apply nothing is written.
     python tools/backfill_evergreen_level_texts.py --apply          # every language
 """
 import argparse
-from concurrent.futures import ThreadPoolExecutor
-from itertools import batched
 
 # The app must exist before the model imports below can talk to the database.
 from zeeguu.api.app import create_app_for_scripts
@@ -48,6 +46,7 @@ from zeeguu.core.model import db
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.language import Language
 from zeeguu.core.model.level_adapted_article_text import LevelAdaptedArticleText
+from zeeguu.core.util.parallel import process_in_parallel
 
 session = db.session
 
@@ -91,61 +90,32 @@ def find_article_ids_without_level_titles(language):
 
 
 # ---------------------------------------------------------------------------
-# Step 2: ask the LLM
+# Step 2: ask the LLM, several articles at the same time
 # ---------------------------------------------------------------------------
 
 
+def article_for_llm(article):
+    """Copy what the LLM needs out of the article into a plain dict.
+    Runs on the main thread. None means: skip this article."""
+    if article.get_word_count() < MIN_WORDS:
+        return None
+    return {
+        "id": article.id,
+        "title": article.title,
+        "content": article.get_content(),
+        "language_code": article.language.code,
+    }
+
+
 def ask_llm(article, provider):
-    """Ask the LLM about one article. Runs in a background thread.
-
-    `article` is a plain dict, not a database object: background threads must
-    not touch the database.
-
-    Returns (article_id, answer, error). Exactly one of answer and error is
-    None. We return the error instead of raising it because one failing
-    article must not stop the others.
-    """
-    try:
-        answer = assess_and_summarize(
-            article["title"],
-            article["content"],
-            article["language_code"],
-            simplification_provider=provider,
-        )
-        return article["id"], answer, None
-    except Exception as error:
-        return article["id"], None, error
-
-
-def ask_llm_about_many(articles, provider, pool):
-    """Ask the LLM about several articles at the same time.
-
-    Gives back the results one by one, in the same order as `articles`.
-    """
-    return pool.map(lambda article: ask_llm(article, provider), articles)
-
-
-def load_articles_for_llm(article_ids):
-    """Read the articles from the database and copy what the LLM needs into
-    plain dicts. Articles that are too short are left out.
-
-    Returns (articles, number_too_short).
-    """
-    articles = []
-    too_short = 0
-    for article in Article.query.filter(Article.id.in_(article_ids)):
-        if article.get_word_count() < MIN_WORDS:
-            too_short += 1
-            continue
-        articles.append(
-            {
-                "id": article.id,
-                "title": article.title,
-                "content": article.get_content(),
-                "language_code": article.language.code,
-            }
-        )
-    return articles, too_short
+    """Ask the LLM about one article (a dict from article_for_llm).
+    Runs in a worker thread, so it must not touch the database."""
+    return assess_and_summarize(
+        article["title"],
+        article["content"],
+        article["language_code"],
+        simplification_provider=provider,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -201,53 +171,52 @@ def run_backfill(ids, workers, provider):
         "short": 0,  # under MIN_WORDS, skipped
         "failed": 0,  # LLM error or save error
     }
-    done = 0
 
-    # We work in chunks so that only a few dozen article texts sit in memory
-    # at a time. Each chunk keeps every worker busy a few times over.
-    chunk_size = workers * 4
+    # Like article_for_llm, but also counts the articles that are too short.
+    def prepare(article):
+        data = article_for_llm(article)
+        if data is None:
+            counts["short"] += 1
+        return data
 
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        for chunk_ids in batched(ids, chunk_size):  # tuples of up to chunk_size ids
-            articles, too_short = load_articles_for_llm(chunk_ids)
-            counts["short"] += too_short
+    results = process_in_parallel(
+        Article,
+        ids,
+        prepare=prepare,
+        work=lambda article: ask_llm(article, provider),
+        workers=workers,
+    )
 
-            # Forget the loaded articles so their text can be freed.
-            session.expunge_all()
+    for done, (article, answer, error) in enumerate(results, start=1):
+        prefix = f"  [{done}/{len(ids)}] article {article['id']}"
 
-            for article_id, answer, error in ask_llm_about_many(articles, provider, pool):
-                done += 1
-                prefix = f"  [{done}/{len(ids)}] article {article_id}"
+        if error and is_rejection(error):
+            counts["rejected"] += 1
+            print(f"{prefix} -> SKIP ({str(error).split(':')[0]})")
+            continue
+        if error:
+            counts["failed"] += 1
+            print(f"{prefix} -> FAIL: {str(error)[:100]}")
+            continue
 
-                if error and is_rejection(error):
-                    counts["rejected"] += 1
-                    print(f"{prefix} -> SKIP ({str(error).split(':')[0]})")
-                    continue
-                if error:
-                    counts["failed"] += 1
-                    print(f"{prefix} -> FAIL: {str(error)[:100]}")
-                    continue
+        try:
+            save_answer(article["id"], answer)
+        except Exception as e:
+            session.rollback()
+            counts["failed"] += 1
+            print(f"{prefix} -> FAIL saving: {str(e)[:100]}")
+            continue
 
-                try:
-                    save_answer(article_id, answer)
-                except Exception as e:
-                    session.rollback()
-                    counts["failed"] += 1
-                    print(f"{prefix} -> FAIL saving: {str(e)[:100]}")
-                    continue
-
-                n_titles = len(answer.get("level_titles") or {})
-                counts["ok"] += 1
-                if n_titles > 0:
-                    counts["titled"] += 1
-                if answer.get("article_type") == "news":
-                    counts["now_news"] += 1
-                print(
-                    f"{prefix} -> OK {answer['original_cefr_level']}"
-                    f" {answer.get('article_type')} titles={n_titles}"
-                )
-
-            session.expunge_all()
+        n_titles = len(answer.get("level_titles") or {})
+        counts["ok"] += 1
+        if n_titles > 0:
+            counts["titled"] += 1
+        if answer.get("article_type") == "news":
+            counts["now_news"] += 1
+        print(
+            f"{prefix} -> OK {answer['original_cefr_level']}"
+            f" {answer.get('article_type')} titles={n_titles}"
+        )
 
     print(
         f"\n=== DONE: {counts['ok']} assessed ({counts['titled']} got level titles,"
