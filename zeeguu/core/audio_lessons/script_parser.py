@@ -61,6 +61,40 @@ def join_continuation_lines(script: str) -> str:
     return "\n".join(joined_lines)
 
 
+# A line that reads like a speaker's: a short label, a colon, then text.
+# "Mads: Hej Sofie!" and "**Sofie:** Ja" both match.
+_SPEAKER_LIKE_LINE = re.compile(r"^\**\s*([^\s:\[\]*][^:\[\]*]{0,29}?)\s*\**\s*:\s*\S")
+
+
+def unknown_speaker_labels(script: str) -> List[str]:
+    """
+    The labels of lines that read like a speaker's line but name no voice we have.
+
+    Since 16 Nov 2026 the model sometimes labels dialogue lines with the
+    characters' names ("Mads: Hej Sofie!") instead of Man:/Woman:. parse_script
+    finds no voice on such lines, so the whole dialogue went unsaid and the
+    learner heard only the challenges (dialogue 525, lesson 1396).
+
+    Lines before the first voice line are not looked at: the title of a
+    dialogue lesson is there, and parse_script drops them anyway.
+    """
+    labels = []
+    seen_a_voice = False
+    for line in script.split("\n"):
+        stripped = line.strip()
+        # As parse_script reads it: a **Woman:** line is not a voice line to it
+        # either, and is reported.
+        if _VOICE_LABEL_PATTERN.match(stripped):
+            seen_a_voice = True
+            continue
+        if not seen_a_voice:
+            continue
+        match = _SPEAKER_LIKE_LINE.match(stripped)
+        if match and match.group(1) not in labels:
+            labels.append(match.group(1))
+    return labels
+
+
 def parse_script(script: str, with_speed: bool = False) -> List[Tuple]:
     """
     Parse the script into individual voice segments.

@@ -10,7 +10,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
     TARGET_LANGUAGE_VOICES,
     find_language_mismatches,
 )
-from zeeguu.core.audio_lessons.script_parser import parse_script
+from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
 from zeeguu.core.audio_lessons.words_heard import history_table
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
@@ -116,6 +116,16 @@ def _is_a_script(script: str) -> bool:
     )
 
 
+def _labels_note(labels) -> str:
+    return (
+        "\n\nYour previous attempt labelled lines with "
+        + ", ".join(f"'{label}:'" for label in labels)
+        + ". Those lines are never spoken: only the labels Teacher:, TeacherL2:, Man: "
+        "and Woman: have a voice. Write it again, and label every line of the dialogue "
+        "Man: or Woman:. The characters' names may appear in what they say, never as a label."
+    )
+
+
 def _correction_note(mismatches, target_lang_name, source_lang_name) -> str:
     return (
         "\n\nYour previous attempt used the wrong language: "
@@ -163,6 +173,17 @@ def generate_script_in_languages(
                 f"{(script or '').strip()[:300]!r}"
             )
 
+        # A slip in the format, not a refusal (see NotAScript): the script was
+        # written, with some of its lines under labels no voice says.
+        labels = unknown_speaker_labels(script)
+        if labels:
+            log(
+                f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS}): lines labelled "
+                f"{labels}, which no voice says"
+            )
+            attempt_prompt = prompt + _labels_note(labels)
+            continue
+
         mismatches = find_language_mismatches(
             script, target_language, source_language, short_lines=short_lines
         )
@@ -174,6 +195,11 @@ def generate_script_in_languages(
             mismatches, target_lang_name, source_lang_name
         )
 
+    if labels:
+        raise Exception(
+            f"Script for {context} labelled lines with {labels} "
+            f"{LANGUAGE_ATTEMPTS} times; no voice would say them"
+        )
     raise Exception(
         f"Script for {context} came back in the wrong language "
         f"{LANGUAGE_ATTEMPTS} times: {describe_mismatches(mismatches)}"
