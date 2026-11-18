@@ -70,8 +70,26 @@ def test_a_bold_name_label_is_reported_without_its_stars():
 
 
 def test_named_speakers_before_any_voice_line_are_reported():
-    script = "A Title\n\nMads: Hej Sofie!\nSofie: Hej Mads!\nTeacher: Now practice. [1 seconds]"
+    script = (
+        "A Title\n\nMads: Hej Sofie!\nSofie: Hej Mads!\nMads: Hvordan går det?\n"
+        "Sofie: Godt!\nTeacher: Now practice. [1 seconds]"
+    )
     assert unknown_speaker_labels(script) == ["Mads", "Sofie"]
+
+
+def test_a_header_before_any_voice_line_is_not_a_speaker():
+    script = "Here is your lesson.\nTopic: Ordering coffee\nLevel: A1\n\nTeacher: Listen. [1 seconds]\nMan: Hej!"
+    assert unknown_speaker_labels(script) == []
+
+
+def test_numbered_speakers_are_reported():
+    assert unknown_speaker_labels("Teacher: Listen.\nMan 1: Hej!\nSpeaker 2: Hej!") == ["Man 1", "Speaker 2"]
+
+
+def test_any_number_of_stars_around_a_label():
+    script = "Teacher: Listen.\n*Woman:* Hej!\n***Man:*** Hej!\n*Mads:* Hej!"
+    assert unknown_speaker_labels(script) == ["Mads"]
+    assert [voice for voice, _, _ in parse_script(script)] == ["teacher", "woman", "man"]
 
 
 def test_a_wrapped_line_with_a_time_is_not_a_speaker():
@@ -115,3 +133,14 @@ def test_synthesis_refuses_a_script_with_named_speakers():
     synthesizer = object.__new__(VoiceSynthesizer)  # no TTS clients needed to refuse
     with pytest.raises(ValueError, match="Mads"):
         synthesizer._synthesize_script_to_file(NAMED_SPEAKERS, "/dev/null", "da", "en", variety=None)
+
+
+def test_llm_service_defines_each_class_once():
+    """A botched splice once left two UnifiedLLMService classes in the module;
+    Python silently used the second."""
+    import ast
+    import zeeguu.core.llm_services.llm_service as module
+
+    tree = ast.parse(open(module.__file__).read())
+    names = [n.name for n in tree.body if isinstance(n, (ast.ClassDef, ast.FunctionDef))]
+    assert len(names) == len(set(names)), [n for n in names if names.count(n) > 1]
