@@ -70,15 +70,29 @@ class UnifiedLLMService(LLMService):
                 raise Exception(f"Failed to generate examples (both APIs failed): Anthropic: {anthropic_error}, DeepSeek: {deepseek_error}")
     
     def generate_text_with_model(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
-                                 system: str = None) -> tuple:
+                                 system: str = None, deepseek_first: bool = False) -> tuple:
         """
         Generate text with Anthropic -> DeepSeek fallback, reporting who answered.
+
+        deepseek_first: the other order, DeepSeek -> Anthropic.
 
         Returns (text, model_name). Callers that persist the result need the second
         element: under a fallback chain the model named in the configuration is not
         the model that served, so provenance has to be recorded at generation time
         rather than inferred later.
         """
+        if deepseek_first:
+            try:
+                deepseek = self._get_deepseek_service()
+                return deepseek.generate_text(prompt, max_tokens, temperature, system), deepseek.model
+            except Exception as deepseek_error:
+                log(f"DeepSeek failed for text generation, falling back to Anthropic: {deepseek_error}")
+                try:
+                    anthropic = self._get_anthropic_service()
+                    return anthropic.generate_text(prompt, max_tokens, temperature, system), anthropic.model
+                except Exception as anthropic_error:
+                    raise Exception(f"Text generation failed (both APIs failed): DeepSeek: {deepseek_error}, Anthropic: {anthropic_error}")
+
         try:
             # Try Anthropic first
             anthropic = self._get_anthropic_service()
@@ -124,16 +138,20 @@ def get_llm_service(provider: Optional[str] = None, timeout: Optional[int] = Non
         raise ValueError(f"Unknown LLM provider: {provider}")
 
 
-def generate_audio_lesson_script(prompt: str, max_tokens: int = 2500, system: str = None) -> tuple:
+def generate_audio_lesson_script(prompt: str, max_tokens: int = 2500, system: str = None,
+                                 deepseek_first: bool = False) -> tuple:
     """
     Convenience function for generating audio lesson scripts.
-    Uses the unified service with automatic Anthropic -> DeepSeek fallback.
+    Uses the unified service with automatic Anthropic -> DeepSeek fallback, or
+    DeepSeek -> Anthropic with deepseek_first.
     Default 2500 tokens for single-word meaning lessons.
 
     Returns (script, model_name): which provider served has to be recorded, not assumed.
     """
     llm_service = get_llm_service("unified")
-    return llm_service.generate_text_with_model(prompt, max_tokens=max_tokens, temperature=0.7, system=system)
+    return llm_service.generate_text_with_model(
+        prompt, max_tokens=max_tokens, temperature=0.7, system=system, deepseek_first=deepseek_first
+    )
 
 
 def explain_selection(

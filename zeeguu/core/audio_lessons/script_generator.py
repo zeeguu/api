@@ -133,17 +133,21 @@ def generate_script_in_languages(
     context: str,
     max_tokens: int = None,
     short_lines: bool = False,
+    deepseek_first: bool = False,
 ) -> tuple:
     """
     Generate a lesson script and verify it came back in the languages we asked for.
 
     short_lines: an A0 script, made of one- and two-word lines; see
     script_language_validator.MIN_CHARS_TO_JUDGE_SHORT_LINES.
+    deepseek_first: ask DeepSeek first and Anthropic only if it fails.
 
     Retries with an explicit correction when the detected language is wrong, and
     raises if the LLM keeps getting it wrong.
     """
     kwargs = {"max_tokens": max_tokens} if max_tokens else {}
+    if deepseek_first:
+        kwargs["deepseek_first"] = True
     target_lang_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
     source_lang_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
     kwargs["system"] = language_contract(target_lang_name, source_lang_name)
@@ -470,6 +474,12 @@ def generate_dialogue_script(
             context=f"dialogue lesson '{suggestion}'",
             max_tokens=max_tokens,
             short_lines=builds_on_history(cefr_level),
+            # Above A0, DeepSeek writes these as well as Sonnet 5.5 and about 10x
+            # cheaper: on 25 prod requests (9 learned, 6 teacher languages) blind
+            # A/B judges split evenly and found as many errors in each
+            # (zeeguu-experiments audio-lessons/2026-11-18-deepseek-dialogues).
+            # A0 lessons and meaning lessons were not part of that comparison.
+            deepseek_first=not builds_on_history(cefr_level),
         )
 
         # Parse title from first line
