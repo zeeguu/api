@@ -93,3 +93,11 @@ def test_named_speakers_are_rewritten_with_a_note_naming_them():
 def test_named_speakers_every_time_are_refused():
     with pytest.raises(Exception, match="Mads"):
         _generate([NAMED_SPEAKERS] * script_generator.LANGUAGE_ATTEMPTS)
+
+
+def test_synthesis_refuses_a_script_with_named_speakers():
+    from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
+
+    synthesizer = object.__new__(VoiceSynthesizer)  # no TTS clients needed to refuse
+    with pytest.raises(ValueError, match="Mads"):
+        synthesizer._synthesize_script_to_file(NAMED_SPEAKERS, "/dev/null", "da", "en", variety=None)

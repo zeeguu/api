@@ -17,7 +17,7 @@ from zeeguu.core.audio_lessons.voice_config import (
     VOICE_CONFIG,
 )
 from zeeguu.core.audio_lessons.azure_voice_synthesizer import AzureVoiceSynthesizer
-from zeeguu.core.audio_lessons.script_parser import parse_script
+from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
 from zeeguu.logging import log
 
 # For lines marked [slow]: a new word said once slowly in an A0 lesson.
@@ -180,6 +180,13 @@ class VoiceSynthesizer:
 
     def _synthesize_script_to_file(self, script, output_path, language_code, teacher_language_code, cefr_level=None, on_progress=None, *, variety):
         """Shared logic: parse script, synthesize all segments, combine and export to output_path."""
+        # parse_script skips a line whose label no voice says. The generator
+        # refuses such scripts, but every script reaches audio through here, so
+        # here a lesson missing lines fails instead of playing (lesson 1396
+        # played no dialogue).
+        labels = unknown_speaker_labels(script)
+        if labels:
+            raise ValueError(f"Script has lines labelled {labels}, which no voice says")
         segments = parse_script(script, with_speed=True)
         audio_segments = []
 
