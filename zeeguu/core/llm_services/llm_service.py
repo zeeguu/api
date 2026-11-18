@@ -81,6 +81,86 @@ class UnifiedLLMService(LLMService):
         the model that served, so provenance has to be recorded at generation time
         rather than inferred later.
         """
+        providers = [("DeepSeek", self._get_deepseek_service), ("Anthropic", self._get_anthropic_service)]
+        if not deepseek_first:
+            providers.reverse()
+
+        errors = []
+        for name, get_service in providers:
+            try:
+                service = get_service()
+                return service.generate_text(prompt, max_tokens, temperature, system), service.model
+            except Exception as e:
+                log(f"{name} failed for text generation: {e}")
+                errors.append(f"{name}: {e}")
+        raise Exception(f"Text generation failed (both APIs failed): {', '.join(errors)}")
+
+    def generate_text(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
+                      system: str = None) -> str:
+        """Generate text from a prompt. Must be implemented by subclasses."""
+        raise NotImplementedError
+
+
+def _client_options(timeout=None, max_retries=None):
+    """Only the options a caller set, so the services keep their own defaults."""
+    options = {"timeout": timeout, "max_retries": max_retries}
+    return {k: v for k, v in options.items() if v is not None}
+
+
+class UnifiedLLMService(LLMService):
+    """Unified service that tries Anthropic first, then DeepSeek on failure"""
+
+    def __init__(self, timeout: Optional[int] = None, max_retries: Optional[int] = None):
+        self.anthropic_service = None
+        self.deepseek_service = None
+        self.timeout = timeout
+        self.max_retries = max_retries
+
+    def _get_anthropic_service(self):
+        """Lazy load Anthropic service"""
+        if self.anthropic_service is None:
+            from .anthropic_service import AnthropicService
+            self.anthropic_service = AnthropicService(**_client_options(self.timeout, self.max_retries))
+        return self.anthropic_service
+
+    def _get_deepseek_service(self):
+        """Lazy load DeepSeek service"""
+        if self.deepseek_service is None:
+            from .deepseek_service import DeepSeekService
+            self.deepseek_service = DeepSeekService(**_client_options(self.timeout))
+        return self.deepseek_service
+    
+    def generate_examples(self, word: str, translation: str, source_lang: str, 
+                         target_lang: str, cefr_level: str, prompt_version: str, count: int = 3) -> List[Dict]:
+        """Generate examples with Anthropic -> DeepSeek fallback"""
+        try:
+            # Try Anthropic first
+            anthropic = self._get_anthropic_service()
+            return anthropic.generate_examples(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
+        except Exception as anthropic_error:
+            log(f"Anthropic API failed for examples: {anthropic_error}")
+            
+            # Fallback to DeepSeek
+            log(f"Falling back to DeepSeek for word '{word}'")
+            try:
+                deepseek = self._get_deepseek_service()
+                return deepseek.generate_examples(word, translation, source_lang, target_lang, cefr_level, prompt_version, count)
+            except Exception as deepseek_error:
+                log(f"DeepSeek fallback also failed: {deepseek_error}")
+                raise Exception(f"Failed to generate examples (both APIs failed): Anthropic: {anthropic_error}, DeepSeek: {deepseek_error}")
+    
+    def generate_text_with_model(self, prompt: str, max_tokens: int = 1000, temperature: float = 0.7,
+                                 system: str = None, deepseek_first: bool = False) -> tuple:
+        """
+        Generate text with Anthropic -> DeepSeek fallback, reporting who answered.
+
+        deepseek_first: the other order, DeepSeek -> Anthropic.
+
+        Returns (text, model_name). Callers that persist the result need the second
+        element: under a fallback chain the model named in the configuration is not
+        the model that served, so provenance has to be recorded at generation time
+        rather than inferred later.
+        """
         if deepseek_first:
             try:
                 deepseek = self._get_deepseek_service()
