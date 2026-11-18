@@ -22,18 +22,13 @@ _VOICE_LINE_PATTERN = re.compile(
 # of them left in the text would be read aloud.
 _SLOW_MARKER = re.compile(r"\s*\[slow[a-z ]*\]", re.IGNORECASE)
 
-# A label in markdown emphasis, "**Woman:**", "**Woman**:", "*Mads:*", as
-# models sometimes write it.
-_STARRED_LABEL = re.compile(r"^\*+\s*([^*:\s][^*:]{0,29}?)\s*(?::\s*\*+|\*+\s*:)")
+# A label in bold, "**Woman:**" or "**Woman**:", as models sometimes write it.
+_BOLD_LABEL = re.compile(r"^\*\*\s*([^*:\s][^*:]{0,29}?)\s*(?::\s*\*\*|\*\*\s*:)")
 
 
 def _unbold_label(line: str) -> str:
-    """
-    '**Woman:** Hej' -> 'Woman: Hej'. Before this, such a line was not a voice
-    line: it was joined to the line before and read out, stars and all, by
-    whoever spoke that line.
-    """
-    return _STARRED_LABEL.sub(r"\1:", line)
+    """'**Woman:** Hej' -> 'Woman: Hej'. Before this, such a line was dropped."""
+    return _BOLD_LABEL.sub(r"\1:", line)
 
 
 def join_continuation_lines(script: str) -> str:
@@ -75,9 +70,9 @@ def join_continuation_lines(script: str) -> str:
 
 
 # A line that reads like a speaker's: a short label, a colon, then text.
-# "Mads: Hej Sofie!" and "Man 1: Hej!" match. A colon between two digits is a
-# time, not a label: a wrapped line like "klokken 10:30" is spoken as it is.
-_SPEAKER_LIKE_LINE = re.compile(r"^([^\s:\[\]*][^:\[\]*]{0,29}?)\s*:(?!\d)\s*\S")
+# "Mads: Hej Sofie!" matches. A label with a digit is not a speaker: a wrapped
+# line like "klokken 10:30" is a continuation, and is spoken.
+_SPEAKER_LIKE_LINE = re.compile(r"^([^\s:\[\]*0-9][^:\[\]*0-9]{0,29}?)\s*:\s*\S")
 
 
 def unknown_speaker_labels(script: str) -> List[str]:
@@ -89,31 +84,19 @@ def unknown_speaker_labels(script: str) -> List[str]:
     finds no voice on such lines, so the whole dialogue went unsaid and the
     learner heard only the challenges (dialogue 525, lesson 1396).
 
-    Before the first voice line a model may write a title or a header
-    ("Holidays: Beach or Mountains?", "Topic: Ordering coffee"), which
-    parse_script skips. There, a label counts only when it labels more than
-    one line in the script, as a dialogue's speakers do.
+    The first line is not looked at when it is not a voice line: a dialogue
+    lesson's title is there ("Holidays: Beach or Mountains?").
     """
+    labels = []
     lines = [_unbold_label(l.strip()) for l in script.split("\n") if l.strip()]
-    found = []  # (label, before the first voice line)
-    seen_a_voice = False
+    if lines and not _VOICE_LABEL_PATTERN.match(lines[0]):
+        lines = lines[1:]
     for stripped in lines:
         if _VOICE_LABEL_PATTERN.match(stripped):
-            seen_a_voice = True
             continue
         match = _SPEAKER_LIKE_LINE.match(stripped)
-        if match:
-            found.append((match.group(1), not seen_a_voice))
-
-    counts = {}
-    for label, _ in found:
-        counts[label] = counts.get(label, 0) + 1
-    labels = []
-    for label, before_any_voice in found:
-        if before_any_voice and counts[label] < 2:
-            continue
-        if label not in labels:
-            labels.append(label)
+        if match and match.group(1) not in labels:
+            labels.append(match.group(1))
     return labels
 
 
