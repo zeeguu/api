@@ -118,7 +118,7 @@ def _is_a_script(script: str) -> bool:
 
 def _labels_note(labels) -> str:
     return (
-        "\n\nYour previous attempt labelled lines with "
+        "\n\nYour previous attempt labeled lines with "
         + ", ".join(f"'{label}:'" for label in labels)
         + ". Those lines are never spoken: only the labels Teacher:, TeacherL2:, Man: "
         "and Woman: have a voice. Write it again, and label every line of the dialogue "
@@ -178,7 +178,7 @@ def generate_script_in_languages(
         labels = unknown_speaker_labels(script)
         if labels:
             log(
-                f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS}): lines labelled "
+                f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS}): lines labeled "
                 f"{labels}, which no voice says"
             )
             attempt_prompt = prompt + _labels_note(labels)
@@ -197,7 +197,7 @@ def generate_script_in_languages(
 
     if labels:
         raise Exception(
-            f"Script for {context} labelled lines with {labels} "
+            f"Script for {context} labeled lines with {labels} "
             f"{LANGUAGE_ATTEMPTS} times; no voice would say them"
         )
     raise Exception(

@@ -1,7 +1,7 @@
 """
-Dialogue lines labelled with the characters' names are never spoken.
+Dialogue lines labeled with the characters' names are never spoken.
 
-Production dialogue 525 (Danish, A1, 18 Nov 2026) labelled its dialogue
+Production dialogue 525 (Danish, A1, 18 Nov 2026) labeled its dialogue
 "Mads:" and "Sofie:"; parse_script found no voice on those lines and the
 learner heard only the challenges. No Flask app context or DB needed.
 """
@@ -33,7 +33,7 @@ Man: Jeg tænker på ferie. [3 seconds]
 Man: Jeg tænker på ferie. [3 seconds]
 """
 
-LABELLED = NAMED_SPEAKERS.replace("Mads:", "Man:").replace("Sofie:", "Woman:")
+LABELED = NAMED_SPEAKERS.replace("Mads:", "Man:").replace("Sofie:", "Woman:")
 
 
 def test_named_speakers_are_reported():
@@ -45,12 +45,12 @@ def test_named_speakers_are_what_the_parser_drops():
     assert "Hej Sofie! Hvordan har du det?" not in spoken
 
 
-def test_a_well_labelled_script_has_nothing_to_report():
-    assert unknown_speaker_labels(LABELLED) == []
+def test_a_well_labeled_script_has_nothing_to_report():
+    assert unknown_speaker_labels(LABELED) == []
 
 
 def test_the_title_before_the_first_voice_line_is_not_a_speaker():
-    script = "Holidays: Beach or Mountains?\n\n" + LABELLED.split("\n", 1)[1]
+    script = "Holidays: Beach or Mountains?\n\n" + LABELED.split("\n", 1)[1]
     assert unknown_speaker_labels(script) == []
 
 
@@ -59,10 +59,24 @@ def test_a_colon_inside_a_voice_line_is_not_a_speaker():
     assert unknown_speaker_labels(script) == []
 
 
-def test_a_bold_label_is_reported_because_the_parser_drops_it_too():
-    script = "Teacher: Listen. [1 seconds]\n**Woman:** Hej! [1 seconds]"
-    assert unknown_speaker_labels(script) == ["Woman"]
-    assert [voice for voice, _, _ in parse_script(script)] == ["teacher"]
+def test_a_bold_voice_label_is_spoken_not_reported():
+    script = "Teacher: Listen. [1 seconds]\n**Woman:** Hej! [1 seconds]\n**Man**: Hej! [1 seconds]"
+    assert unknown_speaker_labels(script) == []
+    assert [voice for voice, _, _ in parse_script(script)] == ["teacher", "woman", "man"]
+
+
+def test_a_bold_name_label_is_reported_without_its_stars():
+    assert unknown_speaker_labels("Teacher: Listen.\n**Mads:** Hej!") == ["Mads"]
+
+
+def test_named_speakers_before_any_voice_line_are_reported():
+    script = "A Title\n\nMads: Hej Sofie!\nSofie: Hej Mads!\nTeacher: Now practice. [1 seconds]"
+    assert unknown_speaker_labels(script) == ["Mads", "Sofie"]
+
+
+def test_a_wrapped_line_with_a_time_is_not_a_speaker():
+    script = "Teacher: Say that the train leaves at\nklokken 10:30. [5 seconds]\nMan: Toget kører klokken 10:30."
+    assert unknown_speaker_labels(script) == []
 
 
 def _generate(scripts):
@@ -84,8 +98,8 @@ def _generate(scripts):
 
 
 def test_named_speakers_are_rewritten_with_a_note_naming_them():
-    (script, _), prompts = _generate([NAMED_SPEAKERS, LABELLED])
-    assert script == LABELLED
+    (script, _), prompts = _generate([NAMED_SPEAKERS, LABELED])
+    assert script == LABELED
     assert prompts[0] == "PROMPT"
     assert "'Mads:'" in prompts[1] and "'Sofie:'" in prompts[1]
 

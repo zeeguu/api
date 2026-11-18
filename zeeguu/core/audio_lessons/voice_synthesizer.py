@@ -186,7 +186,7 @@ class VoiceSynthesizer:
         # played no dialogue).
         labels = unknown_speaker_labels(script)
         if labels:
-            raise ValueError(f"Script has lines labelled {labels}, which no voice says")
+            raise ValueError(f"Script has lines labeled {labels}, which no voice says")
         segments = parse_script(script, with_speed=True)
         audio_segments = []
 

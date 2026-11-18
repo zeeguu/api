@@ -22,6 +22,14 @@ _VOICE_LINE_PATTERN = re.compile(
 # of them left in the text would be read aloud.
 _SLOW_MARKER = re.compile(r"\s*\[slow[a-z ]*\]", re.IGNORECASE)
 
+# A label in bold, "**Woman:**" or "**Woman**:", as models sometimes write it.
+_BOLD_LABEL = re.compile(r"^\*\*\s*([^*:\s][^*:]{0,29}?)\s*(?::\s*\*\*|\*\*\s*:)")
+
+
+def _unbold_label(line: str) -> str:
+    """'**Woman:** Hej' -> 'Woman: Hej'. Before this, such a line was dropped."""
+    return _BOLD_LABEL.sub(r"\1:", line)
+
 
 def join_continuation_lines(script: str) -> str:
     """
@@ -37,7 +45,7 @@ def join_continuation_lines(script: str) -> str:
     joined_lines = []
 
     for line in script.split("\n"):
-        stripped = line.strip()
+        stripped = _unbold_label(line.strip())
         if not stripped:
             continue
 
@@ -62,8 +70,9 @@ def join_continuation_lines(script: str) -> str:
 
 
 # A line that reads like a speaker's: a short label, a colon, then text.
-# "Mads: Hej Sofie!" and "**Sofie:** Ja" both match.
-_SPEAKER_LIKE_LINE = re.compile(r"^\**\s*([^\s:\[\]*][^:\[\]*]{0,29}?)\s*\**\s*:\s*\S")
+# "Mads: Hej Sofie!" matches. A label with a digit is not a speaker: a wrapped
+# line like "klokken 10:30" is a continuation, and is spoken.
+_SPEAKER_LIKE_LINE = re.compile(r"^([^\s:\[\]*0-9][^:\[\]*0-9]{0,29}?)\s*:\s*\S")
 
 
 def unknown_speaker_labels(script: str) -> List[str]:
@@ -75,19 +84,15 @@ def unknown_speaker_labels(script: str) -> List[str]:
     finds no voice on such lines, so the whole dialogue went unsaid and the
     learner heard only the challenges (dialogue 525, lesson 1396).
 
-    Lines before the first voice line are not looked at: the title of a
-    dialogue lesson is there, and parse_script drops them anyway.
+    The first line is not looked at when it is not a voice line: a dialogue
+    lesson's title is there ("Holidays: Beach or Mountains?").
     """
     labels = []
-    seen_a_voice = False
-    for line in script.split("\n"):
-        stripped = line.strip()
-        # As parse_script reads it: a **Woman:** line is not a voice line to it
-        # either, and is reported.
+    lines = [_unbold_label(l.strip()) for l in script.split("\n") if l.strip()]
+    if lines and not _VOICE_LABEL_PATTERN.match(lines[0]):
+        lines = lines[1:]
+    for stripped in lines:
         if _VOICE_LABEL_PATTERN.match(stripped):
-            seen_a_voice = True
-            continue
-        if not seen_a_voice:
             continue
         match = _SPEAKER_LIKE_LINE.match(stripped)
         if match and match.group(1) not in labels:
