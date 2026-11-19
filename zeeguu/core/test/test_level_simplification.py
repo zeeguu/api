@@ -1,9 +1,9 @@
 """
 SimplificationService.simplify_text: one CEFR level per call, DeepSeek first with
 the strict prompt, Haiku as the fallback with the plain one. And translate_and_adapt,
-which translates (DeepL, else DeepSeek, else Haiku) and then calls simplify_text.
+which translates (DeepSeek, else Haiku) and then calls simplify_text.
 
-No DB and no network: the two completions and DeepL are faked; prompts, parsing and the
+No DB and no network: the two completions and the DeepL client are faked; prompts, parsing and the
 output-language check are real.
 """
 
@@ -139,7 +139,7 @@ class SimplifyTextTest(TestCase):
 
 
 class TranslateAndAdaptTest(TestCase):
-    """translate_and_adapt: a full translation (DeepL, else an LLM), then simplify_text."""
+    """translate_and_adapt: a full translation by an LLM, then simplify_text."""
 
     def _service(self):
         service = SimplificationService()
@@ -147,23 +147,14 @@ class TranslateAndAdaptTest(TestCase):
         service.anthropic_api_key = "fake"
         return service
 
-    def _translate(self, fake, deepl=None):
+    def _translate(self, fake):
         service = self._service()
-        with patch(
-            "zeeguu.core.llm_services.simplification_service.deepl_translate_article", return_value=deepl
-        ), patch.object(service, "_complete_deepseek", fake.complete("deepseek")), patch.object(
+        with patch.object(service, "_complete_deepseek", fake.complete("deepseek")), patch.object(
             service, "_complete_haiku", fake.complete("haiku")
         ):
             return service.translate(TITLE, "## Heading\n\n" + ENGLISH_BODY, "en", "da")
 
-    def test_deepl_translates_and_no_llm_is_asked(self):
-        fake = FakeProviders()
-        deepl = {"title": DANISH_TITLE, "content": DANISH_BODY}
-
-        self.assertEqual(self._translate(fake, deepl=deepl), deepl)
-        self.assertEqual(fake.calls, [])
-
-    def test_without_deepl_deepseek_translates_with_the_structure_and_title_rules(self):
+    def test_deepseek_translates_with_the_structure_and_title_rules(self):
         fake = FakeProviders(deepseek=f"TITLE: {DANISH_TITLE}\n\n## Overskrift\n\n{DANISH_BODY}")
         result = self._translate(fake)
 
@@ -181,13 +172,6 @@ class TranslateAndAdaptTest(TestCase):
         result = self._translate(fake)
 
         self.assertEqual(len(fake.prompts("deepseek")), 2)
-        self.assertEqual(result["content"], DANISH_BODY)
-
-    def test_deepl_in_the_wrong_language_falls_back_to_deepseek(self):
-        fake = FakeProviders(deepseek=f"TITLE: {DANISH_TITLE}\nCONTENT:\n{DANISH_BODY}")
-        result = self._translate(fake, deepl={"title": TITLE, "content": ENGLISH_BODY})
-
-        self.assertEqual(len(fake.prompts("deepseek")), 1)
         self.assertEqual(result["content"], DANISH_BODY)
 
     def test_none_when_nothing_translates(self):
