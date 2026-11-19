@@ -277,53 +277,85 @@ class DeeplArticleTest(TestCase):
 
 
 class GoogleArticleTest(TestCase):
-    def _post(self, calls):
+    def _post(self, calls, drop=0):
         from types import SimpleNamespace
 
-        def post(url, params, data, timeout):
-            calls.append(data)
+        def post(url, headers, data, timeout):
+            calls.append({"url": url, "headers": headers, **data})
             translated = [{"translatedText": q.replace("Overskrift", "Heading").replace("Fisk", "Fish")} for q in data["q"]]
-            return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {"data": {"translations": translated}})
+            body = {"data": {"translations": translated[: len(translated) - drop]}}
+            return SimpleNamespace(ok=True, status_code=200, text="", json=lambda: body)
 
         return post
 
-    def test_the_blocks_go_as_html_and_the_markdown_comes_back(self):
+    def _run(self, calls, title, markdown, source="da", target="en", drop=0):
         from zeeguu.core.translation_services import google_article_translate as g
 
+        with patch.object(g, "_api_key", return_value="SECRET"), patch.object(g.requests, "post", self._post(calls, drop)):
+            return g.google_translate_article(title, markdown, source, target)
+
+    def test_the_blocks_go_as_html_and_the_markdown_comes_back(self):
         calls = []
-        with patch.object(g, "_api_key", return_value="key"), patch.object(g.requests, "post", self._post(calls)):
-            result = g.google_translate_article("Fisk & chips", "## Overskrift\n\n5. maj, foo_bar", "en")
+        result = self._run(calls, "Fisk & chips", "## Overskrift\n\n5. maj, foo_bar")
 
         self.assertEqual(result, {"title": "Fish & chips", "content": "## Heading\n\n5\\. maj, foo_bar"})
         self.assertEqual(calls[0]["q"], ["Fisk &amp; chips", "<h2>Overskrift</h2>", "<p>5. maj, foo_bar</p>"])
-        self.assertEqual((calls[0]["target"], calls[0]["format"]), ("en", "html"))
+        self.assertEqual((calls[0]["source"], calls[0]["target"], calls[0]["format"]), ("da", "en", "html"))
+
+    def test_the_key_goes_in_a_header_not_the_url(self):
+        calls = []
+        self._run(calls, "Titel", "Tekst.")
+
+        self.assertEqual(calls[0]["headers"], {"X-Goog-Api-Key": "SECRET"})
+        self.assertNotIn("SECRET", calls[0]["url"])
+
+    def test_our_indonesian_code_becomes_googles(self):
+        calls = []
+        self._run(calls, "Judul", "Teks.", source="ind", target="en")
+
+        self.assertEqual(calls[0]["source"], "id")
 
     def test_a_long_article_goes_in_several_requests_in_order(self):
         from zeeguu.core.translation_services import google_article_translate as g
 
         calls = []
         paragraphs = [f"Afsnit {i} " + "x" * 1000 for i in range(12)]
-        with patch.object(g, "_api_key", return_value="key"), patch.object(g.requests, "post", self._post(calls)):
-            result = g.google_translate_article("Titel", "\n\n".join(paragraphs), "en")
+        result = self._run(calls, "Titel", "\n\n".join(paragraphs))
 
         self.assertGreater(len(calls), 1)
         self.assertTrue(all(sum(map(len, c["q"])) <= g.MAX_CHARS_PER_REQUEST for c in calls))
         self.assertEqual(result["content"], "\n\n".join(paragraphs))
 
+    def test_a_paragraph_longer_than_a_request_is_cut_at_sentences_and_put_back(self):
+        from zeeguu.core.translation_services import google_article_translate as g
+
+        calls = []
+        paragraph = " ".join(f"Sætning nummer {i} handler om fisk." for i in range(400))
+        result = self._run(calls, "Titel", f"## Overskrift\n\n{paragraph}")
+
+        sent = [q for c in calls for q in c["q"]]
+        self.assertTrue(all(len(q) <= g.MAX_CHARS_PER_REQUEST for q in sent))
+        self.assertTrue(all(q.endswith("fisk.") for q in sent[2:]))
+        self.assertEqual(result["content"], f"## Heading\n\n{paragraph}")
+
+    def test_fewer_translations_than_segments_is_none(self):
+        self.assertIsNone(self._run([], "Titel", "Et.\n\nTo.", drop=1))
+
     def test_a_failing_google_is_none(self):
+        from types import SimpleNamespace
         from zeeguu.core.translation_services import google_article_translate as g
 
         def post(*args, **kwargs):
-            raise Exception("403 Forbidden")
+            return SimpleNamespace(ok=False, status_code=403, text="quota")
 
         with patch.object(g, "_api_key", return_value="key"), patch.object(g.requests, "post", post):
-            self.assertIsNone(g.google_translate_article("Titel", "Tekst.", "en"))
+            self.assertIsNone(g.google_translate_article("Titel", "Tekst.", "da", "en"))
 
     def test_no_key_is_none(self):
         from zeeguu.core.translation_services import google_article_translate as g
 
         with patch.object(g, "_api_key", return_value=None):
-            self.assertIsNone(g.google_translate_article("Titel", "Tekst.", "en"))
+            self.assertIsNone(g.google_translate_article("Titel", "Tekst.", "da", "en"))
 
 
 class ParseLevelReplyTest(TestCase):

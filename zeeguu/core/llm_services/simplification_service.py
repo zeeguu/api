@@ -450,7 +450,7 @@ class SimplificationService:
         target_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
         context = f"{target_name} translation of '{title[:50]}'"
 
-        translated = google_translate_article(title, content, target_language)
+        translated = google_translate_article(title, content, source_language, target_language)
         if translated:
             try:
                 return generate_in_language(lambda _: translated, target_language, _text_fields, context, attempts=1)
