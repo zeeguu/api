@@ -7,6 +7,7 @@ import os
 import re
 import requests
 from typing import Dict, Optional
+from zeeguu.core.translation_services.google_article_translate import google_translate_article
 from zeeguu.core import cefr
 from zeeguu.logging import log
 from zeeguu.core.language.generate_in_language import (
@@ -415,7 +416,7 @@ class SimplificationService:
         fit went from 3.7 to 4.3 (B1 from 2.8 to 4.7), faithfulness from 3.4 to
         4.1, and the paragraphs and headings of every page were kept. DeepL then
         simplify ranked first most often, ahead of DeepSeek then simplify (DeepL
-        no longer translates articles: see translate). Data
+        no longer translates articles: Google does, see translate). Data
         and scripts: zeeguu-experiments, simplification/2026-10-30-markdown-input.
 
         content may be Markdown (an upload's page) or plain text with paragraphs
@@ -433,11 +434,13 @@ class SimplificationService:
         """
         A complete, faithful translation of an article, its structure kept.
 
-        DeepSeek, then Haiku. DeepL was first until 19 Nov 2026 (in the
-        2026-10-31 measurement it was as good a start for the simplifier as
-        DeepSeek and took 1s instead of 6), but its API is now paid per character
-        and whole articles are what used up the free quota; it stays on word
-        lookups, where the context sentence is not billed. Every translation is
+        Google first: about as fast as DeepL was (1s instead of DeepSeek's 6).
+        DeepL was first until 19 Nov 2026 (in the 2026-10-31 measurement it was
+        as good a start for the simplifier as DeepSeek), but its API is now paid
+        per character and whole articles used up the free quota; it stays on
+        word lookups, where the context sentence is not billed. Google was not
+        in that measurement. The LLMs (DeepSeek, then Haiku) are the fallback
+        (no key, a failed call, the wrong language). Every translation is
         checked for language: "left it in the source language" is the likeliest
         way for it to go wrong. An LLM is asked again once, then the next
         provider is tried.
@@ -446,6 +449,13 @@ class SimplificationService:
         """
         target_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
         context = f"{target_name} translation of '{title[:50]}'"
+
+        translated = google_translate_article(title, content, target_language)
+        if translated:
+            try:
+                return generate_in_language(lambda _: translated, target_language, _text_fields, context, attempts=1)
+            except LanguageMismatchError as e:
+                log(f"Google did not translate into {target_name}: {e}")
 
         source_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
         prompt = _translation_prompt(title, content, source_name, target_name)
