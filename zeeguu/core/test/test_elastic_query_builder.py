@@ -45,6 +45,12 @@ def test_recommender_query_still_filters_by_language():
     assert {"match": {"language": "Danish"}} in must
 
 
+def test_recommender_query_leaves_out_general_articles():
+    # The News feed; 'general' articles are the Evergreen tab's.
+    must_not = recommender_query()["query"]["function_score"]["query"]["bool"]["must_not"]
+    assert {"match": {"article_type": "general"}} in must_not
+
+
 def test_search_query_does_not_filter_by_cefr_level():
     query = build_elastic_search_query(20, "hygge", FakeLanguage())
     assert "available_cefr_levels" not in json.dumps(query)

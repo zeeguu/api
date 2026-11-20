@@ -3,14 +3,20 @@ The Evergreen tab: articles that don't go out of date, on the learner's
 topics and keywords, with something new on every visit.
 
 The crawler's LLM pass already labels every article `news` or `general`
-(article.article_type). The home feed ignores the label and favors what is
-recent, so the general ones sink within days. This recommender takes only
-the general ones and ranks them without looking at the date:
+(article.article_type). The News feed leaves the general ones out; this
+recommender takes only those, and ranks them by the learner's interests,
+with a short bonus for the newest:
 
 1. matches one of the learner's keywords (search subscriptions)  +3
 2. is in one of the learner's topics                              +1
 3. never shown on the tab before, or first shown today            +2
 4. shown on an earlier day and not opened                         -1 per day shown
+5. published today or yesterday                                   +2
+
+The News feed leaves `general` articles out, so the freshness bonus is what
+puts a new explainer in front of the learner on the day it appears; without
+it, it would tie with hundreds of older unseen ones and land wherever the
+shuffle puts it.
 
 Opened articles leave the tab: they are in the learner's history. Within a
 day the list stays the same (today's new ones keep their bonus), and the next
@@ -42,6 +48,8 @@ from zeeguu.core.model.user_preference import UserPreference
 KEYWORD_WEIGHT = 3
 TOPIC_WEIGHT = 1
 UNSEEN_BONUS = 2
+FRESH_BONUS = 2
+FRESH_DAYS = 1
 
 # Caps on the candidate pool, so a language with many general articles still
 # costs a bounded query.
@@ -54,7 +62,9 @@ def _evergreen_articles(language):
     # content/htmlContent would make that tens of MB per page load. The chosen
     # few are fetched in full at the end.
     return Article.query.options(
-        load_only(Article.id, Article.title, Article.summary),
+        load_only(
+            Article.id, Article.title, Article.summary, Article.published_time
+        ),
         selectinload(Article.topics),
     ).filter(
         Article.language_id == language.id,
@@ -186,6 +196,13 @@ def evergreen_recommendations_for_user(
             s += UNSEEN_BONUS
         else:
             s -= seen.times_shown
+        # By calendar day, as the unseen bonus is, so the list does not
+        # reshuffle within a day when a rolling window runs out. Both sides of
+        # today: a feed that dates its items in the future must not keep the
+        # bonus forever.
+        published = article.published_time
+        if published and abs((now.date() - published.date()).days) <= FRESH_DAYS:
+            s += FRESH_BONUS
         return s
 
     ranked = []
