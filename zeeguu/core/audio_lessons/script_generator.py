@@ -488,10 +488,11 @@ def generate_dialogue_script(
             or "None: there are no earlier dialogues to rehearse.",
             dialogue=dialogue.script,
             learner_role=learner_role,
-            normal_speed_example=_normal_speed_example(learner_role, values),
         )
+        a0 = dict(values=values, dialogue=dialogue_lines(dialogue.script), heard=heard)
     else:
         dialogue = None
+        a0 = None
         if lesson_type == "situation":
             prompt_file = "dialogue_lesson--situation-v2.txt"
         else:
@@ -505,29 +506,15 @@ def generate_dialogue_script(
     log(f"Generating dialogue script (suggestion: {suggestion}, type: {lesson_type})")
 
     try:
-        raw, model_name = generate_script_in_languages(
+        title, script, model_name = _write_dialogue_lesson(
             prompt,
-            target_language=origin_language,
-            source_language=translation_language,
-            context=f"dialogue lesson '{suggestion}'",
+            a0,
+            origin_language=origin_language,
+            translation_language=translation_language,
+            suggestion=suggestion,
             max_tokens=max_tokens,
             short_lines=builds_on_history(cefr_level),
-            # Above A0, DeepSeek writes these as well as Sonnet 5.5 and about 10x
-            # cheaper: on 25 prod requests (9 learned, 6 teacher languages) blind
-            # A/B judges split evenly and found as many errors in each
-            # (zeeguu-experiments audio-lessons/2026-11-18-deepseek-dialogues).
-            # A0 lessons and meaning lessons were not part of that comparison.
-            deepseek_first=not builds_on_history(cefr_level),
         )
-
-        # Parse title from first line
-        title = None
-        script = raw
-        lines = raw.strip().split("\n", 1)
-        if len(lines) == 2 and not lines[0].strip().startswith("Teacher:"):
-            title = lines[0].strip().lstrip("#").strip()[:200]
-            script = lines[1].strip()
-
         log(f"Successfully generated dialogue script, title: '{title}'")
         return title, GeneratedScript(
             script, model_name, prompt_version_of(prompt_file), dialogue
@@ -538,8 +525,68 @@ def generate_dialogue_script(
         raise Exception(f"Failed to generate dialogue script: {str(e)}")
 
 
-A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v3.txt"
+MARKUP_ATTEMPTS = 2
+
+
+def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language, suggestion,
+                           max_tokens, short_lines):
+    """
+    (title, script, model) from the model. An A0 script comes back marked
+    (lesson_markup.py): it is topped up to the learner's length and expanded
+    here; a marker that cannot be expanded gets one rewrite, with the reason.
+    """
+    from zeeguu.core.audio_lessons.lesson_markup import MarkupError, expand, top_up
+
+    attempt_prompt = prompt
+    for attempt in range(1, MARKUP_ATTEMPTS + 1):
+        raw, model_name = generate_script_in_languages(
+            attempt_prompt,
+            target_language=origin_language,
+            source_language=translation_language,
+            context=f"dialogue lesson '{suggestion}'",
+            max_tokens=max_tokens,
+            short_lines=short_lines,
+            # Above A0, DeepSeek writes these as well as Sonnet 5.5 and about 10x
+            # cheaper: on 25 prod requests (9 learned, 6 teacher languages) blind
+            # A/B judges split evenly and found as many errors in each
+            # (zeeguu-experiments audio-lessons/2026-11-18-deepseek-dialogues).
+            # A0 lessons and meaning lessons were not part of that comparison.
+            deepseek_first=not short_lines,
+        )
+
+        # Parse title from first line
+        title = None
+        script = raw
+        lines = raw.strip().split("\n", 1)
+        if len(lines) == 2 and not lines[0].strip().startswith("Teacher:"):
+            title = lines[0].strip().lstrip("#").strip()[:200]
+            script = lines[1].strip()
+
+        if a0 is None:
+            return title, script, model_name
+        try:
+            values = a0["values"]
+            marked = top_up(script, values, a0["dialogue"], a0["heard"], values["min_minutes"])
+            return title, expand(marked, values, a0["dialogue"], a0["heard"]), model_name
+        except MarkupError as e:
+            log(f"[lesson markup] '{suggestion}' attempt {attempt}/{MARKUP_ATTEMPTS}: {e}")
+            if attempt == MARKUP_ATTEMPTS:
+                raise
+            attempt_prompt = prompt + (
+                f"\n\nYour previous attempt used markers wrongly: {e}. Write it again; "
+                "use only the markers described above."
+            )
+
+
+A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v4.txt"
 A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
+
+
+def dialogue_lines(script):
+    """A dialogue as [(voice, text)], voice "man" / "woman"."""
+    return tuple(
+        (voice, text) for voice, text, _ in parse_script(script or "") if voice in ("man", "woman")
+    )
 
 
 def _normal_speed_example(learner_role, values):

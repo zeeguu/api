@@ -84,10 +84,9 @@ _EARLIER_WORDS_RECALLS = (
 )
 # The length the learner can choose, in minutes, and the step "too short" and
 # "too long" move it by.
-# 25 at most for now: asked for 30, Sonnet 5.5 wrote 24 minutes, running out
-# of material (eval zeeguu-experiments audio-lessons/2026-11-20-a0-length-rehearsal).
-# Script functions that code expands would bring 30 back
-# (docs future-work/a0-lesson-script-functions.md).
+# 25 at most: past that, a lesson runs out of earlier dialogues to rehearse
+# (a learner with 14 earlier lessons reaches ~24 minutes; eval
+# zeeguu-experiments audio-lessons/2026-11-20-a0-length-rehearsal).
 LESSON_MINUTES_CHOICES = (5, 10, 15, 20, 25)
 LESSON_MINUTES_STEP = 5
 # How much longer than the chosen length a lesson may run; never past the
@@ -97,7 +96,7 @@ MAX_LESSON_MINUTES = LESSON_MINUTES_CHOICES[-1]
 
 # 63 A0 lessons in prod (20 Nov 2026): 4.9-6.8 seconds per voice line,
 # median 5.5. The earlier estimate, 200 lines in 12 minutes, was 3.6.
-_SECONDS_PER_LINE = 5.5
+SECONDS_PER_LINE = 5.5
 
 
 def default_lesson_minutes(daily_goal_minutes, length_level=0) -> int:
@@ -131,7 +130,7 @@ def lesson_minutes_for(user, language) -> int:
 
 
 def lines_for(minutes) -> int:
-    return round(minutes * 60 / _SECONDS_PER_LINE)
+    return round(minutes * 60 / SECONDS_PER_LINE)
 
 
 def dialogues_to_rehearse(minutes) -> int:
