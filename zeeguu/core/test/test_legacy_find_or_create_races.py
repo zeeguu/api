@@ -98,8 +98,10 @@ class LegacyFindOrCreateRaceTest(ModelTestMixIn):
         self._assert_pending_work_survived()
         assert Url.query.filter_by(path="/some/article").count() == 1
 
-    def test_url_with_a_path_over_255_chars_is_not_saved(self):
-        url = "https://race.example.com/" + "a" * 300
+    def test_url_with_a_path_over_the_limit_is_not_saved(self):
+        from zeeguu.core.model.url import MAX_PATH_LENGTH
+
+        url = "https://race.example.com/" + "a" * (MAX_PATH_LENGTH + 50)
         assert Url.find_or_create(session, url) is None
 
     def test_new_text(self):
