@@ -194,6 +194,9 @@ def document_from_article(article, session, current_doc=None):
         "video": article.video,
         "is_disturbing": is_disturbing,
         "available_cefr_levels": available_cefr_levels,
+        # 'news' or 'general' (the crawler's LLM label, set before indexing).
+        # The News feed leaves out 'general'; those are the Evergreen tab's.
+        "article_type": article.article_type,
     }
     if not embedding_generation_required and current_doc is not None:
         doc["sem_vec"] = list(current_doc["sem_vec"])

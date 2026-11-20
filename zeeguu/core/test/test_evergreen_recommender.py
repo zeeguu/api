@@ -33,9 +33,15 @@ class EvergreenRecommenderTest(ModelTestMixIn):
         session.add(TopicSubscription(self.user, self.science))
         session.commit()
 
-    def _article(self, title, article_type="general", topic=None, summary="x"):
+    def _article(
+        self, title, article_type="general", topic=None, summary="x", published=None
+    ):
         article = ArticleRule().article
         article.title = title
+        # A month old unless a test says otherwise, so the freshness bonus only
+        # applies where a test asks for it (ArticleRule dates relative to the
+        # real clock, not TODAY).
+        article.published_time = published or TODAY - timedelta(days=30)
         article.summary = summary
         article.language = self.language
         article.article_type = article_type
@@ -136,6 +142,28 @@ class EvergreenRecommenderTest(ModelTestMixIn):
         session.commit()
 
         assert self._titles() == ["Not read"]
+
+    def test_an_article_published_today_comes_before_older_unseen_ones(self):
+        for i in range(5):
+            self._article(f"Old explainer {i}", topic=self.science)
+        self._article(
+            "Why we see our breath", topic=self.science, published=TODAY - timedelta(hours=4)
+        )
+
+        assert self._titles(count=1) == ["Why we see our breath"]
+
+    def test_the_freshness_bonus_ends_after_yesterday(self):
+        self._article("Wolves explainer", topic=self.science)
+        self._article(
+            "Three days old", topic=self.science, published=TODAY - timedelta(days=3)
+        )
+        self._article(
+            "Dated next week", topic=self.science, published=TODAY + timedelta(days=7)
+        )
+        self._subscribe_to_keyword("Wolves")
+
+        # neither earns the bonus, so the keyword match leads
+        assert self._titles()[0] == "Wolves explainer"
 
     def test_a_picked_keyword_narrows_the_list_to_its_matches(self):
         self._article("How stars are born", topic=self.science)

@@ -70,6 +70,7 @@ def build_elastic_recommender_query(
     - Language
     - Topic preferences
     - Disturbing content (if enabled)
+    - Article type: 'general' articles are left out (they are the Evergreen tab's)
 
     Scores/ranks by recency (preferring recent articles).
 
@@ -164,6 +165,12 @@ def build_elastic_recommender_query(
     # Filter disturbing content if user has enabled the preference
     if filter_disturbing:
         must_not.append({"match": {"is_disturbing": True}})
+
+    # This is the News feed: an explainer you could read months later
+    # (article_type 'general') belongs to the Evergreen tab, not here. Videos
+    # and documents indexed before the field existed have no article_type and
+    # are not affected.
+    must_not.append(match("article_type", "general"))
 
     must.append(exists("published_time"))
     # Allow both articles and videos in organic recommendations

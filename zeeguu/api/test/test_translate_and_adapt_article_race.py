@@ -14,6 +14,7 @@ from zeeguu.api.test.fixtures import create_and_get_article, logged_in_client
 from zeeguu.core.model import Article
 from zeeguu.core.model.article_fragment import ArticleFragment
 from zeeguu.core.model.db import db
+from zeeguu.core.model.url import MAX_PATH_LENGTH
 
 
 def _llm_output():
@@ -116,8 +117,8 @@ def test_losing_the_insert_race_returns_the_winners_article(logged_in_client):
 def test_an_article_whose_translated_url_is_too_long_gets_its_own_translation(
     logged_in_client,
 ):
-    # Url.find_or_create gives None for a path over 255 chars. These paths
-    # fit, but not with the "#translated-from-de-to-de-A1" suffix, so both
+    # Url.find_or_create gives None for a path over MAX_PATH_LENGTH. These
+    # paths fit, but not with the "#translated-from-de-to-de-A1" suffix, so both
     # translated articles get no url. Each must still get its own article,
     # not the other one (an `url_id IS NULL` lookup would find it).
     from zeeguu.core.model.source import Source
@@ -127,8 +128,8 @@ def test_an_article_whose_translated_url_is_too_long_gets_its_own_translation(
     source_article = Article.find_by_id(create_and_get_article(logged_in_client)["id"])
     long_sources = []
     for n in (1, 2):
-        path = f"/race/{n}-" + "x" * 240
-        assert len(path) <= 255
+        path = f"/race/{n}-" + "x" * (MAX_PATH_LENGTH - 15)
+        assert len(path) <= MAX_PATH_LENGTH
         content = f"Text {n}. " + source_article.content
         source = Source.find_or_create(
             db.session,
