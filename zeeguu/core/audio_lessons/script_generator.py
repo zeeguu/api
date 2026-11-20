@@ -534,7 +534,8 @@ MARKUP_ATTEMPTS = 2
 def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language, suggestion,
                            max_tokens, short_lines):
     """
-    (title, script, model, marked, reviewed dialogue ids) from the model.
+    (title, script, model, marked, reviewed) from the model; reviewed is
+    (dialogue id, kind, card id or None) per item reviewed, in order.
 
     An A0 script comes back marked (lesson_markup.py): it is expanded here,
     and a review of earlier lessons, chosen by code (lesson_review.py), is put

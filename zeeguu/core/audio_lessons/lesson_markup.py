@@ -21,18 +21,15 @@ synthesized: nothing downstream knows about markers.
 
 The review of earlier lessons is not the model's: code chooses it
 (lesson_review.py) and places it before the closing dialogue (with_review).
-Each reviewed dialogue is answered in the learner's role: the other person's
-line, time to answer, the learner's line; then straight through.
+It asks earlier lessons' cards (cards, card_lines): a question in the
+learner's own language, time to answer, the answer. A lesson from before
+cards is reviewed as its dialogue, answered in the learner's role
+(respond_lines).
 """
 
 import re
 from dataclasses import dataclass
 from typing import Optional
-
-from zeeguu.core.audio_lessons.lesson_tuning import SECONDS_PER_LINE
-
-VOICES = ("Teacher", "TeacherL2", "Man", "Woman")
-LINE_MARKERS = ("drill", "ask", "answer", "understand", "cue")
 
 _VOICE_LINE = re.compile(r"^(Teacher|TeacherL2|Man|Woman):\s*(.*)$")
 _LINE_MARKER = re.compile(r"\s*\[(drill|ask|answer|understand|cue)\]\s*$", re.IGNORECASE)
