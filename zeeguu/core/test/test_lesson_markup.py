@@ -42,26 +42,10 @@ def test_drill_is_slow_once_then_at_normal_speed():
     ]
 
 
-def test_ask_waits_for_the_answer_and_the_answer_comes_twice():
-    script = "Teacher: How do you say coffee? [ask]\nWoman: En kaffe. [answer]"
-    assert expand(script, VALUES, DIALOGUE).splitlines() == [
-        "Teacher: How do you say coffee? [5 seconds]",
-        "Woman: En kaffe. [3 seconds]",
-        "Woman: En kaffe. [3 seconds]",
-    ]
-
-
-def test_ask_on_its_own_line_belongs_to_the_question_before_it():
-    """As the model wrote it in 4 of 17 eval lessons: without this, the learner
-    got one second to answer."""
-    script = "Teacher: How do you say coffee?\n[ask]\nWoman: En kaffe. [answer]"
-    assert expand(script, VALUES, DIALOGUE).splitlines()[0] == "Teacher: How do you say coffee? [5 seconds]"
-
-
 def test_no_marker_is_left_in_the_expanded_script():
-    script = "Teacher: Hi.\n[ask]\n[dialogue]\nWoman: Kaffe. [drill]\nTeacher: Say it.\n[ask]\nWoman: Kaffe. [answer]"
+    script = "Teacher: Hi.\n[dialogue]\nWoman: Kaffe. [drill]\nTeacher: Say it.\nWoman: Kaffe. [answer]"
     expanded = expand(script, VALUES, DIALOGUE)
-    assert not re.search(r"\[(ask|answer|drill|understand|dialogue)\]", expanded, re.IGNORECASE)
+    assert not re.search(r"\[(answer|drill|understand|cue|dialogue)\]", expanded, re.IGNORECASE)
 
 
 def test_pace_and_repetition_come_from_the_tuning_not_the_model():
@@ -85,21 +69,20 @@ def test_understand_and_dialogue_and_plain_lines():
 
 MARKED = """Teacher: The word for ticket.
 Man: billet [drill]
-Teacher: How do you say "ticket"? [ask]
+Teacher: How do you say "ticket"?
 Man: billet [answer]
 Woman: Den koster tolv kroner. [understand]
-Teacher: Where is the bread? [ask]
+Teacher: Where is the bread?
 Man: Hvor er brødet? [answer]
 Woman: Den koster tolv kroner. [cue]
 Teacher: Answer her: say okay, and ask for a ticket.
-[ask]
 Man: Okay. En billet, tak. [answer]
-Teacher: Once more: how do you say "ticket"? [ask]
+Teacher: Once more: how do you say "ticket"?
 Man: billet [answer]
 [dialogue]"""
 
 
-def test_cards_are_the_ask_answer_pairs_once_per_answer_with_what_they_refer_to():
+def test_cards_are_the_question_answer_pairs_once_per_answer_with_what_they_refer_to():
     assert cards(MARKED) == [
         Card(None, 'How do you say "ticket"?', ("man", "billet")),
         # The [understand] line before it is not what it refers to.
@@ -141,7 +124,10 @@ def test_the_review_goes_before_listen_again_and_the_closing_dialogue():
 @pytest.mark.parametrize("script,problem", [
     ("Woman: Kaffe. [shout]", "unknown marker [shout]"),
     ("[review]", "not a marker that stands on its own line"),
-    ("Woman: Hej.\n[ask]", "[ask] on its own line, not after a Teacher line"),
+    # No [ask]: the question is the Teacher line before an [answer].
+    ("Teacher: How do you say coffee? [ask]", "unknown marker [ask]"),
+    ("Teacher: How do you say coffee?\n[ask]", "not a marker that stands on its own line"),
+    ("Man: Undskyld [ask]\nMan: Undskyld [answer]", "unknown marker [ask]"),
 ])
 def test_a_wrong_marker_is_refused_with_a_reason(script, problem):
     with pytest.raises(MarkupError, match=re.escape(problem)):
@@ -215,13 +201,3 @@ def test_the_teacher_line_before_an_answer_is_the_question_marked_or_not():
     assert expand(script, VALUES, DIALOGUE).splitlines()[0] == "Teacher: How do you say coffee? [5 seconds]"
 
 
-def test_ask_on_the_answer_itself_is_dropped():
-    """As the model wrote it in 3 of 6 eval lessons: the learner would hear
-    the answer before the time to answer."""
-    script = "Teacher: How do you say excuse me?\nMan: Undskyld [ask]\nMan: Undskyld [answer]"
-    assert expand(script, VALUES, DIALOGUE).splitlines() == [
-        "Teacher: How do you say excuse me? [5 seconds]",
-        "Man: Undskyld [3 seconds]",
-        "Man: Undskyld [3 seconds]",
-    ]
-    assert cards(script) == [Card(None, "How do you say excuse me?", ("man", "Undskyld"))]

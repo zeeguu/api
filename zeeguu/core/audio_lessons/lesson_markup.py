@@ -32,10 +32,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 _VOICE_LINE = re.compile(r"^(Teacher|TeacherL2|Man|Woman):\s*(.*)$")
-_LINE_MARKER = re.compile(r"\s*\[(drill|ask|answer|understand|cue)\]\s*$", re.IGNORECASE)
+_LINE_MARKER = re.compile(r"\s*\[(drill|answer|understand|cue)\]\s*$", re.IGNORECASE)
 _PAUSE = re.compile(r"\s*\[([0-9.]+)\s*seconds?\]\s*$", re.IGNORECASE)
 _DIALOGUE = re.compile(r"^\[dialogue\]$", re.IGNORECASE)
-_STANDALONE_ASK = re.compile(r"^\[ask\]$", re.IGNORECASE)
 _ANY_MARKER = re.compile(r"\[([a-z][a-z ]*\d*)\]", re.IGNORECASE)
 _KNOWN_INLINE = ("slow",)
 # What the model writes when it means "no marker": twice in the eval it wrote
@@ -74,24 +73,6 @@ def respond_lines(dialogue, learner, values):
     return out
 
 
-def _without_ask_on_answers(lines):
-    """
-    The lines without an [ask] the model put on the answer itself
-    ("Man: Undskyld [ask]" then "Man: Undskyld [answer]"; 3 of 6 eval
-    lessons, 20 Nov): expanded, the learner would hear the answer before the
-    time to answer. The [answer] line is the answer; this one goes.
-    """
-    out = []
-    for i, line in enumerate(lines):
-        voice_line = _VOICE_LINE.match(line.strip())
-        if voice_line and voice_line.group(1) != "Teacher" and re.search(r"\[ask\]\s*$", voice_line.group(2), re.IGNORECASE):
-            following = next((l.strip() for l in lines[i + 1:] if l.strip()), "")
-            if re.search(r"\[answer\]\s*$", following, re.IGNORECASE):
-                continue
-        out.append(line)
-    return out
-
-
 def expand(script, values, dialogue):
     """
     The full script from a marked one.
@@ -101,7 +82,7 @@ def expand(script, values, dialogue):
     """
     out = []
     problems = []
-    for raw in _without_ask_on_answers(script.split("\n")):
+    for raw in script.split("\n"):
         line = raw.strip()
         if not line:
             out.append("")
@@ -112,17 +93,7 @@ def expand(script, values, dialogue):
             continue
 
         if line.startswith("["):
-            if _STANDALONE_ASK.match(line):
-                # The model sometimes writes [ask] on a line of its own, after
-                # the question, as it writes [dialogue] (4 of 17 eval lessons,
-                # 20 Nov). It belongs to the Teacher line before it: without
-                # it the learner gets one second to answer.
-                previous = next((i for i in range(len(out) - 1, -1, -1) if out[i]), None)
-                if previous is None or not out[previous].startswith("Teacher:"):
-                    problems.append("[ask] on its own line, not after a Teacher line")
-                else:
-                    out[previous] = _PAUSE.sub("", out[previous]) + f" [{values['answer_pause']} seconds]"
-            elif _PAUSE.fullmatch(line):
+            if _PAUSE.fullmatch(line):
                 out.append(line)
             else:
                 problems.append(f"{line!r}: not a marker that stands on its own line")
@@ -154,11 +125,11 @@ def expand(script, values, dialogue):
         if kind == "drill":
             out.append(f"{voice}: {text} [slow] [{values['repeat_pause']} seconds]")
             out += [_line(voice, text, values["repeat_pause"])] * values["normal_speed_repeat_count"]
-        elif kind == "ask":
-            out.append(_line(voice, text, values["answer_pause"]))
         elif kind == "answer":
             # The question is the Teacher line before the answer: it gets the
-            # time to answer, whether or not the model marked it [ask].
+            # time to answer. There is no [ask] marker: the model put one in
+            # the wrong place in 3 ways (prompt drafts, 20 Nov); now it is
+            # refused like any unknown marker, and the script rewritten.
             previous = next((i for i in range(len(out) - 1, -1, -1) if out[i]), None)
             if previous is not None and out[previous].startswith("Teacher:"):
                 out[previous] = _PAUSE.sub("", out[previous]) + f" [{values['answer_pause']} seconds]"
@@ -194,10 +165,7 @@ def cards(marked):
     several times, and its first question is usually the one that says what
     it means.
     """
-    lines = [
-        l.strip() for l in _without_ask_on_answers((marked or "").split("\n"))
-        if l.strip() and not _STANDALONE_ASK.match(l.strip())
-    ]
+    lines = [l.strip() for l in (marked or "").split("\n") if l.strip()]
     out, seen = [], set()
     for i, line in enumerate(lines):
         answer = _VOICE_LINE.match(line)
