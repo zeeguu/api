@@ -1,4 +1,6 @@
 {
+  "a0_article_dialogue:a0-article-dialogue-v2": "51dc2d0258a197dd24444f3057eeb8117ac1e003d671d5ced41aa5e0faf156d2",
+  "a0_article_dialogue_check:a0-article-dialogue-check-v2": "9919b5dbef066fedb94ee4b8e3e351e0aa9f0dbc1393c9e77f4011f3b19b392b",
   "audio_lessons/prompts/a0_dialogue--natural_exchange-v1.txt": "907d6ce2c3e2cb4c19c4e9c12d701df5258d1feff9d4a1a60b0922649ceccc4b",
   "audio_lessons/prompts/a0_dialogue_lesson--pimsleur_style_situation-v1.txt": "385ec4a24e32eb1e418d8e9d073320a2c5245edba4147c4bdb804cc12e24260c",
   "audio_lessons/prompts/a0_dialogue_lesson--pimsleur_style_situation-v2.txt": "06d4feb464e0877f0ddb5d67b5e40122b811af1c23f4661834397d8d49b8a2b4",

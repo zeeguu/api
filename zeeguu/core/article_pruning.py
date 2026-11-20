@@ -94,6 +94,8 @@ PROTECTING_TABLES = [
 # through article_id, plus the ones that use another name.
 PROTECTING_COLUMNS = [(tbl, "article_id") for tbl in PROTECTING_TABLES] + [
     ("shared_article", "delivery_article_id"),
+    # An A0 dialogue keeps the article it was written from: the reader links to it.
+    ("article_dialogue", "inspired_by_article_id"),
 ]
 
 # Bookmark contexts that point at a row the article owns, not at the article.

@@ -20,6 +20,7 @@ from .translation_service import TranslationService
 from .user_word import UserWord
 from .bookmark import Bookmark
 from .short_text import ShortText, ShortTextTranslation, UserShortText
+from .article_dialogue import ArticleDialogue
 
 from .user_preference import UserPreference
 from .session import Session
