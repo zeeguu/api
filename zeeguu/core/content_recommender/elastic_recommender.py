@@ -234,6 +234,10 @@ def article_recommendations_for_user(
     for c in articles_from_searches:
         if added_from_search >= maximum_added_search_articles:
             break
+        # The search query does not know News from Evergreen; keep a saved
+        # search's 'general' matches on the Evergreen tab, as the query above does.
+        if getattr(c, "article_type", None) == "general":
+            continue
         if c.source_id not in seen_source_ids:
             seen_source_ids.add(c.source_id)
             content.append(c)

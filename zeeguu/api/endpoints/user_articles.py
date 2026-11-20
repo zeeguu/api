@@ -1,6 +1,7 @@
 import traceback
 
 import flask
+from sqlalchemy import or_
 
 from zeeguu.core.content_recommender import (
     article_recommendations_for_user,
@@ -147,6 +148,10 @@ def user_articles_recommended(count: int = 15, page: int = 0):
 
         query = Article.query.filter_by(broken=0).filter_by(
             language_id=language.id
+        )
+        # News only, as in the Elasticsearch query: 'general' is Evergreen's.
+        query = query.filter(
+            or_(Article.article_type.is_(None), Article.article_type != "general")
         )
 
         # Apply exclusions to the fallback query as well
