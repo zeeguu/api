@@ -83,7 +83,8 @@ class UserPreference(db.Model):
 
     # How long the learner wants their A0 audio lessons, in minutes, one of
     # lesson_tuning.LESSON_MINUTES_CHOICES. Set on the slider, or moved a step
-    # by "too short" / "too long" after a lesson. Unset: their daily goal.
+    # by "too short" / "too long" after a lesson. Unset: their daily goal, but
+    # not under 10 minutes (lesson_tuning.default_lesson_minutes).
     AUDIO_LESSON_MINUTES = "audio_lesson_minutes"
 
     # Daily audio lesson preferences. Keyed PER learned-language because the daily
