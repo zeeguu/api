@@ -25,6 +25,7 @@ from zeeguu.core.test.rules.user_rule import UserRule
 # here does not make it cascade, a migration does.
 CASCADE_OWNED_COLUMNS = {
     ("article", "parent_article_id"),
+    ("article_dialogue", "article_id"),
     ("article_broken_code_map", "article_id"),
     ("article_cefr_assessment", "article_id"),
     ("article_classification", "article_id"),

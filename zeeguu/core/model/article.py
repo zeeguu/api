@@ -931,6 +931,14 @@ class Article(db.Model):
             tokenized_content = self.get_tokenized_content()
             result_dict.update(tokenized_content)
 
+            # An A0 dialogue: who says each fragment, and the article it is
+            # inspired by. Only for the reader: the feed would pay a query per card.
+            from zeeguu.core.model.article_dialogue import ArticleDialogue
+
+            dialogue = ArticleDialogue.find(self.id)
+            if dialogue:
+                result_dict["dialogue"] = dialogue.info()
+
         result_dict["has_uploader"] = True if self.uploader_id else False
 
         # Add uploader name for classroom articles (so students can see who shared the text)

@@ -132,3 +132,10 @@ GRAMMAR_CORRECTION_DEEPSEEK = DEEPSEEK_CHAT
 
 # DeepSeek general chat (simplification + its fallback path).
 DEEPSEEK_GENERAL = DEEPSEEK_CHAT
+
+# A0 dialogues written from articles (zeeguu.core.llm_services.a0_article_dialogue).
+# Written once per article and checked before anyone sees them: A0 learners
+# cannot spot a mistake. Sonnet writing + Opus checking (18 Nov 2026) cost too
+# much for what it added; DeepSeek does both (20 Nov).
+A0_DIALOGUE_WRITER = DEEPSEEK_CHAT
+A0_DIALOGUE_CHECKER = DEEPSEEK_CHAT

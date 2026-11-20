@@ -32,6 +32,7 @@ from time import time
 
 import zeeguu.core
 from zeeguu.logging import log
+from zeeguu.core.content_retriever import a0_dialogues
 from zeeguu.core.content_retriever.article_downloader import download_from_feed
 from zeeguu.core.model import Feed, Language
 from zeeguu.operations.crawler.crawl_report import CrawlReport
@@ -327,12 +328,22 @@ if args.recent_days:
 log("")
 
 try:
+    before_crawl = a0_dialogues.last_article_id(db_session)
     crawl_reports = crawl_round_robin(languages_to_crawl, args.articles_per_feed, args.recent_days, args.max_articles, args.provider)
 
     end = datetime.now()
     total_duration = end - start
     log(f"\n=== Finished at: {end} ===")
     log(f"=== Total duration: {total_duration} ===")
+
+    # A0 dialogues for the Evergreen articles just saved. Never fails the crawl.
+    for lang_code in languages_to_crawl:
+        try:
+            a0_dialogues.write_for_new_evergreen(db_session, Language.find(lang_code), before_crawl)
+        except Exception as e:
+            db_session.rollback()
+            log(f"[a0 dialogues] {lang_code}: failed: {e}")
+            traceback.print_exc()
 
     # Generate summary (logged only, no email)
     summary = generate_crawl_summary(crawl_reports)
