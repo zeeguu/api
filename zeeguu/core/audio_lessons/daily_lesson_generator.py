@@ -484,6 +484,9 @@ class DailyLessonGenerator:
                 _ai_generator_for(generated.dialogue) if generated.dialogue else None
             ),
         )
+        if builds_on_history:
+            dialogue.learner_character = learner_character
+            dialogue.dialogue_script = generated.dialogue.script if generated.dialogue else None
         if tuning is not None:
             # "minutes" is the length asked for; "length" stays for the study,
             # which reads the lessons written before length was a setting.

@@ -21,7 +21,8 @@ from zeeguu.core.audio_lessons.script_parser import parse_script
 from zeeguu.core.audio_lessons.script_language_validator import TARGET_LANGUAGE_VOICES
 
 # dialogue: the lesson's dialogue as [(voice, text)], voice "man" or "woman";
-# learner: the voice the learner played. Both empty when not found.
+# learner: the voice the learner played. Both as stored when the lesson was
+# written; empty for a lesson without them, which is then not rehearsed.
 HeardLesson = namedtuple(
     "HeardLesson", ["title", "words", "dialogue", "learner"], defaults=((), None)
 )
@@ -40,33 +41,17 @@ def target_language_words(script: str) -> Counter:
     return words
 
 
-def dialogue_and_learner(script: str):
+def stored_dialogue(row) -> tuple:
     """
-    The dialogue an A0 lesson is built around, and the voice the learner played.
-
-    The dialogue is the last run of Man/Woman lines: the lesson ends by playing
-    it again (step 7 of the prompt). The opening one is no better: in 62 of 63
-    prod lessons (20 Nov 2026) they were the same, and in the other the opening
-    had a stray line. The learner is the voice heard most: their lines are
-    drilled and recalled, the other person's only understood, so in those 63
-    lessons the learner's voice had 1.6x to 6.5x the lines.
+    The dialogue an A0 lesson was built around, as [(voice, text)], from what
+    was stored when it was written (AudioLessonDialogue.dialogue_script).
+    Empty for a row that has none.
     """
-    runs, run = [], []
-    lines = Counter()
-    for voice, text, _ in parse_script(script or ""):
-        if voice == "silence":
-            continue
-        if voice in ("man", "woman"):
-            run.append((voice, text))
-            lines[voice] += 1
-        elif run:
-            runs.append(run)
-            run = []
-    if run:
-        runs.append(run)
-    if not runs:
-        return (), None
-    return tuple(runs[-1]), lines.most_common(1)[0][0]
+    return tuple(
+        (voice, text)
+        for voice, text, _ in parse_script(row.dialogue_script or "")
+        if voice in ("man", "woman")
+    )
 
 
 def _history_lessons(user, language):
@@ -135,10 +120,10 @@ def heard_lessons(user, language, limit=30) -> list:
         words = Counter()
         dialogue, learner = (), None
         for segment in lesson.segments:
-            if segment.audio_lesson_dialogue is not None:
-                script = segment.audio_lesson_dialogue.script
-                words.update(target_language_words(script))
-                dialogue, learner = dialogue_and_learner(script)
+            row = segment.audio_lesson_dialogue
+            if row is not None:
+                words.update(target_language_words(row.script))
+                dialogue, learner = stored_dialogue(row), row.learner_character
         if words:
             heard.append(HeardLesson(lesson.display_title(), words, dialogue, learner))
     return heard
