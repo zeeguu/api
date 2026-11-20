@@ -26,7 +26,8 @@ line, time to answer, the learner's line; then straight through.
 """
 
 import re
-from collections import namedtuple
+from dataclasses import dataclass
+from typing import Optional
 
 from zeeguu.core.audio_lessons.lesson_tuning import SECONDS_PER_LINE
 
@@ -178,13 +179,13 @@ def expand(script, values, dialogue):
     return "\n".join(out).strip() + "\n"
 
 
-Card = namedtuple("Card", ["context", "prompt", "answer"])
-Card.__doc__ = """
-One [ask]/[answer] pair of a lesson's marked script, as review material.
-prompt: the Teacher's question, in the learner's own language, so the meaning
-is always given; answer: (voice, text); context: (voice, text) of the line
-the question answers ("Answer her."), marked [cue] by the model; else None.
-"""
+@dataclass(frozen=True)
+class Card:
+    """A question and its answer from a lesson's marked script, as review material."""
+
+    context: Optional[tuple]  # (voice, text) of the [cue] line the question answers, or None
+    prompt: str  # the Teacher's question, in the learner's own language
+    answer: tuple  # (voice, text)
 
 
 def cards(marked):

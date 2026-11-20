@@ -13,26 +13,31 @@ new ones are added. Design: future-work/a0-audio-lessons.md in the docs repo.
 """
 
 import re
-from collections import Counter, namedtuple
+from collections import Counter
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
 
 from sqlalchemy.orm import selectinload
 
 from zeeguu.core.audio_lessons.script_parser import parse_script
 from zeeguu.core.audio_lessons.script_language_validator import TARGET_LANGUAGE_VOICES
 
-# dialogue: the lesson's dialogue as [(voice, text)], voice "man" or "woman";
-# learner: the voice the learner played. Both as stored when the lesson was
-# written; empty for a lesson without them, which is then not rehearsed.
-# dialogue_id: its AudioLessonDialogue; heard_at: when the learner heard it
-# (finished it, or else when it was made); reviewed: what it reviewed, as
-# (dialogue id, card id or None for a whole dialogue) (AudioLessonReview);
-# cards: its review cards, as (card id, lesson_markup.Card) (AudioLessonCard).
-# For lesson_review.
-HeardLesson = namedtuple(
-    "HeardLesson",
-    ["title", "words", "dialogue", "learner", "dialogue_id", "heard_at", "reviewed", "cards"],
-    defaults=((), None, None, None, (), ()),
-)
+@dataclass(frozen=True)
+class HeardLesson:
+    """
+    One lesson the learner heard, as heard_lessons() puts it together from
+    the stored rows for one generation; nothing of it is stored on its own.
+    """
+
+    title: str
+    words: Counter  # how often each learned-language word was said
+    dialogue: tuple = ()  # the dialogue, as (voice, text), voice "man" / "woman"
+    learner: Optional[str] = None  # the voice the learner played
+    dialogue_id: Optional[int] = None  # its AudioLessonDialogue
+    heard_at: Optional[datetime] = None  # finished, or else made
+    reviewed: tuple = ()  # what it reviewed: (dialogue id, card id or None), AudioLessonReview
+    cards: tuple = ()  # its review cards: (card id, lesson_markup.Card), AudioLessonCard
 
 _TIMING = re.compile(r"\[[^\]]*\]")
 _WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")

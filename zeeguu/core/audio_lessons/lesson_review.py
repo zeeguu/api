@@ -23,16 +23,22 @@ What a lesson reviewed is stored (AudioLessonReview: kind "card" with the
 card's id, or "dialogue"), so the next lesson's spacing knows it.
 """
 
-from collections import namedtuple
+from dataclasses import dataclass
 from datetime import datetime
+from typing import Optional
 
-from zeeguu.core.audio_lessons.lesson_markup import card_lines, respond_lines
+from zeeguu.core.audio_lessons.lesson_markup import Card, card_lines, respond_lines
+from zeeguu.core.audio_lessons.words_heard import HeardLesson
 
 FIRST_INTERVAL_DAYS = 1
 
-# lesson: words_heard.HeardLesson; card: lesson_markup.Card, or None for the
-# whole dialogue; card_id: its AudioLessonCard.
-ReviewItem = namedtuple("ReviewItem", ["lesson", "card", "card_id"])
+@dataclass(frozen=True)
+class ReviewItem:
+    """Something an earlier lesson offers for review: one of its cards, or its whole dialogue."""
+
+    lesson: HeardLesson
+    card: Optional[Card]  # None: the whole dialogue (a lesson from before cards)
+    card_id: Optional[int]  # its AudioLessonCard
 
 CARD = "card"
 DIALOGUE = "dialogue"
