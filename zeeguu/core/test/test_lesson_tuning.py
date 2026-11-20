@@ -106,11 +106,12 @@ def test_longer_lessons_rehearse_more_earlier_dialogues():
     assert [dialogues_to_rehearse(m) for m in (5, 10, 15, 20, 25)] == [0, 2, 4, 6, 8]
 
 
-def test_lesson_length_defaults_to_the_daily_goal():
+def test_lesson_length_defaults_to_the_daily_goal_but_not_under_ten():
     assert default_lesson_minutes(10) == 10
     assert default_lesson_minutes(20) == 20
-    # The grandfathered 2-minute goal is below the shortest lesson.
-    assert default_lesson_minutes(2) == 5
+    # The default 5-minute goal and the grandfathered 2 keep today's lessons.
+    assert default_lesson_minutes(5) == 10
+    assert default_lesson_minutes(2) == 10
 
 
 def test_length_answered_before_it_was_a_setting_still_counts():
