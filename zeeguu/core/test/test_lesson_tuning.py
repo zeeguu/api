@@ -43,11 +43,13 @@ def test_situation_and_unknown_answers_do_not_tune():
     assert tuning_from(rows) == LessonTuning()
 
 
-def _lesson_prompt(values):
+def _lesson_prompt(values, learner_role="Man"):
+    other = "Woman" if learner_role == "Man" else "Man"
     common = dict(
         target_language="Danish", source_language="English", cefr_level="A0",
         suggestion="at a café", history="Nothing yet.", dialogue="Man: Hej.",
-        learner_role="Man",
+        learner_role=learner_role, other_role=other,
+        other_pronoun="her" if other == "Woman" else "him",
     )
     template = get_prompt_template("a0_dialogue_lesson--pimsleur_style_situation-v4.txt")
     return template.format(**common, **values)
@@ -61,6 +63,14 @@ def test_the_prompt_asks_for_recalls_as_tuned_and_no_pauses():
     # Words from earlier lessons come back less too ("tak", "hej").
     assert "come back once in the recalls" in prompt
     assert "seconds]" not in prompt
+
+
+@pytest.mark.parametrize("learner,other,pronoun", [("Man", "Woman", "her"), ("Woman", "Man", "him")])
+def test_the_format_names_the_other_person_by_their_label_and_pronoun(learner, other, pronoun):
+    prompt = _lesson_prompt(prompt_values(LessonTuning(), 10), learner)
+    assert f"{other}: <their line> [cue]" in prompt
+    assert f'"Answer {pronoun}."' in prompt
+    assert "<other>" not in prompt
 
 
 def test_the_prompt_leaves_the_review_to_code():

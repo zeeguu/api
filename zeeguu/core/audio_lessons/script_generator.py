@@ -490,6 +490,8 @@ def generate_dialogue_script(
             history=history_table(heard) or "Nothing yet: this is their first lesson.",
             dialogue=dialogue.script,
             learner_role=learner_role,
+            other_role="Woman" if learner_role == "Man" else "Man",
+            other_pronoun="her" if learner_role == "Man" else "him",
         )
         a0 = dict(values=values, dialogue=dialogue_lines(dialogue.script), heard=heard)
     else:

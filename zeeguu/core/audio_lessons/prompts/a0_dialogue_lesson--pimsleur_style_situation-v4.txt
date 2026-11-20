@@ -61,10 +61,10 @@ Use this exact format:
     {learner_role}: <the word> [answer]
 
     Teacher: <what the other person will say, in {source_language}>
-    <other>: <their line> [understand]
+    {other_role}: <their line> [understand]
     ...
-    <other>: <their line> [cue]
-    Teacher: <"Answer her.", in {source_language}>
+    {other_role}: <their line> [cue]
+    Teacher: <"Answer {other_pronoun}.", in {source_language}>
     {learner_role}: <the answer> [answer]
     ...
     Teacher: <listen again, in {source_language}>
