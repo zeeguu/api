@@ -20,7 +20,12 @@ from sqlalchemy.orm import selectinload
 from zeeguu.core.audio_lessons.script_parser import parse_script
 from zeeguu.core.audio_lessons.script_language_validator import TARGET_LANGUAGE_VOICES
 
-HeardLesson = namedtuple("HeardLesson", ["title", "words"])
+# dialogue: the lesson's dialogue as [(voice, text)], voice "man" or "woman";
+# learner: the voice the learner played. Both as stored when the lesson was
+# written; empty for a lesson without them, which is then not rehearsed.
+HeardLesson = namedtuple(
+    "HeardLesson", ["title", "words", "dialogue", "learner"], defaults=((), None)
+)
 
 _TIMING = re.compile(r"\[[^\]]*\]")
 _WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
@@ -34,6 +39,19 @@ def target_language_words(script: str) -> Counter:
             continue
         words.update(w.lower() for w in _WORD.findall(_TIMING.sub(" ", text)))
     return words
+
+
+def stored_dialogue(row) -> tuple:
+    """
+    The dialogue an A0 lesson was built around, as [(voice, text)], from what
+    was stored when it was written (AudioLessonDialogue.dialogue_script).
+    Empty for a row that has none.
+    """
+    return tuple(
+        (voice, text)
+        for voice, text, _ in parse_script(row.dialogue_script or "")
+        if voice in ("man", "woman")
+    )
 
 
 def _history_lessons(user, language):
@@ -100,12 +118,39 @@ def heard_lessons(user, language, limit=30) -> list:
     heard = []
     for lesson in reversed(engaged):
         words = Counter()
+        dialogue, learner = (), None
         for segment in lesson.segments:
-            if segment.audio_lesson_dialogue is not None:
-                words.update(target_language_words(segment.audio_lesson_dialogue.script))
+            row = segment.audio_lesson_dialogue
+            if row is not None:
+                words.update(target_language_words(row.script))
+                dialogue, learner = stored_dialogue(row), row.learner_character
         if words:
-            heard.append(HeardLesson(lesson.display_title(), words))
+            heard.append(HeardLesson(lesson.display_title(), words, dialogue, learner))
     return heard
+
+
+def earlier_dialogues(heard: list, count: int) -> str:
+    """
+    The dialogues of the learner's latest lessons, for rehearsal at the end of
+    the next one, newest first, each with the role the learner played in it:
+
+        Lesson 4: Buying a bus ticket (the learner was the Man)
+        Man: Hej. Jeg skal have en billet, tak.
+        Woman: Hvor skal du hen?
+    """
+    parts = []
+    if count <= 0:
+        return ""
+    for i in range(len(heard), 0, -1):
+        lesson = heard[i - 1]
+        if not lesson.dialogue or not lesson.learner:
+            continue
+        lines = [f"Lesson {i}: {lesson.title or 'untitled'} (the learner was the {lesson.learner.capitalize()})"]
+        lines += [f"{voice.capitalize()}: {text}" for voice, text in lesson.dialogue]
+        parts.append("\n".join(lines))
+        if len(parts) >= count:
+            break
+    return "\n\n".join(parts)
 
 
 def history_table(heard: list) -> str:

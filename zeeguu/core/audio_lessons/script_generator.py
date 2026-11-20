@@ -11,7 +11,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
     find_language_mismatches,
 )
 from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
-from zeeguu.core.audio_lessons.words_heard import history_table
+from zeeguu.core.audio_lessons.words_heard import earlier_dialogues, history_table
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
 from zeeguu.core.model.language import Language
@@ -430,6 +430,7 @@ def generate_dialogue_script(
     heard: list = None,
     learner_character: str = None,
     tuning=None,
+    lesson_minutes: int = None,
 ) -> tuple:
     """
     Generate a single flowing dialogue script about a topic or situation.
@@ -440,6 +441,8 @@ def generate_dialogue_script(
     learner_character: "man" or "woman", the character the learner plays.
     tuning: the learner's LessonTuning (lesson_tuning.py); None is the lesson
     as it was before tuning.
+    lesson_minutes: the length the learner wants (lesson_tuning.lesson_minutes_for);
+    None is the default for a 10-minute daily goal.
     Such a lesson is written in two calls, see _dialogue_for_beginner.
 
     Returns:
@@ -448,8 +451,10 @@ def generate_dialogue_script(
     origin_lang_name = Language.LANGUAGE_NAMES.get(origin_language, origin_language)
     translation_lang_name = Language.LANGUAGE_NAMES.get(translation_language, translation_language)
 
-    # Also enough for the A0 scripts, which measured 1.6k-4k tokens.
-    max_tokens = 8000
+    # A0 scripts measured 2.3k tokens at 10 minutes and 3.7k at 20 (Danish,
+    # 2026-11-20), so a 30-minute one needs ~6k: room above that, since a reply
+    # cut off at the limit comes back as if complete (zeeguu/api#863).
+    max_tokens = 12000 if builds_on_history(cefr_level) else 8000
     common = dict(
         target_language=origin_lang_name,
         source_language=translation_lang_name,
@@ -460,7 +465,12 @@ def generate_dialogue_script(
     if builds_on_history(cefr_level):
         # One prompt for topics and situations: at A0 a topic is a situation
         # where people talk about it.
-        from zeeguu.core.audio_lessons.lesson_tuning import LessonTuning, prompt_values
+        from zeeguu.core.audio_lessons.lesson_tuning import (
+            LessonTuning,
+            default_lesson_minutes,
+            dialogues_to_rehearse,
+            prompt_values,
+        )
 
         prompt_file = A0_LESSON_PROMPT
         heard = heard or []
@@ -469,11 +479,13 @@ def generate_dialogue_script(
         dialogue = _dialogue_for_beginner(
             origin_language, translation_language, suggestion, heard, learner_role
         )
-        values = prompt_values(tuning)
+        values = prompt_values(tuning, lesson_minutes or default_lesson_minutes(10))
         prompt = get_prompt_template(prompt_file).format(
             **common,
             **values,
             history=history_table(heard) or "Nothing yet: this is their first lesson.",
+            earlier_dialogues=earlier_dialogues(heard, dialogues_to_rehearse(values["min_minutes"]))
+            or "None: there are no earlier dialogues to rehearse.",
             dialogue=dialogue.script,
             learner_role=learner_role,
             normal_speed_example=_normal_speed_example(learner_role, values),
@@ -526,7 +538,7 @@ def generate_dialogue_script(
         raise Exception(f"Failed to generate dialogue script: {str(e)}")
 
 
-A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v2.txt"
+A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v3.txt"
 A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
 
 

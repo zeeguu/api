@@ -11,6 +11,7 @@ import pytest
 
 from zeeguu.core.audio_lessons.words_heard import (
     HeardLesson,
+    earlier_dialogues,
     history_table,
     target_language_words,
 )
@@ -80,6 +81,72 @@ def test_history_table_puts_the_most_recent_words_first():
     # others (undskyld 17 before kroner 9), then words of lesson 1 only.
     assert rows == ["undskyld", "kroner", "kaffe"]
     assert "2 (3), 1 (14)" in table
+
+
+_SCRIPT = """Teacher: You are at the café. [0.5 seconds]
+
+[1 seconds]
+
+Man: Hej! Hvad skal det være? [1 seconds]
+Woman: En kaffe, tak. [1 seconds]
+
+Teacher: When you order, you say: [1 seconds]
+Woman: En kaffe. [slow] [3 seconds]
+Woman: En kaffe. [3 seconds]
+Teacher: How do you order a coffee? [4 seconds]
+Woman: En kaffe, tak. [3 seconds]
+Woman: En kaffe, tak. [3 seconds]
+
+Teacher: Listen again. [1 seconds]
+
+[1 seconds]
+
+Man: Hej! Hvad skal det være? [1 seconds]
+Woman: En kaffe, tak. [1 seconds]
+"""
+
+
+def test_backfill_infers_the_last_exchange_and_the_voice_heard_most():
+    from tools.backfill_a0_dialogue_learner import infer
+
+    dialogue, learner, doubts = infer(_SCRIPT)
+    assert dialogue == (("man", "Hej! Hvad skal det være?"), ("woman", "En kaffe, tak."))
+    assert learner == "woman" and doubts == []
+
+
+def test_backfill_doubts_a_closing_dialogue_unlike_the_opening():
+    from tools.backfill_a0_dialogue_learner import infer
+
+    script = _SCRIPT.replace("Teacher: Listen again. [1 seconds]", "Teacher: Listen again. [1 seconds]\nMan: Undskyld. [1 seconds]\nTeacher: No. [1 seconds]")
+    # The stray line ends up in its own run, so the closing run is still the
+    # dialogue; a closing run that differs from the opening one is doubtful.
+    script = script.rstrip() + "\nMan: Tak. [1 seconds]\n"
+    _, _, doubts = infer(script)
+    assert "opening and closing dialogues differ" in doubts
+
+
+def test_the_stored_dialogue_is_read_back():
+    from types import SimpleNamespace
+    from zeeguu.core.audio_lessons.words_heard import stored_dialogue
+
+    row = SimpleNamespace(dialogue_script="Man: Hej! Hvad skal det være?\nWoman: En kaffe, tak.")
+    assert stored_dialogue(row) == (("man", "Hej! Hvad skal det være?"), ("woman", "En kaffe, tak."))
+    assert stored_dialogue(SimpleNamespace(dialogue_script=None)) == ()
+
+
+def test_earlier_dialogues_newest_first_with_the_learners_role():
+    dialogue = (("man", "Hej! Hvad skal det være?"), ("woman", "En kaffe, tak."))
+    heard = [
+        HeardLesson("At the café", Counter({"kaffe": 4}), dialogue, "woman"),
+        HeardLesson("Old lesson", Counter({"hej": 1})),  # no dialogue found: skipped
+        HeardLesson("At the bakery", Counter({"brød": 2}), (("man", "Et brød."),), "man"),
+    ]
+    text = earlier_dialogues(heard, 3)
+    assert text.index("Lesson 3: At the bakery (the learner was the Man)") < text.index(
+        "Lesson 1: At the café (the learner was the Woman)"
+    )
+    assert "Woman: En kaffe, tak." in text
+    assert "Old lesson" not in text
 
 
 def test_no_history_is_an_empty_table():
@@ -176,6 +243,37 @@ class AudioLessonCharacterTest(ModelTestMixIn):
         assert UserPreference.get_audio_lesson_character(self.user) == "woman"
 
 
+class StoredDialogueTest(ModelTestMixIn):
+    """A new A0 lesson stores the learner's role and its dialogue, so later
+    lessons rehearse it without inferring either from the script."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = UserRule().user
+
+    def test_a_new_a0_lesson_stores_the_role_and_the_dialogue(self):
+        from unittest.mock import MagicMock, patch
+
+        from zeeguu.core.audio_lessons import daily_lesson_generator
+        from zeeguu.core.audio_lessons.script_generator import GeneratedScript
+        from zeeguu.core.model.user_preference import UserPreference
+
+        UserPreference.set(db.session, self.user, UserPreference.AUDIO_LESSON_CHARACTER, "woman")
+        dialogue = GeneratedScript("Man: Hej! Hvad skal det være?\nWoman: En kaffe, tak.", "deepseek-chat", "v1")
+        lesson = GeneratedScript("Teacher: At the café. [1 seconds]", "claude-sonnet-5-5", "v3", dialogue)
+        generator = daily_lesson_generator.DailyLessonGenerator()
+        generator._voice_synthesizer = MagicMock(get_audio_duration=MagicMock(return_value=600))
+        with patch.object(daily_lesson_generator, "generate_dialogue_script", return_value=("At the café", lesson)), \
+             patch.object(daily_lesson_generator, "_ai_generator_for", return_value=None):
+            row = generator.generate_audio_lesson_dialogue(
+                self.user, self.user.learned_language.code, "en", "A0", "at the café", "situation",
+                voice_variety=None,
+            )
+
+        assert row.learner_character == "woman"
+        assert row.dialogue_script == dialogue.script
+
+
 def test_a0_builds_on_history_and_has_no_word_lessons():
     from zeeguu.core.audio_lessons.script_generator import builds_on_history, word_lesson_level
 
@@ -266,7 +364,7 @@ def test_each_of_the_two_calls_records_its_own_model(monkeypatch):
         "da", "en", "at a café", "situation", cefr_level="A0", heard=[], learner_character="man"
     )
     assert generated.model_name == "claude-sonnet-5-5"
-    assert generated.prompt_version == "a0_dialogue_lesson-v2"
+    assert generated.prompt_version == "a0_dialogue_lesson-v3"
     assert generated.dialogue.model_name == "deepseek-chat"
     assert generated.dialogue.script.startswith("Woman: Hej!")
 

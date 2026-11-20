@@ -11,6 +11,14 @@ after "faster" three times, one "slower" already slows the next lesson down.
 
 The levels fill in the numbers of the A0 lesson prompt (prompt_values). Only
 A0 lessons are tuned: the other levels' prompts have no such numbers.
+
+Length is not a level but the learner's setting, in minutes
+(UserPreference.AUDIO_LESSON_MINUTES), which they see and can set themselves:
+"too short" and "too long" move it one step (lesson_minutes_after). The prompt
+asks for a lesson between that length and a few minutes more, and fills it
+with rehearsal of the learner's earlier dialogues when the new words alone are
+done sooner: a lesson that came out shorter than asked made one learner miss
+their 10-minute daily goal (20 Nov 2026).
 """
 
 from dataclasses import asdict, dataclass
@@ -74,18 +82,81 @@ _TIMES = {1: "once", 2: "twice", 3: "three times"}
 _EARLIER_WORDS_RECALLS = (
     "many times", "several times", "several times", "two or three times", "once",
 )
-# length (+ is shorter): the lesson's longest length, in lines. The prompt says
-# the length follows from the content, so with a lot of repetition in a short
-# lesson the model fits fewer recalls in, rather than running over.
-_MAX_LINES = (250, 225, 200, 160, 120)
+# The length the learner can choose, in minutes, and the step "too short" and
+# "too long" move it by.
+# 25 at most for now: asked for 30, Sonnet 5.5 wrote 24 minutes, running out
+# of material (eval zeeguu-experiments audio-lessons/2026-11-20-a0-length-rehearsal).
+# Script functions that code expands would bring 30 back
+# (docs future-work/a0-lesson-script-functions.md).
+LESSON_MINUTES_CHOICES = (5, 10, 15, 20, 25)
+LESSON_MINUTES_STEP = 5
+# How much longer than the chosen length a lesson may run; never past the
+# longest choice, which is a hard cap: a 25-minute lesson is asked for 22-25.
+_LESSON_MINUTES_MARGIN = 3
+MAX_LESSON_MINUTES = LESSON_MINUTES_CHOICES[-1]
 
-# 200 lines measured about 12 minutes.
-_SECONDS_PER_LINE = 12 * 60 / 200
+# 63 A0 lessons in prod (20 Nov 2026): 4.9-6.8 seconds per voice line,
+# median 5.5. The earlier estimate, 200 lines in 12 minutes, was 3.6.
+_SECONDS_PER_LINE = 5.5
 
 
-def prompt_values(tuning: LessonTuning) -> dict:
-    p, r, n = tuning.pace + 2, tuning.repetition + 2, tuning.length + 2
-    max_lines = _MAX_LINES[n]
+# The shortest default: about what A0 lessons were before the length was a
+# setting (median 10.6 minutes over 63 lessons). A learner on the default
+# 5-minute goal, or the grandfathered 2, keeps that length unless they choose
+# a shorter one: 5 of 12 A0 learners on 20 Nov 2026.
+DEFAULT_LESSON_MINUTES = 10
+
+
+def default_lesson_minutes(daily_goal_minutes, length_level=0) -> int:
+    """
+    The lesson length of a learner who has not set one: their daily goal, so
+    that a lesson heard to the end is the day's goal reached, but never under
+    DEFAULT_LESSON_MINUTES. length_level is from "too short" / "too long"
+    answered before the length was a setting, each a step.
+    """
+    base = max(daily_goal_minutes, DEFAULT_LESSON_MINUTES)
+    return _snap(base - length_level * LESSON_MINUTES_STEP)
+
+
+def lesson_minutes_after(minutes, value) -> int:
+    """The length after a "longer" / "shorter" / "just_right" answer."""
+    return _snap(minutes - ASPECTS["length"].get(value, 0) * LESSON_MINUTES_STEP)
+
+
+def _snap(minutes) -> int:
+    return min(LESSON_MINUTES_CHOICES, key=lambda choice: abs(choice - minutes))
+
+
+def lesson_minutes_for(user, language) -> int:
+    from zeeguu.core.model.user_preference import UserPreference
+
+    chosen = UserPreference.get_audio_lesson_minutes(user)
+    if chosen:
+        return chosen
+    return default_lesson_minutes(
+        UserPreference.get_daily_goal_minutes(user), tuning_for(user, language).length
+    )
+
+
+def lines_for(minutes) -> int:
+    return round(minutes * 60 / _SECONDS_PER_LINE)
+
+
+def dialogues_to_rehearse(minutes) -> int:
+    """
+    How many earlier dialogues the lesson rehearses: the length comes from
+    them. Asked for 20 minutes in lines alone, Sonnet 5.5 wrote 12-14 (eval
+    zeeguu-experiments audio-lessons/2026-11-20-a0-length-rehearsal); a
+    lesson's own new words fill about 10, and each dialogue rehearsed adds a
+    few minutes.
+    """
+    return max(0, min(8, (minutes - 5) // 5 * 2))
+
+
+def prompt_values(tuning: LessonTuning, minutes: int) -> dict:
+    p, r = tuning.pace + 2, tuning.repetition + 2
+    max_minutes = min(minutes + _LESSON_MINUTES_MARGIN, MAX_LESSON_MINUTES)
+    min_minutes = min(minutes, max_minutes - _LESSON_MINUTES_MARGIN)
     return dict(
         answer_pause=_ANSWER_PAUSE[p],
         repeat_pause=_REPEAT_PAUSE[p],
@@ -94,8 +165,10 @@ def prompt_values(tuning: LessonTuning) -> dict:
         normal_speed_repeats=_TIMES[_NORMAL_SPEED_REPEATS[r]],
         normal_speed_repeat_count=_NORMAL_SPEED_REPEATS[r],
         earlier_words_recalls=_EARLIER_WORDS_RECALLS[r],
-        max_lines=max_lines,
-        max_minutes=round(max_lines * _SECONDS_PER_LINE / 60),
+        min_lines=lines_for(min_minutes),
+        max_lines=lines_for(max_minutes),
+        min_minutes=min_minutes,
+        max_minutes=max_minutes,
     )
 
 
