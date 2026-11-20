@@ -23,8 +23,13 @@ from zeeguu.core.audio_lessons.script_language_validator import TARGET_LANGUAGE_
 # dialogue: the lesson's dialogue as [(voice, text)], voice "man" or "woman";
 # learner: the voice the learner played. Both as stored when the lesson was
 # written; empty for a lesson without them, which is then not rehearsed.
+# dialogue_id: its AudioLessonDialogue; heard_at: when the learner heard it
+# (finished it, or else when it was made); reviewed: the dialogue ids whose
+# dialogues it reviewed (AudioLessonReview). For lesson_review's spacing.
 HeardLesson = namedtuple(
-    "HeardLesson", ["title", "words", "dialogue", "learner"], defaults=((), None)
+    "HeardLesson",
+    ["title", "words", "dialogue", "learner", "dialogue_id", "heard_at", "reviewed"],
+    defaults=((), None, None, None, ()),
 )
 
 _TIMING = re.compile(r"\[[^\]]*\]")
@@ -115,42 +120,31 @@ def heard_lessons(user, language, limit=30) -> list:
     # is_engaged is computed in Python, so the window is applied after it.
     engaged = [lesson for lesson in lessons if lesson.is_engaged][:limit]
 
+    from zeeguu.core.model.audio_lesson_review import AudioLessonReview
+
+    rows = {
+        lesson.id: next(
+            (s.audio_lesson_dialogue for s in lesson.segments if s.audio_lesson_dialogue is not None),
+            None,
+        )
+        for lesson in engaged
+    }
+    reviewed = AudioLessonReview.reviewed_by({row.id for row in rows.values() if row is not None})
+
     heard = []
     for lesson in reversed(engaged):
-        words = Counter()
-        dialogue, learner = (), None
-        for segment in lesson.segments:
-            row = segment.audio_lesson_dialogue
-            if row is not None:
-                words.update(target_language_words(row.script))
-                dialogue, learner = stored_dialogue(row), row.learner_character
-        if words:
-            heard.append(HeardLesson(lesson.display_title(), words, dialogue, learner))
-    return heard
-
-
-def earlier_dialogues(heard: list, count: int) -> str:
-    """
-    The dialogues of the learner's latest lessons, for rehearsal at the end of
-    the next one, newest first, each with the role the learner played in it:
-
-        Lesson 4: Buying a bus ticket (the learner was the Man)
-        Man: Hej. Jeg skal have en billet, tak.
-        Woman: Hvor skal du hen?
-    """
-    parts = []
-    if count <= 0:
-        return ""
-    for i in range(len(heard), 0, -1):
-        lesson = heard[i - 1]
-        if not lesson.dialogue or not lesson.learner:
+        row = rows[lesson.id]
+        if row is None:
             continue
-        lines = [f"Lesson {i}: {lesson.title or 'untitled'} (the learner was the {lesson.learner.capitalize()})"]
-        lines += [f"{voice.capitalize()}: {text}" for voice, text in lesson.dialogue]
-        parts.append("\n".join(lines))
-        if len(parts) >= count:
-            break
-    return "\n\n".join(parts)
+        words = target_language_words(row.script)
+        if words:
+            heard.append(
+                HeardLesson(
+                    lesson.display_title(), words, stored_dialogue(row), row.learner_character,
+                    row.id, lesson.last_completed_at or lesson.created_at, reviewed.get(row.id, ()),
+                )
+            )
+    return heard
 
 
 def history_table(heard: list) -> str:

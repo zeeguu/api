@@ -30,6 +30,7 @@ from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesso
 from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
 from zeeguu.core.audio_lessons import lesson_tuning
 from zeeguu.core.audio_lessons.lesson_tuning import lesson_minutes_for, tuning_for
+from zeeguu.core.model.audio_lesson_review import AudioLessonReview
 from zeeguu.core.audio_lessons.next_situations import suggest_next_situations
 from zeeguu.core.model import (
     db,
@@ -487,12 +488,16 @@ class DailyLessonGenerator:
         if builds_on_history:
             dialogue.learner_character = learner_character
             dialogue.dialogue_script = generated.dialogue.script if generated.dialogue else None
+            dialogue.marked_script = generated.marked
         if tuning is not None:
             # "minutes" is the length asked for; "length" stays for the study,
             # which reads the lessons written before length was a setting.
             dialogue.tuning = {**lesson_tuning.as_dict(tuning), "minutes": lesson_minutes}
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
+        # What it reviews, so the next lessons space their reviews (lesson_review.py).
+        for position, reviewed_id in enumerate(generated.reviewed or ()):
+            db.session.add(AudioLessonReview(dialogue.id, reviewed_id, position))
 
         # Progress callback
         def on_audio_progress(current, total, voice_type):

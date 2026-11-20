@@ -12,16 +12,15 @@ a quarter fewer lines. Design: docs future-work/a0-lesson-script-functions.md.
     Woman: En kaffe. [answer]              the answer, twice
     Man: Hvad skal det være? [understand]  slow once, then at normal speed
     [dialogue]                             this lesson's dialogue
-    [respond 3]                            lesson 3's dialogue, answered: the other
-                                           person's line, time to answer, the
-                                           learner's line; then straight through
 
 A line with no marker is said once, followed by one second (or by the pause
 it carries, when it has one). The expanded script is what is stored and
 synthesized: nothing downstream knows about markers.
 
-top_up then makes a lesson shorter than the learner asked for long enough, by
-adding [respond] rounds of earlier dialogues before the closing dialogue.
+The review of earlier lessons is not the model's: code chooses it
+(lesson_review.py) and places it before the closing dialogue (with_review).
+Each reviewed dialogue is answered in the learner's role: the other person's
+line, time to answer, the learner's line; then straight through.
 """
 
 import re
@@ -35,9 +34,11 @@ _VOICE_LINE = re.compile(r"^(Teacher|TeacherL2|Man|Woman):\s*(.*)$")
 _LINE_MARKER = re.compile(r"\s*\[(drill|ask|answer|understand)\]\s*$", re.IGNORECASE)
 _PAUSE = re.compile(r"\s*\[([0-9.]+)\s*seconds?\]\s*$", re.IGNORECASE)
 _DIALOGUE = re.compile(r"^\[dialogue\]$", re.IGNORECASE)
-_RESPOND = re.compile(r"^\[respond\s+(\d+)\]$", re.IGNORECASE)
 _ANY_MARKER = re.compile(r"\[([a-z][a-z ]*\d*)\]", re.IGNORECASE)
 _KNOWN_INLINE = ("slow",)
+# What the model writes when it means "no marker": twice in the eval it wrote
+# one, echoing the prompt's wording ("[no marker]", "[plain]"). A plain line.
+_PLAIN = re.compile(r"\s*\[(?:plain|no marker|none)\]\s*$", re.IGNORECASE)
 
 
 class MarkupError(ValueError):
@@ -72,14 +73,12 @@ def respond_lines(dialogue, learner, values):
     return out
 
 
-def expand(script, values, dialogue, heard):
+def expand(script, values, dialogue):
     """
     The full script from a marked one.
 
     values: lesson_tuning.prompt_values; dialogue: this lesson's dialogue as
-    [(voice, text)]; heard: the earlier lessons (words_heard.HeardLesson),
-    numbered from 1 as in the prompt's history table.
-    Raises MarkupError on a marker it cannot expand.
+    [(voice, text)]. Raises MarkupError on a marker it cannot expand.
     """
     out = []
     problems = []
@@ -93,17 +92,6 @@ def expand(script, values, dialogue, heard):
             out += [_line(voice.capitalize(), text, 1) for voice, text in dialogue]
             continue
 
-        respond = _RESPOND.match(line)
-        if respond:
-            n = int(respond.group(1))
-            if not 1 <= n <= len(heard):
-                problems.append(f"[respond {n}]: there is no lesson {n}")
-            elif not heard[n - 1].dialogue or not heard[n - 1].learner:
-                problems.append(f"[respond {n}]: lesson {n} has no dialogue to rehearse")
-            else:
-                out += respond_lines(heard[n - 1].dialogue, heard[n - 1].learner, values)
-            continue
-
         voice_line = _VOICE_LINE.match(line)
         if not voice_line:
             # The title, or a stray standalone pause: kept as it is.
@@ -111,6 +99,7 @@ def expand(script, values, dialogue, heard):
             continue
 
         voice, text = voice_line.groups()
+        text = _PLAIN.sub("", text)
         marker = _LINE_MARKER.search(text)
         kind = marker.group(1).lower() if marker else None
         text = _LINE_MARKER.sub("", text)
@@ -144,51 +133,28 @@ def expand(script, values, dialogue, heard):
     return "\n".join(out).strip() + "\n"
 
 
-def top_up(marked, values, dialogue, heard, minutes):
+def review_lines(reviews, values):
+    """The review of earlier lessons (words_heard.HeardLesson), each opened by
+    its title, said by the Teacher: titles are in the learner's own language."""
+    out = []
+    for lesson in reviews:
+        out += ["", _line("Teacher", f"{lesson.title}.", 1)]
+        out += respond_lines(lesson.dialogue, lesson.learner, values)
+    return out
+
+
+def with_review(expanded, review):
     """
-    The marked script with [respond] rounds of earlier dialogues added before
-    the closing [dialogue], newest lesson first, skipping lessons it already
-    rehearses, until the expanded lesson reaches `minutes` or there is nothing
-    left to rehearse. Each round opens with the lesson's title, said by the
-    Teacher: titles are written in the learner's own language.
+    The expanded script with the review lines put before the closing dialogue:
+    before the Teacher's line that introduces it ("Listen again..."), found
+    as the last Teacher line. Nothing to put: the script as it was.
     """
-    lines = marked.rstrip("\n").split("\n")
-    used = {int(m.group(1)) for m in (_RESPOND.match(l.strip()) for l in lines) if m}
-    closing = max((i for i, l in enumerate(lines) if _DIALOGUE.match(l.strip())), default=len(lines))
-    # Before the Teacher's line that introduces the closing dialogue ("Listen
-    # again..."), not between it and the dialogue.
-    before = closing - 1
-    while before >= 0 and not lines[before].strip():
-        before -= 1
-    if before >= 0 and lines[before].strip().startswith("Teacher:"):
-        closing = before
-    target = minutes * 60 / SECONDS_PER_LINE
-
-    added = []
-    for n in range(len(heard), 0, -1):
-        if expanded_line_count(lines + added, values, dialogue, heard) >= target:
-            break
-        if n in used or not heard[n - 1].dialogue or not heard[n - 1].learner:
-            continue
-        added += ["", f"Teacher: {heard[n - 1].title}.", f"[respond {n}]"]
-    if not added:
-        return marked
-    return "\n".join(lines[:closing] + added + [""] + lines[closing:]) + "\n"
+    if not review:
+        return expanded
+    lines = expanded.rstrip("\n").split("\n")
+    last_teacher = max((i for i, l in enumerate(lines) if l.startswith("Teacher:")), default=len(lines))
+    return "\n".join(lines[:last_teacher] + review + [""] + lines[last_teacher:]) + "\n"
 
 
-def expanded_line_count(lines, values, dialogue, heard):
-    """Voice lines the marked script will have once expanded, without expanding it."""
-    per_marker = {"drill": 1 + values["normal_speed_repeat_count"], "answer": 2, "understand": 2}
-    count = 0
-    for line in lines:
-        line = line.strip()
-        if _DIALOGUE.match(line):
-            count += len(dialogue)
-        elif respond := _RESPOND.match(line):
-            n = int(respond.group(1))
-            if 1 <= n <= len(heard) and heard[n - 1].dialogue:
-                count += 2 * len(heard[n - 1].dialogue)
-        elif voice_line := _VOICE_LINE.match(line):
-            marker = _LINE_MARKER.search(voice_line.group(2))
-            count += per_marker.get(marker.group(1).lower(), 1) if marker else 1
-    return count
+def voice_line_count(lines):
+    return sum(1 for line in lines if _VOICE_LINE.match(line.strip()))

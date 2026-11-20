@@ -133,17 +133,6 @@ def lines_for(minutes) -> int:
     return round(minutes * 60 / SECONDS_PER_LINE)
 
 
-def dialogues_to_rehearse(minutes) -> int:
-    """
-    How many earlier dialogues the lesson rehearses: the length comes from
-    them. Asked for 20 minutes in lines alone, Sonnet 5.5 wrote 12-14 (eval
-    zeeguu-experiments audio-lessons/2026-11-20-a0-length-rehearsal); a
-    lesson's own new words fill about 10, and each dialogue rehearsed adds a
-    few minutes.
-    """
-    return max(0, min(8, (minutes - 5) // 5 * 2))
-
-
 def prompt_values(tuning: LessonTuning, minutes: int) -> dict:
     p, r = tuning.pace + 2, tuning.repetition + 2
     max_minutes = min(minutes + _LESSON_MINUTES_MARGIN, MAX_LESSON_MINUTES)

@@ -11,7 +11,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
     find_language_mismatches,
 )
 from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
-from zeeguu.core.audio_lessons.words_heard import earlier_dialogues, history_table
+from zeeguu.core.audio_lessons.words_heard import history_table
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
 from zeeguu.core.model.language import Language
@@ -30,10 +30,12 @@ LANGUAGE_ATTEMPTS = 3
 # Both are known at generation time and unrecoverable afterwards.
 GeneratedScript = namedtuple(
     "GeneratedScript",
-    ["script", "model_name", "prompt_version", "dialogue"],
+    ["script", "model_name", "prompt_version", "dialogue", "marked", "reviewed"],
     # dialogue: for a lesson written in two calls, the GeneratedScript of the
-    # call that wrote its dialogue; None otherwise.
-    defaults=[None],
+    # call that wrote its dialogue; None otherwise. marked: an A0 script as the
+    # model wrote it, with markers (lesson_markup.py); reviewed: the dialogue
+    # ids of the earlier lessons it reviews, in order (lesson_review.py).
+    defaults=[None, None, ()],
 )
 
 
@@ -468,7 +470,6 @@ def generate_dialogue_script(
         from zeeguu.core.audio_lessons.lesson_tuning import (
             LessonTuning,
             default_lesson_minutes,
-            dialogues_to_rehearse,
             prompt_values,
         )
 
@@ -484,8 +485,6 @@ def generate_dialogue_script(
             **common,
             **values,
             history=history_table(heard) or "Nothing yet: this is their first lesson.",
-            earlier_dialogues=earlier_dialogues(heard, dialogues_to_rehearse(values["min_minutes"]))
-            or "None: there are no earlier dialogues to rehearse.",
             dialogue=dialogue.script,
             learner_role=learner_role,
         )
@@ -506,7 +505,7 @@ def generate_dialogue_script(
     log(f"Generating dialogue script (suggestion: {suggestion}, type: {lesson_type})")
 
     try:
-        title, script, model_name = _write_dialogue_lesson(
+        title, script, model_name, marked, reviewed = _write_dialogue_lesson(
             prompt,
             a0,
             origin_language=origin_language,
@@ -517,7 +516,7 @@ def generate_dialogue_script(
         )
         log(f"Successfully generated dialogue script, title: '{title}'")
         return title, GeneratedScript(
-            script, model_name, prompt_version_of(prompt_file), dialogue
+            script, model_name, prompt_version_of(prompt_file), dialogue, marked, reviewed
         )
 
     except Exception as e:
@@ -531,11 +530,22 @@ MARKUP_ATTEMPTS = 2
 def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language, suggestion,
                            max_tokens, short_lines):
     """
-    (title, script, model) from the model. An A0 script comes back marked
-    (lesson_markup.py): it is topped up to the learner's length and expanded
-    here; a marker that cannot be expanded gets one rewrite, with the reason.
+    (title, script, model, marked, reviewed dialogue ids) from the model.
+
+    An A0 script comes back marked (lesson_markup.py): it is expanded here,
+    and a review of earlier lessons, chosen by code (lesson_review.py), is put
+    before its end to make it as long as the learner asked for. A marker that
+    cannot be expanded gets one rewrite, with the reason.
     """
-    from zeeguu.core.audio_lessons.lesson_markup import MarkupError, expand, top_up
+    from zeeguu.core.audio_lessons import lesson_review
+    from zeeguu.core.audio_lessons.lesson_markup import (
+        MarkupError,
+        expand,
+        review_lines,
+        voice_line_count,
+        with_review,
+    )
+    from zeeguu.core.audio_lessons.lesson_tuning import lines_for
 
     attempt_prompt = prompt
     for attempt in range(1, MARKUP_ATTEMPTS + 1):
@@ -563,11 +573,10 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             script = lines[1].strip()
 
         if a0 is None:
-            return title, script, model_name
+            return title, script, model_name, None, ()
         try:
             values = a0["values"]
-            marked = top_up(script, values, a0["dialogue"], a0["heard"], values["min_minutes"])
-            return title, expand(marked, values, a0["dialogue"], a0["heard"]), model_name
+            expanded = expand(script, values, a0["dialogue"])
         except MarkupError as e:
             log(f"[lesson markup] '{suggestion}' attempt {attempt}/{MARKUP_ATTEMPTS}: {e}")
             if attempt == MARKUP_ATTEMPTS:
@@ -576,6 +585,14 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
                 f"\n\nYour previous attempt used markers wrongly: {e}. Write it again; "
                 "use only the markers described above."
             )
+            continue
+
+        missing = lines_for(values["min_minutes"]) - voice_line_count(expanded.split("\n"))
+        reviews = lesson_review.choose(
+            a0["heard"], missing, lambda lesson: 1 + 2 * len(lesson.dialogue)
+        )
+        full = with_review(expanded, review_lines(reviews, values))
+        return title, full, model_name, script, tuple(r.dialogue_id for r in reviews)
 
 
 A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v4.txt"
@@ -587,13 +604,6 @@ def dialogue_lines(script):
     return tuple(
         (voice, text) for voice, text, _ in parse_script(script or "") if voice in ("man", "woman")
     )
-
-
-def _normal_speed_example(learner_role, values):
-    """The example's lines after the slow one: one per time the word is said
-    at normal speed."""
-    times = values["normal_speed_repeat_count"]
-    return f"    {learner_role}: <the word> [{values['repeat_pause']} seconds]\n" * times
 
 
 def _dialogue_for_beginner(origin_language, translation_language, suggestion, heard, learner_role):

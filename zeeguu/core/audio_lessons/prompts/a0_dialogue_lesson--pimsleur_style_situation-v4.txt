@@ -29,17 +29,13 @@ This lesson follows the method of Pimsleur's first lessons: very few new words, 
 
 4. RECALL: after each new item, the Teacher asks for one or two things learned earlier, in this lesson or in the earlier ones. Two kinds of recall:
    - for words TO SAY, about {recalls_to_say} times over the lesson, at growing distances: the Teacher's prompt in {source_language}, marked [ask], then the answer, marked [answer];
-   - for lines TO UNDERSTAND, about {recalls_to_understand} times: the other person says the line, as a plain line, then the Teacher asks the learner to answer it as the {learner_role} would, marked [ask], then the answer, marked [answer]. This is how the lesson ends up practising the whole exchange.
+   - for lines TO UNDERSTAND, about {recalls_to_understand} times: the other person says the line, then the Teacher asks the learner to answer it as the {learner_role} would, marked [ask], then the answer, marked [answer]. This is how the lesson ends up practising the whole exchange.
 
 5. NEW SENTENCES: where the words allow it, ask the learner for short sentences that are not in the dialogue but that someone in the situation would say ("Ask her whether she understands English"). With only a few words there are only a few such sentences; then recall more and combine less.
 
 6. THE EARLIER LESSONS: words from the most recent lessons in the table come back {earlier_words_recalls} in the recalls of step 4, words from older lessons now and then, so they are not forgotten. When they belong to another situation, the Teacher sets that situation in one sentence ("You are at the café again. Order a coffee."). If the table is empty, this is the first lesson.
 
-7. REHEARSAL: before the end, the learner rehearses the dialogues of their earlier lessons listed below, newest first: every one of them. For each, the Teacher sets that situation in one sentence ("Remember the bus station? You are buying a ticket again. Answer the woman."), and then write the line [respond N], with N the lesson's number: the dialogue is then played for the learner to answer, in the role they had in that lesson, and once straight through. Do not write the dialogue out. When the list says there are none, skip this step.
-
-{earlier_dialogues}
-
-8. THE END: the Teacher tells the learner, in {source_language}, to listen to the conversation again and notice that they understand it now. Then the dialogue from step 1 once more.
+7. THE END: the Teacher tells the learner, in {source_language}, to listen to the conversation again and notice that they understand it now. Then the dialogue from step 1 once more.
 
 THE TEACHER
 - Speaks {source_language}, and says more than in lessons for advanced learners: about half of the lesson. Short sentences, warm and calm.
@@ -48,7 +44,7 @@ THE TEACHER
 - Every challenge makes clear WHO speaks and to WHOM: "Ask the waiter...", "Say that you...", "Tell her that you...". The learner must never have to guess whether "you" means themselves or someone else.
 
 LENGTH
-The learner chose lessons of about {min_minutes} minutes. Write only what is described above: more rehearsal of earlier dialogues is added after you, to make up the length. Do not fill time with more recalls of the same words.
+Write only what is described above; do not fill time with more recalls of the same words. A review of the learner's earlier lessons is added to it afterwards, before the end, to make the lesson as long as they want: do not write one.
 
 IMPORTANT: On the very first line, output a short descriptive title for this lesson IN {source_language} (5-10 words, describing what happens in the conversation). Then a blank line, then the script. Do not include any other explanations or preamble.
 
@@ -67,16 +63,13 @@ Use this exact format:
     Teacher: <what the other person will say, in {source_language}>
     <other>: <their line> [understand]
     ...
-    Teacher: <setting an earlier situation, in {source_language}>
-    [respond <lesson number>]
-    ...
     Teacher: <listen again, in {source_language}>
     [dialogue]
 
 RULES:
 - Use only "Teacher:", "TeacherL2:", "Man:", "Woman:" labels
 - TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
-- Write no pauses and no timings: they are added after you. The only markers are [drill], [ask], [answer], [understand] at the end of a line, and the lines [dialogue] and [respond N]
+- Write no pauses and no timings: they are added after you. The only markers are [drill], [ask], [answer], [understand] at the end of a line, and the line [dialogue]
 - Each line is written once: never repeat a line to have it said twice; the markers do that
 - CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
 - Man and Woman must be adults. Never create child characters — dialogues are voiced by TTS and we only have adult voices available.
