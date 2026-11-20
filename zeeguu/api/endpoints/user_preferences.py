@@ -38,6 +38,18 @@ def save_user_preferences():
             f"{', '.join(UserPreference.AUDIO_LESSON_CHARACTERS)}",
         )
 
+    # Empty means not sent.
+    audio_lesson_minutes_value = data.get(UserPreference.AUDIO_LESSON_MINUTES) or None
+    audio_lesson_minutes = UserPreference.parse_audio_lesson_minutes(audio_lesson_minutes_value)
+    if audio_lesson_minutes_value is not None and audio_lesson_minutes is None:
+        from zeeguu.core.audio_lessons.lesson_tuning import LESSON_MINUTES_CHOICES
+
+        return make_error(
+            400,
+            f"{UserPreference.AUDIO_LESSON_MINUTES} must be one of "
+            f"{', '.join(str(each) for each in LESSON_MINUTES_CHOICES)}",
+        )
+
     study_reminder_values = {
         key: data[key]
         for key in UserPreference.STUDY_REMINDER_KEYS
@@ -61,6 +73,9 @@ def save_user_preferences():
     if daily_goal_minutes is not None:
         UserPreference.set_daily_goal_minutes(db_session, user, daily_goal_minutes)
         _credit_today_if_new_goal_is_met(user)
+
+    if audio_lesson_minutes is not None:
+        UserPreference.set_audio_lesson_minutes(db_session, user, audio_lesson_minutes)
 
     max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
     if max_words_to_schedule_value:

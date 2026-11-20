@@ -9,7 +9,10 @@ import pytest
 
 from zeeguu.core.audio_lessons.lesson_tuning import (
     LessonTuning,
+    default_lesson_minutes,
+    dialogues_to_rehearse,
     is_valid,
+    lesson_minutes_after,
     prompt_values,
     tuning_from,
 )
@@ -44,32 +47,24 @@ def test_situation_and_unknown_answers_do_not_tune():
     assert tuning_from(rows) == LessonTuning()
 
 
-def _lesson_prompt(version, values=None):
+def _lesson_prompt(values, earlier_dialogues="None yet."):
     common = dict(
         target_language="Danish", source_language="English", cefr_level="A0",
         suggestion="at a café", history="Nothing yet.", dialogue="Man: Hej.",
-        learner_role="Man",
+        learner_role="Man", earlier_dialogues=earlier_dialogues,
     )
-    template = get_prompt_template(f"a0_dialogue_lesson--pimsleur_style_situation-{version}.txt")
-    if values is None:
-        return template.format(**common)
+    template = get_prompt_template("a0_dialogue_lesson--pimsleur_style_situation-v3.txt")
     return template.format(
         **common, **values, normal_speed_example=_normal_speed_example("Man", values)
     )
 
 
-def test_untuned_v2_prompt_is_exactly_v1():
-    """A learner who never tapped anything gets the lesson they had before."""
-    assert _lesson_prompt("v2", prompt_values(LessonTuning())) == _lesson_prompt("v1")
-
-
-def test_faster_less_repetitive_shorter_prompt():
-    prompt = _lesson_prompt("v2", prompt_values(LessonTuning(pace=2, repetition=2, length=2)))
+def test_faster_less_repetitive_prompt():
+    prompt = _lesson_prompt(prompt_values(LessonTuning(pace=2, repetition=2), 10))
     assert "[3 seconds] so the learner can answer" in prompt
     assert "Between repetitions, use [2 seconds]" in prompt
     assert "then once at normal speed" in prompt
     assert "about 2 times over the lesson" in prompt
-    assert "At most 120 lines" in prompt and "about 7 minutes" in prompt
     # Words from earlier lessons come back less too ("tak", "hej").
     assert "come back once in the recalls" in prompt
     # The example drills the word once at normal speed, after the slow time.
@@ -77,9 +72,65 @@ def test_faster_less_repetitive_shorter_prompt():
 
 
 def test_slower_prompt_gives_more_time():
-    prompt = _lesson_prompt("v2", prompt_values(LessonTuning(pace=-2, repetition=-2)))
+    prompt = _lesson_prompt(prompt_values(LessonTuning(pace=-2, repetition=-2), 10))
     assert "[7 seconds] so the learner can answer" in prompt
     assert "about 7 times over the lesson" in prompt
+
+
+def test_the_prompt_asks_for_the_chosen_length_and_a_little_more():
+    prompt = _lesson_prompt(prompt_values(LessonTuning(), 10))
+    # 5.5 seconds a line, measured on prod lessons.
+    assert "between 109 and 142 lines" in prompt
+    assert "10 to 13 minutes" in prompt
+
+
+def test_twenty_five_minutes_is_a_hard_cap():
+    values = prompt_values(LessonTuning(), 25)
+    assert (values["min_minutes"], values["max_minutes"]) == (22, 25)
+    assert values["max_lines"] == 273
+
+
+def test_the_prompt_has_the_earlier_dialogues_to_rehearse():
+    prompt = _lesson_prompt(prompt_values(LessonTuning(), 15), "Lesson 1: At the café (the learner was the Man)")
+    assert "Lesson 1: At the café (the learner was the Man)" in prompt
+
+
+def test_length_and_repetition_are_separate():
+    """A long lesson with little repetition: the length is the target,
+    repetition is how the lines inside it are spent."""
+    values = prompt_values(LessonTuning(repetition=2), 20)
+    assert values["min_lines"] == 218 and values["recalls_to_say"] == 2
+
+
+def test_longer_lessons_rehearse_more_earlier_dialogues():
+    assert [dialogues_to_rehearse(m) for m in (5, 10, 15, 20, 25)] == [0, 2, 4, 6, 8]
+
+
+def test_lesson_length_defaults_to_the_daily_goal():
+    assert default_lesson_minutes(10) == 10
+    assert default_lesson_minutes(20) == 20
+    # The grandfathered 2-minute goal is below the shortest lesson.
+    assert default_lesson_minutes(2) == 5
+
+
+def test_length_answered_before_it_was_a_setting_still_counts():
+    # Two "longer" (level -2) on a 10-minute goal.
+    assert default_lesson_minutes(10, length_level=-2) == 20
+
+
+def test_too_short_and_too_long_move_the_length_a_step_with_no_limit_at_two():
+    minutes = 10
+    for _ in range(3):
+        minutes = lesson_minutes_after(minutes, "longer")
+    assert minutes == 25
+    assert lesson_minutes_after(minutes, "shorter") == 20
+    assert lesson_minutes_after(minutes, "just_right") == 25
+    assert lesson_minutes_after(minutes, "longer") == 25
+
+
+def test_the_length_stays_within_the_choices():
+    assert lesson_minutes_after(25, "longer") == 25
+    assert lesson_minutes_after(5, "shorter") == 5
 
 
 @pytest.mark.parametrize("aspect,value,ok", [
@@ -114,10 +165,3 @@ def test_a_fence_on_one_line_is_stripped():
 def test_an_answer_that_is_not_a_list_fails():
     with pytest.raises(Exception):
         parse_suggestions('{"situations": []}')
-
-
-def test_length_and_repetition_are_separate():
-    """A long lesson with little repetition: the length is the limit, repetition
-    is how the lines inside it are spent."""
-    values = prompt_values(LessonTuning(repetition=2, length=-2))
-    assert values["max_lines"] == 250 and values["recalls_to_say"] == 2

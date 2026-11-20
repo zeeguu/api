@@ -11,6 +11,8 @@ import pytest
 
 from zeeguu.core.audio_lessons.words_heard import (
     HeardLesson,
+    dialogue_and_learner,
+    earlier_dialogues,
     history_table,
     target_language_words,
 )
@@ -80,6 +82,50 @@ def test_history_table_puts_the_most_recent_words_first():
     # others (undskyld 17 before kroner 9), then words of lesson 1 only.
     assert rows == ["undskyld", "kroner", "kaffe"]
     assert "2 (3), 1 (14)" in table
+
+
+_SCRIPT = """Teacher: You are at the café. [0.5 seconds]
+
+[1 seconds]
+
+Man: Hej! Hvad skal det være? [1 seconds]
+Woman: En kaffe, tak. [1 seconds]
+
+Teacher: When you order, you say: [1 seconds]
+Woman: En kaffe. [slow] [3 seconds]
+Woman: En kaffe. [3 seconds]
+Teacher: How do you order a coffee? [4 seconds]
+Woman: En kaffe, tak. [3 seconds]
+Woman: En kaffe, tak. [3 seconds]
+
+Teacher: Listen again. [1 seconds]
+
+[1 seconds]
+
+Man: Hej! Hvad skal det være? [1 seconds]
+Woman: En kaffe, tak. [1 seconds]
+"""
+
+
+def test_the_dialogue_is_the_last_exchange_and_the_learner_the_voice_heard_most():
+    dialogue, learner = dialogue_and_learner(_SCRIPT)
+    assert dialogue == (("man", "Hej! Hvad skal det være?"), ("woman", "En kaffe, tak."))
+    assert learner == "woman"
+
+
+def test_earlier_dialogues_newest_first_with_the_learners_role():
+    dialogue, learner = dialogue_and_learner(_SCRIPT)
+    heard = [
+        HeardLesson("At the café", Counter({"kaffe": 4}), dialogue, learner),
+        HeardLesson("Old lesson", Counter({"hej": 1})),  # no dialogue found: skipped
+        HeardLesson("At the bakery", Counter({"brød": 2}), (("man", "Et brød."),), "man"),
+    ]
+    text = earlier_dialogues(heard, 3)
+    assert text.index("Lesson 3: At the bakery (the learner was the Man)") < text.index(
+        "Lesson 1: At the café (the learner was the Woman)"
+    )
+    assert "Woman: En kaffe, tak." in text
+    assert "Old lesson" not in text
 
 
 def test_no_history_is_an_empty_table():
@@ -266,7 +312,7 @@ def test_each_of_the_two_calls_records_its_own_model(monkeypatch):
         "da", "en", "at a café", "situation", cefr_level="A0", heard=[], learner_character="man"
     )
     assert generated.model_name == "claude-sonnet-5-5"
-    assert generated.prompt_version == "a0_dialogue_lesson-v2"
+    assert generated.prompt_version == "a0_dialogue_lesson-v3"
     assert generated.dialogue.model_name == "deepseek-chat"
     assert generated.dialogue.script.startswith("Woman: Hej!")
 

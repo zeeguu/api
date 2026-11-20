@@ -29,7 +29,7 @@ from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
 from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
 from zeeguu.core.audio_lessons import lesson_tuning
-from zeeguu.core.audio_lessons.lesson_tuning import tuning_for
+from zeeguu.core.audio_lessons.lesson_tuning import lesson_minutes_for, tuning_for
 from zeeguu.core.audio_lessons.next_situations import suggest_next_situations
 from zeeguu.core.model import (
     db,
@@ -399,6 +399,7 @@ class DailyLessonGenerator:
         learner_character = None
         past_titles = None
         tuning = None
+        lesson_minutes = None
 
         if builds_on_history:
             heard = heard_lessons(user, learned_lang)
@@ -410,6 +411,7 @@ class DailyLessonGenerator:
             # What the learner said about their earlier lessons: pace,
             # repetition, length (lesson_tuning.py).
             tuning = tuning_for(user, learned_lang)
+            lesson_minutes = lesson_minutes_for(user, learned_lang)
             is_general = False
         else:
             # Try to find an existing dialogue the user hasn't heard yet.
@@ -457,6 +459,7 @@ class DailyLessonGenerator:
             heard=heard,
             learner_character=learner_character,
             tuning=tuning,
+            lesson_minutes=lesson_minutes,
         )
 
         if progress:
@@ -482,7 +485,9 @@ class DailyLessonGenerator:
             ),
         )
         if tuning is not None:
-            dialogue.tuning = lesson_tuning.as_dict(tuning)
+            # "minutes" is the length asked for; "length" stays for the study,
+            # which reads the lessons written before length was a setting.
+            dialogue.tuning = {**lesson_tuning.as_dict(tuning), "minutes": lesson_minutes}
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
 
@@ -1269,6 +1274,10 @@ class DailyLessonGenerator:
             return {"error": "Only A0 lessons take feedback", "status_code": 400}
 
         def record():
+            # Before the answer is stored: for a learner with no length set,
+            # lesson_minutes_for counts the length answers already stored.
+            if aspect == "length":
+                self._move_lesson_minutes(user, lesson, value)
             AudioLessonFeedback.set(user, lesson, aspect, value)
             if aspect == lesson_tuning.SITUATION:
                 self._move_daily_situation(user, lesson, value)
@@ -1282,7 +1291,35 @@ class DailyLessonGenerator:
             db.session.rollback()
             record()
             db.session.commit()
-        return {"lesson_id": lesson.id, "feedback": AudioLessonFeedback.for_lesson(lesson)}
+        return {
+            "lesson_id": lesson.id,
+            "feedback": AudioLessonFeedback.for_lesson(lesson),
+            # What the next lessons will be written for, shown with the answer.
+            "lesson_minutes": lesson_tuning.lesson_minutes_for(user, lesson.language),
+        }
+
+    @staticmethod
+    def _move_lesson_minutes(user, lesson, value):
+        """
+        "Too short" / "too long" set the learner's lesson length
+        (UserPreference.AUDIO_LESSON_MINUTES) a step from the length this
+        lesson was written for: answered on two lessons of 10 minutes, "too
+        short" asks for 15, not 20, and changing the answer on one lesson
+        moves from the same place. A lesson from before the length was stored
+        moves from the current setting.
+        """
+        from zeeguu.core.model.user_preference import UserPreference
+
+        minutes = None
+        for segment in lesson.segments:
+            dialogue = segment.audio_lesson_dialogue
+            if dialogue is not None and dialogue.tuning:
+                minutes = dialogue.tuning.get("minutes") or minutes
+        if minutes is None:
+            minutes = lesson_tuning.lesson_minutes_for(user, lesson.language)
+        UserPreference.set_audio_lesson_minutes(
+            db.session, user, lesson_tuning.lesson_minutes_after(minutes, value)
+        )
 
     @staticmethod
     def _move_daily_situation(user, lesson, value):
