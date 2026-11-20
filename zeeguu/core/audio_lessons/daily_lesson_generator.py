@@ -1286,8 +1286,8 @@ class DailyLessonGenerator:
             return {"error": "Only A0 lessons take feedback", "status_code": 400}
 
         def record():
-            # Before the answer is stored: for a learner with no length set,
-            # lesson_minutes_for counts the length answers already stored.
+            # Length answers come only from apps from before the length slider
+            # (web#1405). Moved before storing: the default counts stored ones.
             if aspect == "length":
                 self._move_lesson_minutes(user, lesson, value)
             AudioLessonFeedback.set(user, lesson, aspect, value)
