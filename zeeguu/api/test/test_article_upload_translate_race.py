@@ -13,6 +13,7 @@ from zeeguu.api.test.fixtures import logged_in_client
 from zeeguu.core.model import Article
 from zeeguu.core.model.article_fragment import ArticleFragment
 from zeeguu.core.model.db import db
+from zeeguu.core.model.url import MAX_PATH_LENGTH
 
 UPLOAD_URL = "https://example.com/race/bau-von-trumps-triumphbogen"
 TEXT = (
@@ -116,13 +117,13 @@ def test_losing_the_insert_race_returns_the_winners_article(logged_in_client):
 def test_an_upload_whose_translated_url_is_too_long_gets_its_own_article(
     logged_in_client,
 ):
-    # Url.find_or_create gives None for a path over 255 chars. These paths
-    # fit, but not with the "#translated-from-de-to-de-A2" suffix, so both
+    # Url.find_or_create gives None for a path over MAX_PATH_LENGTH. These
+    # paths fit, but not with the "#translated-from-de-to-de-A2" suffix, so both
     # translated articles get no url. Each must still get its own article,
     # not the other one (an `url_id IS NULL` lookup would find it).
     def long_url(n):
-        path = f"/race/{n}-" + "x" * 240
-        assert len(path) <= 255
+        path = f"/race/{n}-" + "x" * (MAX_PATH_LENGTH - 15)
+        assert len(path) <= MAX_PATH_LENGTH
         return "https://example.com" + path
 
     upload_ids = [_create_upload(logged_in_client, long_url(n)) for n in (1, 2)]
