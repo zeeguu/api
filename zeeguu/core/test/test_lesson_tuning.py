@@ -81,11 +81,12 @@ def test_length_and_repetition_are_separate():
     assert values["min_lines"] == 218 and values["recalls_to_say"] == 2
 
 
-def test_lesson_length_defaults_to_the_daily_goal():
+def test_lesson_length_defaults_to_the_daily_goal_but_not_under_ten():
     assert default_lesson_minutes(10) == 10
     assert default_lesson_minutes(20) == 20
-    # The grandfathered 2-minute goal is below the shortest lesson.
-    assert default_lesson_minutes(2) == 5
+    # The default 5-minute goal and the grandfathered 2 keep today's lessons.
+    assert default_lesson_minutes(5) == 10
+    assert default_lesson_minutes(2) == 10
 
 
 def test_length_answered_before_it_was_a_setting_still_counts():

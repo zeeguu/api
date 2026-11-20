@@ -99,14 +99,22 @@ MAX_LESSON_MINUTES = LESSON_MINUTES_CHOICES[-1]
 SECONDS_PER_LINE = 5.5
 
 
+# The shortest default: about what A0 lessons were before the length was a
+# setting (median 10.6 minutes over 63 lessons). A learner on the default
+# 5-minute goal, or the grandfathered 2, keeps that length unless they choose
+# a shorter one: 5 of 12 A0 learners on 20 Nov 2026.
+DEFAULT_LESSON_MINUTES = 10
+
+
 def default_lesson_minutes(daily_goal_minutes, length_level=0) -> int:
     """
     The lesson length of a learner who has not set one: their daily goal, so
-    that a lesson heard to the end is the day's goal reached. length_level is
-    from "too short" / "too long" answered before the length was a setting,
-    each a step.
+    that a lesson heard to the end is the day's goal reached, but never under
+    DEFAULT_LESSON_MINUTES. length_level is from "too short" / "too long"
+    answered before the length was a setting, each a step.
     """
-    return _snap(daily_goal_minutes - length_level * LESSON_MINUTES_STEP)
+    base = max(daily_goal_minutes, DEFAULT_LESSON_MINUTES)
+    return _snap(base - length_level * LESSON_MINUTES_STEP)
 
 
 def lesson_minutes_after(minutes, value) -> int:

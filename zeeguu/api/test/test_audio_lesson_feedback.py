@@ -101,8 +101,8 @@ def test_changing_the_length_answer_moves_from_the_same_place(logged_in_client):
 
 def test_a_lesson_from_before_the_length_was_stored_moves_from_the_setting(logged_in_client):
     lesson = _lesson_for(logged_in_client.email)
-    # The default 5-minute daily goal.
-    assert _say(logged_in_client, lesson, "length", "longer").json["lesson_minutes"] == 10
+    # The default 5-minute daily goal: lessons of 10, so "too short" asks for 15.
+    assert _say(logged_in_client, lesson, "length", "longer").json["lesson_minutes"] == 15
 
 
 def test_the_lesson_length_is_a_preference_the_learner_can_set(logged_in_client):
