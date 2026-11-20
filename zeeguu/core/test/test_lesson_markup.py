@@ -48,6 +48,19 @@ def test_ask_waits_for_the_answer_and_the_answer_comes_twice():
     ]
 
 
+def test_ask_on_its_own_line_belongs_to_the_question_before_it():
+    """As the model wrote it in 4 of 17 eval lessons: without this, the learner
+    got one second to answer."""
+    script = "Teacher: How do you say coffee?\n[ask]\nWoman: En kaffe. [answer]"
+    assert expand(script, VALUES, DIALOGUE).splitlines()[0] == "Teacher: How do you say coffee? [5 seconds]"
+
+
+def test_no_marker_is_left_in_the_expanded_script():
+    script = "Teacher: Hi.\n[ask]\n[dialogue]\nWoman: Kaffe. [drill]\nTeacher: Say it.\n[ask]\nWoman: Kaffe. [answer]"
+    expanded = expand(script, VALUES, DIALOGUE)
+    assert not re.search(r"\[(ask|answer|drill|understand|dialogue)\]", expanded, re.IGNORECASE)
+
+
 def test_pace_and_repetition_come_from_the_tuning_not_the_model():
     faster = prompt_values(LessonTuning(pace=2, repetition=2), 10)
     assert expand("Woman: Kaffe. [drill]", faster, DIALOGUE).splitlines() == [
@@ -88,6 +101,8 @@ def test_the_review_goes_before_listen_again_and_the_closing_dialogue():
 
 @pytest.mark.parametrize("script,problem", [
     ("Woman: Kaffe. [shout]", "unknown marker [shout]"),
+    ("[review]", "not a marker that stands on its own line"),
+    ("Woman: Hej.\n[ask]", "[ask] on its own line, not after a Teacher line"),
 ])
 def test_a_wrong_marker_is_refused_with_a_reason(script, problem):
     with pytest.raises(MarkupError, match=re.escape(problem)):

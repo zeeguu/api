@@ -34,6 +34,7 @@ _VOICE_LINE = re.compile(r"^(Teacher|TeacherL2|Man|Woman):\s*(.*)$")
 _LINE_MARKER = re.compile(r"\s*\[(drill|ask|answer|understand)\]\s*$", re.IGNORECASE)
 _PAUSE = re.compile(r"\s*\[([0-9.]+)\s*seconds?\]\s*$", re.IGNORECASE)
 _DIALOGUE = re.compile(r"^\[dialogue\]$", re.IGNORECASE)
+_STANDALONE_ASK = re.compile(r"^\[ask\]$", re.IGNORECASE)
 _ANY_MARKER = re.compile(r"\[([a-z][a-z ]*\d*)\]", re.IGNORECASE)
 _KNOWN_INLINE = ("slow",)
 # What the model writes when it means "no marker": twice in the eval it wrote
@@ -92,9 +93,26 @@ def expand(script, values, dialogue):
             out += [_line(voice.capitalize(), text, 1) for voice, text in dialogue]
             continue
 
+        if line.startswith("["):
+            if _STANDALONE_ASK.match(line):
+                # The model sometimes writes [ask] on a line of its own, after
+                # the question, as it writes [dialogue] (4 of 17 eval lessons,
+                # 20 Nov). It belongs to the Teacher line before it: without
+                # it the learner gets one second to answer.
+                previous = next((i for i in range(len(out) - 1, -1, -1) if out[i]), None)
+                if previous is None or not out[previous].startswith("Teacher:"):
+                    problems.append("[ask] on its own line, not after a Teacher line")
+                else:
+                    out[previous] = _PAUSE.sub("", out[previous]) + f" [{values['answer_pause']} seconds]"
+            elif _PAUSE.fullmatch(line):
+                out.append(line)
+            else:
+                problems.append(f"{line!r}: not a marker that stands on its own line")
+            continue
+
         voice_line = _VOICE_LINE.match(line)
         if not voice_line:
-            # The title, or a stray standalone pause: kept as it is.
+            # The title: kept as it is.
             out.append(line)
             continue
 
