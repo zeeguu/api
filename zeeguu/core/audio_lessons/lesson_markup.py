@@ -156,36 +156,61 @@ class Card:
     answer: tuple  # (voice, text)
 
 
+@dataclass(frozen=True)
+class MarkedLine:
+    """One voice line of a marked script."""
+
+    voice: str  # "Teacher", "TeacherL2", "Man" or "Woman"
+    text: str  # what is said, without markers
+    marker: Optional[str]  # "drill", "answer", "understand", "cue", or None
+
+
+def marked_lines(marked) -> list:
+    """The voice lines of a marked script, in order; the title, blank lines
+    and [dialogue] are left out."""
+    lines = []
+    for raw in (marked or "").split("\n"):
+        voice_line = _VOICE_LINE.match(raw.strip())
+        if not voice_line:
+            continue
+        voice, text = voice_line.groups()
+        marker = _LINE_MARKER.search(text)
+        lines.append(MarkedLine(voice, _clean(text), marker.group(1).lower() if marker else None))
+    return lines
+
+
 def cards(marked):
     """
-    The cards of a marked script, in order: each [answer] with the Teacher
-    line before it (the question), and the [cue] line before that when there
-    is one (only a marked one: an unmarked line before a question may belong
-    to something else). One card per answer: a lesson recalls the same phrase
-    several times, and its first question is usually the one that says what
-    it means.
+    The cards of a marked script, in order. A card is an [answer] line, the
+    Teacher line right before it (the question), and, when the line before
+    the question is marked [cue], that line too (what "Answer her." answers).
+    One card per answer: a lesson recalls the same phrase several times, and
+    its first question is usually the one that says what it means.
+
+    A second [answer] right after the first (two answers to one question)
+    makes no card of its own: the line before it is not a question.
     """
-    lines = [l.strip() for l in (marked or "").split("\n") if l.strip()]
-    out, seen = [], set()
+    lines = marked_lines(marked)
+    found, answers_seen = [], set()
     for i, line in enumerate(lines):
-        answer = _VOICE_LINE.match(line)
-        if not answer or not re.search(r"\[answer\]\s*$", answer.group(2), re.IGNORECASE):
+        if line.marker != "answer":
             continue
-        question = _VOICE_LINE.match(lines[i - 1]) if i > 0 else None
-        if not question or question.group(1) != "Teacher":
+        question = lines[i - 1] if i >= 1 else None
+        if question is None or question.voice != "Teacher":
             continue
-        answer_text = _clean(answer.group(2))
-        if answer_text.lower() in seen:
+        if line.text.lower() in answers_seen:
             continue
-        seen.add(answer_text.lower())
-        before = _VOICE_LINE.match(lines[i - 2]) if i > 1 else None
-        context = (
-            (before.group(1).lower(), _clean(before.group(2)))
-            if before and re.search(r"\[cue\]\s*$", before.group(2), re.IGNORECASE)
-            else None
-        )
-        out.append(Card(context, _clean(question.group(2)), (answer.group(1).lower(), answer_text)))
-    return out
+        answers_seen.add(line.text.lower())
+
+        before_question = lines[i - 2] if i >= 2 else None
+        cue = before_question if before_question and before_question.marker == "cue" else None
+
+        found.append(Card(
+            context=(cue.voice.lower(), cue.text) if cue else None,
+            prompt=question.text,
+            answer=(line.voice.lower(), line.text),
+        ))
+    return found
 
 
 def _clean(text):

@@ -201,3 +201,13 @@ def test_the_teacher_line_before_an_answer_is_the_question_marked_or_not():
     assert expand(script, VALUES, DIALOGUE).splitlines()[0] == "Teacher: How do you say coffee? [5 seconds]"
 
 
+
+
+def test_two_answers_to_one_question_make_one_card():
+    script = "Teacher: How do you say hello and thanks?\nMan: Hej. [answer]\nMan: Tak. [answer]"
+    assert cards(script) == [Card(None, "How do you say hello and thanks?", ("man", "Hej."))]
+
+
+def test_a_cue_only_counts_right_before_the_question():
+    script = "Woman: Tolv kroner. [cue]\nTeacher: Listen.\nTeacher: Answer her.\nMan: Okay. [answer]"
+    assert cards(script) == [Card(None, "Answer her.", ("man", "Okay."))]
