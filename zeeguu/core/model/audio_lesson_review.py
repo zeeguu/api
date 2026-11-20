@@ -10,12 +10,13 @@ class AudioLessonReview(db.Model):
     (audio_lessons/lesson_review.py), not by the model; the spacing of the next
     reviews is read from these rows.
 
-    kind "dialogue": the earlier lesson's dialogue, answered in the learner's
-    role (item is None). Reserved: "question", one [ask]/[answer] pair of the
-    earlier lesson's marked_script, item being its index there.
+    kind "card": one of the earlier lesson's cards (AudioLessonCard).
+    kind "dialogue": the earlier lesson's whole dialogue, answered in the
+    learner's role (card_id None), for a lesson from before cards.
     """
 
     DIALOGUE = "dialogue"
+    CARD = "card"
 
     __tablename__ = "audio_lesson_review"
     __table_args__ = (
@@ -28,22 +29,22 @@ class AudioLessonReview(db.Model):
     reviewed_dialogue_id = Column(
         Integer, ForeignKey("audio_lesson_dialogue.id"), nullable=False, index=True
     )
-    kind = Column(String(10), nullable=False, default=DIALOGUE)
-    item = Column(Integer, nullable=True)
+    kind = Column(String(10), nullable=False)
+    card_id = Column(Integer, ForeignKey("audio_lesson_card.id"), nullable=True)
     position = Column(Integer, nullable=False)
 
-    def __init__(self, dialogue_id, reviewed_dialogue_id, position, kind=DIALOGUE, item=None):
+    def __init__(self, dialogue_id, reviewed_dialogue_id, position, kind=DIALOGUE, card_id=None):
         self.dialogue_id = dialogue_id
         self.reviewed_dialogue_id = reviewed_dialogue_id
         self.position = position
         self.kind = kind
-        self.item = item
+        self.card_id = card_id
 
     @classmethod
     def reviewed_by(cls, dialogue_ids):
-        """{dialogue_id: (dialogue ids whose dialogue it reviewed, in order)}."""
+        """{dialogue_id: ((reviewed dialogue id, card id or None), ...)} in order."""
         rows = (
-            cls.query.filter(cls.dialogue_id.in_(list(dialogue_ids)), cls.kind == cls.DIALOGUE)
+            cls.query.filter(cls.dialogue_id.in_(list(dialogue_ids)))
             .order_by(cls.dialogue_id, cls.position)
             .all()
             if dialogue_ids
@@ -51,5 +52,5 @@ class AudioLessonReview(db.Model):
         )
         out = {}
         for row in rows:
-            out.setdefault(row.dialogue_id, []).append(row.reviewed_dialogue_id)
+            out.setdefault(row.dialogue_id, []).append((row.reviewed_dialogue_id, row.card_id))
         return {k: tuple(v) for k, v in out.items()}

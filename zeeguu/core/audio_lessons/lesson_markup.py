@@ -8,9 +8,11 @@ model made of "about 5 recalls" and "[4 seconds]", and the model writes about
 a quarter fewer lines. Design: docs future-work/a0-lesson-script-functions.md.
 
     Woman: Kaffe. [drill]                  slow once, then at normal speed
-    Teacher: How do you say coffee? [ask]  then the time to answer
-    Woman: En kaffe. [answer]              the answer, twice
+    Teacher: How do you say coffee?        the question: the Teacher line before an
+    Woman: En kaffe. [answer]              [answer] gets the time to answer; the
+                                           answer is said twice
     Man: Hvad skal det være? [understand]  slow once, then at normal speed
+    Woman: Den koster tolv kroner. [cue]   a line the next question answers
     [dialogue]                             this lesson's dialogue
 
 A line with no marker is said once, followed by one second (or by the pause
@@ -24,14 +26,15 @@ line, time to answer, the learner's line; then straight through.
 """
 
 import re
+from collections import namedtuple
 
 from zeeguu.core.audio_lessons.lesson_tuning import SECONDS_PER_LINE
 
 VOICES = ("Teacher", "TeacherL2", "Man", "Woman")
-LINE_MARKERS = ("drill", "ask", "answer", "understand")
+LINE_MARKERS = ("drill", "ask", "answer", "understand", "cue")
 
 _VOICE_LINE = re.compile(r"^(Teacher|TeacherL2|Man|Woman):\s*(.*)$")
-_LINE_MARKER = re.compile(r"\s*\[(drill|ask|answer|understand)\]\s*$", re.IGNORECASE)
+_LINE_MARKER = re.compile(r"\s*\[(drill|ask|answer|understand|cue)\]\s*$", re.IGNORECASE)
 _PAUSE = re.compile(r"\s*\[([0-9.]+)\s*seconds?\]\s*$", re.IGNORECASE)
 _DIALOGUE = re.compile(r"^\[dialogue\]$", re.IGNORECASE)
 _STANDALONE_ASK = re.compile(r"^\[ask\]$", re.IGNORECASE)
@@ -58,7 +61,8 @@ def respond_lines(dialogue, learner, values):
     """
     A dialogue for the learner to answer: each line of the other person, then
     the time to answer when the learner speaks next; each line of the learner,
-    then the time to repeat it. Then the whole dialogue straight through.
+    then the time to repeat it. No straight-through replay: listening again is
+    re-exposure, and retrieval is what the review is for.
     dialogue: [(voice, text)] with voice "man" / "woman"; learner: "man" / "woman".
     """
     out = []
@@ -69,8 +73,24 @@ def respond_lines(dialogue, learner, values):
         else:
             learner_next = i + 1 < len(dialogue) and dialogue[i + 1][0] == learner
             out.append(_line(label, text, values["answer_pause"] if learner_next else 1))
-    out.append("")
-    out += [_line(voice.capitalize(), text, 1) for voice, text in dialogue]
+    return out
+
+
+def _without_ask_on_answers(lines):
+    """
+    The lines without an [ask] the model put on the answer itself
+    ("Man: Undskyld [ask]" then "Man: Undskyld [answer]"; 3 of 6 eval
+    lessons, 20 Nov): expanded, the learner would hear the answer before the
+    time to answer. The [answer] line is the answer; this one goes.
+    """
+    out = []
+    for i, line in enumerate(lines):
+        voice_line = _VOICE_LINE.match(line.strip())
+        if voice_line and voice_line.group(1) != "Teacher" and re.search(r"\[ask\]\s*$", voice_line.group(2), re.IGNORECASE):
+            following = next((l.strip() for l in lines[i + 1:] if l.strip()), "")
+            if re.search(r"\[answer\]\s*$", following, re.IGNORECASE):
+                continue
+        out.append(line)
     return out
 
 
@@ -83,7 +103,7 @@ def expand(script, values, dialogue):
     """
     out = []
     problems = []
-    for raw in script.split("\n"):
+    for raw in _without_ask_on_answers(script.split("\n")):
         line = raw.strip()
         if not line:
             out.append("")
@@ -139,7 +159,14 @@ def expand(script, values, dialogue):
         elif kind == "ask":
             out.append(_line(voice, text, values["answer_pause"]))
         elif kind == "answer":
+            # The question is the Teacher line before the answer: it gets the
+            # time to answer, whether or not the model marked it [ask].
+            previous = next((i for i in range(len(out) - 1, -1, -1) if out[i]), None)
+            if previous is not None and out[previous].startswith("Teacher:"):
+                out[previous] = _PAUSE.sub("", out[previous]) + f" [{values['answer_pause']} seconds]"
             out += [_line(voice, text, values["repeat_pause"])] * 2
+        elif kind == "cue":
+            out.append(_line(voice, text, 1))
         elif kind == "understand":
             out.append(f"{voice}: {text} [slow] [1 seconds]")
             out.append(_line(voice, text, 1))
@@ -151,13 +178,79 @@ def expand(script, values, dialogue):
     return "\n".join(out).strip() + "\n"
 
 
-def review_lines(reviews, values):
-    """The review of earlier lessons (words_heard.HeardLesson), each opened by
-    its title, said by the Teacher: titles are in the learner's own language."""
+Card = namedtuple("Card", ["context", "prompt", "answer"])
+Card.__doc__ = """
+One [ask]/[answer] pair of a lesson's marked script, as review material.
+prompt: the Teacher's question, in the learner's own language, so the meaning
+is always given; answer: (voice, text); context: (voice, text) of the line
+the question answers ("Answer her."), marked [cue] by the model; else None.
+"""
+
+
+def cards(marked):
+    """
+    The cards of a marked script, in order: each [answer] with the Teacher
+    line before it (the question), and the [cue] line before that when there
+    is one (only a marked one: an unmarked line before a question may belong
+    to something else). One card per answer: a lesson recalls the same phrase
+    several times, and its first question is usually the one that says what
+    it means.
+    """
+    lines = [
+        l.strip() for l in _without_ask_on_answers((marked or "").split("\n"))
+        if l.strip() and not _STANDALONE_ASK.match(l.strip())
+    ]
+    out, seen = [], set()
+    for i, line in enumerate(lines):
+        answer = _VOICE_LINE.match(line)
+        if not answer or not re.search(r"\[answer\]\s*$", answer.group(2), re.IGNORECASE):
+            continue
+        question = _VOICE_LINE.match(lines[i - 1]) if i > 0 else None
+        if not question or question.group(1) != "Teacher":
+            continue
+        answer_text = _clean(answer.group(2))
+        if answer_text.lower() in seen:
+            continue
+        seen.add(answer_text.lower())
+        before = _VOICE_LINE.match(lines[i - 2]) if i > 1 else None
+        context = (
+            (before.group(1).lower(), _clean(before.group(2)))
+            if before and re.search(r"\[cue\]\s*$", before.group(2), re.IGNORECASE)
+            else None
+        )
+        out.append(Card(context, _clean(question.group(2)), (answer.group(1).lower(), answer_text)))
+    return out
+
+
+def _clean(text):
+    text = re.sub(r"\s*\[[^\]]*\]", "", text)
+    return text.strip()
+
+
+def card_lines(card, values):
+    """A card said: its context line, the question, time to answer, the answer twice."""
     out = []
-    for lesson in reviews:
-        out += ["", _line("Teacher", f"{lesson.title}.", 1)]
-        out += respond_lines(lesson.dialogue, lesson.learner, values)
+    if card.context:
+        out.append(_line(card.context[0].capitalize(), card.context[1], 1))
+    out.append(_line("Teacher", card.prompt, values["answer_pause"]))
+    out += [_line(card.answer[0].capitalize(), card.answer[1], values["repeat_pause"])] * 2
+    return out
+
+
+def review_lines(items, values):
+    """
+    The review (lesson_review.ReviewItem, in order): cards as they are; a
+    whole dialogue, for a lesson with no cards, opened by its title, said by
+    the Teacher (titles are in the learner's own language).
+    """
+    out = []
+    for item in items:
+        out.append("")
+        if item.card is not None:
+            out += card_lines(item.card, values)
+        else:
+            out.append(_line("Teacher", f"{item.lesson.title}.", 1))
+            out += respond_lines(item.lesson.dialogue, item.lesson.learner, values)
     return out
 
 

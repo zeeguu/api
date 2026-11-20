@@ -14,11 +14,14 @@ from datetime import datetime, timedelta
 
 from zeeguu.core.audio_lessons import lesson_review
 from zeeguu.core.audio_lessons.lesson_markup import (
+    Card,
     MarkupError,
+    cards,
     expand,
     review_lines,
     with_review,
 )
+from zeeguu.core.audio_lessons.lesson_review import ReviewItem
 from zeeguu.core.audio_lessons.lesson_tuning import LessonTuning, prompt_values
 from zeeguu.core.audio_lessons.words_heard import HeardLesson
 
@@ -80,21 +83,57 @@ def test_understand_and_dialogue_and_plain_lines():
     ]
 
 
-def test_a_review_answers_only_before_the_learners_lines_then_plays_straight_through():
-    lines = review_lines([BUS], VALUES)
-    assert lines[:5] == [
+MARKED = """Teacher: The word for ticket.
+Man: billet [drill]
+Teacher: How do you say "ticket"? [ask]
+Man: billet [answer]
+Woman: Den koster tolv kroner. [understand]
+Teacher: Where is the bread? [ask]
+Man: Hvor er brødet? [answer]
+Woman: Den koster tolv kroner. [cue]
+Teacher: Answer her: say okay, and ask for a ticket.
+[ask]
+Man: Okay. En billet, tak. [answer]
+Teacher: Once more: how do you say "ticket"? [ask]
+Man: billet [answer]
+[dialogue]"""
+
+
+def test_cards_are_the_ask_answer_pairs_once_per_answer_with_what_they_refer_to():
+    assert cards(MARKED) == [
+        Card(None, 'How do you say "ticket"?', ("man", "billet")),
+        # The [understand] line before it is not what it refers to.
+        Card(None, "Where is the bread?", ("man", "Hvor er brødet?")),
+        Card(("woman", "Den koster tolv kroner."), "Answer her: say okay, and ask for a ticket.", ("man", "Okay. En billet, tak.")),
+    ]
+
+
+def test_a_card_gives_the_meaning_then_time_to_answer_then_the_answer():
+    card = cards(MARKED)[2]
+    lines = review_lines([ReviewItem(BUS, card, 7)], VALUES)
+    assert lines == [
+        "",
+        "Woman: Den koster tolv kroner. [1 seconds]",
+        "Teacher: Answer her: say okay, and ask for a ticket. [5 seconds]",
+        "Man: Okay. En billet, tak. [3 seconds]",
+        "Man: Okay. En billet, tak. [3 seconds]",
+    ]
+
+
+def test_a_lesson_without_cards_reviews_its_dialogue_answered_and_not_replayed():
+    lines = review_lines([ReviewItem(BUS, None, None)], VALUES)
+    assert lines == [
         "",
         "Teacher: Buying a bus ticket. [1 seconds]",
         "Woman: Hej. [5 seconds]",          # the learner (man) answers next
         "Man: Hej. En billet, tak. [3 seconds]",
         "Woman: Værsgo. [1 seconds]",       # nothing to answer after it
     ]
-    assert lines[-3:] == ["Woman: Hej. [1 seconds]", "Man: Hej. En billet, tak. [1 seconds]", "Woman: Værsgo. [1 seconds]"]
 
 
 def test_the_review_goes_before_listen_again_and_the_closing_dialogue():
     expanded = expand("Teacher: Hi.\n[dialogue]\nWoman: Kaffe. [drill]\nTeacher: Listen again.\n[dialogue]", VALUES, DIALOGUE)
-    lines = with_review(expanded, review_lines([BUS], VALUES)).splitlines()
+    lines = with_review(expanded, review_lines([ReviewItem(BUS, None, None)], VALUES)).splitlines()
     assert lines.index("Teacher: Buying a bus ticket. [1 seconds]") < lines.index("Teacher: Listen again. [1 seconds]")
     assert lines[-2:] == ["Man: Hej! Hvad skal det være? [1 seconds]", "Woman: En kaffe, tak. [1 seconds]"]
 
@@ -121,33 +160,68 @@ def test_a_title_line_is_kept():
 NOW = datetime(2026, 11, 20, 12)
 
 
-def _lesson(i, days_ago, reviewed=()):
+def _lesson(i, days_ago, reviewed=(), with_cards=False):
+    # Card ids: 10*i + their position, as AudioLessonCard rows would have them.
+    lesson_cards = tuple((10 * i + n, card) for n, card in enumerate(cards(MARKED))) if with_cards else ()
     return HeardLesson(
         f"Lesson {i}", Counter(), (("woman", f"Hej {i}."), ("man", f"Tak {i}.")), "man",
-        i, NOW - timedelta(days=days_ago), reviewed,
+        i, NOW - timedelta(days=days_ago), reviewed, lesson_cards,
     )
 
 
-def test_the_most_overdue_lesson_is_reviewed_first():
+def test_the_most_overdue_item_is_reviewed_first():
     # Overdue = days since last seen / interval (1 day, doubled per review).
     # Lesson 2: heard 6 days ago, never reviewed -> 6.
     # Lesson 1: heard 10 days ago, reviewed 6 days ago (by lesson 2) -> 6 / 2 = 3.
     # Lesson 3: heard 2 days ago, never reviewed -> 2.
-    heard = [_lesson(1, 10), _lesson(2, 6, reviewed=(1,)), _lesson(3, 2)]
-    assert [l.dialogue_id for l in lesson_review.due_order(heard, NOW)] == [2, 1, 3]
+    heard = [_lesson(1, 10), _lesson(2, 6, reviewed=((1, None),)), _lesson(3, 2)]
+    assert [i.lesson.dialogue_id for i in lesson_review.due_order(heard, NOW)] == [2, 1, 3]
 
 
-def test_reviews_are_added_until_the_lesson_is_long_enough():
+def test_each_card_is_spaced_on_its_own():
+    # Card 10 of lesson 1 was reviewed 5 days ago (by lesson 2), card 11 never:
+    # card 11 (9 days, interval 1) before card 10 (5 days, interval 2).
+    heard = [_lesson(1, 9, with_cards=True), _lesson(2, 5, reviewed=((1, 10),))]
+    order = [i.card_id for i in lesson_review.due_order(heard, NOW)]
+    assert order.index(11) < order.index(10)
+
+
+def test_a_lesson_with_cards_is_reviewed_by_cards_not_by_its_dialogue():
+    items = lesson_review.items_of(_lesson(1, 3, with_cards=True))
+    assert [i.card_id for i in items] == [10, 11, 12] and all(i.card for i in items)
+
+
+def test_items_are_added_until_the_lesson_is_long_enough():
     heard = [_lesson(i, 30 - i) for i in range(1, 10)]
-    chosen = lesson_review.choose(heard, 12, lambda lesson: 5, NOW)
-    assert len(chosen) == 3
+    # Each dialogue: title + 2 lines.
+    assert len(lesson_review.choose(heard, 7, VALUES, NOW)) == 3
 
 
 def test_a_lesson_long_enough_reviews_nothing():
-    assert lesson_review.choose([_lesson(1, 3)], 0, lambda lesson: 5, NOW) == []
+    assert lesson_review.choose([_lesson(1, 3)], 0, VALUES, NOW) == []
 
 
-def test_a_lesson_without_a_stored_dialogue_is_not_reviewed():
-    no_dialogue = HeardLesson("Old", Counter(), (), None, 9, NOW - timedelta(days=50), ())
-    assert lesson_review.due_order([no_dialogue, _lesson(1, 2)], NOW)[0].dialogue_id == 1
-    assert len(lesson_review.due_order([no_dialogue], NOW)) == 0
+def test_a_lesson_with_neither_cards_nor_a_dialogue_offers_nothing():
+    empty = HeardLesson("Old", Counter(), (), None, 9, NOW - timedelta(days=50), ())
+    assert lesson_review.due_order([empty], NOW) == []
+
+
+def test_a_cue_is_said_once_like_a_plain_line():
+    assert expand("Woman: Den koster tolv kroner. [cue]", VALUES, DIALOGUE) == "Woman: Den koster tolv kroner. [1 seconds]\n"
+
+
+def test_the_teacher_line_before_an_answer_is_the_question_marked_or_not():
+    script = "Teacher: How do you say coffee?\nWoman: En kaffe. [answer]"
+    assert expand(script, VALUES, DIALOGUE).splitlines()[0] == "Teacher: How do you say coffee? [5 seconds]"
+
+
+def test_ask_on_the_answer_itself_is_dropped():
+    """As the model wrote it in 3 of 6 eval lessons: the learner would hear
+    the answer before the time to answer."""
+    script = "Teacher: How do you say excuse me?\nMan: Undskyld [ask]\nMan: Undskyld [answer]"
+    assert expand(script, VALUES, DIALOGUE).splitlines() == [
+        "Teacher: How do you say excuse me? [5 seconds]",
+        "Man: Undskyld [3 seconds]",
+        "Man: Undskyld [3 seconds]",
+    ]
+    assert cards(script) == [Card(None, "How do you say excuse me?", ("man", "Undskyld"))]

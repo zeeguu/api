@@ -24,12 +24,12 @@ This lesson follows the method of Pimsleur's first lessons: very few new words, 
    All other sentences in the lesson use only the new words and the words in the table.
 
 3. TEACHING THEM, in the order the dialogue needs them:
-   - Each word TO SAY: the Teacher says in {source_language} what it means and when you say it. Then the word, once, marked [drill]: it will be said slowly and then at normal speed, with time to repeat it. Always the whole word: the voices are synthesized, and a piece of a word comes out as a wrong sound. Then the Teacher asks the learner to say it ("How do you say ...?", asked in {source_language}), marked [ask], and the answer, once, marked [answer].
+   - Each word TO SAY: the Teacher says in {source_language} what it means and when you say it. Then the word, once, marked [drill]: it will be said slowly and then at normal speed, with time to repeat it. Always the whole word: the voices are synthesized, and a piece of a word comes out as a wrong sound. Then the Teacher asks the learner to say it ("How do you say ...?", asked in {source_language}), and right after it the answer, once, marked [answer]: the time to answer is added after the question.
    - Each line TO UNDERSTAND: the Teacher says in {source_language} what the other person will say and what it means. The other person says the line once, marked [understand]: it will be said slowly and then at normal speed. The learner does not repeat it.
 
 4. RECALL: after each new item, the Teacher asks for one or two things learned earlier, in this lesson or in the earlier ones. Two kinds of recall:
-   - for words TO SAY, about {recalls_to_say} times over the lesson, at growing distances: the Teacher's prompt in {source_language}, marked [ask], then the answer, marked [answer];
-   - for lines TO UNDERSTAND, about {recalls_to_understand} times: the other person says the line, then the Teacher asks the learner to answer it as the {learner_role} would, marked [ask], then the answer, marked [answer]. This is how the lesson ends up practising the whole exchange.
+   - for words TO SAY, about {recalls_to_say} times over the lesson, at growing distances: the Teacher's prompt in {source_language}, then the answer, marked [answer];
+   - for lines TO UNDERSTAND, about {recalls_to_understand} times: the other person says the line, marked [cue], then the Teacher asks the learner to answer it as the {learner_role} would, then the answer, marked [answer]. This is how the lesson ends up practising the whole exchange.
 
 5. NEW SENTENCES: where the words allow it, ask the learner for short sentences that are not in the dialogue but that someone in the situation would say ("Ask her whether she understands English"). With only a few words there are only a few such sentences; then recall more and combine less.
 
@@ -57,11 +57,15 @@ Use this exact format:
 
     Teacher: <explanation of a word TO SAY, in {source_language}>
     {learner_role}: <the word> [drill]
-    Teacher: <"How do you say ...?", in {source_language}> [ask]
+    Teacher: <"How do you say ...?", in {source_language}>
     {learner_role}: <the word> [answer]
 
     Teacher: <what the other person will say, in {source_language}>
     <other>: <their line> [understand]
+    ...
+    <other>: <their line> [cue]
+    Teacher: <"Answer her.", in {source_language}>
+    {learner_role}: <the answer> [answer]
     ...
     Teacher: <listen again, in {source_language}>
     [dialogue]
@@ -69,7 +73,7 @@ Use this exact format:
 RULES:
 - Use only "Teacher:", "TeacherL2:", "Man:", "Woman:" labels
 - TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
-- Write no pauses and no timings: they are added after you. The only markers are [drill], [ask], [answer], [understand] at the end of a line, and the line [dialogue]
+- Write no pauses and no timings: they are added after you. The only markers are [drill], [answer], [understand], [cue] at the end of a line, and the line [dialogue]. A question is the Teacher line right before an [answer]: write the answer right after it
 - Each line is written once: never repeat a line to have it said twice; the markers do that
 - CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
 - Man and Woman must be adults. Never create child characters — dialogues are voiced by TTS and we only have adult voices available.

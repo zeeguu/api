@@ -114,6 +114,7 @@ from .daily_audio_lesson import DailyAudioLesson
 from .daily_audio_lesson_segment import DailyAudioLessonSegment
 from .daily_audio_subscription import DailyAudioSubscription
 from .audio_lesson_feedback import AudioLessonFeedback
+from .audio_lesson_card import AudioLessonCard
 from .audio_lesson_review import AudioLessonReview
 from .user_listening_session import UserListeningSession
 from .audio_lesson_generation_progress import AudioLessonGenerationProgress

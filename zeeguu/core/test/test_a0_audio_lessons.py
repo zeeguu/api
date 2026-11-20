@@ -250,9 +250,16 @@ class StoredDialogueTest(ModelTestMixIn):
         )
         db.session.add(earlier)
         db.session.flush()
+        from zeeguu.core.audio_lessons.lesson_markup import Card
+        from zeeguu.core.model.audio_lesson_card import AudioLessonCard
+
+        earlier_card = AudioLessonCard(earlier.id, 0, Card(None, "How do you say bus?", ("man", "bus")))
+        db.session.add(earlier_card)
+        db.session.flush()
+        new_card = Card(("man", "Hvad skal det være?"), "Answer him.", ("woman", "En kaffe, tak."))
         lesson = GeneratedScript(
             "Teacher: At the café. [1 seconds]", "claude-sonnet-5-5", "v4", dialogue,
-            "Teacher: At the café.", (earlier.id,),
+            "Teacher: At the café.", ((earlier.id, "card", earlier_card.id),), (new_card,),
         )
         generator = daily_lesson_generator.DailyLessonGenerator()
         generator._voice_synthesizer = MagicMock(get_audio_duration=MagicMock(return_value=600))
@@ -268,7 +275,9 @@ class StoredDialogueTest(ModelTestMixIn):
         assert row.marked_script == "Teacher: At the café."
         from zeeguu.core.model.audio_lesson_review import AudioLessonReview
 
-        assert AudioLessonReview.reviewed_by({row.id}) == {row.id: (earlier.id,)}
+        assert AudioLessonReview.reviewed_by({row.id}) == {row.id: ((earlier.id, earlier_card.id),)}
+        stored = AudioLessonCard.for_dialogues({row.id})[row.id]
+        assert [card for _, card in stored] == [new_card]
 
 
 def test_a0_builds_on_history_and_has_no_word_lessons():

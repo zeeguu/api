@@ -11,6 +11,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
     find_language_mismatches,
 )
 from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
+from zeeguu.core.audio_lessons.lesson_markup import cards
 from zeeguu.core.audio_lessons.words_heard import history_table
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
@@ -30,12 +31,14 @@ LANGUAGE_ATTEMPTS = 3
 # Both are known at generation time and unrecoverable afterwards.
 GeneratedScript = namedtuple(
     "GeneratedScript",
-    ["script", "model_name", "prompt_version", "dialogue", "marked", "reviewed"],
+    ["script", "model_name", "prompt_version", "dialogue", "marked", "reviewed", "cards"],
     # dialogue: for a lesson written in two calls, the GeneratedScript of the
     # call that wrote its dialogue; None otherwise. marked: an A0 script as the
-    # model wrote it, with markers (lesson_markup.py); reviewed: the dialogue
-    # ids of the earlier lessons it reviews, in order (lesson_review.py).
-    defaults=[None, None, ()],
+    # model wrote it, with markers (lesson_markup.py); reviewed: what it reviews
+    # of earlier lessons, in order, as (dialogue id, kind, card index or None)
+    # (lesson_review.py); cards: its own cards, for later lessons to review
+    # (lesson_markup.cards).
+    defaults=[None, None, (), ()],
 )
 
 
@@ -516,7 +519,8 @@ def generate_dialogue_script(
         )
         log(f"Successfully generated dialogue script, title: '{title}'")
         return title, GeneratedScript(
-            script, model_name, prompt_version_of(prompt_file), dialogue, marked, reviewed
+            script, model_name, prompt_version_of(prompt_file), dialogue, marked, reviewed,
+            tuple(cards(marked)) if marked else (),
         )
 
     except Exception as e:
@@ -588,11 +592,12 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             continue
 
         missing = lines_for(values["min_minutes"]) - voice_line_count(expanded.split("\n"))
-        reviews = lesson_review.choose(
-            a0["heard"], missing, lambda lesson: 1 + 2 * len(lesson.dialogue)
-        )
+        reviews = lesson_review.choose(a0["heard"], missing, values)
         full = with_review(expanded, review_lines(reviews, values))
-        return title, full, model_name, script, tuple(r.dialogue_id for r in reviews)
+        reviewed = tuple(
+            (item.lesson.dialogue_id, lesson_review.kind(item), item.card_id) for item in reviews
+        )
+        return title, full, model_name, script, reviewed
 
 
 A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v4.txt"

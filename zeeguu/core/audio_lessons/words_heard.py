@@ -24,12 +24,14 @@ from zeeguu.core.audio_lessons.script_language_validator import TARGET_LANGUAGE_
 # learner: the voice the learner played. Both as stored when the lesson was
 # written; empty for a lesson without them, which is then not rehearsed.
 # dialogue_id: its AudioLessonDialogue; heard_at: when the learner heard it
-# (finished it, or else when it was made); reviewed: the dialogue ids whose
-# dialogues it reviewed (AudioLessonReview). For lesson_review's spacing.
+# (finished it, or else when it was made); reviewed: what it reviewed, as
+# (dialogue id, card id or None for a whole dialogue) (AudioLessonReview);
+# cards: its review cards, as (card id, lesson_markup.Card) (AudioLessonCard).
+# For lesson_review.
 HeardLesson = namedtuple(
     "HeardLesson",
-    ["title", "words", "dialogue", "learner", "dialogue_id", "heard_at", "reviewed"],
-    defaults=((), None, None, None, ()),
+    ["title", "words", "dialogue", "learner", "dialogue_id", "heard_at", "reviewed", "cards"],
+    defaults=((), None, None, None, (), ()),
 )
 
 _TIMING = re.compile(r"\[[^\]]*\]")
@@ -120,6 +122,7 @@ def heard_lessons(user, language, limit=30) -> list:
     # is_engaged is computed in Python, so the window is applied after it.
     engaged = [lesson for lesson in lessons if lesson.is_engaged][:limit]
 
+    from zeeguu.core.model.audio_lesson_card import AudioLessonCard
     from zeeguu.core.model.audio_lesson_review import AudioLessonReview
 
     rows = {
@@ -129,7 +132,9 @@ def heard_lessons(user, language, limit=30) -> list:
         )
         for lesson in engaged
     }
-    reviewed = AudioLessonReview.reviewed_by({row.id for row in rows.values() if row is not None})
+    ids = {row.id for row in rows.values() if row is not None}
+    reviewed = AudioLessonReview.reviewed_by(ids)
+    lesson_cards = AudioLessonCard.for_dialogues(ids)
 
     heard = []
     for lesson in reversed(engaged):
@@ -142,6 +147,7 @@ def heard_lessons(user, language, limit=30) -> list:
                 HeardLesson(
                     lesson.display_title(), words, stored_dialogue(row), row.learner_character,
                     row.id, lesson.last_completed_at or lesson.created_at, reviewed.get(row.id, ()),
+                    lesson_cards.get(row.id, ()),
                 )
             )
     return heard

@@ -24,7 +24,7 @@ _SLOW_MARKER = re.compile(r"\s*\[slow[a-z ]*\]", re.IGNORECASE)
 # The markers of an A0 script before it is expanded (lesson_markup.py). Only
 # there: the language check reads the marked script, and must not read the
 # markers as words.
-_LESSON_MARKER = re.compile(r"\s*\[(?:drill|ask|answer|understand)\]", re.IGNORECASE)
+_LESSON_MARKER = re.compile(r"\s*\[(?:drill|ask|answer|understand|cue)\]", re.IGNORECASE)
 
 # A label in bold, "**Woman:**" or "**Woman**:", as models sometimes write it.
 _BOLD_LABEL = re.compile(r"^\*\*\s*([^*:\s][^*:]{0,29}?)\s*(?::\s*\*\*|\*\*\s*:)")
