@@ -1266,7 +1266,7 @@ class DailyLessonGenerator:
 
     def record_lesson_feedback(self, user, lesson_id, aspect, value):
         """
-        Record what the learner said about a lesson (AudioLessonFeedback).
+        Record what the learner said about an A0 lesson (AudioLessonFeedback).
 
         Pace, repetition and length tune their next A0 lessons
         (lesson_tuning.py). A situation moves the daily lessons: one of the
