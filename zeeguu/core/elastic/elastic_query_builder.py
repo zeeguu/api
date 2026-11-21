@@ -314,9 +314,14 @@ def build_elastic_search_query(
     unwanted_user_searches=None,
     filter_disturbing=False,
     with_snippets=False,
+    only_article_ids=None,
 ):
     """
     Builds an elastic search query for search terms.
+
+    only_article_ids: search within these articles alone. The Evergreen tab
+    passes its pool, which the database chooses (see content_recommender/
+    evergreen.py).
 
     with_snippets: also ask for the passage of the text where the terms occur
     (see SNIPPET_HIGHLIGHT), for a search the learner typed. A match is often
@@ -343,6 +348,9 @@ def build_elastic_search_query(
         .filter("term", language=language.name.lower())
         .exclude("match", description="pg15")
     )
+
+    if only_article_ids is not None:
+        s = s.filter("terms", article_id=list(only_article_ids))
 
     # The same two exclusions build_elastic_recommender_query applies to the
     # organic half of the feed. Without them here, a saved search was a way

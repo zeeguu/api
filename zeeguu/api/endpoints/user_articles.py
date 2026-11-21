@@ -216,11 +216,17 @@ def user_articles_evergreen(count: int = 12):
         only_topic_id=only_topic_id,
         only_keyword=only_keyword,
     )
+    # A picked keyword: the passage where it occurs, as on a News search.
+    snippets = {
+        a.id: a._search_snippet for a in articles if getattr(a, "_search_snippet", None)
+    }
     infos = UserArticle.article_infos(user, articles, select_appropriate=True)
     for info in infos:
         # a simplified version stands in for its original: key by the original
         original_id = info.get("parent_article_id") or info.get("id")
         info["evergreen_new"] = original_id in new_today or info.get("id") in new_today
+        if original_id in snippets:
+            info["search_snippet"] = snippets[original_id]
     return json_result(infos)
 
 
