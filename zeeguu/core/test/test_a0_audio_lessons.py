@@ -11,7 +11,6 @@ import pytest
 
 from zeeguu.core.audio_lessons.words_heard import (
     HeardLesson,
-    earlier_dialogues,
     history_table,
     target_language_words,
 )
@@ -134,21 +133,6 @@ def test_the_stored_dialogue_is_read_back():
     assert stored_dialogue(SimpleNamespace(dialogue_script=None)) == ()
 
 
-def test_earlier_dialogues_newest_first_with_the_learners_role():
-    dialogue = (("man", "Hej! Hvad skal det være?"), ("woman", "En kaffe, tak."))
-    heard = [
-        HeardLesson("At the café", Counter({"kaffe": 4}), dialogue, "woman"),
-        HeardLesson("Old lesson", Counter({"hej": 1})),  # no dialogue found: skipped
-        HeardLesson("At the bakery", Counter({"brød": 2}), (("man", "Et brød."),), "man"),
-    ]
-    text = earlier_dialogues(heard, 3)
-    assert text.index("Lesson 3: At the bakery (the learner was the Man)") < text.index(
-        "Lesson 1: At the café (the learner was the Woman)"
-    )
-    assert "Woman: En kaffe, tak." in text
-    assert "Old lesson" not in text
-
-
 def test_no_history_is_an_empty_table():
     assert history_table([]) == ""
 
@@ -260,7 +244,23 @@ class StoredDialogueTest(ModelTestMixIn):
 
         UserPreference.set(db.session, self.user, UserPreference.AUDIO_LESSON_CHARACTER, "woman")
         dialogue = GeneratedScript("Man: Hej! Hvad skal det være?\nWoman: En kaffe, tak.", "deepseek-chat", "v1")
-        lesson = GeneratedScript("Teacher: At the café. [1 seconds]", "claude-sonnet-5-5", "v3", dialogue)
+        earlier = AudioLessonDialogue(
+            script="Man: Hej.", canonical_suggestion="bus", lesson_type="situation",
+            language=self.user.learned_language, builds_on_history=True,
+        )
+        db.session.add(earlier)
+        db.session.flush()
+        from zeeguu.core.audio_lessons.lesson_markup import Card
+        from zeeguu.core.model.audio_lesson_card import AudioLessonCard
+
+        earlier_card = AudioLessonCard(earlier.id, 0, Card(None, "How do you say bus?", ("man", "bus")))
+        db.session.add(earlier_card)
+        db.session.flush()
+        new_card = Card(("man", "Hvad skal det være?"), "Answer him.", ("woman", "En kaffe, tak."))
+        lesson = GeneratedScript(
+            "Teacher: At the café. [1 seconds]", "claude-sonnet-5-5", "v4", dialogue,
+            "Teacher: At the café.", ((earlier.id, "card", earlier_card.id),), (new_card,),
+        )
         generator = daily_lesson_generator.DailyLessonGenerator()
         generator._voice_synthesizer = MagicMock(get_audio_duration=MagicMock(return_value=600))
         with patch.object(daily_lesson_generator, "generate_dialogue_script", return_value=("At the café", lesson)), \
@@ -272,6 +272,12 @@ class StoredDialogueTest(ModelTestMixIn):
 
         assert row.learner_character == "woman"
         assert row.dialogue_script == dialogue.script
+        assert row.marked_script == "Teacher: At the café."
+        from zeeguu.core.model.audio_lesson_review import AudioLessonReview
+
+        assert AudioLessonReview.reviewed_by({row.id}) == {row.id: ((earlier.id, earlier_card.id),)}
+        stored = AudioLessonCard.for_dialogues({row.id})[row.id]
+        assert [card for _, card in stored] == [new_card]
 
 
 def test_a0_builds_on_history_and_has_no_word_lessons():
@@ -364,7 +370,7 @@ def test_each_of_the_two_calls_records_its_own_model(monkeypatch):
         "da", "en", "at a café", "situation", cefr_level="A0", heard=[], learner_character="man"
     )
     assert generated.model_name == "claude-sonnet-5-5"
-    assert generated.prompt_version == "a0_dialogue_lesson-v3"
+    assert generated.prompt_version == "a0_dialogue_lesson-v4"
     assert generated.dialogue.model_name == "deepseek-chat"
     assert generated.dialogue.script.startswith("Woman: Hej!")
 
