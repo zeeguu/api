@@ -313,9 +313,14 @@ def build_elastic_search_query(
     use_published_priority=True,
     unwanted_user_searches=None,
     filter_disturbing=False,
+    with_snippets=False,
 ):
     """
     Builds an elastic search query for search terms.
+
+    with_snippets: also ask for the passage of the text where the terms occur
+    (see SNIPPET_HIGHLIGHT), for a search the learner typed. A match is often
+    in the body only, and the card then shows why the article is there.
 
     Ranks by recency. No CEFR filter — a learner searching for a word wants the
     articles that contain it, and any of them can be simplified on demand (same
@@ -368,8 +373,30 @@ def build_elastic_search_query(
     weighted_query = Q("function_score", query=s.query, functions=preferences)
 
     query = {"from": page * count, "size": count, "query": weighted_query.to_dict()}
+    if with_snippets:
+        query["highlight"] = SNIPPET_HIGHLIGHT
     print("## Search: ")
     return query
+
+
+# One passage of the text around the match, about a sentence long, with the
+# matched words between <mark> tags. Only the body: a title match is already
+# visible on the card. no_match_size 0 means no passage when the match is in
+# the title alone.
+# https://www.elastic.co/guide/en/elasticsearch/reference/8.12/highlighting.html
+SNIPPET_HIGHLIGHT = {
+    "pre_tags": ["<mark>"],
+    "post_tags": ["</mark>"],
+    "fields": {
+        "content": {
+            "type": "unified",
+            "boundary_scanner": "sentence",
+            "fragment_size": 160,
+            "number_of_fragments": 1,
+            "no_match_size": 0,
+        }
+    },
+}
 
 
 def build_elastic_semantic_sim_query_for_article(
