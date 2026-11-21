@@ -1,9 +1,9 @@
 """
 SimplificationService.simplify_text: one CEFR level per call, DeepSeek first with
 the strict prompt, Haiku as the fallback with the plain one. And translate_and_adapt,
-which translates (DeepL, else DeepSeek, else Haiku) and then calls simplify_text.
+which translates (Google, else DeepSeek, else Haiku) and then calls simplify_text.
 
-No DB and no network: the two completions and DeepL are faked; prompts, parsing and the
+No DB and no network: the two completions, Google and the DeepL client are faked; prompts, parsing and the
 output-language check are real.
 """
 
@@ -139,7 +139,7 @@ class SimplifyTextTest(TestCase):
 
 
 class TranslateAndAdaptTest(TestCase):
-    """translate_and_adapt: a full translation (DeepL, else an LLM), then simplify_text."""
+    """translate_and_adapt: a full translation (Google, else an LLM), then simplify_text."""
 
     def _service(self):
         service = SimplificationService()
@@ -147,23 +147,30 @@ class TranslateAndAdaptTest(TestCase):
         service.anthropic_api_key = "fake"
         return service
 
-    def _translate(self, fake, deepl=None):
+    def _translate(self, fake, google=None):
         service = self._service()
         with patch(
-            "zeeguu.core.llm_services.simplification_service.deepl_translate_article", return_value=deepl
+            "zeeguu.core.llm_services.simplification_service.google_translate_article", return_value=google
         ), patch.object(service, "_complete_deepseek", fake.complete("deepseek")), patch.object(
             service, "_complete_haiku", fake.complete("haiku")
         ):
             return service.translate(TITLE, "## Heading\n\n" + ENGLISH_BODY, "en", "da")
 
-    def test_deepl_translates_and_no_llm_is_asked(self):
+    def test_google_translates_and_no_llm_is_asked(self):
         fake = FakeProviders()
-        deepl = {"title": DANISH_TITLE, "content": DANISH_BODY}
+        google = {"title": DANISH_TITLE, "content": DANISH_BODY}
 
-        self.assertEqual(self._translate(fake, deepl=deepl), deepl)
+        self.assertEqual(self._translate(fake, google=google), google)
         self.assertEqual(fake.calls, [])
 
-    def test_without_deepl_deepseek_translates_with_the_structure_and_title_rules(self):
+    def test_google_in_the_wrong_language_falls_back_to_deepseek(self):
+        fake = FakeProviders(deepseek=f"TITLE: {DANISH_TITLE}\nCONTENT:\n{DANISH_BODY}")
+        result = self._translate(fake, google={"title": TITLE, "content": ENGLISH_BODY})
+
+        self.assertEqual(len(fake.prompts("deepseek")), 1)
+        self.assertEqual(result["content"], DANISH_BODY)
+
+    def test_without_google_deepseek_translates_with_the_structure_and_title_rules(self):
         fake = FakeProviders(deepseek=f"TITLE: {DANISH_TITLE}\n\n## Overskrift\n\n{DANISH_BODY}")
         result = self._translate(fake)
 
@@ -181,13 +188,6 @@ class TranslateAndAdaptTest(TestCase):
         result = self._translate(fake)
 
         self.assertEqual(len(fake.prompts("deepseek")), 2)
-        self.assertEqual(result["content"], DANISH_BODY)
-
-    def test_deepl_in_the_wrong_language_falls_back_to_deepseek(self):
-        fake = FakeProviders(deepseek=f"TITLE: {DANISH_TITLE}\nCONTENT:\n{DANISH_BODY}")
-        result = self._translate(fake, deepl={"title": TITLE, "content": ENGLISH_BODY})
-
-        self.assertEqual(len(fake.prompts("deepseek")), 1)
         self.assertEqual(result["content"], DANISH_BODY)
 
     def test_none_when_nothing_translates(self):
@@ -274,6 +274,88 @@ class DeeplArticleTest(TestCase):
 
         with patch.object(deepl_translate, "_get_client", return_value=SimpleNamespace(translate_text=translate_text)):
             self.assertIsNone(deepl_translate.deepl_translate_article("Titel", "Tekst.", "en"))
+
+
+class GoogleArticleTest(TestCase):
+    def _post(self, calls, drop=0):
+        from types import SimpleNamespace
+
+        def post(url, headers, data, timeout):
+            calls.append({"url": url, "headers": headers, **data})
+            translated = [{"translatedText": q.replace("Overskrift", "Heading").replace("Fisk", "Fish")} for q in data["q"]]
+            body = {"data": {"translations": translated[: len(translated) - drop]}}
+            return SimpleNamespace(ok=True, status_code=200, text="", json=lambda: body)
+
+        return post
+
+    def _run(self, calls, title, markdown, source="da", target="en", drop=0):
+        from zeeguu.core.translation_services import google_article_translate as g
+
+        with patch.object(g, "_api_key", return_value="SECRET"), patch.object(g.requests, "post", self._post(calls, drop)):
+            return g.google_translate_article(title, markdown, source, target)
+
+    def test_the_blocks_go_as_html_and_the_markdown_comes_back(self):
+        calls = []
+        result = self._run(calls, "Fisk & chips", "## Overskrift\n\n5. maj, foo_bar")
+
+        self.assertEqual(result, {"title": "Fish & chips", "content": "## Heading\n\n5\\. maj, foo_bar"})
+        self.assertEqual(calls[0]["q"], ["Fisk &amp; chips", "<h2>Overskrift</h2>", "<p>5. maj, foo_bar</p>"])
+        self.assertEqual((calls[0]["source"], calls[0]["target"], calls[0]["format"]), ("da", "en", "html"))
+
+    def test_the_key_goes_in_a_header_not_the_url(self):
+        calls = []
+        self._run(calls, "Titel", "Tekst.")
+
+        self.assertEqual(calls[0]["headers"], {"X-Goog-Api-Key": "SECRET"})
+        self.assertNotIn("SECRET", calls[0]["url"])
+
+    def test_our_indonesian_code_becomes_googles(self):
+        calls = []
+        self._run(calls, "Judul", "Teks.", source="ind", target="en")
+
+        self.assertEqual(calls[0]["source"], "id")
+
+    def test_a_long_article_goes_in_several_requests_in_order(self):
+        from zeeguu.core.translation_services import google_article_translate as g
+
+        calls = []
+        paragraphs = [f"Afsnit {i} " + "x" * 1000 for i in range(12)]
+        result = self._run(calls, "Titel", "\n\n".join(paragraphs))
+
+        self.assertGreater(len(calls), 1)
+        self.assertTrue(all(sum(map(len, c["q"])) <= g.MAX_CHARS_PER_REQUEST for c in calls))
+        self.assertEqual(result["content"], "\n\n".join(paragraphs))
+
+    def test_a_paragraph_longer_than_a_request_is_cut_at_sentences_and_put_back(self):
+        from zeeguu.core.translation_services import google_article_translate as g
+
+        calls = []
+        paragraph = " ".join(f"Sætning nummer {i} handler om fisk." for i in range(400))
+        result = self._run(calls, "Titel", f"## Overskrift\n\n{paragraph}")
+
+        sent = [q for c in calls for q in c["q"]]
+        self.assertTrue(all(len(q) <= g.MAX_CHARS_PER_REQUEST for q in sent))
+        self.assertTrue(all(q.endswith("fisk.") for q in sent[2:]))
+        self.assertEqual(result["content"], f"## Heading\n\n{paragraph}")
+
+    def test_fewer_translations_than_segments_is_none(self):
+        self.assertIsNone(self._run([], "Titel", "Et.\n\nTo.", drop=1))
+
+    def test_a_failing_google_is_none(self):
+        from types import SimpleNamespace
+        from zeeguu.core.translation_services import google_article_translate as g
+
+        def post(*args, **kwargs):
+            return SimpleNamespace(ok=False, status_code=403, text="quota")
+
+        with patch.object(g, "_api_key", return_value="key"), patch.object(g.requests, "post", post):
+            self.assertIsNone(g.google_translate_article("Titel", "Tekst.", "da", "en"))
+
+    def test_no_key_is_none(self):
+        from zeeguu.core.translation_services import google_article_translate as g
+
+        with patch.object(g, "_api_key", return_value=None):
+            self.assertIsNone(g.google_translate_article("Titel", "Tekst.", "da", "en"))
 
 
 class ParseLevelReplyTest(TestCase):
