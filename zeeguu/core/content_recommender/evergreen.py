@@ -24,15 +24,23 @@ day the ones passed by drop behind ones never seen. Ties are broken by a
 per-learner shuffle that does not change between visits, so two learners
 with the same topics don't get the same list.
 
-Runs on the database alone, not Elasticsearch: one language has a few
-thousand general articles, and the candidate pool is capped.
+The database chooses the pool: one language has a few thousand general
+articles, and the candidate pool is capped. Keywords are searched in
+Elasticsearch, within that pool, like a search on the News tab: in the title
+and the text, not only the title and the summary. A picked keyword (a pill or
+a typed search) also gets the passage where it occurs (`_search_snippet`).
+The pool is passed as article ids rather than filtered on article_type in
+Elasticsearch: documents indexed before 20 Nov 2026 have no article_type.
 """
 
 from datetime import datetime
 
+from elasticsearch import Elasticsearch
 from sqlalchemy import or_
 from sqlalchemy.orm import load_only, selectinload
 
+from zeeguu.core.elastic.elastic_query_builder import build_elastic_search_query
+from zeeguu.core.elastic.settings import ES_CONN_STRING, ES_ZINDEX
 from zeeguu.core.model import Article, UserArticle, UserArticleBrokenReport
 from zeeguu.core.model.article_classification import ArticleClassification
 from zeeguu.core.model.article_topic_map import ArticleTopicMap
@@ -57,16 +65,8 @@ MAX_PER_KEYWORD = 300
 MAX_TOPIC_CANDIDATES = 2000
 
 
-def _evergreen_articles(language):
-    # Only what scoring reads: the pool can be a couple of thousand rows, and
-    # content/htmlContent would make that tens of MB per page load. The chosen
-    # few are fetched in full at the end.
-    return Article.query.options(
-        load_only(
-            Article.id, Article.title, Article.summary, Article.published_time
-        ),
-        selectinload(Article.topics),
-    ).filter(
+def _in_pool(language):
+    return (
         Article.language_id == language.id,
         Article.article_type == "general",
         Article.parent_article_id.is_(None),
@@ -77,15 +77,51 @@ def _evergreen_articles(language):
     )
 
 
-def _keyword_matches(language, keyword):
-    pattern = f"%{keyword}%"
-    return (
-        _evergreen_articles(language)
-        .filter(or_(Article.title.ilike(pattern), Article.summary.ilike(pattern)))
-        .order_by(Article.id.desc())
-        .limit(MAX_PER_KEYWORD)
-        .all()
+def _evergreen_articles(language):
+    # Only what scoring reads: the pool can be a couple of thousand rows, and
+    # content/htmlContent would make that tens of MB per page load. The chosen
+    # few are fetched in full at the end.
+    return Article.query.options(
+        load_only(
+            Article.id, Article.title, Article.summary, Article.published_time
+        ),
+        selectinload(Article.topics),
+    ).filter(*_in_pool(language))
+
+
+def _pool_ids(language):
+    return [row[0] for row in db.session.query(Article.id).filter(*_in_pool(language))]
+
+
+def _search_pool(language, keyword, pool_ids, with_snippets):
+    """[(article_id, passage or None)] for the pool's articles that mention
+    the keyword, best match first."""
+    if not pool_ids:
+        return []
+    query = build_elastic_search_query(
+        MAX_PER_KEYWORD,
+        keyword,
+        language,
+        use_published_priority=False,
+        with_snippets=with_snippets,
+        only_article_ids=pool_ids,
     )
+    hits = Elasticsearch(ES_CONN_STRING).search(index=ES_ZINDEX, body=query)["hits"]["hits"]
+    return [
+        (hit["_source"]["article_id"], (hit.get("highlight", {}).get("content") or [None])[0])
+        for hit in hits
+        if "article_id" in hit["_source"]
+    ]
+
+
+def _keyword_matches(language, keyword, pool_ids, with_snippets=False):
+    """(articles, {article_id: passage}) for one keyword."""
+    found = _search_pool(language, keyword, pool_ids, with_snippets)
+    if not found:
+        return [], {}
+    snippets = {article_id: passage for article_id, passage in found if passage}
+    ids = [article_id for article_id, _ in found]
+    return _evergreen_articles(language).filter(Article.id.in_(ids)).all(), snippets
 
 
 def _keywords(model, user, language):
@@ -160,9 +196,17 @@ def evergreen_recommendations_for_user(
         keywords, topic_ids = [], {only_topic_id}
 
     candidates = {}
+    keyword_match_ids = set()
+    snippets = {}
+    pool_ids = _pool_ids(language) if keywords else []
     for keyword in keywords:
-        for article in _keyword_matches(language, keyword):
+        matches, found_snippets = _keyword_matches(
+            language, keyword, pool_ids, with_snippets=bool(only_keyword)
+        )
+        for article in matches:
             candidates[article.id] = article
+            keyword_match_ids.add(article.id)
+        snippets.update(found_snippets)
 
     # Unfiltered, a learner without topics still gets the language's general
     # articles; filtered by a keyword, only that keyword's matches.
@@ -187,7 +231,7 @@ def evergreen_recommendations_for_user(
     def score(article):
         article_topics = {t.topic_id for t in article.topics}
         s = 0
-        if keywords and _mentions(article, keywords):
+        if article.id in keyword_match_ids:
             s += KEYWORD_WEIGHT
         if article_topics & topic_ids:
             s += TOPIC_WEIGHT
@@ -237,4 +281,7 @@ def evergreen_recommendations_for_user(
         .filter(Article.id.in_(chosen_ids))
         .all()
     }
+    for article_id, passage in snippets.items():
+        if article_id in full:
+            full[article_id]._search_snippet = passage
     return [full[i] for i in chosen_ids if i in full], new_today

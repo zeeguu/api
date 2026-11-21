@@ -86,3 +86,10 @@ class SnippetReachesTheCardTest(ModelTestMixIn, TestCase):
         infos = self.search()
 
         assert "search_snippet" not in infos[self.with_match.id]
+
+
+class PoolQueryTest(TestCase):
+    def test_the_evergreen_pool_narrows_the_search_to_its_articles(self):
+        query = build_elastic_search_query(20, "ulv", FakeLanguage(), only_article_ids=[3, 5])
+
+        assert {"terms": {"article_id": [3, 5]}} in query["query"]["function_score"]["query"]["bool"]["filter"]
