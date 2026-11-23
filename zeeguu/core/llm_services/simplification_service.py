@@ -6,7 +6,7 @@ import json
 import os
 import re
 import requests
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 from zeeguu.core.translation_services.google_article_translate import google_translate_article
 from zeeguu.core import cefr
 from zeeguu.logging import log
@@ -447,16 +447,35 @@ class SimplificationService:
 
         Returns: Dict with 'title' and 'content' (Markdown), or None if failed
         """
+        return self._translate_with_google(
+            title, content, source_language, target_language
+        ) or self._translate_with_llms(title, content, source_language, target_language)
+
+    @staticmethod
+    def _language_check_context(title: str, target_language: str) -> Tuple[str, str]:
+        """The target's name, and the label a language check failure is logged under."""
         target_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
-        context = f"{target_name} translation of '{title[:50]}'"
+        return target_name, f"{target_name} translation of '{title[:50]}'"
 
+    def _translate_with_google(
+        self, title: str, content: str, source_language: str, target_language: str
+    ) -> Optional[Dict]:
+        """Google's translation if it is in the target language, else None. Not retried."""
         translated = google_translate_article(title, content, source_language, target_language)
-        if translated:
-            try:
-                return generate_in_language(lambda _: translated, target_language, _text_fields, context, attempts=1)
-            except LanguageMismatchError as e:
-                log(f"Google did not translate into {target_name}: {e}")
+        if not translated:
+            return None
+        target_name, context = self._language_check_context(title, target_language)
+        try:
+            return generate_in_language(lambda _: translated, target_language, _text_fields, context, attempts=1)
+        except LanguageMismatchError as e:
+            log(f"Google did not translate into {target_name}: {e}")
+            return None
 
+    def _translate_with_llms(
+        self, title: str, content: str, source_language: str, target_language: str
+    ) -> Optional[Dict]:
+        """DeepSeek, then Haiku: each asked again once if it answers in the wrong language."""
+        target_name, context = self._language_check_context(title, target_language)
         source_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
         prompt = _translation_prompt(title, content, source_name, target_name)
         providers = [
