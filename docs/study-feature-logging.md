@@ -22,10 +22,13 @@ extra_data, source_id, platform`) unless said otherwise. Two kinds of rows:
 
 `platform`: 1 web desktop, 2 web mobile, 3 iOS app, 4 Android app,
 5 extension (`zeeguu/core/constants.py`). On server events it is the platform
-of the login session, which logins only remember since 15 Nov 2026: on
-24 Nov most of the study's sessions were older, so their server events have
-`platform` NULL. Take the platform from the client events around them when
-it matters.
+of the login session. Logins only store it since 15 Nov 2026, so older
+sessions get it from the first request made with them that reports a platform
+(an activity upload or the start of a reading, browsing, exercise, listening or
+watching session; `remember_session_platform`). From the deploy of this change
+on, a learner's server events have a platform from their first such request.
+Server events from before that have `platform` NULL: take the platform from the
+client events around them when it matters.
 
 The learners are in Denmark: a "day" is the Copenhagen day (UTC+1 until
 29 Mar 2027). The queries below shift UTC with `CONVERT_TZ(t, '+00:00',

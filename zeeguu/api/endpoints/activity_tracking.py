@@ -10,6 +10,7 @@ from zeeguu.core.user_activity_hooks.article_interaction_hooks import (
     distill_article_interactions,
 )
 from . import api, db_session
+from zeeguu.api.utils.session_helpers import remember_session_platform
 
 
 @api.route("/upload_user_activity_data", methods=["POST"])
@@ -35,6 +36,7 @@ def upload_user_activity_data():
 
     :return: OK if all went well
     """
+    remember_session_platform()
     user = User.find_by_id(flask.g.user_id)
     UserActivityData.create_from_post_data(db_session, request.form, user)
 
