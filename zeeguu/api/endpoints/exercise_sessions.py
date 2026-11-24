@@ -14,6 +14,7 @@ from .helpers.activity_sessions import (
 from zeeguu.core.emailer.user_activity import (
     send_user_finished_exercise_session,
 )
+from zeeguu.api.utils.session_helpers import remember_session_platform
 
 
 @api.route(
@@ -23,6 +24,7 @@ from zeeguu.core.emailer.user_activity import (
 @cross_domain
 @requires_session
 def exercise_session_start():
+    remember_session_platform()
     platform = request.form.get("platform", None)
     if platform is not None:
         platform = int(platform)

@@ -27,6 +27,31 @@ EVENT_USER_SCROLL = "SCROLL"
 EVENT_USER_CLICKED_ARTICLE = "CLICKED ARTICLE"
 EVENT_USER_CLICKED_VIDEO = "CLICKED VIDEO"
 
+# Written by the API itself (UserActivityData.log_server_event), so every
+# platform and app build has them from the deploy on; extra_data is JSON.
+# See docs/study-feature-logging.md for what each one answers.
+# A setting changed. value: the preference key; extra: {"from", "to"} and,
+# when a class set it, "cohort_id".
+EVENT_PREFERENCE_CHANGED = "PREFERENCE_CHANGED"
+# The day's study time reached the daily goal (the streak counted the day).
+# value: the language code; extra: {"goal_minutes", "streak"}.
+EVENT_DAILY_GOAL_REACHED = "DAILY_GOAL_REACHED"
+# The subject of the daily audio lessons set in their settings.
+# value: the language code; extra: {"from": [type, subject], "to": [type, subject]}.
+EVENT_AUDIO_LESSON_SUBJECT_SET = "AUDIO_LESSON_SUBJECT_SET"
+# The Evergreen tab listed articles. value: "all", "topic:<title>" or
+# "keyword:<text>"; extra: {"shown", "new_today", "keyword_matches"}.
+EVENT_EVERGREEN_LISTED = "EVERGREEN_LISTED"
+# A keyword (search subscription) added or removed, from any screen.
+# value: the keyword; extra: {"search_id"}.
+EVENT_KEYWORD_ADDED = "KEYWORD_ADDED"
+EVENT_KEYWORD_REMOVED = "KEYWORD_REMOVED"
+# A short text shared into Zeeguu (Inbox) kept, opened in the text reader,
+# or translated whole. value: the short_text id.
+EVENT_SHORT_TEXT_ADDED = "SHORT_TEXT_ADDED"
+EVENT_SHORT_TEXT_OPENED = "SHORT_TEXT_OPENED"
+EVENT_SHORT_TEXT_TRANSLATED = "SHORT_TEXT_TRANSLATED"
+
 
 # these are not saved since 2021-04. why?
 EVENT_OPEN_ALTERMENU = "OPEN ALTERMENU"

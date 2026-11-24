@@ -26,6 +26,7 @@ from zeeguu.core.behavioral_modeling import (
     find_last_reading_percentage,
 )
 from zeeguu.core.util.encoding import datetime_to_json
+from zeeguu.core.util.time import server_now
 from zeeguu.core.util.url import remove_tracking_query_params
 import zeeguu
 
@@ -522,6 +523,34 @@ class UserActivityData(db.Model):
             log(f"Warning: Failed to create UserActivityData entry for event: {event}")
 
     @classmethod
+    def log_server_event(cls, session, user, event, value="", extra=None):
+        """
+        An event the API itself notices (a setting changed, the day's goal
+        reached, a list shown), kept next to the ones the clients upload, so
+        one table answers "what did this learner do on that day". Written here
+        rather than by the clients, it is there for every platform and app
+        build as soon as the API is deployed.
+
+        `extra` is a dict, stored as JSON in extra_data. The platform is the
+        one the request's session logged in from (None outside a request).
+        Added to `session`; the caller commits.
+        """
+        extra_data = json.dumps(extra, separators=(",", ":")) if extra else ""
+        if len(extra_data) > 4096:
+            log(f"{event}: extra_data too long ({len(extra_data)}), not kept")
+            extra_data = ""
+        event_row = cls(
+            user,
+            server_now(),
+            event,
+            str(value)[:255],
+            extra_data,
+            platform=_request_platform(),
+        )
+        session.add(event_row)
+        return event_row
+
+    @classmethod
     def get_last_activity_timestamp(cls, user_id):
         query = cls.query.filter(cls.user_id == user_id)
         query = query.order_by(cls.id.desc()).limit(1)
@@ -541,3 +570,18 @@ def _keep_last_seen_source_ids(extra_data):
     if not isinstance(seen, list) or len(seen) <= MAX_SEEN_SOURCE_IDS:
         return extra_data
     return json.dumps(seen[-MAX_SEEN_SOURCE_IDS:], separators=(",", ":"))
+
+
+def _request_platform():
+    """The platform of the session behind the current request, if any."""
+    import flask
+
+    if not flask.has_request_context():
+        return None
+    session_uuid = getattr(flask.g, "session_uuid", None)
+    if not session_uuid:
+        return None
+    from zeeguu.core.model.session import Session
+
+    login = Session.find(session_uuid)
+    return login.platform if login else None

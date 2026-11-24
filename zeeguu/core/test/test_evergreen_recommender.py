@@ -133,6 +133,22 @@ class EvergreenRecommenderTest(ModelTestMixIn):
 
         assert self._titles()[0] == "Wolves are back in Jutland"
 
+    def test_a_keyword_match_says_which_keyword_it_matched(self):
+        # for the EVERGREEN_LISTED log: which shown articles a keyword brought
+        self._article("How stars are born", topic=self.science)
+        self._article("Wolves are back in Jutland", content="Nu er en ulv set i Jylland.")
+        self._subscribe_to_keyword("ulv")
+
+        articles, _ = evergreen_recommendations_for_user(
+            self.user, self.language, 12, now=TODAY
+        )
+
+        matched = {a.title: getattr(a, "_matched_keyword", None) for a in articles}
+        assert matched == {
+            "Wolves are back in Jutland": "ulv",
+            "How stars are born": None,
+        }
+
     def test_opened_articles_leave_the_tab(self):
         read = self._article("Already read", topic=self.science)
         self._article("Not read", topic=self.science)

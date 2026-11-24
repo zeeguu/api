@@ -9,6 +9,7 @@ from .helpers.activity_sessions import (
     find_own_activity_session,
 )
 from ...core.model import UserListeningSession
+from zeeguu.api.utils.session_helpers import remember_session_platform
 
 
 @api.route(
@@ -18,6 +19,7 @@ from ...core.model import UserListeningSession
 @cross_domain
 @requires_session
 def listening_session_start():
+    remember_session_platform()
     daily_audio_lesson_id = int(request.form.get("lesson_id", ""))
     platform = request.form.get("platform", None)
     if platform is not None:

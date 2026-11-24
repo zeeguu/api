@@ -10,6 +10,7 @@ from .helpers.activity_sessions import (
 )
 from ...core.model import UserReadingSession
 from datetime import datetime
+from zeeguu.api.utils.session_helpers import remember_session_platform
 
 
 @api.route(
@@ -19,6 +20,7 @@ from datetime import datetime
 @cross_domain
 @requires_session
 def reading_session_start():
+    remember_session_platform()
     article_id_str = request.form.get("article_id", "")
     if not article_id_str:
         return "article_id is required", 400

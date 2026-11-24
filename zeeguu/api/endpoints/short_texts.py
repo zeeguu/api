@@ -17,12 +17,35 @@ from langdetect.lang_detect_exception import LangDetectException
 from zeeguu.api.utils.abort_handling import make_error
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
-from zeeguu.core.model import Bookmark, ShortText, User, UserShortText
+from zeeguu.core.constants import (
+    EVENT_SHORT_TEXT_ADDED,
+    EVENT_SHORT_TEXT_OPENED,
+    EVENT_SHORT_TEXT_TRANSLATED,
+)
+from zeeguu.core.model import Bookmark, ShortText, User, UserActivityData, UserShortText
 from zeeguu.core.model.short_text import ShortTextTranslation
 from zeeguu.logging import log
 from zeeguu.core.model.language import Language
 
 from . import api, db_session
+
+
+def _log(user, event, short_text, extra=None):
+    """user_short_text keeps when a text was first and last opened, and loses
+    both when the learner removes it. Never the text itself: it can be a
+    private message."""
+    UserActivityData.log_server_event(
+        db_session,
+        user,
+        event,
+        short_text.id,
+        {
+            "language": short_text.language.code,
+            "words": len(short_text.content.split()),
+            **{k: v for k, v in (extra or {}).items() if v is not None},
+        },
+    )
+
 
 # A chat message, or a few forwarded together. Longer than this is an article
 # pasted into a chat, and the reader for those is the article flow.
@@ -191,6 +214,7 @@ def short_text_add():
         if replaced:
             db_session.delete(replaced)
 
+    _log(user, EVENT_SHORT_TEXT_ADDED, short_text, {"instead_of": instead_of})
     db_session.commit()
     return json_result({"id": short_text.id})
 
@@ -219,6 +243,7 @@ def short_text_get(short_text_id):
     user = User.find_by_id(flask.g.user_id)
     row = _users_short_text_or_404(user, short_text_id)
     UserShortText.add(db_session, user, row.short_text)  # back to the top of the list
+    _log(user, EVENT_SHORT_TEXT_OPENED, row.short_text)
     db_session.commit()
 
     short_text = row.short_text
@@ -287,5 +312,6 @@ def short_text_translate(short_text_id, to_lang_code):
     )
     if translation is None:
         return make_error(502, "Could not translate this text right now.")
+    _log(user, EVENT_SHORT_TEXT_TRANSLATED, short_text, {"to": to_lang_code})
     db_session.commit()
     return json_result({"translation": translation})
