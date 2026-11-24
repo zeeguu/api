@@ -34,22 +34,27 @@ from .lexicon_matcher import LexiconMatcher, merge_lexicon_with_stanza
 _BETWEEN_ARTICLE_AND_NOUN = {"ADJ", "ADV", "NUM", "PUNCT"}
 
 
-# Tokens that end a clause. A verb and its particle sit in the same clause
-# ("ser stor ud"), so one of these between them means the parser attached the
-# particle to the wrong verb: in "Den ser stor ud, fordi den er tæt på
-# Jorden" Stanza made "tæt" the particle of "ser". Other verbs and auxiliaries
-# may stand between: Dutch "omdat hij op zal staan".
-_CLAUSE_BOUNDARY_PUNCT = {",", ";", ":", "(", ")", "–", "—"}
+# A verb and its particle sit in the same clause ("ser stor ud"). A new
+# clause between them means the parser attached the particle to the wrong
+# verb: in "Den ser stor ud, fordi den er tæt på Jorden" Stanza made "tæt" the
+# particle of "ser". A clause starts at a subordinating conjunction or clause
+# punctuation and has a verb of its own ("fordi den er"). Without a verb it is
+# an aside or a comparison, and the pair is real: "Er steht, wie immer, früh
+# auf", Dutch "Hij ziet er als een kind uit". Verbs alone don't count either:
+# Dutch "omdat hij op zal staan".
+_CLAUSE_START_PUNCT = {",", ";", ":", "(", ")", "–", "—"}
 
 
 def crosses_clause_boundary(tokens: List[Dict], a: int, b: int) -> bool:
-    """True if a subordinating conjunction or clause punctuation lies
-    strictly between token indices a and b."""
+    """True if a clause with its own verb starts strictly between token
+    indices a and b."""
+    clause_started = False
     for idx in range(min(a, b) + 1, max(a, b)):
         t = tokens[idx]
-        if t.get("pos") == "SCONJ":
-            return True
-        if t.get("pos") == "PUNCT" and (t.get("text") or "").strip() in _CLAUSE_BOUNDARY_PUNCT:
+        pos = t.get("pos")
+        if pos == "SCONJ" or (pos == "PUNCT" and (t.get("text") or "").strip() in _CLAUSE_START_PUNCT):
+            clause_started = True
+        elif clause_started and pos in ("VERB", "AUX"):
             return True
     return False
 

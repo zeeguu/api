@@ -58,3 +58,30 @@ class ParticleVerbMWETest(TestCase):
         self.assertEqual(len(groups), 1)
         self.assertEqual(groups[0]["head_idx"], 4)
         self.assertIn(2, groups[0]["dependent_indices"])
+
+    def test_an_aside_between_verb_and_particle_is_fine(self):
+        # German "Er steht, wie immer, früh auf": commas, but no new verb
+        tokens = [
+            tok("Er", "PRON", "nsubj", 2),
+            tok("steht", "VERB", "root", 0),
+            tok(",", "PUNCT", "punct", 5),
+            tok("wie", "ADP", "case", 5),
+            tok("immer", "ADV", "advmod", 2),
+            tok(",", "PUNCT", "punct", 5),
+            tok("früh", "ADJ", "advmod", 2),
+            tok("auf", "ADP", "compound:prt", 2),
+        ]
+        self.assertEqual(len(particle_groups(tokens)), 1)
+
+    def test_a_comparison_between_verb_and_particle_is_fine(self):
+        # Dutch "Hij ziet er als een kind uit": Stanza tags "als" SCONJ
+        tokens = [
+            tok("Hij", "PRON", "nsubj", 2),
+            tok("ziet", "VERB", "root", 0),
+            tok("er", "ADV", "advmod", 2),
+            tok("als", "SCONJ", "mark", 6),
+            tok("een", "DET", "det", 6),
+            tok("kind", "NOUN", "obl", 2),
+            tok("uit", "ADP", "compound:prt", 2),
+        ]
+        self.assertEqual(len(particle_groups(tokens)), 1)
