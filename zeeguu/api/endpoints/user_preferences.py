@@ -4,7 +4,8 @@ import zeeguu.core
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
-from ...core.model import UserPreference, User, UserLanguage
+from ...core.constants import EVENT_PREFERENCE_CHANGED
+from ...core.model import UserPreference, User, UserLanguage, UserActivityData
 from zeeguu.api.utils.abort_handling import make_error
 
 db_session = zeeguu.core.model.db.session
@@ -69,6 +70,10 @@ def save_user_preferences():
             f"{UserPreference.DAILY_GOAL_MINUTES} must be one of "
             f"{', '.join(str(each) for each in UserPreference.DAILY_GOAL_CHOICES)}",
         )
+
+    # The settings the study asks about keep their history: the rows below
+    # only hold the latest value.
+    before = UserPreference.stored_values(user, LOGGED_PREFERENCES)
 
     if daily_goal_minutes is not None:
         UserPreference.set_daily_goal_minutes(db_session, user, daily_goal_minutes)
@@ -198,9 +203,32 @@ def save_user_preferences():
     _mirror_daily_audio_subscriptions(user, data)
     # ---- END LEGACY DAILY-AUDIO COMPAT --------------------------------------
 
+    _log_preference_changes(user, before)
+
     db_session.add(user)
     db_session.commit()
     return "OK"
+
+
+# Settings whose changes are logged as PREFERENCE_CHANGED events: the study
+# reminder, the notification permission, the daily goal and the lesson length.
+LOGGED_PREFERENCES = UserPreference.STUDY_REMINDER_KEYS + (
+    UserPreference.DAILY_GOAL_MINUTES,
+    UserPreference.AUDIO_LESSON_MINUTES,
+)
+
+
+def _log_preference_changes(user, before):
+    after = UserPreference.stored_values(user, LOGGED_PREFERENCES)
+    for key in LOGGED_PREFERENCES:
+        if after[key] != before[key]:
+            UserActivityData.log_server_event(
+                db_session,
+                user,
+                EVENT_PREFERENCE_CHANGED,
+                key,
+                {"from": before[key], "to": after[key]},
+            )
 
 
 def _credit_today_if_new_goal_is_met(user):

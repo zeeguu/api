@@ -196,7 +196,9 @@ def evergreen_recommendations_for_user(
         keywords, topic_ids = [], {only_topic_id}
 
     candidates = {}
-    keyword_match_ids = set()
+    # {article_id: the first of the learner's keywords it matched}, for the
+    # log of what the tab showed (EVERGREEN_LISTED)
+    keyword_matches = {}
     snippets = {}
     pool_ids = _pool_ids(language) if keywords else []
     for keyword in keywords:
@@ -205,7 +207,7 @@ def evergreen_recommendations_for_user(
         )
         for article in matches:
             candidates[article.id] = article
-            keyword_match_ids.add(article.id)
+            keyword_matches.setdefault(article.id, keyword)
         snippets.update(found_snippets)
 
     # Unfiltered, a learner without topics still gets the language's general
@@ -231,7 +233,7 @@ def evergreen_recommendations_for_user(
     def score(article):
         article_topics = {t.topic_id for t in article.topics}
         s = 0
-        if article.id in keyword_match_ids:
+        if article.id in keyword_matches:
             s += KEYWORD_WEIGHT
         if article_topics & topic_ids:
             s += TOPIC_WEIGHT
@@ -284,4 +286,7 @@ def evergreen_recommendations_for_user(
     for article_id, passage in snippets.items():
         if article_id in full:
             full[article_id]._search_snippet = passage
+    for article_id, keyword in keyword_matches.items():
+        if article_id in full:
+            full[article_id]._matched_keyword = keyword
     return [full[i] for i in chosen_ids if i in full], new_today

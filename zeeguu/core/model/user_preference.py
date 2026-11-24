@@ -317,6 +317,21 @@ class UserPreference(db.Model):
         return cls.query.filter_by(user=user, key=key).one()
 
     @classmethod
+    def stored_values(cls, user: User, keys):
+        """{key: value} as stored, None for a key with no row; the newest row
+        of a key stored twice, as all_for_user reads it. No defaults: a
+        change from "not set" is a change."""
+        rows = (
+            cls.query.filter(cls.user_id == user.id, cls.key.in_(keys))
+            .order_by(cls.id)
+            .all()
+        )
+        values = dict.fromkeys(keys)
+        for row in rows:
+            values[row.key] = row.value
+        return values
+
+    @classmethod
     def all_for_user(cls, user: User):
         preferences_dict = {}
         # By id, so a key stored twice reads as its newest row, as the
