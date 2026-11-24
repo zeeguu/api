@@ -34,6 +34,26 @@ from .lexicon_matcher import LexiconMatcher, merge_lexicon_with_stanza
 _BETWEEN_ARTICLE_AND_NOUN = {"ADJ", "ADV", "NUM", "PUNCT"}
 
 
+# Tokens that end a clause. A verb and its particle sit in the same clause
+# ("ser stor ud"), so one of these between them means the parser attached the
+# particle to the wrong verb: in "Den ser stor ud, fordi den er tæt på
+# Jorden" Stanza made "tæt" the particle of "ser". Other verbs and auxiliaries
+# may stand between: Dutch "omdat hij op zal staan".
+_CLAUSE_BOUNDARY_PUNCT = {",", ";", ":", "(", ")", "–", "—"}
+
+
+def crosses_clause_boundary(tokens: List[Dict], a: int, b: int) -> bool:
+    """True if a subordinating conjunction or clause punctuation lies
+    strictly between token indices a and b."""
+    for idx in range(min(a, b) + 1, max(a, b)):
+        t = tokens[idx]
+        if t.get("pos") == "SCONJ":
+            return True
+        if t.get("pos") == "PUNCT" and (t.get("text") or "").strip() in _CLAUSE_BOUNDARY_PUNCT:
+            return True
+    return False
+
+
 def match_article_noun(tokens: List[Dict], head, det_idx: int = None):
     """
     DET pointing at a NOUN/PROPN. Tapping the article alone returns nonsense
@@ -137,6 +157,8 @@ class StanzaMWEStrategy(MWEStrategy):
             if mwe_type and head_idx is not None and head_idx != i:
                 # Validate head_idx is within bounds
                 if not (0 <= head_idx < len(tokens)):
+                    continue
+                if mwe_type == "particle_verb" and crosses_clause_boundary(tokens, head_idx, i):
                     continue
 
                 # Check if we already have a group for this head
@@ -254,6 +276,8 @@ class GermanicStrategy(StanzaMWEStrategy):
 
             if mwe_type and head_idx is not None and head_idx != i:
                 if not (0 <= head_idx < len(tokens)):
+                    continue
+                if mwe_type == "particle_verb" and crosses_clause_boundary(tokens, head_idx, i):
                     continue
 
                 existing_group = self._find_group_by_head(mwe_groups, head_idx)
