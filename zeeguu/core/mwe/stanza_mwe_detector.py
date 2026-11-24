@@ -235,6 +235,29 @@ class GermanicStrategy(StanzaMWEStrategy):
         "to",   # English
     }
 
+    # Particles the parser labels as plain adverbs instead of compound:prt.
+    # Empty here; a language whose parser does this sets it (DanishStrategy).
+    LOOSE_PARTICLES = frozenset()
+
+    def _is_loose_particle(self, tokens: List[Dict], i: int) -> bool:
+        """An adverb from LOOSE_PARTICLES that hangs off a verb, comes after
+        it, and heads no phrase of its own: "over" in "satte sig over for
+        hende" heads "for hende", so it is not the particle of "satte"."""
+        token = tokens[i]
+        if (token.get("text") or "").lower() not in self.LOOSE_PARTICLES:
+            return False
+        if token.get("pos") != "ADV" or token.get("dep") not in ("advmod", "advmod:lmod"):
+            return False
+        head_idx = self._convert_head_to_index(token.get("head"))
+        if head_idx is None or not (0 <= head_idx < i):
+            return False
+        if tokens[head_idx].get("pos") != "VERB":
+            return False
+        return not any(
+            t.get("head") == i + 1 and t.get("dep") in ("obl", "nmod", "obj")
+            for t in tokens
+        )
+
     def detect(self, tokens: List[Dict]) -> List[Dict]:
         """Detect MWEs including Germanic negation and infinitive markers."""
         mwe_groups = []
@@ -261,6 +284,11 @@ class GermanicStrategy(StanzaMWEStrategy):
             # Check negation: PART + advmod (Greek style)
             elif pos == "PART" and dep == "advmod":
                 mwe_type = "negation"
+                head_idx = self._convert_head_to_index(head)
+
+            # Particle labeled as an adverb (see LOOSE_PARTICLES)
+            elif self._is_loose_particle(tokens, i):
+                mwe_type = "particle_verb"
                 head_idx = self._convert_head_to_index(head)
 
             # Germanic negation: ADV + advmod with known negation word
@@ -335,6 +363,20 @@ class GermanicStrategy(StanzaMWEStrategy):
                         dep_indices.append(idx)
 
         return mwe_groups
+
+
+class DanishStrategy(GermanicStrategy):
+    """
+    Stanza's Danish model labels most particles advmod:lmod or advmod, not
+    compound:prt: "står hver morgen op", "ringede sin mor op", "lagde sig ned"
+    and "ser stor ud, fordi ..." came back with no group.
+    """
+
+    LOOSE_PARTICLES = frozenset({
+        "ud", "op", "ned", "ind", "hjem", "væk", "bort", "frem", "tilbage",
+        "sammen", "løs", "fast", "rundt", "igennem", "forbi", "af", "fra",
+        "om", "over", "med",
+    })
 
 
 class RomanceStrategy(StanzaMWEStrategy):
@@ -699,7 +741,7 @@ LANGUAGE_STRATEGIES = {
     "de": GermanicStrategy,
     "nl": GermanicStrategy,
     "sv": GermanicStrategy,
-    "da": GermanicStrategy,
+    "da": DanishStrategy,
     "no": GermanicStrategy,
     "en": GermanicStrategy,
     "el": GreekStrategy,
