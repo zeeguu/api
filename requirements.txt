@@ -84,7 +84,7 @@ deprecated  # transitive dep of limits (Flask-Limiter) not declared in its deps
 protobuf  # transitive dep of google-cloud-texttospeech not declared in its deps
 
 # Monitoring
-sentry-sdk[flask]
+sentry-sdk[flask]<3  # 3.0 removed start_transaction, used by traced_task.py and the crawler
 
 # Testing
 pytest
