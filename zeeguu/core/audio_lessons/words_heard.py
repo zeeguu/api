@@ -34,7 +34,7 @@ class HeardLesson:
     words: Counter  # how often each learned-language word was said
     learner: Optional[str] = None  # the voice the learner played
     dialogue_id: Optional[int] = None  # its AudioLessonDialogue
-    heard_at: Optional[datetime] = None  # finished, or else made
+    heard_at: Optional[datetime] = None  # first listened to; else finished, else made
     reviewed: tuple = ()  # the challenge ids it reviewed (AudioLessonReview)
     challenges: tuple = ()  # its review challenges: (challenge id, lesson_script.challenges.Challenge), AudioChallenge
 
@@ -132,6 +132,7 @@ def heard_lessons(user, language, limit=30) -> list:
     rows = {lesson.id: _history_dialogue(lesson) for lesson in engaged}
     ids = {row.id for row in rows.values() if row is not None}
     reviewed = AudioLessonReview.reviewed_by(ids)
+    first_heard = _first_listened({lesson.id for lesson in engaged})
     lesson_challenges = AudioChallenge.for_dialogues(ids)
 
     heard = []
@@ -150,11 +151,32 @@ def heard_lessons(user, language, limit=30) -> list:
             heard.append(
                 HeardLesson(
                     lesson.display_title(), words, row.learner_character,
-                    row.id, lesson.last_completed_at or lesson.created_at, reviewed.get(row.id, ()),
+                    row.id, first_heard.get(lesson.id) or lesson.last_completed_at or lesson.created_at,
+                    reviewed.get(row.id, ()),
                     lesson_challenges.get(row.id, ()),
                 )
             )
     return heard
+
+
+def _first_listened(lesson_ids):
+    """{daily lesson id: when the learner first started listening to it}. The
+    review spacing counts from then: last_completed_at moves on every replay,
+    and created_at can be days before a pre-generated lesson is heard."""
+    from sqlalchemy import func
+
+    from zeeguu.core.model import db
+    from zeeguu.core.model.user_listening_session import UserListeningSession
+
+    if not lesson_ids:
+        return {}
+    rows = (
+        db.session.query(UserListeningSession.daily_audio_lesson_id, func.min(UserListeningSession.start_time))
+        .filter(UserListeningSession.daily_audio_lesson_id.in_(list(lesson_ids)))
+        .group_by(UserListeningSession.daily_audio_lesson_id)
+        .all()
+    )
+    return {lesson_id: started for lesson_id, started in rows}
 
 
 def _history_dialogue(lesson):

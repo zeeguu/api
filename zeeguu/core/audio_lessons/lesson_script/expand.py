@@ -25,10 +25,15 @@ class MarkupError(ValueError):
 
 
 def expand(script, values, dialogue, learner):
+    """The expanded script as text (expand_lines, written out)."""
+    lines = expand_lines(script, values, dialogue, learner)
+    return "\n".join(str(line) for line in lines).strip() + "\n"
+
+
+def expand_lines(script, values, dialogue, learner):
     """
-    The full script from a marked one, its lines already labeled with voices.
-    Built as SpokenLines (and blank lines as they are), written out as text
-    at the end.
+    The full script from a marked one, its lines already labeled with voices,
+    as SpokenLines (and blank lines as "").
 
     values: lesson_tuning.prompt_values; dialogue: this lesson's dialogue as
     [(voice, text)]; learner: the learner's voice, "man" or "woman".
@@ -81,6 +86,12 @@ def expand(script, values, dialogue, learner):
         if unknown:
             problems.append(f"{line!r}: unknown marker [{unknown[0]}]")
             continue
+        if kind and voice == TEACHER:
+            # [drill], [answer] and [understand] are what the learner says or
+            # hears in the learned language; a Teacher line with one would be
+            # said by the Teacher's voice, its «chevrons» unsplit.
+            problems.append(f"{line!r}: [{kind}] on a Teacher line")
+            continue
         text = re.sub(r"\s*\[slow\]", "", text, flags=re.IGNORECASE)
         if voice != TEACHER:
             text = without_chevrons(text)
@@ -105,4 +116,4 @@ def expand(script, values, dialogue, learner):
 
     if problems:
         raise MarkupError("; ".join(problems))
-    return "\n".join(str(line) for line in out).strip() + "\n"
+    return out

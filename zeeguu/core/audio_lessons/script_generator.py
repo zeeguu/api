@@ -14,6 +14,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
 from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
 from zeeguu.core.audio_lessons.lesson_script.challenges import challenges
 from zeeguu.core.audio_lessons.lesson_script.markers import VOICE_LINE
+from zeeguu.core.audio_lessons.lesson_script.spoken_line import without_teacher_chevron_spans
 from zeeguu.core.audio_lessons.lesson_script.roles import roles_to_voices, voices_to_roles
 from zeeguu.core.audio_lessons.lesson_script.voices import other_voice
 from zeeguu.core.audio_lessons.words_heard import history_table
@@ -224,7 +225,11 @@ def generate_script_in_languages(
             continue
 
         mismatches = find_language_mismatches(
-            script, target_language, source_language, short_lines=short_lines
+            # A learned-language word inside a Teacher line of an A0 script
+            # («kaffe») is not the Teacher's language: the check must not read
+            # it. Only here: elsewhere «» are ordinary quotation marks.
+            without_teacher_chevron_spans(script) if chevrons else script,
+            target_language, source_language, short_lines=short_lines,
         )
         if not mismatches:
             return script, model_name
@@ -581,8 +586,8 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
     cannot be expanded gets one rewrite, with the reason.
     """
     from zeeguu.core.audio_lessons import lesson_review
-    from zeeguu.core.audio_lessons.lesson_script.expand import MarkupError, expand
-    from zeeguu.core.audio_lessons.lesson_script.review import review_lines, voice_line_count, with_review
+    from zeeguu.core.audio_lessons.lesson_script.expand import MarkupError, expand_lines
+    from zeeguu.core.audio_lessons.lesson_script.review import review_lines, said_line_count, with_review
     from zeeguu.core.audio_lessons.lesson_tuning import lines_for
 
     attempt_prompt = prompt
@@ -624,7 +629,8 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             return title, script, model_name, None, ()
         try:
             values = a0["values"]
-            expanded = expand(script, values, a0["dialogue"], a0["learner"])
+            expanded_lines = expand_lines(script, values, a0["dialogue"], a0["learner"])
+            expanded = "\n".join(str(line) for line in expanded_lines).strip() + "\n"
         except MarkupError as e:
             log(f"[lesson markup] '{suggestion}' attempt {attempt}/{MARKUP_ATTEMPTS}: {e}")
             if attempt == MARKUP_ATTEMPTS:
@@ -635,7 +641,7 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             )
             continue
 
-        missing = lines_for(values["min_minutes"]) - voice_line_count(expanded.split("\n"))
+        missing = lines_for(values["min_minutes"]) - said_line_count(expanded_lines)
         reviews = lesson_review.choose(a0["heard"], missing, values, a0["learner"])
         full = with_review(expanded, review_lines([challenge for _, challenge in reviews], values))
         reviewed = tuple(challenge_id for challenge_id, _ in reviews)

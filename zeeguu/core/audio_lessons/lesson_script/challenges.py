@@ -9,8 +9,8 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from zeeguu.core.audio_lessons.lesson_script.markers import LINE_MARKER, VOICE_LINE
-from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine, spoken_lines
+from zeeguu.core.audio_lessons.lesson_script.markers import DIALOGUE_MARKER, LINE_MARKER, VOICE_LINE
+from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine, spoken_lines, without_chevrons
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
 from zeeguu.core.audio_lessons.lesson_script.voices import PEOPLE, TEACHER, TEACHERS
 
@@ -40,22 +40,32 @@ class Challenge:
 class MarkedLine:
     """One voice line of a marked script."""
 
-    voice: str  # "teacher", "teacherl2", "man" or "woman"
+    voice: Optional[str]  # "teacher", "teacherl2", "man" or "woman"; None for [dialogue]
     text: str  # what is said, without markers
-    marker: Optional[str]  # "drill", "answer", "understand", or None
+    marker: Optional[str]  # "drill", "answer", "understand", "dialogue", or None
 
 
 def marked_lines(marked) -> list:
-    """The voice lines of a marked script, in order; the title, blank lines
-    and [dialogue] are left out."""
+    """
+    The voice lines of a marked script, in order, and each [dialogue] as a
+    line with no voice: where the dialogue is played, the line before an
+    answer is the dialogue's last, not the line before [dialogue]. The title
+    and blank lines are left out. «Chevrons» are dropped outside Teacher lines,
+    as expand() drops them.
+    """
     lines = []
     for raw in (marked or "").split("\n"):
+        if DIALOGUE_MARKER.match(raw.strip()):
+            lines.append(MarkedLine(None, "", "dialogue"))
+            continue
         voice_line = VOICE_LINE.match(raw.strip())
         if not voice_line:
             continue
         voice, text = voice_line.groups()
+        voice = voice.lower()
         marker = LINE_MARKER.search(text)
-        lines.append(MarkedLine(voice.lower(), _clean(text), marker.group(1).lower() if marker else None))
+        text = _clean(text) if voice == TEACHER else without_chevrons(_clean(text))
+        lines.append(MarkedLine(voice, text, marker.group(1).lower() if marker else None))
     return lines
 
 
@@ -81,7 +91,7 @@ def challenges(marked, learner):
         if line.marker != "answer" or line.voice != learner:
             continue
         prompt = lines[i - 1] if i >= 1 else None
-        if prompt is None or prompt.voice == learner:
+        if prompt is None or prompt.voice in (learner, None):
             continue
         if line.text.lower() in answers_seen:
             continue

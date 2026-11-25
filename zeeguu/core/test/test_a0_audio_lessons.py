@@ -304,6 +304,34 @@ class StoredDialogueTest(ModelTestMixIn):
             )
         assert row.learner_character == "woman"
 
+    def test_a_dialogue_with_challenges_and_reviews_can_be_deleted(self):
+        from zeeguu.core.audio_lessons.daily_lesson_generator import _delete_challenges_and_reviews
+        from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, Utterance
+        from zeeguu.core.model.audio_challenge import AudioChallenge
+        from zeeguu.core.model.audio_lesson_review import AudioLessonReview
+
+        def dialogue():
+            row = AudioLessonDialogue(
+                script="Man: Hej.", canonical_suggestion="bus", lesson_type="situation",
+                language=self.user.learned_language, builds_on_history=True,
+            )
+            db.session.add(row)
+            db.session.flush()
+            return row
+
+        doomed, later = dialogue(), dialogue()
+        challenge = AudioChallenge(doomed.id, 0, Challenge(None, Utterance("teacher", "Bus?"), Utterance("woman", "bus")))
+        db.session.add(challenge)
+        db.session.flush()
+        db.session.add(AudioLessonReview(later.id, challenge.id, 0))
+        db.session.flush()
+
+        _delete_challenges_and_reviews(doomed.id)
+        db.session.delete(doomed)
+        db.session.commit()
+
+        assert AudioChallenge.query.count() == 0 and AudioLessonReview.query.count() == 0
+
     def _history_lesson(self, learner_character, hours_ago):
         from datetime import datetime, timedelta
 
@@ -353,6 +381,7 @@ class HistoryTest(ModelTestMixIn):
             lesson.mark_completed()
         db.session.add(lesson)
         db.session.commit()
+        return lesson
 
     def test_only_heard_lessons_built_on_history_count(self):
         from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
@@ -365,6 +394,20 @@ class HistoryTest(ModelTestMixIn):
         assert [set(h.words) for h in heard] == [{"en", "kaffe", "tak"}]
         # Roles alternate over every lesson of this kind, heard or not.
         assert history_lesson_count(self.user, self.language) == 2
+
+    def test_a_lesson_counts_as_heard_from_its_first_listening_not_its_last_replay(self):
+        from datetime import datetime, timedelta
+
+        from zeeguu.core.audio_lessons.words_heard import heard_lessons
+        from zeeguu.core.model.user_listening_session import UserListeningSession
+
+        lesson = self._lesson("Man: En kaffe, tak. [1 seconds]", builds_on_history=True, completed=True)
+        first = datetime(2026, 11, 1, 9, 0)
+        for started in (first, first + timedelta(days=7)):
+            db.session.add(UserListeningSession(self.user.id, lesson.id, current_time=started))
+        db.session.commit()
+
+        assert heard_lessons(self.user, self.language)[0].heard_at == first
 
     def test_lessons_never_played_do_not_push_heard_ones_out(self):
         from zeeguu.core.audio_lessons.words_heard import heard_lessons

@@ -5,11 +5,8 @@ What to review is chosen by lesson_review.py.
 
 from zeeguu.core.audio_lessons.lesson_script.challenges import challenge_lines
 from zeeguu.core.audio_lessons.lesson_script.markers import VOICE_LINE
-from zeeguu.core.audio_lessons.lesson_script.spoken_line import PAUSE_AT_LANGUAGE_SWITCH, SpokenLine
+from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine
 from zeeguu.core.audio_lessons.lesson_script.voices import PEOPLE, TEACHERS
-
-# How a segment joined to the next one ends, written out.
-_JOINED = str(SpokenLine("teacher", "", PAUSE_AT_LANGUAGE_SWITCH)).split(" ", 1)[-1].strip()
 
 
 def review_lines(challenges, values):
@@ -39,7 +36,8 @@ def with_review(expanded, review):
 
 
 def closing_dialogue_start(lines):
-    """Where the closing dialogue starts, with the Teacher sentence before it."""
+    """Where the closing dialogue starts, with the Teacher sentence before it
+    (blank lines between them included)."""
     voices = [_voice(line) for line in lines]
     people = [i for i, voice in enumerate(voices) if voice in PEOPLE]
     if not people:
@@ -47,9 +45,13 @@ def closing_dialogue_start(lines):
     at = people[-1]
     while at > 0 and voices[at - 1] in PEOPLE:
         at -= 1
-    while at > 0 and voices[at - 1] in TEACHERS:
-        at -= 1
-    return at
+    before = at
+    while before > 0 and not lines[before - 1].strip():
+        before -= 1
+    intro = before
+    while intro > 0 and voices[intro - 1] in TEACHERS:
+        intro -= 1
+    return intro if intro < before else at
 
 
 def _voice(line):
@@ -57,19 +59,10 @@ def _voice(line):
     return voice_line.group(1).lower() if voice_line else None
 
 
-def voice_line_count(lines):
+def said_line_count(lines):
     """
-    How many lines are said, as SECONDS_PER_LINE counts them: a Teacher
-    sentence with «chevrons» is one line, though written as several segments
-    (each but the last followed by PAUSE_AT_LANGUAGE_SWITCH).
+    How many lines are said, as SECONDS_PER_LINE counts them, in expand_lines'
+    output: a Teacher sentence with «chevrons» is one line, though it is
+    several segments (SpokenLine.joined).
     """
-    count, continues = 0, False
-    for line in lines:
-        voice = _voice(line)
-        if voice is None:
-            continues = False
-            continue
-        if not (continues and voice in TEACHERS):
-            count += 1
-        continues = voice in TEACHERS and line.rstrip().endswith(_JOINED)
-    return count
+    return sum(1 for line in lines if isinstance(line, SpokenLine) and not line.joined)

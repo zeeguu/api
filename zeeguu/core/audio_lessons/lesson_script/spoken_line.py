@@ -34,6 +34,7 @@ class SpokenLine:
     text: str
     pause: float  # seconds of silence after it
     slow: bool = False  # said slowly, once, as a new word is
+    joined: bool = False  # a segment of a Teacher sentence that goes on in the next line
 
     def __str__(self):
         slow = " [slow]" if self.slow else ""
@@ -69,7 +70,16 @@ def spoken_lines(voice, text, pause) -> list:
         segments.append((TEACHER, rest))
 
     *joined, last = segments
-    return [SpokenLine(v, t, PAUSE_AT_LANGUAGE_SWITCH) for v, t in joined] + [SpokenLine(*last, pause)]
+    return [SpokenLine(v, t, PAUSE_AT_LANGUAGE_SWITCH, joined=True) for v, t in joined] + [SpokenLine(*last, pause)]
+
+
+def without_teacher_chevron_spans(script):
+    """A script with the «…» spans taken out of its Teacher lines, for the
+    language check: they are the learned language, not the Teacher's."""
+    return "\n".join(
+        re.sub(r"\s*" + CHEVRON_SPAN.pattern, "", line) if line.lstrip().startswith("Teacher:") else line
+        for line in script.split("\n")
+    )
 
 
 def without_chevrons(text):

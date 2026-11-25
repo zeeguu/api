@@ -14,8 +14,8 @@ import pytest
 
 from zeeguu.core.audio_lessons import lesson_review
 from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, challenge_lines, challenges, dialogue_challenges, Utterance
-from zeeguu.core.audio_lessons.lesson_script.expand import expand, MarkupError
-from zeeguu.core.audio_lessons.lesson_script.review import review_lines, voice_line_count, with_review
+from zeeguu.core.audio_lessons.lesson_script.expand import expand, expand_lines, MarkupError
+from zeeguu.core.audio_lessons.lesson_script.review import review_lines, said_line_count, with_review
 from zeeguu.core.audio_lessons.lesson_script.roles import roles_to_voices, voices_to_roles
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import spoken_lines, SpokenLine
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
@@ -140,8 +140,8 @@ def test_a_marker_meaning_no_marker_is_a_plain_line(marker):
 
 def test_a_chevron_span_is_said_by_the_teachers_learned_language_voice():
     assert spoken_lines("teacher", "The word for coffee is «kaffe». Say it.", 1) == [
-        SpokenLine("teacher", "The word for coffee is", 0),
-        SpokenLine("teacherl2", "kaffe.", 0),  # its punctuation comes with it
+        SpokenLine("teacher", "The word for coffee is", 0, joined=True),
+        SpokenLine("teacherl2", "kaffe.", 0, joined=True),  # its punctuation comes with it
         SpokenLine("teacher", "Say it.", 1),
     ]
 
@@ -160,12 +160,6 @@ def test_a_teacher_line_ending_in_a_chevron_span_ends_with_the_pause():
 
 def test_chevrons_in_a_learned_language_line_are_just_dropped():
     assert _expand("Learner: «Tak». [answer]").splitlines()[0] == "Woman: Tak. [3 seconds]"
-
-
-def test_the_language_check_does_not_read_chevron_spans_as_the_teachers_language():
-    from zeeguu.core.audio_lessons.script_parser import parse_script
-
-    assert parse_script("Teacher: The word for coffee is «kaffe».")[0][1] == "The word for coffee is."
 
 
 # Time to answer
@@ -371,8 +365,9 @@ def test_the_review_goes_before_a_closing_sentence_with_chevrons_not_into_it():
 
 
 def test_a_sentence_with_chevrons_counts_as_one_line():
-    lines = _expand("Teacher: The word for coffee is «kaffe». Say it.\nTeacher: Good.").splitlines()
-    assert len(lines) == 4 and voice_line_count(lines) == 2
+    script = roles_to_voices("Teacher: The word for coffee is «kaffe». Say it.\nTeacher: Good.", LEARNER)
+    lines = expand_lines(script, VALUES, DIALOGUE, LEARNER)
+    assert len(lines) == 4 and said_line_count(lines) == 2
 
 
 @pytest.mark.parametrize("raw, title", [
@@ -392,3 +387,40 @@ def test_the_title_is_the_first_line_when_it_is_not_a_voice_line(raw, title):
             max_tokens=100, short_lines=True,
         )
     assert (got.strip("*") if got else got) == title
+
+
+def test_the_review_goes_before_listen_again_also_with_a_blank_line_before_the_dialogue():
+    expanded = _expand("Teacher: Hi.\n[dialogue]\nLearner: Kaffe. [drill]\n\nTeacher: Now listen again.\n\n[dialogue]")
+    lines = with_review(expanded, review_lines([ORDER_COFFEE], VALUES)).splitlines()
+    assert lines.index(str(challenge_lines(ORDER_COFFEE, VALUES)[1])) < lines.index("Teacher: Now listen again. [1 seconds]")
+
+
+def test_a_marker_on_a_teacher_line_is_refused():
+    with pytest.raises(MarkupError, match="on a Teacher line"):
+        _expand("Teacher: Say «tak». [drill]")
+
+
+def test_a_challenge_answer_has_no_chevrons():
+    marked = roles_to_voices("Teacher: How do you order a coffee?\nLearner: «En kaffe», tak. [answer]", LEARNER)
+    assert challenges(marked, LEARNER)[0].answer == Utterance("woman", "En kaffe, tak.")
+
+
+def test_an_answer_right_after_the_dialogue_makes_no_challenge():
+    """In the lesson its prompt is the dialogue's last line, which a stored
+    challenge does not have: the Teacher line before [dialogue] is not it."""
+    marked = roles_to_voices("Teacher: How do you say thanks?\n[dialogue]\nLearner: Tak. [answer]", LEARNER)
+    assert challenges(marked, LEARNER) == []
+
+
+def test_the_language_check_reads_teacher_lines_without_their_chevron_spans():
+    from zeeguu.core.audio_lessons.lesson_script.spoken_line import without_teacher_chevron_spans
+
+    script = "Teacher: The word for coffee is «kaffe». Say it.\nWoman: «Kaffe»."
+    assert without_teacher_chevron_spans(script) == "Teacher: The word for coffee is Say it.\nWoman: «Kaffe»."
+
+
+def test_the_shared_parser_keeps_guillemets_in_teacher_lines():
+    """Outside A0 «» are quotation marks (French, Russian...): the word in them is said."""
+    from zeeguu.core.audio_lessons.script_parser import parse_script
+
+    assert "«Bahnhof»" in parse_script("Teacher: Le mot «Bahnhof» veut dire gare.")[0][1]

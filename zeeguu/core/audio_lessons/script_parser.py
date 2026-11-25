@@ -24,7 +24,6 @@ _SLOW_MARKER = re.compile(r"\s*\[slow[a-z ]*\]", re.IGNORECASE)
 # The markers of an A0 script before it is expanded (lesson_script). Only
 # there: the language check reads the marked script, and must not read the
 # markers as words.
-_CHEVRON_SPAN = re.compile(r"\s*«[^»]*»")
 _LESSON_MARKER = re.compile(r"\s*\[(?:drill|answer|understand)\]", re.IGNORECASE)
 
 # A label in bold, "**Woman:**" or "**Woman**:", as models sometimes write it.
@@ -155,12 +154,6 @@ def parse_script(script: str, with_speed: bool = False) -> List[Tuple]:
         slow = bool(_SLOW_MARKER.search(text))
         text = _SLOW_MARKER.sub("", text)
         text = _LESSON_MARKER.sub("", text).strip()
-        # A learned-language word inside a Teacher line of a marked A0 script
-        # («kaffe», lesson_script.spoken_line) is not the Teacher's language: the
-        # language check must not read it. Expanded scripts have none.
-        if voice_type == "teacher":
-            text = _CHEVRON_SPAN.sub("", text).strip()
-
         if with_speed:
             segments.append((voice_type, text, silence_duration, slow))
         else:
