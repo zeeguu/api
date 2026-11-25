@@ -5,13 +5,13 @@ not by the model, and placed by code (lesson_markup.with_review).
 The review is retrieval, not listening again: being asked to recall
 something helps memory more than meeting it again (the testing effect,
 Roediger & Karpicke 2006), and learners left to choose prefer listening again,
-which feels fluent and does less (Kornell & Bjork 2008). So it is cards: one
-question and answer of an earlier lesson (AudioLessonCard), the question in
+which feels fluent and does less (Kornell & Bjork 2008). So it is challenges: one
+question and answer of an earlier lesson (AudioChallenge), the question in
 the learner's own language so the meaning is always given, then time to
-answer, then the answer. A lesson from before cards has none; its dialogue is
+answer, then the answer. A lesson from before challenges has none; its dialogue is
 reviewed instead, answered line by line in the learner's role.
 
-Each card (or fallback dialogue) comes back at growing distances, as in
+Each challenge (or fallback dialogue) comes back at growing distances, as in
 Pimsleur's graduated interval recall: due a day after its lesson was heard,
 then 2 days after its first review, 4 after its second, and so on (a review
 counts once the learner heard the lesson that made it). The most overdue come
@@ -19,43 +19,43 @@ first, the most recent first among equals, and items are added until the
 lesson is as long as the learner asked for: an item not yet due is still
 reviewed when the length needs it.
 
-What a lesson reviewed is stored (AudioLessonReview: kind "card" with the
-card's id, or "dialogue"), so the next lesson's spacing knows it.
+What a lesson reviewed is stored (AudioLessonReview: kind "challenge" with the
+challenge's id, or "dialogue"), so the next lesson's spacing knows it.
 """
 
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from zeeguu.core.audio_lessons.lesson_markup import Card, card_lines, respond_lines
+from zeeguu.core.audio_lessons.lesson_markup import Challenge, challenge_lines, respond_lines
 from zeeguu.core.audio_lessons.words_heard import HeardLesson
 
 FIRST_INTERVAL_DAYS = 1
 
 @dataclass(frozen=True)
 class ReviewItem:
-    """Something an earlier lesson offers for review: one of its cards, or its whole dialogue."""
+    """Something an earlier lesson offers for review: one of its challenges, or its whole dialogue."""
 
     lesson: HeardLesson
-    card: Optional[Card]  # None: the whole dialogue (a lesson from before cards)
-    card_id: Optional[int]  # its AudioLessonCard
+    challenge: Optional[Challenge]  # None: the whole dialogue (a lesson from before challenges)
+    challenge_id: Optional[int]  # its AudioChallenge
 
-CARD = "card"  # AudioLessonReview.kind
+CHALLENGE = "challenge"  # AudioLessonReview.kind
 DIALOGUE = "dialogue"
 
 
 def items_of(lesson, learner):
     """
-    A lesson's cards; or, when it has none, its dialogue as one item. Only
+    A lesson's challenges; or, when it has none, its dialogue as one item. Only
     what was made with the learner's current voice: in many languages a
-    learner's words depend on their gender, so a card answered as a woman is
+    learner's words depend on their gender, so a challenge answered as a woman is
     not asked of the same learner as a man.
     """
-    if lesson.cards:
+    if lesson.challenges:
         return [
-            ReviewItem(lesson, card, card_id)
-            for card_id, card in lesson.cards
-            if card.answer[0] == learner
+            ReviewItem(lesson, challenge, challenge_id)
+            for challenge_id, challenge in lesson.challenges
+            if challenge.answer[0] == learner
         ]
     if lesson.dialogue and lesson.learner == learner:
         return [ReviewItem(lesson, None, None)]
@@ -63,7 +63,7 @@ def items_of(lesson, learner):
 
 
 def kind(item):
-    return DIALOGUE if item.card is None else CARD
+    return DIALOGUE if item.challenge is None else CHALLENGE
 
 
 def due_order(heard, learner, now=None):
@@ -77,7 +77,7 @@ def due_order(heard, learner, now=None):
     ]
 
     def overdue(item):
-        key = (item.lesson.dialogue_id, item.card_id)
+        key = (item.lesson.dialogue_id, item.challenge_id)
         seen = [item.lesson.heard_at] + [
             other.heard_at for other in heard if key in (other.reviewed or ())
         ]
@@ -92,8 +92,8 @@ def due_order(heard, learner, now=None):
 
 
 def lines_of(item, values):
-    if item.card is not None:
-        return len(card_lines(item.card, values))
+    if item.challenge is not None:
+        return len(challenge_lines(item.challenge, values))
     return 1 + len(respond_lines(item.lesson.dialogue, item.lesson.learner, values))
 
 

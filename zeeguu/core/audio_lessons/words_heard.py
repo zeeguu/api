@@ -36,8 +36,8 @@ class HeardLesson:
     learner: Optional[str] = None  # the voice the learner played
     dialogue_id: Optional[int] = None  # its AudioLessonDialogue
     heard_at: Optional[datetime] = None  # finished, or else made
-    reviewed: tuple = ()  # what it reviewed: (dialogue id, card id or None), AudioLessonReview
-    cards: tuple = ()  # its review cards: (card id, lesson_markup.Card), AudioLessonCard
+    reviewed: tuple = ()  # what it reviewed: (dialogue id, challenge id or None), AudioLessonReview
+    challenges: tuple = ()  # its review challenges: (challenge id, lesson_markup.Challenge), AudioChallenge
 
 _TIMING = re.compile(r"\[[^\]]*\]")
 _WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
@@ -127,7 +127,7 @@ def heard_lessons(user, language, limit=30) -> list:
     # is_engaged is computed in Python, so the window is applied after it.
     engaged = [lesson for lesson in lessons if lesson.is_engaged][:limit]
 
-    from zeeguu.core.model.audio_lesson_card import AudioLessonCard
+    from zeeguu.core.model.audio_challenge import AudioChallenge
     from zeeguu.core.model.audio_lesson_review import AudioLessonReview
 
     rows = {
@@ -139,7 +139,7 @@ def heard_lessons(user, language, limit=30) -> list:
     }
     ids = {row.id for row in rows.values() if row is not None}
     reviewed = AudioLessonReview.reviewed_by(ids)
-    lesson_cards = AudioLessonCard.for_dialogues(ids)
+    lesson_challenges = AudioChallenge.for_dialogues(ids)
 
     heard = []
     for lesson in reversed(engaged):
@@ -152,7 +152,7 @@ def heard_lessons(user, language, limit=30) -> list:
                 HeardLesson(
                     lesson.display_title(), words, stored_dialogue(row), row.learner_character,
                     row.id, lesson.last_completed_at or lesson.created_at, reviewed.get(row.id, ()),
-                    lesson_cards.get(row.id, ()),
+                    lesson_challenges.get(row.id, ()),
                 )
             )
     return heard

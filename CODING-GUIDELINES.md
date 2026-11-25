@@ -7,7 +7,7 @@
 
 When a function puts data together from several rows for one use (a query
 result: `words_heard.HeardLesson`, built by `heard_lessons()`), or a piece of
-code passes a small value around (`lesson_markup.Card`), give it a type:
+code passes a small value around (`lesson_markup.Challenge`), give it a type:
 
 - **A frozen dataclass**, not a `namedtuple` and not a dict: one line per
   field, with its type, its default and a short comment saying what it holds
@@ -17,7 +17,7 @@ code passes a small value around (`lesson_markup.Card`), give it a type:
   is (`HeardLesson`, `ReviewItem`), not after where it comes from.
 - **Not a table.** If every field comes from stored rows, the record is a view
   for one use; storing it would copy those facts and let the copy go stale.
-  Facts that need to last get their own table (`audio_lesson_card`).
+  Facts that need to last get their own table (`audio_challenge`).
 - **Why not just pass the ORM objects**: the logic that uses the record can
   then be tested as plain functions, built by hand in the test, with no
   database (`test_lesson_markup.py`).

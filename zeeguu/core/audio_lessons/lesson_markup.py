@@ -42,9 +42,9 @@ synthesized: nothing downstream knows about markers.
 
 The review of earlier lessons is not the model's: code chooses it
 (lesson_review.py) and places it before the closing dialogue (with_review).
-It asks earlier lessons' cards (cards, card_lines): a question in the
+It asks earlier lessons' challenges (challenges, challenge_lines): a question in the
 learner's own language, time to answer, the answer. A lesson from before
-cards is reviewed as its dialogue, answered in the learner's role
+challenges is reviewed as its dialogue, answered in the learner's role
 (respond_lines).
 """
 
@@ -279,7 +279,7 @@ def expand(script, values, dialogue, learner):
 
 
 @dataclass(frozen=True)
-class Card:
+class Challenge:
     """
     One thing the learner answered in a lesson, kept for review: a QUESTION
     (the Teacher asks) or an EXCHANGE (the Other person speaks, after the
@@ -318,17 +318,17 @@ def marked_lines(marked) -> list:
     return lines
 
 
-def cards(marked, learner):
+def challenges(marked, learner):
     """
-    The cards of a marked script (with voices), in order. A card is an [answer]
+    The challenges of a marked script (with voices), in order. A challenge is an [answer]
     by the learner and the line right before it, which the learner answers:
     a Teacher question, or the Other person's line in an exchange, then with
-    the Teacher's setup before it when there is one. One card per answer: a
+    the Teacher's setup before it when there is one. One challenge per answer: a
     lesson recalls the same phrase several times, and its first question is
     usually the one that says what it means.
 
     A second [answer] right after the first (two answers to one question)
-    makes no card of its own: the line before it is the learner's.
+    makes no challenge of its own: the line before it is the learner's.
     """
     lines = marked_lines(marked)
     found, answers_seen = [], set()
@@ -347,7 +347,7 @@ def cards(marked, learner):
             before = lines[i - 2] if i >= 2 else None
             setup = before.text if before and before.voice == "Teacher" else None
 
-        found.append(Card(
+        found.append(Challenge(
             setup=setup,
             prompt=(prompt.voice.lower(), prompt.text),
             answer=(line.voice.lower(), line.text),
@@ -363,29 +363,29 @@ def _clean(text):
 _LABELS = {"teacher": "Teacher", "teacherl2": "TeacherL2", "man": "Man", "woman": "Woman"}
 
 
-def card_lines(card, values):
-    """A card said: the setup of an exchange, the line the learner answers, the
+def challenge_lines(challenge, values):
+    """A challenge said: the setup of an exchange, the line the learner answers, the
     time to answer, then the answer twice."""
     out = []
-    if card.setup:
-        out += spoken_lines("Teacher", card.setup, 1)
-    out += spoken_lines(_LABELS[card.prompt[0]], card.prompt[1], time_to_answer(card.answer[1], values))
-    out += [SpokenLine(_LABELS[card.answer[0]], card.answer[1], values["repeat_pause"])] * 2
+    if challenge.setup:
+        out += spoken_lines("Teacher", challenge.setup, 1)
+    out += spoken_lines(_LABELS[challenge.prompt[0]], challenge.prompt[1], time_to_answer(challenge.answer[1], values))
+    out += [SpokenLine(_LABELS[challenge.answer[0]], challenge.answer[1], values["repeat_pause"])] * 2
     return out
 
 
 def review_lines(items, values):
     """
     The review (lesson_review.ReviewItem, in order), as SpokenLines with a
-    blank line before each item: cards as they are; a
-    whole dialogue, for a lesson with no cards, opened by its title, said by
+    blank line before each item: challenges as they are; a
+    whole dialogue, for a lesson with no challenges, opened by its title, said by
     the Teacher (titles are in the learner's own language).
     """
     out = []
     for item in items:
         out.append("")
-        if item.card is not None:
-            out += card_lines(item.card, values)
+        if item.challenge is not None:
+            out += challenge_lines(item.challenge, values)
         else:
             out += spoken_lines("Teacher", f"{item.lesson.title}.", 1)
             out += respond_lines(item.lesson.dialogue, item.lesson.learner, values)

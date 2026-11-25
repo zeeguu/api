@@ -2,7 +2,7 @@
 A0 lesson scripts written with markers (lesson_markup.py): the model writes
 each thing once, with roles (Learner, Other), and code relabels the roles as
 voices, adds the repetitions and pauses, and turns what the learner answered
-into cards that later lessons review (lesson_review.py).
+into challenges that later lessons review (lesson_review.py).
 """
 
 import re
@@ -13,10 +13,10 @@ import pytest
 
 from zeeguu.core.audio_lessons import lesson_review
 from zeeguu.core.audio_lessons.lesson_markup import (
-    Card,
+    Challenge,
     MarkupError,
-    card_lines,
-    cards,
+    challenge_lines,
+    challenges,
     expand,
     review_lines,
     roles_to_voices,
@@ -197,7 +197,7 @@ def test_the_learners_pace_scales_the_time_to_answer():
     assert time_to_answer("Hej.", fastest) == 2  # 0.6 x 3.2, at least 2
 
 
-# Cards
+# Challenges
 
 MARKED = """Teacher: The word for ticket.
 Learner: billet [drill]
@@ -214,32 +214,32 @@ Learner: billet [answer]
 [dialogue]"""
 
 
-def _cards(marked=MARKED, learner=LEARNER):
-    return cards(roles_to_voices(marked, learner), learner)
+def _challenges(marked=MARKED, learner=LEARNER):
+    return challenges(roles_to_voices(marked, learner), learner)
 
 
-def test_cards_are_questions_and_exchanges_once_per_answer():
-    assert _cards() == [
-        Card(None, ("teacher", 'How do you say "ticket"?'), ("woman", "billet")),
-        Card(
+def test_challenges_are_questions_and_exchanges_once_per_answer():
+    assert _challenges() == [
+        Challenge(None, ("teacher", 'How do you say "ticket"?'), ("woman", "billet")),
+        Challenge(
             "The shopkeeper tells you the price. Say okay, and ask for a ticket.",
             ("man", "Den koster tolv kroner."),
             ("woman", "Okay. En billet, tak."),
         ),
         # An exchange without a setup still works: hear the line, answer it.
-        Card(None, ("man", "Værsgo."), ("woman", "Tak.")),
+        Challenge(None, ("man", "Værsgo."), ("woman", "Tak.")),
     ]
-    assert [c.kind for c in _cards()] == ["question", "exchange", "exchange"]
+    assert [c.kind for c in _challenges()] == ["question", "exchange", "exchange"]
 
 
-def test_two_answers_to_one_question_make_one_card():
+def test_two_answers_to_one_question_make_one_challenge():
     marked = "Teacher: How do you say hello and thanks?\nLearner: Hej. [answer]\nLearner: Tak. [answer]"
-    assert _cards(marked) == [Card(None, ("teacher", "How do you say hello and thanks?"), ("woman", "Hej."))]
+    assert _challenges(marked) == [Challenge(None, ("teacher", "How do you say hello and thanks?"), ("woman", "Hej."))]
 
 
-def test_an_exchange_card_plays_the_setup_the_line_the_time_to_answer_and_the_answer():
-    exchange = _cards()[1]
-    assert card_lines(exchange, VALUES) == [
+def test_an_exchange_challenge_plays_the_setup_the_line_the_time_to_answer_and_the_answer():
+    exchange = _challenges()[1]
+    assert challenge_lines(exchange, VALUES) == [
         SpokenLine("Teacher", "The shopkeeper tells you the price. Say okay, and ask for a ticket.", 1),
         SpokenLine("Man", "Den koster tolv kroner.", 7),
         SpokenLine("Woman", "Okay. En billet, tak.", 3),
@@ -247,14 +247,14 @@ def test_an_exchange_card_plays_the_setup_the_line_the_time_to_answer_and_the_an
     ]
 
 
-def test_a_question_card_asks_then_waits_then_answers():
-    question = Card(None, ("teacher", "Ask what a ticket costs."), ("woman", "Undskyld, hvad koster en billet?"))
-    assert card_lines(question, VALUES)[0] == SpokenLine("Teacher", "Ask what a ticket costs.", 8)
+def test_a_question_challenge_asks_then_waits_then_answers():
+    question = Challenge(None, ("teacher", "Ask what a ticket costs."), ("woman", "Undskyld, hvad koster en billet?"))
+    assert challenge_lines(question, VALUES)[0] == SpokenLine("Teacher", "Ask what a ticket costs.", 8)
 
 
 # Review
 
-def test_a_lesson_without_cards_reviews_its_dialogue_answered_and_not_replayed():
+def test_a_lesson_without_challenges_reviews_its_dialogue_answered_and_not_replayed():
     lines = review_lines([ReviewItem(BUS, None, None)], VALUES)
     assert lines == [
         "",
@@ -275,15 +275,15 @@ def test_the_review_goes_before_listen_again_and_the_closing_dialogue():
 NOW = datetime(2026, 11, 20, 12)
 
 
-def _lesson(i, days_ago, reviewed=(), with_cards=False, learner="woman"):
-    # Card ids: 10*i + their position, as AudioLessonCard rows would have them.
-    lesson_cards = (
-        tuple((10 * i + n, card) for n, card in enumerate(_cards(learner=learner)))
-        if with_cards else ()
+def _lesson(i, days_ago, reviewed=(), with_challenges=False, learner="woman"):
+    # Challenge ids: 10*i + their position, as AudioChallenge rows would have them.
+    lesson_challenges = (
+        tuple((10 * i + n, challenge) for n, challenge in enumerate(_challenges(learner=learner)))
+        if with_challenges else ()
     )
     return HeardLesson(
         f"Lesson {i}", Counter(), ((learner, f"Hej {i}."), ("man" if learner == "woman" else "woman", f"Tak {i}.")),
-        learner, i, NOW - timedelta(days=days_ago), reviewed, lesson_cards,
+        learner, i, NOW - timedelta(days=days_ago), reviewed, lesson_challenges,
     )
 
 
@@ -296,23 +296,23 @@ def test_the_most_overdue_item_is_reviewed_first():
     assert [i.lesson.dialogue_id for i in lesson_review.due_order(heard, "woman", NOW)] == [2, 1, 3]
 
 
-def test_each_card_is_spaced_on_its_own():
-    # Card 10 of lesson 1 was reviewed 5 days ago (by lesson 2), card 11 never:
-    # card 11 (9 days, interval 1) before card 10 (5 days, interval 2).
-    heard = [_lesson(1, 9, with_cards=True), _lesson(2, 5, reviewed=((1, 10),))]
-    order = [i.card_id for i in lesson_review.due_order(heard, "woman", NOW)]
+def test_each_challenge_is_spaced_on_its_own():
+    # Challenge 10 of lesson 1 was reviewed 5 days ago (by lesson 2), challenge 11 never:
+    # challenge 11 (9 days, interval 1) before challenge 10 (5 days, interval 2).
+    heard = [_lesson(1, 9, with_challenges=True), _lesson(2, 5, reviewed=((1, 10),))]
+    order = [i.challenge_id for i in lesson_review.due_order(heard, "woman", NOW)]
     assert order.index(11) < order.index(10)
 
 
-def test_a_lesson_with_cards_is_reviewed_by_cards_not_by_its_dialogue():
-    items = lesson_review.items_of(_lesson(1, 3, with_cards=True), "woman")
-    assert [i.card_id for i in items] == [10, 11, 12] and all(i.card for i in items)
+def test_a_lesson_with_challenges_is_reviewed_by_challenges_not_by_its_dialogue():
+    items = lesson_review.items_of(_lesson(1, 3, with_challenges=True), "woman")
+    assert [i.challenge_id for i in items] == [10, 11, 12] and all(i.challenge for i in items)
 
 
 def test_only_what_was_made_in_the_learners_current_voice_is_reviewed():
     """In many languages the learner's words depend on their gender: what they
     answered as a woman is not asked of them as a man."""
-    as_woman = _lesson(1, 5, with_cards=True, learner="woman")
+    as_woman = _lesson(1, 5, with_challenges=True, learner="woman")
     as_man = _lesson(2, 4, learner="man")
     assert lesson_review.due_order([as_woman, as_man], "man", NOW) == [ReviewItem(as_man, None, None)]
 
@@ -327,6 +327,6 @@ def test_a_lesson_long_enough_reviews_nothing():
     assert lesson_review.choose([_lesson(1, 3)], 0, VALUES, "woman", NOW) == []
 
 
-def test_a_lesson_with_neither_cards_nor_a_dialogue_offers_nothing():
+def test_a_lesson_with_neither_challenges_nor_a_dialogue_offers_nothing():
     empty = HeardLesson("Old", Counter(), (), None, 9, NOW - timedelta(days=50), ())
     assert lesson_review.due_order([empty], "woman", NOW) == []

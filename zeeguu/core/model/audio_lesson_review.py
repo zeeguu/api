@@ -10,13 +10,13 @@ class AudioLessonReview(db.Model):
     (audio_lessons/lesson_review.py), not by the model; the spacing of the next
     reviews is read from these rows.
 
-    kind "card": one of the earlier lesson's cards (AudioLessonCard).
+    kind "challenge": one of the earlier lesson's challenges (AudioChallenge).
     kind "dialogue": the earlier lesson's whole dialogue, answered in the
-    learner's role (card_id None), for a lesson from before cards.
+    learner's role (challenge_id None), for a lesson from before challenges.
     """
 
     DIALOGUE = "dialogue"
-    CARD = "card"
+    CHALLENGE = "challenge"
 
     __tablename__ = "audio_lesson_review"
     __table_args__ = (
@@ -30,19 +30,19 @@ class AudioLessonReview(db.Model):
         Integer, ForeignKey("audio_lesson_dialogue.id"), nullable=False, index=True
     )
     kind = Column(String(10), nullable=False)
-    card_id = Column(Integer, ForeignKey("audio_lesson_card.id"), nullable=True)
+    challenge_id = Column(Integer, ForeignKey("audio_challenge.id"), nullable=True)
     position = Column(Integer, nullable=False)
 
-    def __init__(self, dialogue_id, reviewed_dialogue_id, position, kind=DIALOGUE, card_id=None):
+    def __init__(self, dialogue_id, reviewed_dialogue_id, position, kind=DIALOGUE, challenge_id=None):
         self.dialogue_id = dialogue_id
         self.reviewed_dialogue_id = reviewed_dialogue_id
         self.position = position
         self.kind = kind
-        self.card_id = card_id
+        self.challenge_id = challenge_id
 
     @classmethod
     def reviewed_by(cls, dialogue_ids):
-        """{dialogue_id: ((reviewed dialogue id, card id or None), ...)} in order."""
+        """{dialogue_id: ((reviewed dialogue id, challenge id or None), ...)} in order."""
         rows = (
             cls.query.filter(cls.dialogue_id.in_(list(dialogue_ids)))
             .order_by(cls.dialogue_id, cls.position)
@@ -52,5 +52,5 @@ class AudioLessonReview(db.Model):
         )
         out = {}
         for row in rows:
-            out.setdefault(row.dialogue_id, []).append((row.reviewed_dialogue_id, row.card_id))
+            out.setdefault(row.dialogue_id, []).append((row.reviewed_dialogue_id, row.challenge_id))
         return {k: tuple(v) for k, v in out.items()}

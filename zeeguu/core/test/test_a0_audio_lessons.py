@@ -250,16 +250,16 @@ class StoredDialogueTest(ModelTestMixIn):
         )
         db.session.add(earlier)
         db.session.flush()
-        from zeeguu.core.audio_lessons.lesson_markup import Card
-        from zeeguu.core.model.audio_lesson_card import AudioLessonCard
+        from zeeguu.core.audio_lessons.lesson_markup import Challenge
+        from zeeguu.core.model.audio_challenge import AudioChallenge
 
-        earlier_card = AudioLessonCard(earlier.id, 0, Card(None, ("teacher", "How do you say bus?"), ("woman", "bus")))
-        db.session.add(earlier_card)
+        earlier_challenge = AudioChallenge(earlier.id, 0, Challenge(None, ("teacher", "How do you say bus?"), ("woman", "bus")))
+        db.session.add(earlier_challenge)
         db.session.flush()
-        new_card = Card("The waiter asks what you want. Ask for a coffee.", ("man", "Hvad skal det være?"), ("woman", "En kaffe, tak."))
+        new_challenge = Challenge("The waiter asks what you want. Ask for a coffee.", ("man", "Hvad skal det være?"), ("woman", "En kaffe, tak."))
         lesson = GeneratedScript(
             "Teacher: At the café. [1 seconds]", "claude-sonnet-5-5", "v4", dialogue,
-            "Teacher: At the café.", ((earlier.id, "card", earlier_card.id),), (new_card,),
+            "Teacher: At the café.", ((earlier.id, "challenge", earlier_challenge.id),), (new_challenge,),
         )
         generator = daily_lesson_generator.DailyLessonGenerator()
         generator._voice_synthesizer = MagicMock(get_audio_duration=MagicMock(return_value=600))
@@ -276,9 +276,9 @@ class StoredDialogueTest(ModelTestMixIn):
 
         from zeeguu.core.model.audio_lesson_review import AudioLessonReview
 
-        assert AudioLessonReview.reviewed_by({row.id}) == {row.id: ((earlier.id, earlier_card.id),)}
-        stored = AudioLessonCard.for_dialogues({row.id})[row.id]
-        assert [card for _, card in stored] == [new_card]
+        assert AudioLessonReview.reviewed_by({row.id}) == {row.id: ((earlier.id, earlier_challenge.id),)}
+        stored = AudioChallenge.for_dialogues({row.id})[row.id]
+        assert [challenge for _, challenge in stored] == [new_challenge]
 
     def test_with_no_character_chosen_the_latest_lessons_character_is_kept(self):
         """No alternating: in many languages the learner's words depend on

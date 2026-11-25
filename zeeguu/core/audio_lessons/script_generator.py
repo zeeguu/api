@@ -12,7 +12,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
 )
 from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
 from zeeguu.core.audio_lessons.lesson_markup import (
-    cards,
+    challenges,
     other_voice,
     roles_to_voices,
     voices_to_roles,
@@ -36,13 +36,13 @@ LANGUAGE_ATTEMPTS = 3
 # Both are known at generation time and unrecoverable afterwards.
 GeneratedScript = namedtuple(
     "GeneratedScript",
-    ["script", "model_name", "prompt_version", "dialogue", "marked", "reviewed", "cards"],
+    ["script", "model_name", "prompt_version", "dialogue", "marked", "reviewed", "challenges"],
     # dialogue: for a lesson written in two calls, the GeneratedScript of the
     # call that wrote its dialogue; None otherwise. marked: an A0 script as the
     # model wrote it, with markers (lesson_markup.py); reviewed: what it reviews
-    # of earlier lessons, in order, as (dialogue id, kind, card index or None)
-    # (lesson_review.py); cards: its own cards, for later lessons to review
-    # (lesson_markup.cards).
+    # of earlier lessons, in order, as (dialogue id, kind, challenge index or None)
+    # (lesson_review.py); challenges: its own challenges, for later lessons to review
+    # (lesson_markup.challenges).
     defaults=[None, None, (), ()],
 )
 
@@ -546,7 +546,7 @@ def generate_dialogue_script(
         log(f"Successfully generated dialogue script, title: '{title}'")
         return title, GeneratedScript(
             script, model_name, prompt_version_of(prompt_file), dialogue, marked, reviewed,
-            tuple(cards(marked, a0["learner"])) if marked else (),
+            tuple(challenges(marked, a0["learner"])) if marked else (),
         )
 
     except Exception as e:
@@ -561,7 +561,7 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
                            max_tokens, short_lines):
     """
     (title, script, model, marked, reviewed) from the model; reviewed is
-    (dialogue id, kind, card id or None) per item reviewed, in order.
+    (dialogue id, kind, challenge id or None) per item reviewed, in order.
 
     An A0 script comes back marked (lesson_markup.py): it is expanded here,
     and a review of earlier lessons, chosen by code (lesson_review.py), is put
@@ -631,7 +631,7 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
         reviews = lesson_review.choose(a0["heard"], missing, values, a0["learner"])
         full = with_review(expanded, review_lines(reviews, values))
         reviewed = tuple(
-            (item.lesson.dialogue_id, lesson_review.kind(item), item.card_id) for item in reviews
+            (item.lesson.dialogue_id, lesson_review.kind(item), item.challenge_id) for item in reviews
         )
         return title, full, model_name, script, reviewed
 

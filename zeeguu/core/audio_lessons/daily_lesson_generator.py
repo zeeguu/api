@@ -30,7 +30,7 @@ from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesso
 from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
 from zeeguu.core.audio_lessons import lesson_tuning
 from zeeguu.core.audio_lessons.lesson_tuning import lesson_minutes_for, tuning_for
-from zeeguu.core.model.audio_lesson_card import AudioLessonCard
+from zeeguu.core.model.audio_challenge import AudioChallenge
 from zeeguu.core.model.audio_lesson_review import AudioLessonReview
 from zeeguu.core.audio_lessons.next_situations import suggest_next_situations
 from zeeguu.core.model import (
@@ -500,12 +500,12 @@ class DailyLessonGenerator:
             dialogue.tuning = {**lesson_tuning.as_dict(tuning), "minutes": lesson_minutes}
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
-        # Its cards, for later lessons to review; and what it reviews, so the
+        # Its challenges, for later lessons to review; and what it reviews, so the
         # next lessons space their reviews (lesson_review.py).
-        for position, card in enumerate(generated.cards or ()):
-            db.session.add(AudioLessonCard(dialogue.id, position, card))
-        for position, (reviewed_id, kind, card_id) in enumerate(generated.reviewed or ()):
-            db.session.add(AudioLessonReview(dialogue.id, reviewed_id, position, kind, card_id))
+        for position, challenge in enumerate(generated.challenges or ()):
+            db.session.add(AudioChallenge(dialogue.id, position, challenge))
+        for position, (reviewed_id, kind, challenge_id) in enumerate(generated.reviewed or ()):
+            db.session.add(AudioLessonReview(dialogue.id, reviewed_id, position, kind, challenge_id))
 
         # Progress callback
         def on_audio_progress(current, total, voice_type):
