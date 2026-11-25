@@ -629,15 +629,16 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             return title, script, model_name, None, ()
         try:
             values = a0["values"]
-            expanded_lines = expand_lines(script, values, a0["dialogue"], a0["learner"])
+            known = {word for lesson in a0["heard"] for word in lesson.words}
+            expanded_lines = expand_lines(script, values, a0["dialogue"], a0["learner"], known)
             expanded = "\n".join(str(line) for line in expanded_lines).strip() + "\n"
         except MarkupError as e:
             log(f"[lesson markup] '{suggestion}' attempt {attempt}/{MARKUP_ATTEMPTS}: {e}")
             if attempt == MARKUP_ATTEMPTS:
                 raise
             attempt_prompt = prompt + (
-                f"\n\nYour previous attempt used markers wrongly: {e}. Write it again; "
-                "use only the markers described above."
+                f"\n\nYour previous attempt broke these rules: {e}. Write it again, "
+                "following the rules described above."
             )
             continue
 
@@ -648,7 +649,7 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
         return title, full, model_name, script, reviewed
 
 
-A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v4.txt"
+A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v5.txt"
 A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
 
 

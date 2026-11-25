@@ -42,13 +42,19 @@ _TIMING = re.compile(r"\[[^\]]*\]")
 _WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
 
 
+def words_of(text: str) -> list:
+    """The words of a learned-language text, lowercased, as the history
+    counts them: "c'est" and "t-shirt" are one word each, digits none."""
+    return [w.lower() for w in _WORD.findall(text)]
+
+
 def target_language_words(script: str) -> Counter:
     """How often each word is said in the learned language, lowercased."""
     words = Counter()
     for voice, text, _ in parse_script(script or ""):
         if voice not in TARGET_LANGUAGE_VOICES:
             continue
-        words.update(w.lower() for w in _WORD.findall(_TIMING.sub(" ", text)))
+        words.update(words_of(_TIMING.sub(" ", text)))
     return words
 
 

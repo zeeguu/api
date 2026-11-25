@@ -4,7 +4,7 @@ What to review is chosen by lesson_review.py.
 """
 
 from zeeguu.core.audio_lessons.lesson_script.challenges import challenge_lines
-from zeeguu.core.audio_lessons.lesson_script.markers import VOICE_LINE
+from zeeguu.core.audio_lessons.lesson_script.markers import REVIEW_SLOT, VOICE_LINE
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine
 from zeeguu.core.audio_lessons.lesson_script.voices import PEOPLE, TEACHERS
 
@@ -21,17 +21,30 @@ def review_lines(challenges, values):
 
 def with_review(expanded, review):
     """
-    The expanded script with the review lines put before the closing dialogue
+    The expanded script with the review lines where the model put [review];
+    in a script without one (prompt v4), before the closing dialogue
     and the Teacher's sentence that introduces it ("Listen again..."): before
     the last run of the two people's lines, and the Teacher lines right before
     it (a sentence with «chevrons» is several of them). Nothing to put: the
     script as it was.
     """
+    lines = expanded.rstrip("\n").split("\n")
+    review = [str(line) for line in review]
+    if REVIEW_SLOT in lines:
+        # Where the model put [review], after its Teacher line introducing it.
+        # Nothing to review: both go, the introduction would promise nothing.
+        at = lines.index(REVIEW_SLOT)
+        if review:
+            return "\n".join(lines[:at] + review + [""] + lines[at + 1:]) + "\n"
+        intro = at
+        while intro > 0 and not lines[intro - 1].strip():
+            intro -= 1
+        while intro > 0 and _voice(lines[intro - 1]) in TEACHERS:
+            intro -= 1
+        return "\n".join(lines[:intro] + lines[at + 1:]).strip("\n") + "\n"
     if not review:
         return expanded
-    lines = expanded.rstrip("\n").split("\n")
     at = closing_dialogue_start(lines)
-    review = [str(line) for line in review]
     return "\n".join(lines[:at] + review + [""] + lines[at:]) + "\n"
 
 
