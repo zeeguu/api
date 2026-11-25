@@ -146,7 +146,7 @@ def test_a_title_line_is_kept():
 
 # Learned-language words inside a Teacher sentence
 
-def test_a_chevron_span_is_said_by_the_teachers_learned_language_voice_without_a_pause():
+def test_a_chevron_span_is_said_by_the_teachers_learned_language_voice():
     assert spoken("Teacher", "The word for coffee is «kaffe». Say it.", 1) == [
         "Teacher: The word for coffee is [0 seconds]",
         "TeacherL2: kaffe. [0 seconds]",  # its punctuation comes with it

@@ -118,6 +118,11 @@ class MarkupError(ValueError):
 # segments, not three lines the model has to write. Chirp 3 HD voices take no
 # SSML to switch language within a sentence, so the switch is made in segments.
 _CHEVRONS = re.compile(r"«([^»]+)»")
+# Pause added before and after the learned-language word. None: each
+# synthesized segment already starts and ends with a little silence, and
+# listened side by side (25 Nov 2026), the sentence without an added pause
+# sounded better than with 0.3 s. Tune by ear.
+PAUSE_AROUND_LEARNED_WORDS = 0
 
 
 def spoken(voice, text, pause):
@@ -143,7 +148,9 @@ def spoken(voice, text, pause):
             segments.append(("TeacherL2" if i % 2 else "Teacher", part))
     if not segments:
         return []
-    return [_line(v, t, 0) for v, t in segments[:-1]] + [_line(*segments[-1], pause)]
+    return [_line(v, t, PAUSE_AROUND_LEARNED_WORDS) for v, t in segments[:-1]] + [
+        _line(*segments[-1], pause)
+    ]
 
 
 def _line(voice, text, pause):
