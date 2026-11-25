@@ -44,6 +44,7 @@ THE TWO WAYS THE LEARNER ANSWERS
 - A QUESTION: the Teacher asks, in {source_language}, for something to say ("How do you say a ticket?"). Right after it, the Learner's answer, once, marked [answer].
 - An EXCHANGE: first the Teacher says, in {source_language}, what is about to happen and what to answer ("The shopkeeper tells you the price. Say okay, and ask for a ticket."). Then the Other person's line, as in a real conversation. Right after it, the Learner's answer, once, marked [answer]. The learner answers the Other person, not the Teacher.
 The line right before an [answer] is its PROMPT: the Teacher's question, or the Other person's line. The time to answer is added after the prompt, so write the answer right after it, with nothing in between, and do not write the time.
+A prompt never says the answer, or any part of it, in {target_language}: the learner has to recall it. Say in {source_language} what to say, never how to say it. New words are given before, when they are taught, not in a prompt.
 
 THE TEACHER
 - Speaks {source_language}, and says more than in lessons for advanced learners: about half of the lesson. Short sentences, warm and calm.
