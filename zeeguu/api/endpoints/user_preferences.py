@@ -39,6 +39,17 @@ def save_user_preferences():
             f"{', '.join(UserPreference.AUDIO_LESSON_CHARACTERS)}",
         )
 
+    word_scheduling_strategy_value = data.get(UserPreference.WORD_SCHEDULING_STRATEGY, None)
+    if (
+        word_scheduling_strategy_value is not None
+        and word_scheduling_strategy_value not in UserPreference.WORD_SCHEDULING_STRATEGIES
+    ):
+        return make_error(
+            400,
+            f"{UserPreference.WORD_SCHEDULING_STRATEGY} must be one of "
+            f"{', '.join(UserPreference.WORD_SCHEDULING_STRATEGIES)}",
+        )
+
     # Empty means not sent.
     audio_lesson_minutes_value = data.get(UserPreference.AUDIO_LESSON_MINUTES) or None
     audio_lesson_minutes = UserPreference.parse_audio_lesson_minutes(audio_lesson_minutes_value)
@@ -162,15 +173,14 @@ def save_user_preferences():
         show_reading_timer.value = show_reading_timer_value
         db_session.add(show_reading_timer)
 
-    frequent_words_first_value = data.get(UserPreference.FREQUENT_WORDS_FIRST, None)
-    if frequent_words_first_value is not None:
-        frequent_words_first = UserPreference.find_or_create(
+    if word_scheduling_strategy_value is not None:
+        word_scheduling_strategy = UserPreference.find_or_create(
             db_session,
             user,
-            UserPreference.FREQUENT_WORDS_FIRST,
+            UserPreference.WORD_SCHEDULING_STRATEGY,
         )
-        frequent_words_first.value = frequent_words_first_value
-        db_session.add(frequent_words_first)
+        word_scheduling_strategy.value = word_scheduling_strategy_value
+        db_session.add(word_scheduling_strategy)
 
     email_on_article_shared_value = data.get(UserPreference.EMAIL_ON_ARTICLE_SHARED, None)
     if email_on_article_shared_value is not None:

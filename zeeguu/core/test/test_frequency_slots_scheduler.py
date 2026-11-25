@@ -1,4 +1,4 @@
-"""Frequency slots in the scheduler (preference frequent_words_first)."""
+"""Frequency slots in the scheduler (word scheduling strategy frequency_priority)."""
 
 from zeeguu.core.model import UserPreference
 from zeeguu.core.model.db import db
@@ -18,11 +18,11 @@ class FrequencySlotsTest(ModelTestMixIn):
         UserPreference.find_or_create(
             db_session, self.user, UserPreference.MAX_WORDS_TO_SCHEDULE, "2"
         )
-        self._set_frequent_words_first("true")
+        self._set_strategy(UserPreference.FREQUENCY_PRIORITY)
 
-    def _set_frequent_words_first(self, value):
+    def _set_strategy(self, value):
         pref = UserPreference.find_or_create(
-            db_session, self.user, UserPreference.FREQUENT_WORDS_FIRST
+            db_session, self.user, UserPreference.WORD_SCHEDULING_STRATEGY
         )
         pref.value = value
         db_session.add(pref)
@@ -74,8 +74,8 @@ class FrequencySlotsTest(ModelTestMixIn):
 
         assert self._is_scheduled(rare)
 
-    def test_with_the_preference_off_slots_are_kept(self):
-        self._set_frequent_words_first("false")
+    def test_with_first_come_slots_are_kept(self):
+        self._set_strategy(UserPreference.FIRST_COME)
         rare = self._user_word(9_000, scheduled_at_level=1)
         self._user_word(8_000, scheduled_at_level=1)
         self._user_word(1_000)

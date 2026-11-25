@@ -262,7 +262,7 @@ class BasicSRSchedule(db.Model):
     @classmethod
     def give_slots_to_more_frequent_words(cls, user):
         """
-        With frequent_words_first and every slot taken, a waiting word more
+        With the frequency_priority strategy and every slot taken, a waiting word more
         frequent than a word in practice below level 2 takes its slot
         (frequency_slots.py). Writes, so only the endpoint that hands out a
         session calls it, before user_words_to_study; not the counts.
@@ -273,7 +273,8 @@ class BasicSRSchedule(db.Model):
         level again. The waiting word then fills the slot as any free slot
         is filled (user_words_not_scheduled, by rank).
         """
-        if not UserPreference.is_frequent_words_first_enabled(user):
+        strategy = UserPreference.get_word_scheduling_strategy(user)
+        if strategy != UserPreference.FREQUENCY_PRIORITY:
             return
         max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
         if BasicSRSchedule.scheduled_user_words_count(user) < max_words_to_schedule:

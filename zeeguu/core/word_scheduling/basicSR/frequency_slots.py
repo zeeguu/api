@@ -1,5 +1,5 @@
 """
-Frequency slots: the practice slots go to the most frequent words.
+The frequency_priority strategy: the practice slots go to the most frequent words.
 
 The scheduler holds max_words_to_schedule words in practice and fills a
 free slot with the most frequent waiting word. But a slot, once given, was
@@ -7,8 +7,10 @@ kept until the word was learned, so a heavy reader filled the slots on day
 one and far more frequent words looked up later waited for weeks (Megavault
 projects/villum/exercises-requests.md, R1).
 
-When the learner turns on UserPreference.FREQUENT_WORDS_FIRST, a more
-frequent waiting word takes the slot of a rarer word in practice. One exception: a word that has reached
+With the learner's word scheduling strategy set to frequency_priority
+(UserPreference.WORD_SCHEDULING_STRATEGY; the default, first_come, keeps
+today's behavior), a more frequent waiting word takes the slot of a rarer
+word in practice. One exception: a word that has reached
 level 2 keeps its slot, so the learner never sees a word they are getting
 right vanish. A frequent word the learner already knows leaves practice for
 good when they say so ("I know this word": study_choice KNOWN, unfit).
