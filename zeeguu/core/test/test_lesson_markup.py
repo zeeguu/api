@@ -20,7 +20,8 @@ from zeeguu.core.audio_lessons.lesson_markup import (
     expand,
     review_lines,
     roles_to_voices,
-    spoken,
+    SpokenLine,
+    spoken_lines,
     time_to_answer,
     voices_to_roles,
     with_review,
@@ -147,11 +148,17 @@ def test_a_title_line_is_kept():
 # Learned-language words inside a Teacher sentence
 
 def test_a_chevron_span_is_said_by_the_teachers_learned_language_voice():
-    assert spoken("Teacher", "The word for coffee is «kaffe». Say it.", 1) == [
-        "Teacher: The word for coffee is [0 seconds]",
-        "TeacherL2: kaffe. [0 seconds]",  # its punctuation comes with it
-        "Teacher: Say it. [1 seconds]",
+    assert spoken_lines("Teacher", "The word for coffee is «kaffe». Say it.", 1) == [
+        SpokenLine("Teacher", "The word for coffee is", 0),
+        SpokenLine("TeacherL2", "kaffe.", 0),  # its punctuation comes with it
+        SpokenLine("Teacher", "Say it.", 1),
     ]
+
+
+def test_a_spoken_line_is_written_out_as_a_script_line():
+    assert str(SpokenLine("Teacher", "Say it.", 1)) == "Teacher: Say it. [1 seconds]"
+    assert str(SpokenLine("Woman", "Kaffe.", 3, slow=True)) == "Woman: Kaffe. [slow] [3 seconds]"
+    assert str(SpokenLine("Man", "Hej.", 0.5)) == "Man: Hej. [0.5 seconds]"
 
 
 def test_a_teacher_line_ending_in_a_chevron_span_ends_with_the_pause():
@@ -233,16 +240,16 @@ def test_two_answers_to_one_question_make_one_card():
 def test_an_exchange_card_plays_the_setup_the_line_the_time_to_answer_and_the_answer():
     exchange = _cards()[1]
     assert card_lines(exchange, VALUES) == [
-        "Teacher: The shopkeeper tells you the price. Say okay, and ask for a ticket. [1 seconds]",
-        "Man: Den koster tolv kroner. [7 seconds]",
-        "Woman: Okay. En billet, tak. [3 seconds]",
-        "Woman: Okay. En billet, tak. [3 seconds]",
+        SpokenLine("Teacher", "The shopkeeper tells you the price. Say okay, and ask for a ticket.", 1),
+        SpokenLine("Man", "Den koster tolv kroner.", 7),
+        SpokenLine("Woman", "Okay. En billet, tak.", 3),
+        SpokenLine("Woman", "Okay. En billet, tak.", 3),
     ]
 
 
 def test_a_question_card_asks_then_waits_then_answers():
     question = Card(None, ("teacher", "Ask what a ticket costs."), ("woman", "Undskyld, hvad koster en billet?"))
-    assert card_lines(question, VALUES)[0] == "Teacher: Ask what a ticket costs. [8 seconds]"
+    assert card_lines(question, VALUES)[0] == SpokenLine("Teacher", "Ask what a ticket costs.", 8)
 
 
 # Review
@@ -251,10 +258,10 @@ def test_a_lesson_without_cards_reviews_its_dialogue_answered_and_not_replayed()
     lines = review_lines([ReviewItem(BUS, None, None)], VALUES)
     assert lines == [
         "",
-        "Teacher: Buying a bus ticket. [1 seconds]",
-        "Woman: Hej. [7 seconds]",          # the learner (man) answers next, in four words
-        "Man: Hej. En billet, tak. [3 seconds]",
-        "Woman: Værsgo. [1 seconds]",       # nothing to answer after it
+        SpokenLine("Teacher", "Buying a bus ticket.", 1),
+        SpokenLine("Woman", "Hej.", 7),          # the learner (man) answers next, in four words
+        SpokenLine("Man", "Hej. En billet, tak.", 3),
+        SpokenLine("Woman", "Værsgo.", 1),       # nothing to answer after it
     ]
 
 
