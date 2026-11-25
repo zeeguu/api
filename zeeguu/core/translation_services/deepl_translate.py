@@ -98,6 +98,10 @@ def deepl_translate_article(title: str, markdown: str, target_language: str) -> 
     """
     Translate a whole article with DeepL, in one request.
 
+    Not called since 19 Nov 2026: SimplificationService.translate uses Google,
+    because the paid DeepL API bills every character of an article. Kept while
+    the DeepL trial month decides whether DeepL stays.
+
     The article goes in as Markdown and DeepL gets it as HTML
     (markdown_to_html, tag_handling="html"), so its headings, lists and quotes
     come back as the same tags and are turned back into Markdown here. DeepL

@@ -6,7 +6,8 @@ import json
 import os
 import re
 import requests
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
+from zeeguu.core.translation_services.google_article_translate import google_translate_article
 from zeeguu.core import cefr
 from zeeguu.logging import log
 from zeeguu.core.language.generate_in_language import (
@@ -16,7 +17,6 @@ from zeeguu.core.language.generate_in_language import (
 from zeeguu.core.llm_services.haiku_client import HAIKU_MODEL, haiku_completion
 from zeeguu.core.llm_services import models
 from zeeguu.core.model.language import Language
-from zeeguu.core.translation_services.deepl_translate import deepl_translate_article
 from zeeguu.core.llm_services.prompts.level_simplification import (
     get_level_simplification_prompt,
     paragraphs,
@@ -415,7 +415,8 @@ class SimplificationService:
         uploads in 8 languages, A1 and B1, judged blind by Claude Opus 5.5: level
         fit went from 3.7 to 4.3 (B1 from 2.8 to 4.7), faithfulness from 3.4 to
         4.1, and the paragraphs and headings of every page were kept. DeepL then
-        simplify ranked first most often, ahead of DeepSeek then simplify. Data
+        simplify ranked first most often, ahead of DeepSeek then simplify (DeepL
+        no longer translates articles: Google does, see translate). Data
         and scripts: zeeguu-experiments, simplification/2026-10-30-markdown-input.
 
         content may be Markdown (an upload's page) or plain text with paragraphs
@@ -433,25 +434,48 @@ class SimplificationService:
         """
         A complete, faithful translation of an article, its structure kept.
 
-        DeepL first: in the 2026-10-31 measurement it was as good a start for the
-        simplifier as DeepSeek and took 1s instead of 6. The LLMs are the fallback
-        (no key, a language DeepL lacks, its monthly quota). Every translation is
+        Google first: about as fast as DeepL was (1s instead of DeepSeek's 6).
+        DeepL was first until 19 Nov 2026 (in the 2026-10-31 measurement it was
+        as good a start for the simplifier as DeepSeek), but its API is now paid
+        per character and whole articles used up the free quota; it stays on
+        word lookups, where the context sentence is not billed. Google was not
+        in that measurement. The LLMs (DeepSeek, then Haiku) are the fallback
+        (no key, a failed call, the wrong language). Every translation is
         checked for language: "left it in the source language" is the likeliest
         way for it to go wrong. An LLM is asked again once, then the next
         provider is tried.
 
         Returns: Dict with 'title' and 'content' (Markdown), or None if failed
         """
+        return self._translate_with_google(
+            title, content, source_language, target_language
+        ) or self._translate_with_llms(title, content, source_language, target_language)
+
+    @staticmethod
+    def _language_check_context(title: str, target_language: str) -> Tuple[str, str]:
+        """The target's name, and the label a language check failure is logged under."""
         target_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
-        context = f"{target_name} translation of '{title[:50]}'"
+        return target_name, f"{target_name} translation of '{title[:50]}'"
 
-        translated = deepl_translate_article(title, content, target_language)
-        if translated:
-            try:
-                return generate_in_language(lambda _: translated, target_language, _text_fields, context, attempts=1)
-            except LanguageMismatchError as e:
-                log(f"DeepL did not translate into {target_name}: {e}")
+    def _translate_with_google(
+        self, title: str, content: str, source_language: str, target_language: str
+    ) -> Optional[Dict]:
+        """Google's translation if it is in the target language, else None. Not retried."""
+        translated = google_translate_article(title, content, source_language, target_language)
+        if not translated:
+            return None
+        target_name, context = self._language_check_context(title, target_language)
+        try:
+            return generate_in_language(lambda _: translated, target_language, _text_fields, context, attempts=1)
+        except LanguageMismatchError as e:
+            log(f"Google did not translate into {target_name}: {e}")
+            return None
 
+    def _translate_with_llms(
+        self, title: str, content: str, source_language: str, target_language: str
+    ) -> Optional[Dict]:
+        """DeepSeek, then Haiku: each asked again once if it answers in the wrong language."""
+        target_name, context = self._language_check_context(title, target_language)
         source_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
         prompt = _translation_prompt(title, content, source_name, target_name)
         providers = [
