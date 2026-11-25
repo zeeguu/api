@@ -19,13 +19,12 @@ def respond_lines(dialogue, learner, values):
     """
     out = []
     for i, (voice, text) in enumerate(dialogue):
-        label = voice.capitalize()
         if voice == learner:
-            out.append(SpokenLine(label, text, values["repeat_pause"]))
+            out.append(SpokenLine(voice, text, values["repeat_pause"]))
         else:
             learner_next = i + 1 < len(dialogue) and dialogue[i + 1][0] == learner
             pause = time_to_answer(dialogue[i + 1][1], values) if learner_next else 1
-            out.append(SpokenLine(label, text, pause))
+            out.append(SpokenLine(voice, text, pause))
     return out
 
 
@@ -42,7 +41,7 @@ def review_lines(items, values):
         if item.challenge is not None:
             out += challenge_lines(item.challenge, values)
         else:
-            out += spoken_lines("Teacher", f"{item.lesson.title}.", 1)
+            out += spoken_lines("teacher", f"{item.lesson.title}.", 1)
             out += respond_lines(item.lesson.dialogue, item.lesson.learner, values)
     return out
 

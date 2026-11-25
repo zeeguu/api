@@ -56,7 +56,7 @@ def items_of(lesson, learner):
         return [
             ReviewItem(lesson, challenge, challenge_id)
             for challenge_id, challenge in lesson.challenges
-            if challenge.answer[0] == learner
+            if challenge.answer.voice == learner
         ]
     if lesson.dialogue and lesson.learner == learner:
         return [ReviewItem(lesson, None, None)]

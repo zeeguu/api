@@ -250,13 +250,13 @@ class StoredDialogueTest(ModelTestMixIn):
         )
         db.session.add(earlier)
         db.session.flush()
-        from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge
+        from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, Utterance
         from zeeguu.core.model.audio_challenge import AudioChallenge
 
-        earlier_challenge = AudioChallenge(earlier.id, 0, Challenge(None, ("teacher", "How do you say bus?"), ("woman", "bus")))
+        earlier_challenge = AudioChallenge(earlier.id, 0, Challenge(None, Utterance("teacher", "How do you say bus?"), Utterance("woman", "bus")))
         db.session.add(earlier_challenge)
         db.session.flush()
-        new_challenge = Challenge("The waiter asks what you want. Ask for a coffee.", ("man", "Hvad skal det være?"), ("woman", "En kaffe, tak."))
+        new_challenge = Challenge("The waiter asks what you want. Ask for a coffee.", Utterance("man", "Hvad skal det være?"), Utterance("woman", "En kaffe, tak."))
         lesson = GeneratedScript(
             "Teacher: At the café. [1 seconds]", "claude-sonnet-5-5", "v4", dialogue,
             "Teacher: At the café.", ((earlier.id, "challenge", earlier_challenge.id),), (new_challenge,),

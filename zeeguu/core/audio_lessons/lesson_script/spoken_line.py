@@ -28,14 +28,21 @@ class SpokenLine:
     silence after it. Formatted as a script line only when the script is
     written out (str)."""
 
-    voice: str  # "Teacher", "TeacherL2", "Man" or "Woman"
+    voice: str  # "teacher", "teacherl2", "man" or "woman"
     text: str
     pause: float  # seconds of silence after it
     slow: bool = False  # said slowly, once, as a new word is
 
     def __str__(self):
         slow = " [slow]" if self.slow else ""
-        return f"{self.voice}: {self.text}{slow} [{_seconds(self.pause)} seconds]"
+        return f"{label(self.voice)}: {self.text}{slow} [{_seconds(self.pause)} seconds]"
+
+
+def label(voice):
+    """How a voice is written at the start of a script line: "teacherl2" ->
+    "TeacherL2". Voices are lowercase everywhere else; only the written-out
+    script has labels."""
+    return "TeacherL2" if voice == "teacherl2" else voice.capitalize()
 
 
 def _seconds(value):
@@ -50,7 +57,7 @@ def spoken_lines(voice, text, pause) -> list:
     (TeacherL2), joined by PAUSE_AT_LANGUAGE_SWITCH. In any other line the
     chevrons are just dropped.
     """
-    if voice != "Teacher" or "«" not in text:
+    if voice != "teacher" or "«" not in text:
         return [SpokenLine(voice, without_chevrons(text), pause)]
 
     segments = []
@@ -58,13 +65,13 @@ def spoken_lines(voice, text, pause) -> list:
     for span in CHEVRON_SPAN.finditer(text):
         teacher_text = text[position:span.start()].strip()
         if teacher_text:
-            segments.append(("Teacher", teacher_text))
+            segments.append(("teacher", teacher_text))
         learned_text, punctuation = span.groups()
-        segments.append(("TeacherL2", learned_text.strip() + punctuation))
+        segments.append(("teacherl2", learned_text.strip() + punctuation))
         position = span.end()
     rest = text[position:].strip()
     if rest:
-        segments.append(("Teacher", rest))
+        segments.append(("teacher", rest))
 
     *joined, last = segments
     return [SpokenLine(v, t, PAUSE_AT_LANGUAGE_SWITCH) for v, t in joined] + [SpokenLine(*last, pause)]

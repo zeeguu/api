@@ -42,7 +42,7 @@ def expand(script, values, dialogue, learner):
             continue
 
         if DIALOGUE_MARKER.match(line):
-            out += [SpokenLine(voice.capitalize(), text, 1) for voice, text in dialogue]
+            out += [SpokenLine(voice, text, 1) for voice, text in dialogue]
             continue
 
         if line.startswith("["):
@@ -61,6 +61,7 @@ def expand(script, values, dialogue, learner):
             continue
 
         voice, text = voice_line.groups()
+        voice = voice.lower()
         text = _PLAIN.sub("", text)
         marker = LINE_MARKER.search(text)
         kind = marker.group(1).lower() if marker else None
@@ -76,7 +77,7 @@ def expand(script, values, dialogue, learner):
             problems.append(f"{line!r}: unknown marker [{unknown[0]}]")
             continue
         text = re.sub(r"\s*\[slow\]", "", text, flags=re.IGNORECASE)
-        if voice != "Teacher":
+        if voice != "teacher":
             text = without_chevrons(text)
 
         if kind == "drill":
@@ -88,7 +89,7 @@ def expand(script, values, dialogue, learner):
             # time to answer. Not the learner's own line before it (two
             # answers in a row): that one already has its pause.
             prompt = next((i for i in range(len(out) - 1, -1, -1) if out[i]), None)
-            if prompt is not None and isinstance(out[prompt], SpokenLine) and out[prompt].voice != learner.capitalize():
+            if prompt is not None and isinstance(out[prompt], SpokenLine) and out[prompt].voice != learner:
                 out[prompt] = replace(out[prompt], pause=time_to_answer(text, values))
             out += [SpokenLine(voice, text, values["repeat_pause"])] * 2
         elif kind == "understand":

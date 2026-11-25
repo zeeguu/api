@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from zeeguu.core.audio_lessons import lesson_review
-from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, challenge_lines, challenges
+from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, challenge_lines, challenges, Utterance
 from zeeguu.core.audio_lessons.lesson_script.expand import expand, MarkupError
 from zeeguu.core.audio_lessons.lesson_script.review import review_lines, with_review
 from zeeguu.core.audio_lessons.lesson_script.roles import roles_to_voices, voices_to_roles
@@ -147,17 +147,17 @@ def test_text_that_is_no_ones_line_is_dropped():
 # Learned-language words inside a Teacher sentence
 
 def test_a_chevron_span_is_said_by_the_teachers_learned_language_voice():
-    assert spoken_lines("Teacher", "The word for coffee is «kaffe». Say it.", 1) == [
-        SpokenLine("Teacher", "The word for coffee is", 0),
-        SpokenLine("TeacherL2", "kaffe.", 0),  # its punctuation comes with it
-        SpokenLine("Teacher", "Say it.", 1),
+    assert spoken_lines("teacher", "The word for coffee is «kaffe». Say it.", 1) == [
+        SpokenLine("teacher", "The word for coffee is", 0),
+        SpokenLine("teacherl2", "kaffe.", 0),  # its punctuation comes with it
+        SpokenLine("teacher", "Say it.", 1),
     ]
 
 
 def test_a_spoken_line_is_written_out_as_a_script_line():
-    assert str(SpokenLine("Teacher", "Say it.", 1)) == "Teacher: Say it. [1 seconds]"
-    assert str(SpokenLine("Woman", "Kaffe.", 3, slow=True)) == "Woman: Kaffe. [slow] [3 seconds]"
-    assert str(SpokenLine("Man", "Hej.", 0.5)) == "Man: Hej. [0.5 seconds]"
+    assert str(SpokenLine("teacher", "Say it.", 1)) == "Teacher: Say it. [1 seconds]"
+    assert str(SpokenLine("woman", "Kaffe.", 3, slow=True)) == "Woman: Kaffe. [slow] [3 seconds]"
+    assert str(SpokenLine("man", "Hej.", 0.5)) == "Man: Hej. [0.5 seconds]"
 
 
 def test_a_teacher_line_ending_in_a_chevron_span_ends_with_the_pause():
@@ -219,36 +219,36 @@ def _challenges(marked=MARKED, learner=LEARNER):
 
 def test_challenges_are_questions_and_exchanges_once_per_answer():
     assert _challenges() == [
-        Challenge(None, ("teacher", 'How do you say "ticket"?'), ("woman", "billet")),
+        Challenge(None, Utterance("teacher", 'How do you say "ticket"?'), Utterance("woman", "billet")),
         Challenge(
             "The shopkeeper tells you the price. Say okay, and ask for a ticket.",
-            ("man", "Den koster tolv kroner."),
-            ("woman", "Okay. En billet, tak."),
+            Utterance("man", "Den koster tolv kroner."),
+            Utterance("woman", "Okay. En billet, tak."),
         ),
         # An exchange without a setup still works: hear the line, answer it.
-        Challenge(None, ("man", "Værsgo."), ("woman", "Tak.")),
+        Challenge(None, Utterance("man", "Værsgo."), Utterance("woman", "Tak.")),
     ]
     assert [c.kind for c in _challenges()] == ["question", "exchange", "exchange"]
 
 
 def test_two_answers_to_one_question_make_one_challenge():
     marked = "Teacher: How do you say hello and thanks?\nLearner: Hej. [answer]\nLearner: Tak. [answer]"
-    assert _challenges(marked) == [Challenge(None, ("teacher", "How do you say hello and thanks?"), ("woman", "Hej."))]
+    assert _challenges(marked) == [Challenge(None, Utterance("teacher", "How do you say hello and thanks?"), Utterance("woman", "Hej."))]
 
 
 def test_an_exchange_challenge_plays_the_setup_the_line_the_time_to_answer_and_the_answer():
     exchange = _challenges()[1]
     assert challenge_lines(exchange, VALUES) == [
-        SpokenLine("Teacher", "The shopkeeper tells you the price. Say okay, and ask for a ticket.", 1),
-        SpokenLine("Man", "Den koster tolv kroner.", 7),
-        SpokenLine("Woman", "Okay. En billet, tak.", 3),
-        SpokenLine("Woman", "Okay. En billet, tak.", 3),
+        SpokenLine("teacher", "The shopkeeper tells you the price. Say okay, and ask for a ticket.", 1),
+        SpokenLine("man", "Den koster tolv kroner.", 7),
+        SpokenLine("woman", "Okay. En billet, tak.", 3),
+        SpokenLine("woman", "Okay. En billet, tak.", 3),
     ]
 
 
 def test_a_question_challenge_asks_then_waits_then_answers():
-    question = Challenge(None, ("teacher", "Ask what a ticket costs."), ("woman", "Undskyld, hvad koster en billet?"))
-    assert challenge_lines(question, VALUES)[0] == SpokenLine("Teacher", "Ask what a ticket costs.", 8)
+    question = Challenge(None, Utterance("teacher", "Ask what a ticket costs."), Utterance("woman", "Undskyld, hvad koster en billet?"))
+    assert challenge_lines(question, VALUES)[0] == SpokenLine("teacher", "Ask what a ticket costs.", 8)
 
 
 # Review
@@ -257,10 +257,10 @@ def test_a_lesson_without_challenges_reviews_its_dialogue_answered_and_not_repla
     lines = review_lines([ReviewItem(BUS, None, None)], VALUES)
     assert lines == [
         "",
-        SpokenLine("Teacher", "Buying a bus ticket.", 1),
-        SpokenLine("Woman", "Hej.", 7),          # the learner (man) answers next, in four words
-        SpokenLine("Man", "Hej. En billet, tak.", 3),
-        SpokenLine("Woman", "Værsgo.", 1),       # nothing to answer after it
+        SpokenLine("teacher", "Buying a bus ticket.", 1),
+        SpokenLine("woman", "Hej.", 7),          # the learner (man) answers next, in four words
+        SpokenLine("man", "Hej. En billet, tak.", 3),
+        SpokenLine("woman", "Værsgo.", 1),       # nothing to answer after it
     ]
 
 

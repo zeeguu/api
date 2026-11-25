@@ -34,15 +34,19 @@ class AudioChallenge(db.Model):
         self.dialogue_id = dialogue_id
         self.position = position
         self.setup = challenge.setup[:500] if challenge.setup else None
-        self.prompt_voice, prompt = challenge.prompt
-        self.prompt = prompt[:500]
-        self.answer_voice, answer = challenge.answer
-        self.answer = answer[:500]
+        self.prompt_voice = challenge.prompt.voice
+        self.prompt = challenge.prompt.text[:500]
+        self.answer_voice = challenge.answer.voice
+        self.answer = challenge.answer.text[:500]
 
     def as_challenge(self):
-        from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge
+        from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, Utterance
 
-        return Challenge(self.setup, (self.prompt_voice, self.prompt), (self.answer_voice, self.answer))
+        return Challenge(
+            self.setup,
+            Utterance(self.prompt_voice, self.prompt),
+            Utterance(self.answer_voice, self.answer),
+        )
 
     @classmethod
     def for_dialogues(cls, dialogue_ids):
