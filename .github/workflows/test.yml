@@ -27,6 +27,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      # The image installs requirements.lock, not requirements.txt: a change
+      # to requirements.txt without recompiling the lock would do nothing.
+      - name: Check requirements.lock matches requirements.txt
+        run: |
+          pip install uv==0.13.4
+          tools/lock_requirements.sh -q
+          git diff --exit-code requirements.lock || {
+            echo "::error::requirements.lock is out of date: run tools/lock_requirements.sh and commit it"
+            exit 1
+          }
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v2
         with:
@@ -36,7 +46,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: venv
-          key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
+          key: ${{ runner.os }}-venv-${{ matrix.python-version }}-${{ hashFiles('requirements.lock') }}
           restore-keys: |
             ${{ runner.os }}-venv-${{ matrix.python-version }}-
       - name: Cache NLTK data
@@ -67,7 +77,7 @@ jobs:
           if [ "${{ steps.cache-venv.outputs.cache-hit }}" != 'true' ] || [ "$VENV_BROKEN" = "true" ]; then
             echo "Installing Python dependencies..."
             python -m pip install --upgrade pip
-            pip install -r requirements.txt
+            pip install -r requirements.lock
             python setup.py develop
           else
             echo "Using cached virtual environment"
