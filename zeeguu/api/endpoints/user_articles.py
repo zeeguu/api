@@ -1,6 +1,7 @@
 import traceback
 
 import flask
+from sqlalchemy import or_
 
 from zeeguu.core.content_recommender import (
     article_recommendations_for_user,
@@ -21,7 +22,7 @@ from zeeguu.core.model import (
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from zeeguu.api.utils.json_result import json_result
 from sentry_sdk import capture_exception
-from . import api
+from . import api, db_session
 
 
 from flask import request
@@ -148,6 +149,10 @@ def user_articles_recommended(count: int = 15, page: int = 0):
         query = Article.query.filter_by(broken=0).filter_by(
             language_id=language.id
         )
+        # News only, as in the Elasticsearch query: 'general' is Evergreen's.
+        query = query.filter(
+            or_(Article.article_type.is_(None), Article.article_type != "general")
+        )
 
         # Apply exclusions to the fallback query as well
         if articles_to_exclude:
@@ -211,12 +216,51 @@ def user_articles_evergreen(count: int = 12):
         only_topic_id=only_topic_id,
         only_keyword=only_keyword,
     )
+    # A picked keyword: the passage where it occurs, as on a News search.
+    snippets = {
+        a.id: a._search_snippet for a in articles if getattr(a, "_search_snippet", None)
+    }
     infos = UserArticle.article_infos(user, articles, select_appropriate=True)
     for info in infos:
         # a simplified version stands in for its original: key by the original
         original_id = info.get("parent_article_id") or info.get("id")
         info["evergreen_new"] = original_id in new_today or info.get("id") in new_today
+        if original_id in snippets:
+            info["search_snippet"] = snippets[original_id]
+    _log_evergreen_listed(user, articles, new_today, topic_title, only_keyword)
     return json_result(infos)
+
+
+def _log_evergreen_listed(user, articles, new_today, topic_title, only_keyword):
+    """What the tab showed, each time it is opened or a pill is picked:
+    evergreen_impression keeps only the first and last day an article was
+    shown, and nothing about the visits themselves."""
+    from zeeguu.core.constants import EVENT_EVERGREEN_LISTED
+    from zeeguu.core.model import UserActivityData
+
+    if only_keyword:
+        filter_value = f"keyword:{only_keyword}"
+    elif topic_title:
+        filter_value = f"topic:{topic_title}"
+    else:
+        filter_value = "all"
+    shown = [a.id for a in articles]
+    UserActivityData.log_server_event(
+        db_session,
+        user,
+        EVENT_EVERGREEN_LISTED,
+        filter_value,
+        {
+            "shown": shown,
+            "new_today": [i for i in shown if i in new_today],
+            "keyword_matches": {
+                str(a.id): a._matched_keyword
+                for a in articles
+                if getattr(a, "_matched_keyword", None)
+            },
+        },
+    )
+    db_session.commit()
 
 
 @api.route("/user_articles/saved", methods=["GET"])

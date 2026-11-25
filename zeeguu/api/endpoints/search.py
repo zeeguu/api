@@ -6,7 +6,8 @@ from zeeguu.core.model.search import Search
 from zeeguu.core.model.search_filter import SearchFilter
 from zeeguu.core.model.search_subscription import SearchSubscription
 from zeeguu.core.model.user_article import UserArticle
-from zeeguu.core.model import User
+from zeeguu.core.model import User, UserActivityData
+from zeeguu.core.constants import EVENT_KEYWORD_ADDED, EVENT_KEYWORD_REMOVED
 
 from zeeguu.core.content_recommender import (
     article_and_video_search_for_user,
@@ -58,11 +59,27 @@ def subscribe_to_search(search_terms):
     user = User.find_by_id(flask.g.user_id)
     search = Search.find_or_create(db_session, search_terms, user.learned_language_id)
     receive_email = False
+    already = SearchSubscription.query.filter_by(user=user, search=search).first()
     subscription = SearchSubscription.find_or_create(
         db_session, user, search, receive_email
     )
+    if not already:
+        _log_keyword_change(user, EVENT_KEYWORD_ADDED, search)
+        db_session.commit()
 
     return json_result(subscription.as_dictionary())
+
+
+def _log_keyword_change(user, event, search):
+    """search_subscription keeps no dates, and the clients log keywords only
+    from some screens (not from the interests settings)."""
+    UserActivityData.log_server_event(
+        db_session,
+        user,
+        event,
+        search.keywords,
+        {"search_id": search.id, "language_id": search.language_id},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +101,7 @@ def unsubscribe_from_search():
         db_session.delete(to_delete)
 
         search = Search.find_by_id(search_id)
+        _log_keyword_change(user, EVENT_KEYWORD_REMOVED, search)
         users_following_topic = get_total_subscriptions_exclusions_for_search(search_id)
         if users_following_topic == 0:
             db_session.delete(search)
@@ -249,6 +267,8 @@ def search_for_search_terms(search_terms, page: int = 0):
         # instruction now, and it outranks a standing preference set earlier.
         # (The disturbing-content filter still applies -- see the callee.)
         honor_avoid_keywords=False,
+        # The card shows where in the text the term occurs.
+        with_snippets=True,
     )
     
     # Filter out hidden articles

@@ -11,7 +11,9 @@ from zeeguu.core.audio_lessons import og_image
 from zeeguu.core.audio_lessons.daily_lesson_generator import DailyLessonGenerator
 from zeeguu.core.audio_lessons.script_generator import VALID_LESSON_TYPES, THREE_WORDS_LESSON
 from zeeguu.core.audio_lessons.suggestion_validator import validate_suggestion
+from zeeguu.core.constants import EVENT_AUDIO_LESSON_SUBJECT_SET
 from zeeguu.core.model import db, User, UserWord, AudioLessonGenerationProgress, DailyAudioLesson
+from zeeguu.core.model import UserActivityData
 from zeeguu.logging import log
 from . import api
 
@@ -682,10 +684,23 @@ def configure_daily_subscription():
         return json_result({"error": "Unknown language"}), 400
 
     sub = DailyAudioSubscription.find(user, language)
+    before = [sub.lesson_type, sub.raw_suggestion] if sub else None
     if sub is None:
         sub = DailyAudioSubscription(user, language, lesson_type, raw_suggestion)
         db.session.add(sub)
     else:
         sub.configure(lesson_type, raw_suggestion)
+    # The subscription keeps only the current subject; the study asks when
+    # learners picked theirs (the situation list in the lesson settings).
+    # A pick after a lesson is in audio_lesson_feedback instead.
+    after = [lesson_type, raw_suggestion]
+    if after != before:
+        UserActivityData.log_server_event(
+            db.session,
+            user,
+            EVENT_AUDIO_LESSON_SUBJECT_SET,
+            language.code,
+            {"from": before, "to": after},
+        )
     db.session.commit()
     return json_result(_subscription_to_dict(sub)), 200

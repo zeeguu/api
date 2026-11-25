@@ -73,6 +73,18 @@ class AudioLessonDialogue(db.Model):
     # reads what a lesson was made with here. NULL for other dialogues.
     tuning = Column(JSON, nullable=True)
 
+    # A0 dialogues: the character the learner played ("man" / "woman") and the
+    # dialogue the lesson is built around, as the dialogue call wrote it. Later
+    # lessons rehearse it in that role (words_heard.earlier_dialogues). NULL
+    # for other dialogues.
+    learner_character = Column(String(5), nullable=True)
+    dialogue_script = Column(Text, nullable=True)
+
+    # A0 dialogues: the script as the model wrote it, with markers, once the
+    # review was placed (lesson_script); `script` is its expansion. The
+    # lessons reviewed are in audio_lesson_review.
+    marked_script = Column(Text, nullable=True)
+
     def __init__(
         self,
         script,

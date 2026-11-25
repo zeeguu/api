@@ -13,17 +13,39 @@ new ones are added. Design: future-work/a0-audio-lessons.md in the docs repo.
 """
 
 import re
-from collections import Counter, namedtuple
+from collections import Counter
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
 
 from sqlalchemy.orm import selectinload
 
 from zeeguu.core.audio_lessons.script_parser import parse_script
 from zeeguu.core.audio_lessons.script_language_validator import TARGET_LANGUAGE_VOICES
 
-HeardLesson = namedtuple("HeardLesson", ["title", "words"])
+@dataclass(frozen=True)
+class HeardLesson:
+    """
+    One lesson the learner heard, as heard_lessons() puts it together from
+    the stored rows for one generation; nothing of it is stored on its own.
+    """
+
+    title: str
+    words: Counter  # how often each learned-language word was said
+    learner: Optional[str] = None  # the voice the learner played
+    dialogue_id: Optional[int] = None  # its AudioLessonDialogue
+    heard_at: Optional[datetime] = None  # first listened to; else finished, else made
+    reviewed: tuple = ()  # the challenge ids it reviewed (AudioLessonReview)
+    challenges: tuple = ()  # its review challenges: (challenge id, lesson_script.challenges.Challenge), AudioChallenge
 
 _TIMING = re.compile(r"\[[^\]]*\]")
 _WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
+
+
+def words_of(text: str) -> list:
+    """The words of a learned-language text, lowercased, as the history
+    counts them: "c'est" and "t-shirt" are one word each, digits none."""
+    return [w.lower() for w in _WORD.findall(text)]
 
 
 def target_language_words(script: str) -> Counter:
@@ -32,8 +54,21 @@ def target_language_words(script: str) -> Counter:
     for voice, text, _ in parse_script(script or ""):
         if voice not in TARGET_LANGUAGE_VOICES:
             continue
-        words.update(w.lower() for w in _WORD.findall(_TIMING.sub(" ", text)))
+        words.update(words_of(_TIMING.sub(" ", text)))
     return words
+
+
+def stored_dialogue(row) -> tuple:
+    """
+    The dialogue an A0 lesson was built around, as [(voice, text)], from what
+    was stored when it was written (AudioLessonDialogue.dialogue_script).
+    Empty for a row that has none.
+    """
+    return tuple(
+        (voice, text)
+        for voice, text, _ in parse_script(row.dialogue_script or "")
+        if voice in ("man", "woman")
+    )
 
 
 def _history_lessons(user, language):
@@ -97,15 +132,78 @@ def heard_lessons(user, language, limit=30) -> list:
     # is_engaged is computed in Python, so the window is applied after it.
     engaged = [lesson for lesson in lessons if lesson.is_engaged][:limit]
 
+    from zeeguu.core.model.audio_challenge import AudioChallenge
+    from zeeguu.core.model.audio_lesson_review import AudioLessonReview
+
+    rows = {lesson.id: _history_dialogue(lesson) for lesson in engaged}
+    ids = {row.id for row in rows.values() if row is not None}
+    reviewed = AudioLessonReview.reviewed_by(ids)
+    first_heard = _first_listened({lesson.id for lesson in engaged})
+    lesson_challenges = AudioChallenge.for_dialogues(ids)
+
     heard = []
     for lesson in reversed(engaged):
-        words = Counter()
-        for segment in lesson.segments:
-            if segment.audio_lesson_dialogue is not None:
-                words.update(target_language_words(segment.audio_lesson_dialogue.script))
+        row = rows[lesson.id]
+        if row is None:
+            continue
+        # The words of every dialogue the lesson played, as before; the
+        # learner, the challenges and the reviews are the history dialogue's.
+        words = sum(
+            (target_language_words(s.audio_lesson_dialogue.script) for s in lesson.segments
+             if s.audio_lesson_dialogue is not None),
+            Counter(),
+        )
         if words:
-            heard.append(HeardLesson(lesson.display_title(), words))
+            heard.append(
+                HeardLesson(
+                    lesson.display_title(), words, row.learner_character,
+                    row.id, first_heard.get(lesson.id) or lesson.last_completed_at or lesson.created_at,
+                    reviewed.get(row.id, ()),
+                    lesson_challenges.get(row.id, ()),
+                )
+            )
     return heard
+
+
+def _first_listened(lesson_ids):
+    """{daily lesson id: when the learner first started listening to it}. The
+    review spacing counts from then: last_completed_at moves on every replay,
+    and created_at can be days before a pre-generated lesson is heard."""
+    from sqlalchemy import func
+
+    from zeeguu.core.model import db
+    from zeeguu.core.model.user_listening_session import UserListeningSession
+
+    if not lesson_ids:
+        return {}
+    rows = (
+        db.session.query(UserListeningSession.daily_audio_lesson_id, func.min(UserListeningSession.start_time))
+        .filter(UserListeningSession.daily_audio_lesson_id.in_(list(lesson_ids)))
+        .group_by(UserListeningSession.daily_audio_lesson_id)
+        .all()
+    )
+    return {lesson_id: started for lesson_id, started in rows}
+
+
+def _history_dialogue(lesson):
+    """The dialogue of a daily lesson that builds on the learner's history."""
+    return next(
+        (
+            s.audio_lesson_dialogue for s in lesson.segments
+            if s.audio_lesson_dialogue is not None and s.audio_lesson_dialogue.builds_on_history
+        ),
+        None,
+    )
+
+
+def latest_learner_character(user, language):
+    """The character the learner played in their latest lesson built on their
+    history, heard or not; None before any."""
+    for lesson in _history_lessons(user, language).limit(10):
+        dialogue = _history_dialogue(lesson)
+        if dialogue is not None and dialogue.learner_character:
+            return dialogue.learner_character
+    return None
 
 
 def history_table(heard: list) -> str:

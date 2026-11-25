@@ -234,6 +234,10 @@ def article_recommendations_for_user(
     for c in articles_from_searches:
         if added_from_search >= maximum_added_search_articles:
             break
+        # The search query does not know News from Evergreen; keep a saved
+        # search's 'general' matches on the Evergreen tab, as the query above does.
+        if getattr(c, "article_type", None) == "general":
+            continue
         if c.source_id not in seen_source_ids:
             seen_source_ids.add(c.source_id)
             content.append(c)
@@ -310,8 +314,14 @@ def article_and_video_search_for_user(
     score_threshold=0,
     language=None,
     honor_avoid_keywords=True,
+    with_snippets=False,
 ):
     """
+    :param with_snippets: attach to each article the passage of its text where
+        the terms occur (`_search_snippet`, sent as `search_snippet` by
+        get_user_info_from_content_recommendations). For a search the learner
+        typed; the saved-search injection and the emails don't show one.
+
     :param honor_avoid_keywords: whether the learner's "Topics to Avoid" list
         applies to these results. It does wherever we search *on their behalf* --
         the saved-search injection into the feed, the subscription preview, the
@@ -350,6 +360,7 @@ def article_and_video_search_for_user(
             unwanted_user_searches if honor_avoid_keywords else None
         ),
         filter_disturbing=UserPreference.is_filter_disturbing_content_enabled(user),
+        with_snippets=with_snippets,
     )
 
     es = Elasticsearch(ES_CONN_STRING)
@@ -360,6 +371,16 @@ def article_and_video_search_for_user(
         hit_list = filter_hits_on_score(hit_list, score_threshold)
 
     content_objects = _content_from_ES_hits(hit_list)
+
+    if with_snippets:
+        snippet_by_article_id = {
+            hit["_source"]["article_id"]: hit["highlight"]["content"][0]
+            for hit in hit_list
+            if "article_id" in hit["_source"] and hit.get("highlight", {}).get("content")
+        }
+        for content in content_objects:
+            if type(content) is Article and content.id in snippet_by_article_id:
+                content._search_snippet = snippet_by_article_id[content.id]
 
     final_mix = [
         each for each in content_objects if each is not None and not each.broken
@@ -543,10 +564,16 @@ def get_user_info_from_content_recommendations(user, content_list):
     # Build a map of root_article_id -> matched_searches
     # root_id is stable across version swaps (parent_article_id for simplified, own id for originals)
     matched_searches_by_root = {}
+    # Where a typed search matched the text (article_and_video_search_for_user).
+    # From the original's text: it is what the search index holds, also when
+    # the card shows a simplified version.
+    snippet_by_root = {}
     for article in articles:
+        root_id = article.parent_article_id or article.id
         if hasattr(article, '_matched_searches'):
-            root_id = article.parent_article_id or article.id
             matched_searches_by_root[root_id] = article._matched_searches
+        if hasattr(article, '_search_snippet'):
+            snippet_by_root[root_id] = article._search_snippet
 
     results = UserArticle.article_infos(user, articles, select_appropriate=True)
 
@@ -563,6 +590,8 @@ def get_user_info_from_content_recommendations(user, content_list):
         root_id = result.get('parent_article_id') or result.get('id')
         if root_id and root_id in matched_searches_by_root:
             result['matched_searches'] = matched_searches_by_root[root_id]
+        if root_id and root_id in snippet_by_root:
+            result['search_snippet'] = snippet_by_root[root_id]
 
     results.extend([UserVideo.user_video_info(user, v) for v in videos])
 

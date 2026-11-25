@@ -4,7 +4,8 @@ import zeeguu.core
 from zeeguu.api.utils.json_result import json_result
 from zeeguu.api.utils.route_wrappers import cross_domain, requires_session
 from . import api
-from ...core.model import UserPreference, User, UserLanguage
+from ...core.constants import EVENT_PREFERENCE_CHANGED
+from ...core.model import UserPreference, User, UserLanguage, UserActivityData
 from zeeguu.api.utils.abort_handling import make_error
 
 db_session = zeeguu.core.model.db.session
@@ -38,6 +39,18 @@ def save_user_preferences():
             f"{', '.join(UserPreference.AUDIO_LESSON_CHARACTERS)}",
         )
 
+    # Empty means not sent.
+    audio_lesson_minutes_value = data.get(UserPreference.AUDIO_LESSON_MINUTES) or None
+    audio_lesson_minutes = UserPreference.parse_audio_lesson_minutes(audio_lesson_minutes_value)
+    if audio_lesson_minutes_value is not None and audio_lesson_minutes is None:
+        from zeeguu.core.audio_lessons.lesson_tuning import LESSON_MINUTES_CHOICES
+
+        return make_error(
+            400,
+            f"{UserPreference.AUDIO_LESSON_MINUTES} must be one of "
+            f"{', '.join(str(each) for each in LESSON_MINUTES_CHOICES)}",
+        )
+
     study_reminder_values = {
         key: data[key]
         for key in UserPreference.STUDY_REMINDER_KEYS
@@ -58,9 +71,16 @@ def save_user_preferences():
             f"{', '.join(str(each) for each in UserPreference.DAILY_GOAL_CHOICES)}",
         )
 
+    # The settings the study asks about keep their history: the rows below
+    # only hold the latest value.
+    before = UserPreference.stored_values(user, LOGGED_PREFERENCES)
+
     if daily_goal_minutes is not None:
         UserPreference.set_daily_goal_minutes(db_session, user, daily_goal_minutes)
         _credit_today_if_new_goal_is_met(user)
+
+    if audio_lesson_minutes is not None:
+        UserPreference.set_audio_lesson_minutes(db_session, user, audio_lesson_minutes)
 
     max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
     if max_words_to_schedule_value:
@@ -183,9 +203,32 @@ def save_user_preferences():
     _mirror_daily_audio_subscriptions(user, data)
     # ---- END LEGACY DAILY-AUDIO COMPAT --------------------------------------
 
+    _log_preference_changes(user, before)
+
     db_session.add(user)
     db_session.commit()
     return "OK"
+
+
+# Settings whose changes are logged as PREFERENCE_CHANGED events: the study
+# reminder, the notification permission, the daily goal and the lesson length.
+LOGGED_PREFERENCES = UserPreference.STUDY_REMINDER_KEYS + (
+    UserPreference.DAILY_GOAL_MINUTES,
+    UserPreference.AUDIO_LESSON_MINUTES,
+)
+
+
+def _log_preference_changes(user, before):
+    after = UserPreference.stored_values(user, LOGGED_PREFERENCES)
+    for key in LOGGED_PREFERENCES:
+        if after[key] != before[key]:
+            UserActivityData.log_server_event(
+                db_session,
+                user,
+                EVENT_PREFERENCE_CHANGED,
+                key,
+                {"from": before[key], "to": after[key]},
+            )
 
 
 def _credit_today_if_new_goal_is_met(user):

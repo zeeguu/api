@@ -1,0 +1,146 @@
+annotated-types==0.8.0    # via pydantic
+anthropic==1.17.0         # via -r requirements.txt
+anyio==4.16.0             # via anthropic, httpx2
+apimux @ git+https://github.com/zeeguu/apimux.git@4a0f28921615d713d976af1d2078efca5c51a4bd#egg=apimux  # via -r requirements.txt
+apscheduler==3.10.4       # via flask-monitoringdashboard
+azure-ai-translation-text==1.0.1  # via python-translators, -r requirements.txt
+azure-cognitiveservices-speech==1.40.0  # via -r requirements.txt
+azure-core==1.41.0        # via azure-ai-translation-text, python-translators
+bcrypt==5.0.0             # via -r requirements.txt
+beautifulsoup4==4.15.0    # via feedfinder2, newspaper3k, -r requirements.txt
+blinker==1.9.0            # via flask, sentry-sdk, -r requirements.txt
+cachetools==8.0.2         # via premailer
+certifi==2026.11.20       # via elastic-transport, requests, sentry-sdk, -r requirements.txt
+cffi==2.1.1               # via cryptography
+chardet==7.7.0            # via encutils
+charset-normalizer==3.5.3  # via requests
+click==8.5.1              # via flask, flask-monitoringdashboard, nltk
+cloudpickle==3.1.3        # via joblib
+colorhash==3.0.0          # via flask-monitoringdashboard
+configobj==5.0.9          # via python-translators, wordstats
+configparser==7.3.0       # via flask-monitoringdashboard
+contourpy==1.3.3          # via matplotlib
+cryptography==50.0.2      # via google-auth, -r requirements.txt
+cssselect==1.6.0          # via newspaper3k, premailer
+cssutils==2.15.0          # via premailer
+cycler==0.12.1            # via matplotlib
+deepl==1.33.0             # via -r requirements.txt
+defusedxml==0.7.1         # via nltk, youtube-transcript-api
+deprecated==3.0.1         # via limits, -r requirements.txt
+docstring-parser==0.18.0  # via anthropic
+elastic-transport==8.12.0  # via elasticsearch, -r requirements.txt
+elasticsearch==8.12.1     # via elasticsearch-dsl, -r requirements.txt
+elasticsearch-dsl==8.12.0  # via -r requirements.txt
+emoji==2.16.0             # via -r requirements.txt
+encutils==1.0.0           # via cssutils
+faker==40.63.0            # via -r requirements.txt
+feedfinder2==0.0.4        # via newspaper3k
+feedparser==6.0.14        # via newspaper3k, -r requirements.txt
+feedparser-sgmllib==2.1.0  # via feedparser
+filelock==4.3.1           # via tldextract
+flask==3.1.3              # via flask-cors, flask-limiter, flask-monitoringdashboard, flask-sqlalchemy, sentry-sdk, -r requirements.txt
+flask-cors==6.0.5         # via -r requirements.txt
+flask-limiter==4.1.1      # via -r requirements.txt
+flask-monitoringdashboard==5.1.0  # via -r requirements.txt
+flask-sqlalchemy==3.1.1   # via -r requirements.txt
+fonttools==4.68.0         # via matplotlib
+ftfy==6.3.1               # via wordfreq
+google-api-core==1.34.1   # via google-api-python-client, google-cloud-texttospeech
+google-api-python-client==2.202.0  # via python-translators
+google-auth==2.63.1       # via google-api-core, google-api-python-client, google-auth-httplib2
+google-auth-httplib2==0.4.4  # via google-api-python-client
+google-cloud-texttospeech==2.3.0  # via -r requirements.txt
+googleapis-common-protos==1.73.0  # via google-api-core, grpcio-status
+grpcio==1.85.4            # via google-api-core, grpcio-status
+grpcio-status==1.48.2     # via google-api-core
+gunicorn==27.0.1          # via -r requirements.txt
+h11==0.16.0               # via httpcore2
+httpcore2==2.16.2         # via httpx2
+httplib2==0.32.1          # via google-api-python-client, google-auth-httplib2
+httpx2==2.16.2            # via anthropic
+human-readable==2.0.3     # via -r requirements.txt
+idna==3.20                # via anyio, httpx2, requests, tldextract
+iniconfig==2.3.1          # via pytest
+isodate==0.7.2            # via azure-ai-translation-text
+itsdangerous==2.2.0       # via flask
+jieba3k==0.35.1           # via newspaper3k
+jinja2==3.1.6             # via flask, flask-monitoringdashboard, -r requirements.txt
+jiter==0.19.0             # via anthropic
+joblib==1.6.0             # via nltk, scikit-learn
+kiwisolver==1.5.1         # via matplotlib
+langcodes==3.5.1          # via wordfreq
+langdetect==1.0.9         # via -r requirements.txt
+limits==5.8.0             # via flask-limiter
+lingua-language-detector==2.2.0  # via -r requirements.txt
+locate==1.1.1             # via wordfreq
+lxml==6.1.3               # via lxml-html-clean, newspaper3k, premailer, -r requirements.txt
+lxml-html-clean==0.4.6    # via -r requirements.txt
+markdown2==2.5.5          # via -r requirements.txt
+markupsafe==3.0.4         # via flask, jinja2, sentry-sdk, werkzeug, -r requirements.txt
+matplotlib==3.11.2        # via seaborn, -r requirements.txt
+more-itertools==11.2.1    # via cssutils
+msgpack==1.2.4            # via wordfreq
+mysqlclient==2.2.8        # via -r requirements.txt
+newspaper3k==0.2.7        # via -r requirements.txt
+nltk==3.10.4              # via newspaper3k, python-translators, -r requirements.txt
+numpy==1.26.4             # via contourpy, flask-monitoringdashboard, matplotlib, pandas, scikit-learn, scipy, seaborn, simhash, -r requirements.txt
+opentelemetry-api==1.45.2  # via anthropic
+ordered-set==4.1.0        # via flask-limiter
+packaging==26.4           # via limits, matplotlib, pytest
+pandas==3.0.6             # via seaborn, -r requirements.txt
+pillow==13.0.0            # via matplotlib, newspaper3k, -r requirements.txt
+pluggy==1.7.0             # via pytest
+premailer==3.10.0         # via yagmail
+proto-plus==1.27.1        # via google-cloud-texttospeech
+protobuf==3.20.3          # via google-api-core, googleapis-common-protos, grpcio-status, proto-plus, -r requirements.txt
+psutil==7.2.2             # via flask-monitoringdashboard
+pyasn1==0.6.5             # via pyasn1-modules
+pyasn1-modules==0.4.2     # via google-auth
+pycparser==3.12           # via cffi
+pydantic==2.14.4          # via anthropic, -r requirements.txt
+pydantic-core==2.50.5     # via pydantic
+pydub==0.25.1             # via -r requirements.txt
+pygments==2.21.0          # via pytest
+pymysql==1.2.4            # via -r requirements.txt
+pyparsing==3.3.3          # via httplib2, matplotlib
+pyphen==0.18.1            # via -r requirements.txt
+pytest==9.2.0             # via -r requirements.txt
+python-dateutil==4.0.0    # via elasticsearch-dsl, matplotlib, newspaper3k, pandas
+python-translators @ git+https://github.com/zeeguu/python-translators@3ebd8e317fc2a2209ef065402b9bd78e765c50cf#egg=python_translators  # via -r requirements.txt
+pytz==2026.6              # via apscheduler, flask-monitoringdashboard, tzlocal
+pyyaml==6.0.4             # via newspaper3k, -r requirements.txt
+redis==7.4.1              # via -r requirements.txt
+regex==2026.11.23         # via nltk, wordfreq, -r requirements.txt
+requests==2.34.2          # via azure-core, deepl, feedfinder2, flask-monitoringdashboard, google-api-core, newspaper3k, premailer, python-translators, requests-file, requests-mock, tldextract, youtube-transcript-api, -r requirements.txt
+requests-file==3.0.1      # via tldextract
+requests-mock==1.12.1     # via -r requirements.txt
+scikit-learn==1.4.0       # via -r requirements.txt
+scipy==1.13.0             # via flask-monitoringdashboard, scikit-learn, -r requirements.txt
+seaborn==0.13.2           # via -r requirements.txt
+sentry-sdk==2.76.0        # via -r requirements.txt
+setuptools==81.0.0        # via -r requirements.txt
+simhash==2.1.2            # via -r requirements.txt
+six==1.17.0               # via apscheduler, feedfinder2, langdetect
+sniffio==1.3.1            # via anthropic
+soupsieve==4.1.3          # via beautifulsoup4
+sqlalchemy==2.1.9         # via flask-monitoringdashboard, flask-sqlalchemy, wordstats, -r requirements.txt
+threadpoolctl==3.8.0      # via scikit-learn
+timeago==1.0.16           # via -r requirements.txt
+tinysegmenter==0.3        # via newspaper3k
+tldextract==5.4.0         # via newspaper3k
+tqdm==4.70.1              # via nltk, -r requirements.txt
+truststore==0.10.5        # via httpcore2, httpx2
+typing-extensions==4.16.0  # via anthropic, anyio, azure-ai-translation-text, azure-core, beautifulsoup4, flask-limiter, grpcio, httpx2, limits, opentelemetry-api, pydantic, pydantic-core, sqlalchemy, typing-inspection
+typing-inspection==0.4.5  # via pydantic
+tzdata==2026.6            # via python-dateutil
+tzlocal==2.0.0            # via apscheduler, flask-monitoringdashboard
+uritemplate==4.2.0        # via google-api-python-client
+urllib3==2.8.0            # via elastic-transport, requests, sentry-sdk
+wcwidth==0.9.5            # via ftfy
+werkzeug==3.1.9           # via flask, flask-cors, -r requirements.txt
+wordfreq==3.1.1           # via wordstats
+wordnik-py3==2.1.2        # via python-translators
+wordstats==1.3.0          # via -r requirements.txt
+wrapt==2.5.2              # via deprecated
+yagmail==0.16.0           # via -r requirements.txt
+youtube-transcript-api==1.2.5  # via -r requirements.txt

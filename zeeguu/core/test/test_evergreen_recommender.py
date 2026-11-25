@@ -2,13 +2,19 @@
 The Evergreen tab (content_recommender/evergreen.py): only articles labeled
 `general`, the learner's keywords before their topics, and on a later visit
 what the learner has not seen before what they passed by.
+
+Keywords are searched in Elasticsearch, within the pool the database chose.
+FakeElasticsearch stands in for it: a match in the title or the text, and the
+passage when the match is in the text.
 """
 
 from datetime import datetime, timedelta
+from unittest.mock import patch
 
 import zeeguu.core
+from zeeguu.core.content_recommender import evergreen
 from zeeguu.core.content_recommender.evergreen import evergreen_recommendations_for_user
-from zeeguu.core.model import Search, UserArticle, UserPreference
+from zeeguu.core.model import Article, Search, UserArticle, UserPreference
 from zeeguu.core.model.article_classification import ArticleClassification
 from zeeguu.core.model.article_topic_map import ArticleTopicMap, TopicOriginType
 from zeeguu.core.model.evergreen_impression import EvergreenImpression
@@ -24,18 +30,75 @@ session = zeeguu.core.model.db.session
 TODAY = datetime(2026, 11, 16, 10, 0)
 
 
+def _find(body, key):
+    """The first value under `key` anywhere in an ES query body."""
+    if isinstance(body, dict):
+        if key in body:
+            return body[key]
+        values = body.values()
+    elif isinstance(body, list):
+        values = body
+    else:
+        return None
+    for value in values:
+        found = _find(value, key)
+        if found is not None:
+            return found
+    return None
+
+
+class FakeElasticsearch:
+    """Answers a search query from the test database: the articles among
+    `terms.article_id` whose title or text contains the term."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def search(self, index=None, body=None, **kwargs):
+        term = _find(body, "title")["query"].lower()
+        hits = []
+        for article_id in _find(body, "terms")["article_id"]:
+            article = Article.find_by_id(article_id)
+            text = article.get_content() or ""
+            hit = {"_source": {"article_id": article_id}}
+            if term in text.lower():
+                if "highlight" in body:
+                    hit["highlight"] = {"content": [f"... <mark>{term}</mark> ..."]}
+            elif term not in (article.title or "").lower():
+                continue
+            hits.append(hit)
+        return {"hits": {"hits": hits}}
+
+
 class EvergreenRecommenderTest(ModelTestMixIn):
     def setUp(self):
         super().setUp()
+        es = patch.object(evergreen, "Elasticsearch", FakeElasticsearch)
+        es.start()
+        self.addCleanup(es.stop)
         self.user = UserRule().user
         self.language = self.user.learned_language
         self.science = TopicRule.get_or_create_topic(3)
         session.add(TopicSubscription(self.user, self.science))
         session.commit()
 
-    def _article(self, title, article_type="general", topic=None, summary="x"):
+    def _article(
+        self,
+        title,
+        article_type="general",
+        topic=None,
+        summary="x",
+        published=None,
+        content=None,
+    ):
         article = ArticleRule().article
+        if content:
+            article.update_content(session, content=content, commit=False)
         article.title = title
+        # A month old unless a test says otherwise, so the freshness bonus only
+        # applies where a test asks for it (ArticleRule dates relative to the
+        # real clock, not TODAY).
+        article.published_time = published or TODAY - timedelta(days=30)
         article.summary = summary
         article.language = self.language
         article.article_type = article_type
@@ -65,10 +128,26 @@ class EvergreenRecommenderTest(ModelTestMixIn):
 
     def test_keyword_match_ranks_above_topic_match(self):
         self._article("How stars are born", topic=self.science)
-        self._article("Wolves are back in Jutland", summary="the ulv returns")
+        self._article("Wolves are back in Jutland", content="Nu er en ulv set i Jylland.")
         self._subscribe_to_keyword("ulv")
 
         assert self._titles()[0] == "Wolves are back in Jutland"
+
+    def test_a_keyword_match_says_which_keyword_it_matched(self):
+        # for the EVERGREEN_LISTED log: which shown articles a keyword brought
+        self._article("How stars are born", topic=self.science)
+        self._article("Wolves are back in Jutland", content="Nu er en ulv set i Jylland.")
+        self._subscribe_to_keyword("ulv")
+
+        articles, _ = evergreen_recommendations_for_user(
+            self.user, self.language, 12, now=TODAY
+        )
+
+        matched = {a.title: getattr(a, "_matched_keyword", None) for a in articles}
+        assert matched == {
+            "Wolves are back in Jutland": "ulv",
+            "How stars are born": None,
+        }
 
     def test_opened_articles_leave_the_tab(self):
         read = self._article("Already read", topic=self.science)
@@ -137,15 +216,61 @@ class EvergreenRecommenderTest(ModelTestMixIn):
 
         assert self._titles() == ["Not read"]
 
+    def test_an_article_published_today_comes_before_older_unseen_ones(self):
+        for i in range(5):
+            self._article(f"Old explainer {i}", topic=self.science)
+        self._article(
+            "Why we see our breath", topic=self.science, published=TODAY - timedelta(hours=4)
+        )
+
+        assert self._titles(count=1) == ["Why we see our breath"]
+
+    def test_the_freshness_bonus_ends_after_yesterday(self):
+        self._article("Wolves explainer", topic=self.science)
+        self._article(
+            "Three days old", topic=self.science, published=TODAY - timedelta(days=3)
+        )
+        self._article(
+            "Dated next week", topic=self.science, published=TODAY + timedelta(days=7)
+        )
+        self._subscribe_to_keyword("Wolves")
+
+        # neither earns the bonus, so the keyword match leads
+        assert self._titles()[0] == "Wolves explainer"
+
     def test_a_picked_keyword_narrows_the_list_to_its_matches(self):
         self._article("How stars are born", topic=self.science)
-        self._article("Wolves are back", summary="the ulv returns")
+        self._article("Wolves are back", content="Nu er en ulv set i Jylland.")
         self._subscribe_to_keyword("ulv")
 
         articles, _ = evergreen_recommendations_for_user(
             self.user, self.language, 12, now=TODAY, only_keyword="ulv"
         )
         assert [a.title for a in articles] == ["Wolves are back"]
+
+    def test_a_picked_keyword_comes_with_the_passage_where_it_occurs(self):
+        self._article("Wolves are back", content="Nu er en ulv set i Jylland.")
+
+        articles, _ = evergreen_recommendations_for_user(
+            self.user, self.language, 12, now=TODAY, only_keyword="ulv"
+        )
+        assert articles[0]._search_snippet == "... <mark>ulv</mark> ..."
+
+    def test_the_unfiltered_tab_asks_for_no_passage(self):
+        self._article("Wolves are back", topic=self.science, content="Nu er en ulv set i Jylland.")
+        self._subscribe_to_keyword("ulv")
+
+        articles, _ = evergreen_recommendations_for_user(self.user, self.language, 12, now=TODAY)
+        assert not hasattr(articles[0], "_search_snippet")
+
+    def test_a_keyword_search_stays_within_the_general_articles(self):
+        self._article("Wolves explained", content="Hvad spiser en ulv?")
+        self._article("Wolf seen tonight", article_type="news", content="En ulv blev set i aftes.")
+
+        articles, _ = evergreen_recommendations_for_user(
+            self.user, self.language, 12, now=TODAY, only_keyword="ulv"
+        )
+        assert [a.title for a in articles] == ["Wolves explained"]
 
     def test_a_picked_topic_narrows_the_list_to_that_topic(self):
         culture = TopicRule.get_or_create_topic(2)

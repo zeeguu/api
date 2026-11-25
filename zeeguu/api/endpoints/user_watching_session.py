@@ -8,6 +8,7 @@ from zeeguu.api.utils.route_wrappers import cross_domain
 from zeeguu.core.model.user_watching_session import UserWatchingSession
 
 from . import api, db_session
+from zeeguu.api.utils.session_helpers import remember_session_platform
 
 
 # ---------------------------------------------------------------------------
@@ -16,6 +17,7 @@ from . import api, db_session
 @cross_domain
 @requires_session
 def watching_session_start():
+    remember_session_platform()
     video_id = int(request.form.get("video_id", ""))
     platform = request.form.get("platform", None)
     if platform is not None:

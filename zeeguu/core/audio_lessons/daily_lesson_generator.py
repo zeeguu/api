@@ -27,9 +27,11 @@ from zeeguu.core.audio_lessons.voice_config import (
 )
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
-from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
+from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count, latest_learner_character
 from zeeguu.core.audio_lessons import lesson_tuning
-from zeeguu.core.audio_lessons.lesson_tuning import tuning_for
+from zeeguu.core.audio_lessons.lesson_tuning import lesson_minutes_for, tuning_for
+from zeeguu.core.model.audio_challenge import AudioChallenge
+from zeeguu.core.model.audio_lesson_review import AudioLessonReview
 from zeeguu.core.audio_lessons.next_situations import suggest_next_situations
 from zeeguu.core.model import (
     db,
@@ -399,17 +401,24 @@ class DailyLessonGenerator:
         learner_character = None
         past_titles = None
         tuning = None
+        lesson_minutes = None
 
         if builds_on_history:
             heard = heard_lessons(user, learned_lang)
-            # The character the learner chose; when they did not, the man and
-            # the woman take turns, counted over all their lessons of this kind.
-            learner_character = UserPreference.get_audio_lesson_character(user) or (
-                "man" if history_lesson_count(user, learned_lang) % 2 == 0 else "woman"
+            # The character the learner chose. Unset (or the old "either"):
+            # the one of their latest lesson, heard or not, so nobody changes
+            # gender from one lesson to the next; in many languages the words
+            # they say depend on it. Only a first lesson with nothing chosen
+            # has to pick.
+            learner_character = (
+                UserPreference.get_audio_lesson_character(user)
+                or latest_learner_character(user, learned_lang)
+                or ("man" if history_lesson_count(user, learned_lang) % 2 == 0 else "woman")
             )
             # What the learner said about their earlier lessons: pace,
             # repetition, length (lesson_tuning.py).
             tuning = tuning_for(user, learned_lang)
+            lesson_minutes = lesson_minutes_for(user, learned_lang)
             is_general = False
         else:
             # Try to find an existing dialogue the user hasn't heard yet.
@@ -457,6 +466,7 @@ class DailyLessonGenerator:
             heard=heard,
             learner_character=learner_character,
             tuning=tuning,
+            lesson_minutes=lesson_minutes,
         )
 
         if progress:
@@ -481,10 +491,22 @@ class DailyLessonGenerator:
                 _ai_generator_for(generated.dialogue) if generated.dialogue else None
             ),
         )
+        if builds_on_history:
+            dialogue.learner_character = learner_character
+            dialogue.dialogue_script = generated.dialogue.script if generated.dialogue else None
+            dialogue.marked_script = generated.marked
         if tuning is not None:
-            dialogue.tuning = lesson_tuning.as_dict(tuning)
+            # "minutes" is the length asked for; "length" stays for the study,
+            # which reads the lessons written before length was a setting.
+            dialogue.tuning = {**lesson_tuning.as_dict(tuning), "minutes": lesson_minutes}
         db.session.add(dialogue)
         db.session.flush()  # Get the ID
+        # Its challenges, for later lessons to review; and what it reviews, so the
+        # next lessons space their reviews (lesson_review.py).
+        for position, challenge in enumerate(generated.challenges or ()):
+            db.session.add(AudioChallenge(dialogue.id, position, challenge))
+        for challenge_id in generated.reviewed or ():
+            db.session.add(AudioLessonReview(dialogue.id, challenge_id))
 
         # Progress callback
         def on_audio_progress(current, total, voice_type):
@@ -1101,6 +1123,7 @@ class DailyLessonGenerator:
                 )
                 if os.path.exists(dialogue_audio):
                     os.remove(dialogue_audio)
+                _delete_challenges_and_reviews(dialogue.id)
                 db.session.delete(dialogue)
 
             db.session.delete(lesson)
@@ -1249,7 +1272,7 @@ class DailyLessonGenerator:
 
     def record_lesson_feedback(self, user, lesson_id, aspect, value):
         """
-        Record what the learner said about a lesson (AudioLessonFeedback).
+        Record what the learner said about an A0 lesson (AudioLessonFeedback).
 
         Pace, repetition and length tune their next A0 lessons
         (lesson_tuning.py). A situation moves the daily lessons: one of the
@@ -1269,6 +1292,10 @@ class DailyLessonGenerator:
             return {"error": "Only A0 lessons take feedback", "status_code": 400}
 
         def record():
+            # Length answers come only from apps from before the length slider
+            # (web#1405). Moved before storing: the default counts stored ones.
+            if aspect == "length":
+                self._move_lesson_minutes(user, lesson, value)
             AudioLessonFeedback.set(user, lesson, aspect, value)
             if aspect == lesson_tuning.SITUATION:
                 self._move_daily_situation(user, lesson, value)
@@ -1282,7 +1309,35 @@ class DailyLessonGenerator:
             db.session.rollback()
             record()
             db.session.commit()
-        return {"lesson_id": lesson.id, "feedback": AudioLessonFeedback.for_lesson(lesson)}
+        return {
+            "lesson_id": lesson.id,
+            "feedback": AudioLessonFeedback.for_lesson(lesson),
+            # What the next lessons will be written for, shown with the answer.
+            "lesson_minutes": lesson_tuning.lesson_minutes_for(user, lesson.language),
+        }
+
+    @staticmethod
+    def _move_lesson_minutes(user, lesson, value):
+        """
+        "Too short" / "too long" set the learner's lesson length
+        (UserPreference.AUDIO_LESSON_MINUTES) a step from the length this
+        lesson was written for: answered on two lessons of 10 minutes, "too
+        short" asks for 15, not 20, and changing the answer on one lesson
+        moves from the same place. A lesson from before the length was stored
+        moves from the current setting.
+        """
+        from zeeguu.core.model.user_preference import UserPreference
+
+        minutes = None
+        for segment in lesson.segments:
+            dialogue = segment.audio_lesson_dialogue
+            if dialogue is not None and dialogue.tuning:
+                minutes = dialogue.tuning.get("minutes") or minutes
+        if minutes is None:
+            minutes = lesson_tuning.lesson_minutes_for(user, lesson.language)
+        UserPreference.set_audio_lesson_minutes(
+            db.session, user, lesson_tuning.lesson_minutes_after(minutes, value)
+        )
 
     @staticmethod
     def _move_daily_situation(user, lesson, value):
@@ -1532,3 +1587,20 @@ Generated by Zeeguu Audio Lesson System
             from sentry_sdk import capture_exception
 
             capture_exception(e)
+
+
+def _delete_challenges_and_reviews(dialogue_id):
+    """
+    What an A0 dialogue left for the review, before the dialogue is deleted:
+    the reviews it made, the reviews of its challenges by other lessons, and
+    its challenges. Their foreign keys would refuse the delete (MySQL 1451).
+    """
+    from zeeguu.core.model.audio_challenge import AudioChallenge
+    from zeeguu.core.model.audio_lesson_review import AudioLessonReview
+
+    challenge_ids = [c.id for c in AudioChallenge.query.filter_by(dialogue_id=dialogue_id)]
+    AudioLessonReview.query.filter(
+        (AudioLessonReview.dialogue_id == dialogue_id)
+        | (AudioLessonReview.challenge_id.in_(challenge_ids))
+    ).delete(synchronize_session=False)
+    AudioChallenge.query.filter_by(dialogue_id=dialogue_id).delete(synchronize_session=False)

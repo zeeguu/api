@@ -73,7 +73,7 @@ source .venv/bin/activate
 
 # Step 5: Install Python dependencies
 echo "[5/6] Installing Python dependencies..."
-uv pip install -r requirements.txt
+uv pip install -r requirements.lock
 
 # Step 6: Install zeeguu package + download NLTK data
 echo "[6/6] Installing zeeguu package and downloading NLTK data..."

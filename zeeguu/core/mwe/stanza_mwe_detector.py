@@ -34,6 +34,31 @@ from .lexicon_matcher import LexiconMatcher, merge_lexicon_with_stanza
 _BETWEEN_ARTICLE_AND_NOUN = {"ADJ", "ADV", "NUM", "PUNCT"}
 
 
+# A verb and its particle sit in the same clause ("ser stor ud"). A new
+# clause between them means the parser attached the particle to the wrong
+# verb: in "Den ser stor ud, fordi den er tæt på Jorden" Stanza made "tæt" the
+# particle of "ser". A clause starts at a subordinating conjunction or clause
+# punctuation and has a verb of its own ("fordi den er"). Without a verb it is
+# an aside or a comparison, and the pair is real: "Er steht, wie immer, früh
+# auf", Dutch "Hij ziet er als een kind uit". Verbs alone don't count either:
+# Dutch "omdat hij op zal staan".
+_CLAUSE_START_PUNCT = {",", ";", ":", "(", ")", "–", "—"}
+
+
+def crosses_clause_boundary(tokens: List[Dict], a: int, b: int) -> bool:
+    """True if a clause with its own verb starts strictly between token
+    indices a and b."""
+    clause_started = False
+    for idx in range(min(a, b) + 1, max(a, b)):
+        t = tokens[idx]
+        pos = t.get("pos")
+        if pos == "SCONJ" or (pos == "PUNCT" and (t.get("text") or "").strip() in _CLAUSE_START_PUNCT):
+            clause_started = True
+        elif clause_started and pos in ("VERB", "AUX"):
+            return True
+    return False
+
+
 def match_article_noun(tokens: List[Dict], head, det_idx: int = None):
     """
     DET pointing at a NOUN/PROPN. Tapping the article alone returns nonsense
@@ -138,6 +163,8 @@ class StanzaMWEStrategy(MWEStrategy):
                 # Validate head_idx is within bounds
                 if not (0 <= head_idx < len(tokens)):
                     continue
+                if mwe_type == "particle_verb" and crosses_clause_boundary(tokens, head_idx, i):
+                    continue
 
                 # Check if we already have a group for this head
                 existing_group = self._find_group_by_head(mwe_groups, head_idx)
@@ -208,6 +235,29 @@ class GermanicStrategy(StanzaMWEStrategy):
         "to",   # English
     }
 
+    # Particles the parser labels as plain adverbs instead of compound:prt.
+    # Empty here; a language whose parser does this sets it (DanishStrategy).
+    LOOSE_PARTICLES = frozenset()
+
+    def _is_loose_particle(self, tokens: List[Dict], i: int) -> bool:
+        """An adverb from LOOSE_PARTICLES that hangs off a verb, comes after
+        it, and heads no phrase of its own: "over" in "satte sig over for
+        hende" heads "for hende", so it is not the particle of "satte"."""
+        token = tokens[i]
+        if (token.get("text") or "").lower() not in self.LOOSE_PARTICLES:
+            return False
+        if token.get("pos") != "ADV" or token.get("dep") not in ("advmod", "advmod:lmod"):
+            return False
+        head_idx = self._convert_head_to_index(token.get("head"))
+        if head_idx is None or not (0 <= head_idx < i):
+            return False
+        if tokens[head_idx].get("pos") != "VERB":
+            return False
+        return not any(
+            t.get("head") == i + 1 and t.get("dep") in ("obl", "nmod", "obj")
+            for t in tokens
+        )
+
     def detect(self, tokens: List[Dict]) -> List[Dict]:
         """Detect MWEs including Germanic negation and infinitive markers."""
         mwe_groups = []
@@ -236,6 +286,11 @@ class GermanicStrategy(StanzaMWEStrategy):
                 mwe_type = "negation"
                 head_idx = self._convert_head_to_index(head)
 
+            # Particle labeled as an adverb (see LOOSE_PARTICLES)
+            elif self._is_loose_particle(tokens, i):
+                mwe_type = "particle_verb"
+                head_idx = self._convert_head_to_index(head)
+
             # Germanic negation: ADV + advmod with known negation word
             elif pos == "ADV" and dep == "advmod":
                 if text in self.NEGATION_WORDS or lemma in self.NEGATION_WORDS:
@@ -254,6 +309,8 @@ class GermanicStrategy(StanzaMWEStrategy):
 
             if mwe_type and head_idx is not None and head_idx != i:
                 if not (0 <= head_idx < len(tokens)):
+                    continue
+                if mwe_type == "particle_verb" and crosses_clause_boundary(tokens, head_idx, i):
                     continue
 
                 existing_group = self._find_group_by_head(mwe_groups, head_idx)
@@ -306,6 +363,20 @@ class GermanicStrategy(StanzaMWEStrategy):
                         dep_indices.append(idx)
 
         return mwe_groups
+
+
+class DanishStrategy(GermanicStrategy):
+    """
+    Stanza's Danish model labels most particles advmod:lmod or advmod, not
+    compound:prt: "står hver morgen op", "ringede sin mor op", "lagde sig ned"
+    and "ser stor ud, fordi ..." came back with no group.
+    """
+
+    LOOSE_PARTICLES = frozenset({
+        "ud", "op", "ned", "ind", "hjem", "væk", "bort", "frem", "tilbage",
+        "sammen", "løs", "fast", "rundt", "igennem", "forbi", "af", "fra",
+        "om", "over", "med",
+    })
 
 
 class RomanceStrategy(StanzaMWEStrategy):
@@ -670,7 +741,7 @@ LANGUAGE_STRATEGIES = {
     "de": GermanicStrategy,
     "nl": GermanicStrategy,
     "sv": GermanicStrategy,
-    "da": GermanicStrategy,
+    "da": DanishStrategy,
     "no": GermanicStrategy,
     "en": GermanicStrategy,
     "el": GreekStrategy,

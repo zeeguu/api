@@ -70,6 +70,7 @@ def build_elastic_recommender_query(
     - Language
     - Topic preferences
     - Disturbing content (if enabled)
+    - Article type: 'general' articles are left out (they are the Evergreen tab's)
 
     Scores/ranks by recency (preferring recent articles).
 
@@ -164,6 +165,12 @@ def build_elastic_recommender_query(
     # Filter disturbing content if user has enabled the preference
     if filter_disturbing:
         must_not.append({"match": {"is_disturbing": True}})
+
+    # This is the News feed: an explainer you could read months later
+    # (article_type 'general') belongs to the Evergreen tab, not here. Videos
+    # and documents indexed before the field existed have no article_type and
+    # are not affected.
+    must_not.append(match("article_type", "general"))
 
     must.append(exists("published_time"))
     # Allow both articles and videos in organic recommendations
@@ -306,9 +313,19 @@ def build_elastic_search_query(
     use_published_priority=True,
     unwanted_user_searches=None,
     filter_disturbing=False,
+    with_snippets=False,
+    only_article_ids=None,
 ):
     """
     Builds an elastic search query for search terms.
+
+    only_article_ids: search within these articles alone. The Evergreen tab
+    passes its pool, which the database chooses (see content_recommender/
+    evergreen.py).
+
+    with_snippets: also ask for the passage of the text where the terms occur
+    (see SNIPPET_HIGHLIGHT), for a search the learner typed. A match is often
+    in the body only, and the card then shows why the article is there.
 
     Ranks by recency. No CEFR filter — a learner searching for a word wants the
     articles that contain it, and any of them can be simplified on demand (same
@@ -331,6 +348,9 @@ def build_elastic_search_query(
         .filter("term", language=language.name.lower())
         .exclude("match", description="pg15")
     )
+
+    if only_article_ids is not None:
+        s = s.filter("terms", article_id=list(only_article_ids))
 
     # The same two exclusions build_elastic_recommender_query applies to the
     # organic half of the feed. Without them here, a saved search was a way
@@ -361,8 +381,30 @@ def build_elastic_search_query(
     weighted_query = Q("function_score", query=s.query, functions=preferences)
 
     query = {"from": page * count, "size": count, "query": weighted_query.to_dict()}
+    if with_snippets:
+        query["highlight"] = SNIPPET_HIGHLIGHT
     print("## Search: ")
     return query
+
+
+# One passage of the text around the match, about a sentence long, with the
+# matched words between <mark> tags. Only the body: a title match is already
+# visible on the card. no_match_size 0 means no passage when the match is in
+# the title alone.
+# https://www.elastic.co/guide/en/elasticsearch/reference/8.12/highlighting.html
+SNIPPET_HIGHLIGHT = {
+    "pre_tags": ["<mark>"],
+    "post_tags": ["</mark>"],
+    "fields": {
+        "content": {
+            "type": "unified",
+            "boundary_scanner": "sentence",
+            "fragment_size": 160,
+            "number_of_fragments": 1,
+            "no_match_size": 0,
+        }
+    },
+}
 
 
 def build_elastic_semantic_sim_query_for_article(

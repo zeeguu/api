@@ -26,15 +26,17 @@ VOLUME /Zeeguu-API
 
 # Copy requirements first for better layer caching
 RUN mkdir -p /Zeeguu-API
-COPY ./requirements.txt /Zeeguu-API/requirements.txt
+COPY ./requirements.lock /Zeeguu-API/requirements.lock
 COPY ./setup.py /Zeeguu-API/setup.py
 
 WORKDIR /Zeeguu-API
 
-# Install Python requirements with a BuildKit cache mount (on the server it
-# persists between builds; in CI buildkit-cache-dance carries it across runs)
+# Install the exact versions in requirements.lock, so a rebuild installs what
+# the last one did: an unpinned requirement once pulled in a new major version
+# on an unrelated deploy (deepl 2.0, 2026-11-24). BuildKit cache mount: on the
+# server it persists between builds; in CI buildkit-cache-dance carries it.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install --system -r requirements.txt gunicorn
+    uv pip install --system -r requirements.lock
 
 # Setup NLTK resources folder
 # Use /zeeguu-data to match docker-compose volume mount

@@ -74,12 +74,22 @@ class UserPreference(db.Model):
     NOTIFICATIONS_PERMISSIONS = ("granted", "denied", "prompt")
     STUDY_REMINDER_KEYS = (STUDY_REMINDER_ENABLED, STUDY_REMINDER_TIME, NOTIFICATIONS_PERMISSION)
 
-    # Which character the learner plays in situation lessons: "man", "woman", or
-    # "either" (alternate). Asked, never inferred -- not from the name either: a
-    # wrong guess would address them, and in many languages drill their own
-    # sentences, in the wrong gender every day. Unset behaves like "either".
+    # Which character the learner plays in situation lessons: "man" or "woman".
+    # Asked, never inferred -- not from the name either: a wrong guess would
+    # address them, and in many languages drill their own sentences, in the
+    # wrong gender every day. "either" (alternate) is no longer offered (Nov
+    # 2026): in French or Bulgarian it had a learner say "content" one day and
+    # "contente" the next. Apps already installed still send it, so it is
+    # accepted and read as unset: the lessons then keep the latest lesson's
+    # character (DailyLessonGenerator).
     AUDIO_LESSON_CHARACTER = "audio_lesson_character"
     AUDIO_LESSON_CHARACTERS = ("man", "woman", "either")
+
+    # How long the learner wants their A0 audio lessons, in minutes, one of
+    # lesson_tuning.LESSON_MINUTES_CHOICES. Set on the slider, or moved a step
+    # by "too short" / "too long" after a lesson. Unset: their daily goal, but
+    # not under 10 minutes (lesson_tuning.default_lesson_minutes).
+    AUDIO_LESSON_MINUTES = "audio_lesson_minutes"
 
     # Daily audio lesson preferences. Keyed PER learned-language because the daily
     # lesson is stored/queried per user.learned_language; the language code is
@@ -251,6 +261,32 @@ class UserPreference(db.Model):
         return cls.get_daily_goal_minutes(user) * 60_000
 
     @classmethod
+    def parse_audio_lesson_minutes(cls, value):
+        """A lesson length as sent by a client, as an int from
+        LESSON_MINUTES_CHOICES; None when it is not one of them."""
+        from zeeguu.core.audio_lessons.lesson_tuning import LESSON_MINUTES_CHOICES
+
+        try:
+            minutes = int(value)
+        except (TypeError, ValueError):
+            return None
+        return minutes if minutes in LESSON_MINUTES_CHOICES else None
+
+    @classmethod
+    def get_audio_lesson_minutes(cls, user: User):
+        """The length the learner set; None when they have not set one."""
+        row = (
+            cls.query.filter_by(user_id=user.id, key=cls.AUDIO_LESSON_MINUTES)
+            .order_by(cls.id.desc())
+            .first()
+        )
+        return cls.parse_audio_lesson_minutes(row.value if row else None)
+
+    @classmethod
+    def set_audio_lesson_minutes(cls, session, user: User, minutes: int):
+        cls.set_dropping_duplicates(session, user, cls.AUDIO_LESSON_MINUTES, str(minutes))
+
+    @classmethod
     def get_audio_lesson_character(cls, user: User):
         """'man' or 'woman' when the learner chose one; None for either or unset."""
         value = cls.get(user, cls.AUDIO_LESSON_CHARACTER)
@@ -285,6 +321,21 @@ class UserPreference(db.Model):
         return cls.query.filter_by(user=user, key=key).one()
 
     @classmethod
+    def stored_values(cls, user: User, keys):
+        """{key: value} as stored, None for a key with no row; the newest row
+        of a key stored twice, as all_for_user reads it. No defaults: a
+        change from "not set" is a change."""
+        rows = (
+            cls.query.filter(cls.user_id == user.id, cls.key.in_(keys))
+            .order_by(cls.id)
+            .all()
+        )
+        values = dict.fromkeys(keys)
+        for row in rows:
+            values[row.key] = row.value
+        return values
+
+    @classmethod
     def all_for_user(cls, user: User):
         preferences_dict = {}
         # By id, so a key stored twice reads as its newest row, as the
@@ -309,6 +360,15 @@ class UserPreference(db.Model):
             "true" if stored_goal in cls.DAILY_GOAL_PICKER_CHOICES else "false"
         )
         preferences_dict[cls.DAILY_GOAL_MINUTES] = str(stored_goal or cls.DEFAULT_DAILY_GOAL_MINUTES)
+
+        # Always present too: the slider shows the length the next lesson is
+        # written for, also when the learner never set one.
+        if user.learned_language is not None:
+            from zeeguu.core.audio_lessons.lesson_tuning import lesson_minutes_for
+
+            preferences_dict[cls.AUDIO_LESSON_MINUTES] = str(
+                lesson_minutes_for(user, user.learned_language)
+            )
 
         return preferences_dict
 

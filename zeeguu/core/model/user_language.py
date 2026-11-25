@@ -304,12 +304,31 @@ class UserLanguage(db.Model):
             self._update_max_streak_if_needed()
 
             db_session.add(self)
+            # Both callers get here once the day's study reached the goal, so
+            # this is the one moment a day the goal is known to be reached.
+            self._log_goal_reached(user, db_session)
             db_session.flush()
 
             events.streak_changed.send(None, user_id=user.id, db_session=db_session)
 
             # Update friend streaks for all friendships
             events.friend_streak_changed.send(None, user_id=user.id, db_session=db_session)
+
+    def _log_goal_reached(self, user, db_session):
+        from zeeguu.core.constants import EVENT_DAILY_GOAL_REACHED
+        from zeeguu.core.model.user_activitiy_data import UserActivityData
+        from zeeguu.core.model.user_preference import UserPreference
+
+        UserActivityData.log_server_event(
+            db_session,
+            user,
+            EVENT_DAILY_GOAL_REACHED,
+            self.language.code,
+            {
+                "goal_minutes": UserPreference.get_daily_goal_minutes(user),
+                "streak": self.daily_streak,
+            },
+        )
 
     def _update_max_streak_if_needed(self):
         """Update max_streak if current streak exceeds it."""

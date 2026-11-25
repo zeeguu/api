@@ -1,4 +1,6 @@
-# Master requirements file
+# Master requirements file: what the API needs, with the bounds we know of.
+# The image does not install this file: it installs requirements.lock, the
+# exact versions compiled from it. See "Dependencies" in README.md.
 # No stanza/torch here: Stanza runs only in the Stanza service
 # (stanza_service/, its own image and requirements), never in the API process.
 
@@ -29,6 +31,9 @@ redis==7.4.1  # Shared rate-limit counters (RATELIMIT_STORAGE_URI=redis://...); 
 # Cloud services
 google-cloud-texttospeech==2.3.0
 azure-cognitiveservices-speech==1.40.0
+# Pulled in unpinned by python_translators. 2.0 dropped include_alignment,
+# which azure_alignment.py needs, and has no replacement for it.
+azure-ai-translation-text~=1.0
 
 # Search
 elasticsearch==8.12.1
@@ -62,7 +67,7 @@ requests_mock
 # emSign root removed after the eMudhra intermediate incident (Oct 2026)
 certifi>=2026.10.19
 anthropic>=1,<2
-deepl>=1.18.0
+deepl>=1.18.0,<2  # 2.0 renamed Translator to DeepLClient (deepl_translate.py)
 
 # Utilities
 markupsafe
@@ -84,7 +89,7 @@ deprecated  # transitive dep of limits (Flask-Limiter) not declared in its deps
 protobuf  # transitive dep of google-cloud-texttospeech not declared in its deps
 
 # Monitoring
-sentry-sdk[flask]
+sentry-sdk[flask]<3  # 3.0 removed start_transaction, used by traced_task.py and the crawler
 
 # Testing
 pytest
@@ -93,3 +98,6 @@ PyYAML  # LLM regression sets (tools/run_validator_regression.py)
 # Version constraints
 pydantic>=1.10.8
 setuptools<82
+
+# Server (the Dockerfile runs the API under gunicorn)
+gunicorn

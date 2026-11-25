@@ -9,6 +9,7 @@ from .helpers.activity_sessions import (
     find_own_activity_session,
 )
 from ...core.model import User, UserBrowsingSession
+from zeeguu.api.utils.session_helpers import remember_session_platform
 
 
 @api.route(
@@ -18,6 +19,7 @@ from ...core.model import User, UserBrowsingSession
 @cross_domain
 @requires_session
 def browsing_session_start():
+    remember_session_platform()
     platform = request.form.get("platform", None)
     if platform is not None:
         platform = int(platform)
