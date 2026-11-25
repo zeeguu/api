@@ -505,8 +505,8 @@ class DailyLessonGenerator:
         # next lessons space their reviews (lesson_review.py).
         for position, challenge in enumerate(generated.challenges or ()):
             db.session.add(AudioChallenge(dialogue.id, position, challenge))
-        for position, challenge_id in enumerate(generated.reviewed or ()):
-            db.session.add(AudioLessonReview(dialogue.id, challenge_id, position))
+        for challenge_id in generated.reviewed or ():
+            db.session.add(AudioLessonReview(dialogue.id, challenge_id))
 
         # Progress callback
         def on_audio_progress(current, total, voice_type):

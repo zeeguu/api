@@ -323,7 +323,7 @@ class StoredDialogueTest(ModelTestMixIn):
         challenge = AudioChallenge(doomed.id, 0, Challenge(None, Utterance("teacher", "Bus?"), Utterance("woman", "bus")))
         db.session.add(challenge)
         db.session.flush()
-        db.session.add(AudioLessonReview(later.id, challenge.id, 0))
+        db.session.add(AudioLessonReview(later.id, challenge.id))
         db.session.flush()
 
         _delete_challenges_and_reviews(doomed.id)

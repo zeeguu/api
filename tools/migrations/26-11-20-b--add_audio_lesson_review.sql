@@ -8,7 +8,7 @@
 -- a challenge is reviewed only while the learner has that voice. Stored once, so a
 -- review keeps pointing at the same challenge when the parsing changes.
 --
--- audio_lesson_review: the challenges a lesson reviews, in order. Code
+-- audio_lesson_review: the challenges a lesson reviews, each at most once. Code
 -- chooses and places them (audio_lessons/lesson_review.py), spacing each
 -- challenge's reviews further apart; the model does not take part. The
 -- spacing reads this table. Lessons from before challenges get theirs from
@@ -35,8 +35,7 @@ CREATE TABLE audio_lesson_review (
     id INT AUTO_INCREMENT PRIMARY KEY,
     dialogue_id INT NOT NULL,
     challenge_id INT NOT NULL,
-    position INT NOT NULL,
-    UNIQUE KEY uq_review_position (dialogue_id, position),
+    UNIQUE KEY uq_review_challenge (dialogue_id, challenge_id),
     KEY idx_review_challenge (challenge_id),
     FOREIGN KEY (dialogue_id) REFERENCES audio_lesson_dialogue(id),
     FOREIGN KEY (challenge_id) REFERENCES audio_challenge(id)
