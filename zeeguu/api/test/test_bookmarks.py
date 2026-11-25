@@ -105,3 +105,41 @@ def test_bookmark_requires_translation_source():
 
     with pytest.raises(ValueError):
         Bookmark(None, None, None, None)
+
+
+def test_deleting_the_last_bookmark_takes_the_word_out_of_study(client):
+    # Even when that bookmark was not the word's preferred one: the check used
+    # to sit inside the preferred-bookmark branch, so such a word stayed fit
+    # for study with nothing to show, and the Words lists failed on it.
+    add_context_types()
+    add_source_types()
+    from zeeguu.core.model import db
+    from zeeguu.core.model.bookmark import Bookmark
+    from zeeguu.core.model.context_identifier import ContextIdentifier
+    from zeeguu.core.model.context_type import ContextType
+
+    article = create_and_get_article(client)
+    context_i = ContextIdentifier(ContextType.ARTICLE_TITLE, None, article["id"])
+    new_bookmark = client.post(
+        "/contribute_translation/de/en",
+        json={
+            "word": "hinter",
+            "translation": "behind",
+            "context": "stellt sich hinter Präsident",
+            "url": URL_SPIEGEL_VENEZUELA,
+            "source_id": article["source_id"],
+            "context_identifier": context_i.as_dictionary(),
+        },
+    )
+    bookmark = db.session.get(Bookmark, new_bookmark["bookmark_id"])
+    user_word = bookmark.user_word
+    user_word_id, bookmark_id = user_word.id, bookmark.id
+    user_word.preferred_bookmark = None
+    db.session.commit()
+
+    assert client.post(f"/delete_bookmark/{bookmark_id}") == b"OK"
+
+    from zeeguu.core.model.user_word import UserWord
+
+    db.session.expire_all()
+    assert db.session.get(UserWord, user_word_id).fit_for_study is False
