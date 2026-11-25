@@ -7,7 +7,7 @@ every pause added here, from the learner's tuning.
 import re
 from dataclasses import replace
 
-from zeeguu.core.audio_lessons.lesson_script.markers import DIALOGUE_LINE, LINE_MARKER, VOICE_LINE
+from zeeguu.core.audio_lessons.lesson_script.markers import DIALOGUE_MARKER, LINE_MARKER, VOICE_LINE
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine, spoken_lines, without_chevrons
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
 
@@ -41,7 +41,7 @@ def expand(script, values, dialogue, learner):
             out.append("")
             continue
 
-        if DIALOGUE_LINE.match(line):
+        if DIALOGUE_MARKER.match(line):
             out += [SpokenLine(voice.capitalize(), text, 1) for voice, text in dialogue]
             continue
 
