@@ -12,7 +12,13 @@ from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine, spok
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
 from zeeguu.core.audio_lessons.lesson_script.voices import TEACHER
 
-_PAUSE = re.compile(r"\s*\[([0-9.]+)\s*seconds?\]\s*$", re.IGNORECASE)
+_PAUSE = re.compile(r"\s*\[([0-9.]+)\s*seconds?\]", re.IGNORECASE)
+# A voice label as the model sometimes writes it: in bold ("**Teacher:**",
+# "**Teacher**:"), or in another case ("TEACHER:").
+_LOOSE_LABEL = re.compile(
+    r"^\**\s*(teacherl2|teacher|man|woman)\s*(?::\s*\**|\**\s*:)\s*", re.IGNORECASE
+)
+_LABELS = {"teacher": "Teacher", "teacherl2": "TeacherL2", "man": "Man", "woman": "Woman"}
 _ANY_MARKER = re.compile(r"\[([a-z][a-z ]*\d*)\]", re.IGNORECASE)
 _KNOWN_INLINE = ("slow",)
 # What the model writes when it means "no marker": twice in the eval it wrote
@@ -22,6 +28,31 @@ _PLAIN = re.compile(r"\s*\[(?:plain|no marker|none)\]\s*$", re.IGNORECASE)
 
 class MarkupError(ValueError):
     """The script uses a marker wrongly; the message says how, for a rewrite."""
+
+
+def clean_script(script):
+    """
+    The marked script with its voice labels as expand() and challenges()
+    read them: a bold or upper-case label written plainly ("**Teacher:**" ->
+    "Teacher:"), and a line the model wrapped joined back to the voice line it
+    continues. Only text before the first voice line, or after a blank line,
+    is no one's line.
+    """
+    out = []
+    for raw in (script or "").split("\n"):
+        line = raw.strip()
+        label = _LOOSE_LABEL.match(line)
+        if label:
+            line = f"{_LABELS[label.group(1).lower()]}: {line[label.end():]}"
+        continues = (
+            line and not label and not line.startswith("[")
+            and out and VOICE_LINE.match(out[-1])
+        )
+        if continues:
+            out[-1] = f"{out[-1]} {line}"
+        else:
+            out.append(line)
+    return "\n".join(out)
 
 
 def expand(script, values, dialogue, learner):
@@ -36,7 +67,7 @@ def expand(script, values, dialogue, learner):
     """
     out = []
     problems = []
-    for raw in script.split("\n"):
+    for raw in clean_script(script).split("\n"):
         line = raw.strip()
         if not line:
             out.append("")
@@ -57,18 +88,19 @@ def expand(script, values, dialogue, learner):
         voice_line = VOICE_LINE.match(line)
         if not voice_line:
             # Text that is no one's line ("Here is your lesson:"): nobody would
-            # say it, so it is not kept. The title is not here: it was taken
-            # off the first line before expanding (_write_dialogue_lesson).
+            # say it, so it is not kept. Not a wrapped line (clean_script joined
+            # those) and not the title (taken off before expanding).
             continue
 
         voice, text = voice_line.groups()
         voice = voice.lower()
+        # Timing is code's: a pause the model wrote anyway is dropped, first,
+        # so a marker before it ("[drill] [2 seconds]") is still at the end.
+        text = _PAUSE.sub("", text).strip()
         text = _PLAIN.sub("", text)
         marker = LINE_MARKER.search(text)
         kind = marker.group(1).lower() if marker else None
-        text = LINE_MARKER.sub("", text)
-        # Timing is code's: a pause the model wrote anyway is dropped.
-        text = _PAUSE.sub("", text).strip()
+        text = LINE_MARKER.sub("", text).strip()
 
         unknown = [
             m for m in _ANY_MARKER.findall(text)

@@ -27,7 +27,7 @@ from zeeguu.core.audio_lessons.voice_config import (
 )
 from zeeguu.core.audio_lessons.voice_synthesizer import VoiceSynthesizer
 from zeeguu.core.audio_lessons.word_selector import select_words_for_audio_lesson
-from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count
+from zeeguu.core.audio_lessons.words_heard import heard_lessons, history_lesson_count, latest_learner_character
 from zeeguu.core.audio_lessons import lesson_tuning
 from zeeguu.core.audio_lessons.lesson_tuning import lesson_minutes_for, tuning_for
 from zeeguu.core.model.audio_challenge import AudioChallenge
@@ -406,12 +406,13 @@ class DailyLessonGenerator:
         if builds_on_history:
             heard = heard_lessons(user, learned_lang)
             # The character the learner chose. Unset (or the old "either"):
-            # the one of their latest lesson, so nobody changes gender from one
-            # lesson to the next; in many languages the words they say depend
-            # on it. Only a first lesson with nothing chosen has to pick.
+            # the one of their latest lesson, heard or not, so nobody changes
+            # gender from one lesson to the next; in many languages the words
+            # they say depend on it. Only a first lesson with nothing chosen
+            # has to pick.
             learner_character = (
                 UserPreference.get_audio_lesson_character(user)
-                or next((h.learner for h in reversed(heard) if h.learner), None)
+                or latest_learner_character(user, learned_lang)
                 or ("man" if history_lesson_count(user, learned_lang) % 2 == 0 else "woman")
             )
             # What the learner said about their earlier lessons: pace,

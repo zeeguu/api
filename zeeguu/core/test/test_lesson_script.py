@@ -7,6 +7,7 @@ into challenges that later lessons review (lesson_review.py).
 
 import re
 from collections import Counter
+from dataclasses import replace
 from datetime import datetime, timedelta
 
 import pytest
@@ -14,7 +15,7 @@ import pytest
 from zeeguu.core.audio_lessons import lesson_review
 from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, challenge_lines, challenges, dialogue_challenges, Utterance
 from zeeguu.core.audio_lessons.lesson_script.expand import expand, MarkupError
-from zeeguu.core.audio_lessons.lesson_script.review import review_lines, with_review
+from zeeguu.core.audio_lessons.lesson_script.review import review_lines, voice_line_count, with_review
 from zeeguu.core.audio_lessons.lesson_script.roles import roles_to_voices, voices_to_roles
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import spoken_lines, SpokenLine
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
@@ -290,7 +291,11 @@ NOW = datetime(2026, 11, 20, 12)
 
 def _lesson(i, days_ago, reviewed=(), learner="woman"):
     # Challenge ids: 10*i + their position, as AudioChallenge rows would have them.
-    lesson_challenges = tuple((10 * i + n, challenge) for n, challenge in enumerate(_challenges(learner=learner)))
+    # Answers differ per lesson: a review asks each answer once (see below).
+    lesson_challenges = tuple(
+        (10 * i + n, replace(challenge, answer=replace(challenge.answer, text=f"{challenge.answer.text} {i}")))
+        for n, challenge in enumerate(_challenges(learner=learner))
+    )
     return HeardLesson(f"Lesson {i}", Counter(), learner, i, NOW - timedelta(days=days_ago), reviewed, lesson_challenges)
 
 
@@ -337,3 +342,47 @@ def test_a_lesson_long_enough_reviews_nothing():
 def test_a_lesson_without_challenges_offers_nothing():
     empty = HeardLesson("Old", Counter(), None, 9, NOW - timedelta(days=50))
     assert lesson_review.due_challenges([empty], "woman", NOW) == []
+
+
+def test_a_review_asks_each_answer_once_the_most_overdue():
+    tak = lambda prompt: Challenge(None, Utterance("teacher", prompt), Utterance("woman", "Tak."))
+    old = HeardLesson("Old", Counter(), "woman", 1, NOW - timedelta(days=9), (), ((10, tak("Say thanks."),),))
+    new = HeardLesson("New", Counter(), "woman", 2, NOW - timedelta(days=2), (), ((20, tak("Thank the waiter."),),))
+    assert _ids([old, new]) == [10]
+
+
+# From the review of #978
+
+def test_a_bold_or_upper_case_teacher_label_is_kept():
+    lines = _expand("**Teacher:** How do you say coffee?\nTEACHER: Say it.").splitlines()
+    assert lines == ["Teacher: How do you say coffee? [1 seconds]", "Teacher: Say it. [1 seconds]"]
+
+
+def test_a_wrapped_line_is_joined_to_the_line_it_continues():
+    lines = _expand("Teacher: The waiter asks what you want.\nAsk for a coffee.\nLearner: En kaffe. [answer]").splitlines()
+    assert lines[0].startswith("Teacher: The waiter asks what you want. Ask for a coffee. [")
+
+
+def test_a_challenge_reads_a_bold_teacher_question():
+    marked = roles_to_voices("**Teacher:** How do you say coffee?\nLearner: En kaffe. [answer]", LEARNER)
+    assert challenges(marked, LEARNER)[0].prompt == Utterance("teacher", "How do you say coffee?")
+
+
+def test_a_marker_before_a_pause_the_model_wrote_is_still_read():
+    assert _expand("Learner: Kaffe. [drill] [2 seconds]").splitlines()[0] == "Woman: Kaffe. [slow] [3 seconds]"
+
+
+def test_the_review_goes_before_a_closing_sentence_with_chevrons_not_into_it():
+    expanded = _expand(
+        "Teacher: Hi.\n[dialogue]\nLearner: Kaffe. [drill]\n\n"
+        "Teacher: Listen to the conversation at the «kaffebar» again.\n[dialogue]"
+    )
+    lines = with_review(expanded, review_lines([ORDER_COFFEE], VALUES)).splitlines()
+    opening = lines.index("Teacher: Listen to the conversation at the [0 seconds]")
+    assert lines[opening + 1:opening + 3] == ["TeacherL2: kaffebar [0 seconds]", "Teacher: again. [1 seconds]"]
+    assert lines.index(str(challenge_lines(ORDER_COFFEE, VALUES)[1])) < opening
+
+
+def test_a_sentence_with_chevrons_counts_as_one_line():
+    lines = _expand("Teacher: The word for coffee is «kaffe». Say it.\nTeacher: Good.").splitlines()
+    assert len(lines) == 4 and voice_line_count(lines) == 2

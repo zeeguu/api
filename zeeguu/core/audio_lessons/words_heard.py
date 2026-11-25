@@ -129,13 +129,7 @@ def heard_lessons(user, language, limit=30) -> list:
     from zeeguu.core.model.audio_challenge import AudioChallenge
     from zeeguu.core.model.audio_lesson_review import AudioLessonReview
 
-    rows = {
-        lesson.id: next(
-            (s.audio_lesson_dialogue for s in lesson.segments if s.audio_lesson_dialogue is not None),
-            None,
-        )
-        for lesson in engaged
-    }
+    rows = {lesson.id: _history_dialogue(lesson) for lesson in engaged}
     ids = {row.id for row in rows.values() if row is not None}
     reviewed = AudioLessonReview.reviewed_by(ids)
     lesson_challenges = AudioChallenge.for_dialogues(ids)
@@ -145,7 +139,13 @@ def heard_lessons(user, language, limit=30) -> list:
         row = rows[lesson.id]
         if row is None:
             continue
-        words = target_language_words(row.script)
+        # The words of every dialogue the lesson played, as before; the
+        # learner, the challenges and the reviews are the history dialogue's.
+        words = sum(
+            (target_language_words(s.audio_lesson_dialogue.script) for s in lesson.segments
+             if s.audio_lesson_dialogue is not None),
+            Counter(),
+        )
         if words:
             heard.append(
                 HeardLesson(
@@ -155,6 +155,27 @@ def heard_lessons(user, language, limit=30) -> list:
                 )
             )
     return heard
+
+
+def _history_dialogue(lesson):
+    """The dialogue of a daily lesson that builds on the learner's history."""
+    return next(
+        (
+            s.audio_lesson_dialogue for s in lesson.segments
+            if s.audio_lesson_dialogue is not None and s.audio_lesson_dialogue.builds_on_history
+        ),
+        None,
+    )
+
+
+def latest_learner_character(user, language):
+    """The character the learner played in their latest lesson built on their
+    history, heard or not; None before any."""
+    for lesson in _history_lessons(user, language).limit(10):
+        dialogue = _history_dialogue(lesson)
+        if dialogue is not None and dialogue.learner_character:
+            return dialogue.learner_character
+    return None
 
 
 def history_table(heard: list) -> str:

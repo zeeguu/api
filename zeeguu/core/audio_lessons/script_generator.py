@@ -4,7 +4,8 @@ Script generator for audio lessons using unified LLM service.
 
 import os
 import re
-from collections import namedtuple
+from dataclasses import dataclass
+from typing import Optional
 
 from zeeguu.core.audio_lessons.script_language_validator import (
     TARGET_LANGUAGE_VOICES,
@@ -31,16 +32,17 @@ LANGUAGE_ATTEMPTS = 3
 # What produced a script: the model that actually answered (not the one configured,
 # which a fallback chain can silently override) and the prompt file that was used.
 # Both are known at generation time and unrecoverable afterwards.
-GeneratedScript = namedtuple(
-    "GeneratedScript",
-    ["script", "model_name", "prompt_version", "dialogue", "marked", "reviewed", "challenges"],
-    # dialogue: for a lesson written in two calls, the GeneratedScript of the
-    # call that wrote its dialogue; None otherwise. marked: an A0 script as the
-    # model wrote it, with markers (lesson_script); reviewed: the ids of the
-    # earlier lessons' challenges it reviews, in order (lesson_review.py); challenges: its own challenges, for later lessons to review
-    # (lesson_script.challenges).
-    defaults=[None, None, (), ()],
-)
+@dataclass(frozen=True)
+class GeneratedScript:
+    script: str
+    model_name: str
+    prompt_version: str
+    # For a lesson written in two calls, the GeneratedScript of the call that
+    # wrote its dialogue; None otherwise.
+    dialogue: Optional["GeneratedScript"] = None
+    marked: Optional[str] = None  # an A0 script as the model wrote it, with markers (lesson_script)
+    reviewed: tuple = ()  # ids of the earlier lessons' challenges it reviews, in order (lesson_review.py)
+    challenges: tuple = ()  # its own challenges, for later lessons to review (lesson_script.challenges)
 
 
 _PROMPT_VERSION = re.compile(r"-(v\d+)$")
@@ -85,13 +87,13 @@ def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man
     scripts with a non-English teacher held the rule 1 time in 9 that way, and 7
     times in 9 with the rule stated here instead.
     """
-    teacher_rule = f"Lines labelled 'Teacher:' are ALWAYS written in {source_lang_name}"
+    teacher_rule = f"Lines labeled 'Teacher:' are ALWAYS written in {source_lang_name}"
     if chevrons:
         teacher_rule += f", except words in «chevrons», which are {target_lang_name}"
     return (
         f"You write audio lesson scripts for language learners. The learner speaks "
         f"{source_lang_name} natively and is studying {target_lang_name}.\n"
-        f"Lines labelled '{voices[0]}:', '{voices[1]}:' and 'TeacherL2:' are ALWAYS written in "
+        f"Lines labeled '{voices[0]}:', '{voices[1]}:' and 'TeacherL2:' are ALWAYS written in "
         f"{target_lang_name}. Never in {source_lang_name}.\n"
         f"{teacher_rule}.\n"
         f"Keeping these two languages apart is the entire purpose of the script. A "
@@ -125,23 +127,36 @@ def _is_a_script(script: str) -> bool:
     )
 
 
-def _labels_note(labels) -> str:
+def _labels_note(labels, voice_labels=("Man", "Woman"), chevrons=False) -> str:
+    """The rewrite note for lines under labels no voice says, in the labels
+    the prompt asked for (an A0 script: Learner and Other)."""
+    a, b = voice_labels
+    allowed = f"Teacher:, {a}: and {b}:" if chevrons else f"Teacher:, TeacherL2:, {a}: and {b}:"
     return (
         "\n\nYour previous attempt labeled lines with "
         + ", ".join(f"'{label}:'" for label in labels)
-        + ". Those lines are never spoken: only the labels Teacher:, TeacherL2:, Man: "
-        "and Woman: have a voice. Write it again, and label every line of the dialogue "
-        "Man: or Woman:. The characters' names may appear in what they say, never as a label."
+        + f". Those lines are never spoken: only the labels {allowed} have a voice. "
+        f"Write it again, and label every line of the dialogue {a}: or {b}:. "
+        "The characters' names may appear in what they say, never as a label."
     )
 
 
-def _correction_note(mismatches, target_lang_name, source_lang_name) -> str:
+def _correction_note(mismatches, target_lang_name, source_lang_name,
+                     voice_labels=("Man", "Woman"), chevrons=False) -> str:
+    """The rewrite note for lines in the wrong language, in the labels the
+    prompt asked for."""
+    a, b = voice_labels
+    learned = f"The {a} and {b} lines" if chevrons else f"The {a}, {b} and TeacherL2 lines"
+    teacher = (
+        f"The Teacher lines MUST be in {source_lang_name}, except words in «chevrons»."
+        if chevrons
+        else f"The Teacher lines MUST be in {source_lang_name}."
+    )
     return (
         "\n\nYour previous attempt used the wrong language: "
         f"{describe_mismatches(mismatches)}.\n"
-        f"Write it again. The Man, Woman and TeacherL2 lines MUST be in {target_lang_name}. "
-        f"The Teacher lines MUST be in {source_lang_name}. Translate — do not leave any line "
-        "in the language of the previous attempt."
+        f"Write it again. {learned} MUST be in {target_lang_name}. {teacher} "
+        "Translate: do not leave any line in the language of the previous attempt."
     )
 
 
@@ -204,7 +219,7 @@ def generate_script_in_languages(
                 f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS}): lines labeled "
                 f"{labels}, which no voice says"
             )
-            attempt_prompt = prompt + _labels_note(labels)
+            attempt_prompt = prompt + _labels_note(labels, voice_labels, chevrons)
             continue
 
         mismatches = find_language_mismatches(
@@ -215,7 +230,7 @@ def generate_script_in_languages(
 
         log_mismatches(f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS})", mismatches)
         attempt_prompt = prompt + _correction_note(
-            mismatches, target_lang_name, source_lang_name
+            mismatches, target_lang_name, source_lang_name, voice_labels, chevrons
         )
 
     if labels:

@@ -282,23 +282,20 @@ class StoredDialogueTest(ModelTestMixIn):
 
     def test_with_no_character_chosen_the_latest_lessons_character_is_kept(self):
         """No alternating: in many languages the learner's words depend on
-        their gender, so an unchosen character stays what it last was."""
-        from collections import Counter
+        their gender, so an unchosen character stays what it last was, also
+        when that lesson was never played (so not in heard_lessons)."""
         from unittest.mock import MagicMock, patch
 
         from zeeguu.core.audio_lessons import daily_lesson_generator
         from zeeguu.core.audio_lessons.script_generator import GeneratedScript
-        from zeeguu.core.audio_lessons.words_heard import HeardLesson
 
-        heard = [
-            HeardLesson("Earlier", Counter({"hej": 1}), "man"),
-            HeardLesson("Latest", Counter({"tak": 1}), "woman"),
-        ]
+        self._history_lesson("man", hours_ago=48)
+        self._history_lesson("woman", hours_ago=24)  # the latest, never played
         dialogue = GeneratedScript("Man: Hej.\nWoman: Tak.", "deepseek-chat", "v1")
         lesson = GeneratedScript("Teacher: Hi. [1 seconds]", "claude-sonnet-5-5", "v4", dialogue, "Teacher: Hi.")
         generator = daily_lesson_generator.DailyLessonGenerator()
         generator._voice_synthesizer = MagicMock(get_audio_duration=MagicMock(return_value=600))
-        with patch.object(daily_lesson_generator, "heard_lessons", return_value=heard), \
+        with patch.object(daily_lesson_generator, "heard_lessons", return_value=[]), \
              patch.object(daily_lesson_generator, "generate_dialogue_script", return_value=("Hi", lesson)), \
              patch.object(daily_lesson_generator, "_ai_generator_for", return_value=None):
             row = generator.generate_audio_lesson_dialogue(
@@ -306,6 +303,23 @@ class StoredDialogueTest(ModelTestMixIn):
                 voice_variety=None,
             )
         assert row.learner_character == "woman"
+
+    def _history_lesson(self, learner_character, hours_ago):
+        from datetime import datetime, timedelta
+
+        from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
+        from zeeguu.core.model.daily_audio_lesson_segment import DailyAudioLessonSegment
+
+        dialogue = AudioLessonDialogue(
+            script="Man: Hej.", canonical_suggestion="bus", lesson_type="situation",
+            language=self.user.learned_language, builds_on_history=True,
+        )
+        dialogue.learner_character = learner_character
+        daily = DailyAudioLesson(self.user, "test", language=self.user.learned_language)
+        daily.created_at = datetime.utcnow() - timedelta(hours=hours_ago)
+        db.session.add_all([dialogue, daily])
+        db.session.add(DailyAudioLessonSegment(daily, "dialogue", audio_lesson_dialogue=dialogue))
+        db.session.flush()
 
 
 def test_a0_builds_on_history_and_has_no_word_lessons():
@@ -489,3 +503,13 @@ def test_an_a0_script_in_a_sibling_language_is_caught():
     )
     assert find_language_mismatches(norwegian, "da") == []
     assert find_language_mismatches(norwegian, "da", short_lines=True) != []
+
+
+def test_an_a0_rewrite_asks_for_the_role_labels_not_man_and_woman():
+    from zeeguu.core.audio_lessons.script_generator import _correction_note, _labels_note
+
+    note = _labels_note(["Mette"], ("Learner", "Other"), chevrons=True)
+    assert "Learner: or Other:" in note and "Man:" not in note and "TeacherL2" not in note
+    note = _correction_note([], "Danish", "English", ("Learner", "Other"), chevrons=True)
+    assert "The Learner and Other lines MUST be in Danish" in note and "«chevrons»" in note
+    assert "Man: or Woman:" in _labels_note(["Mette"])

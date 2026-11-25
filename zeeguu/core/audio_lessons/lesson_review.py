@@ -53,7 +53,15 @@ def due_challenges(heard, learner, now=None):
         if challenge.answer.voice == learner
     ]
     candidates.sort(key=lambda candidate: candidate[0], reverse=True)
-    return [(challenge_id, challenge) for _, challenge_id, challenge in candidates]
+    # One challenge per answer: several lessons ask for "Tak.", and a review
+    # asks for it once, the most overdue of them.
+    due, answers = [], set()
+    for _, challenge_id, challenge in candidates:
+        answer = challenge.answer.text.strip().lower()
+        if answer not in answers:
+            answers.add(answer)
+            due.append((challenge_id, challenge))
+    return due
 
 
 def choose(heard, lines_needed, values, learner, now=None):
