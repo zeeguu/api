@@ -46,6 +46,37 @@ export MYSQLCLIENT_CFLAGS="-I/opt/homebrew/opt/mysql-client/include/mysql/"
 export MYSQLCLIENT_LDFLAGS="-L/opt/homebrew/opt/mysql-client/lib"
 ```
 
+## Dependencies
+
+Two files:
+
+- `requirements.txt` says what the API needs, with the bounds we know of and
+  why. Edit this one.
+- `requirements.lock` is compiled from it: every package, transitive ones
+  included, at an exact version, and the git packages at a commit. The image,
+  CI and `install.sh` install only this file, so a rebuild installs exactly
+  what the last one did.
+
+Never edit the lock by hand: `tools/lock_requirements.sh` compiles it for
+the server's platform (Python 3.12, Linux). Without arguments, packages
+already in the lock keep their versions.
+
+**Add a package, or upgrade one:** edit `requirements.txt`, then
+
+```bash
+tools/lock_requirements.sh --upgrade-package deepl
+```
+
+Only that package, and what it needs, moves. A new package needs no flag.
+
+**Upgrade everything** (once a semester or so):
+`tools/lock_requirements.sh --upgrade`. Read the diff of `requirements.lock`,
+check the changelog of anything that went up a major version, run the tests,
+deploy, and watch the logs.
+
+**Pick up a new commit of `apimux` or `python-translators`:**
+`tools/lock_requirements.sh --upgrade-package python-translators`.
+
 ## Stanza service (tokenization)
 
 Stanza never runs inside the API process; tokenization goes to the Stanza

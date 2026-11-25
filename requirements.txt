@@ -1,4 +1,6 @@
-# Master requirements file
+# Master requirements file: what the API needs, with the bounds we know of.
+# The image does not install this file: it installs requirements.lock, the
+# exact versions compiled from it. See "Dependencies" in README.md.
 # No stanza/torch here: Stanza runs only in the Stanza service
 # (stanza_service/, its own image and requirements), never in the API process.
 
@@ -96,3 +98,6 @@ PyYAML  # LLM regression sets (tools/run_validator_regression.py)
 # Version constraints
 pydantic>=1.10.8
 setuptools<82
+
+# Server (the Dockerfile runs the API under gunicorn)
+gunicorn
