@@ -1,4 +1,4 @@
-"""Frequency slots in user_words_to_study (preference frequent_words_first)."""
+"""Frequency slots in the scheduler (preference frequent_words_first)."""
 
 from zeeguu.core.model import UserPreference
 from zeeguu.core.model.db import db
@@ -49,6 +49,7 @@ class FrequencySlotsTest(ModelTestMixIn):
         kept = self._user_word(500, scheduled_at_level=1)
         frequent = self._user_word(1_000)
 
+        BasicSRSchedule.give_slots_to_more_frequent_words(self.user)
         to_study = BasicSRSchedule.user_words_to_study(self.user)
 
         assert not self._is_scheduled(rare)
@@ -61,7 +62,7 @@ class FrequencySlotsTest(ModelTestMixIn):
         self._user_word(8_000, scheduled_at_level=2)
         self._user_word(1_000)
 
-        BasicSRSchedule.user_words_to_study(self.user)
+        BasicSRSchedule.give_slots_to_more_frequent_words(self.user)
 
         assert self._is_scheduled(rare)
 
@@ -69,12 +70,22 @@ class FrequencySlotsTest(ModelTestMixIn):
         rare = self._user_word(9_000, scheduled_at_level=1)
         self._user_word(1_000)
 
-        BasicSRSchedule.user_words_to_study(self.user)
+        BasicSRSchedule.give_slots_to_more_frequent_words(self.user)
 
         assert self._is_scheduled(rare)
 
     def test_with_the_preference_off_slots_are_kept(self):
         self._set_frequent_words_first("false")
+        rare = self._user_word(9_000, scheduled_at_level=1)
+        self._user_word(8_000, scheduled_at_level=1)
+        self._user_word(1_000)
+
+        BasicSRSchedule.give_slots_to_more_frequent_words(self.user)
+
+        assert self._is_scheduled(rare)
+
+    def test_listing_the_words_to_study_changes_no_slot(self):
+        # the practice-count badge calls user_words_to_study: a count must not write
         rare = self._user_word(9_000, scheduled_at_level=1)
         self._user_word(8_000, scheduled_at_level=1)
         self._user_word(1_000)

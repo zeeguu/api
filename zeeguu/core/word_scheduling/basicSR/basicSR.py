@@ -221,9 +221,6 @@ class BasicSRSchedule(db.Model):
 
         max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
 
-        if UserPreference.is_frequent_words_first_enabled(user):
-            cls._give_slots_to_more_frequent_words(user, max_words_to_schedule)
-
         scheduled_candidates = cls.scheduled_words_due_now(
             user, max_words_to_schedule
         )
@@ -263,22 +260,31 @@ class BasicSRSchedule(db.Model):
         return deduplicated
 
     @classmethod
-    def _give_slots_to_more_frequent_words(cls, user, max_words_to_schedule):
+    def give_slots_to_more_frequent_words(cls, user):
         """
-        With every slot taken, a waiting word more frequent than a word in
-        practice below level 2 takes its slot (frequency_slots.py). The word
-        taken out goes back to waiting, still fit for study; the waiting word
-        then fills the free slot as any free slot is filled.
+        With frequent_words_first and every slot taken, a waiting word more
+        frequent than a word in practice below level 2 takes its slot
+        (frequency_slots.py). Writes, so only the endpoint that hands out a
+        session calls it, before user_words_to_study; not the counts.
+
+        The word taken out stays fit for study and goes back to waiting. Its
+        schedule row is deleted: its level (on user_word) stays, but its
+        place within level 1 does not, so if it comes back it starts that
+        level again. The waiting word then fills the slot as any free slot
+        is filled (user_words_not_scheduled, by rank).
         """
-        if cls.scheduled_user_words_count(user) < max_words_to_schedule:
+        if not UserPreference.is_frequent_words_first_enabled(user):
+            return
+        max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
+        if BasicSRSchedule.scheduled_user_words_count(user) < max_words_to_schedule:
             return
 
         def light_query(*columns):
             return (
-                db.session.query(UserWord.id, Phrase.rank, *columns)
+                db.session.query(UserWord.id, Phrase.rank, Phrase.content, *columns)
                 .join(Meaning, UserWord.meaning_id == Meaning.id)
                 .join(Phrase, Meaning.origin_id == Phrase.id)
-                .outerjoin(cls, cls.user_word_id == UserWord.id)
+                .outerjoin(BasicSRSchedule, BasicSRSchedule.user_word_id == UserWord.id)
                 .filter(UserWord.user_id == user.id)
                 .filter(UserWord.fit_for_study == 1)
                 .filter(UserWord.learned_time == None)
@@ -286,19 +292,21 @@ class BasicSRSchedule(db.Model):
             )
 
         scheduled = [
-            SlotWord(uw_id, rank, level or 0)
-            for uw_id, rank, level in light_query(UserWord.level)
-            .filter(cls.id != None)
+            SlotWord(uw_id, rank, content, level or 0)
+            for uw_id, rank, content, level in light_query(UserWord.level)
+            .filter(BasicSRSchedule.id != None)
             .all()
         ]
         can_lose = sum(1 for w in scheduled if w.level < LEVEL_THAT_KEEPS_ITS_SLOT)
         if can_lose == 0:
             return
 
+        # In the order user_words_not_scheduled fills free slots; ranked only,
+        # since that puts unranked words last
         waiting = [
-            SlotWord(uw_id, rank)
-            for uw_id, rank in light_query()
-            .filter(cls.id == None)
+            SlotWord(uw_id, rank, content)
+            for uw_id, rank, content in light_query()
+            .filter(BasicSRSchedule.id == None)
             .filter(Phrase.rank != None)
             .order_by(Phrase.rank)
             .limit(can_lose)
@@ -308,8 +316,8 @@ class BasicSRSchedule(db.Model):
         taken_out = words_to_take_out(scheduled, waiting)
         if not taken_out:
             return
-        cls.query.filter(
-            cls.user_word_id.in_([w.user_word_id for w in taken_out])
+        BasicSRSchedule.query.filter(
+            BasicSRSchedule.user_word_id.in_([w.user_word_id for w in taken_out])
         ).delete(synchronize_session=False)
         db.session.commit()
 

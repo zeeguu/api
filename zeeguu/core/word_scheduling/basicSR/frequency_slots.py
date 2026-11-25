@@ -33,12 +33,15 @@ class SlotWord:
     # phrase.rank of the meaning's origin (the rarest word, for a phrase);
     # None while not computed
     rank: int | None
+    # phrase.content of the meaning's origin: a session shows one meaning per
+    # text (user_words_to_study), so a second one would fill a slot unseen
+    text: str = ""
     # user_word.level; ignored for waiting words
     level: int = 0
 
 
 def _rank(word: SlotWord):
-    return word.rank or Phrase.IMPOSSIBLE_RANK
+    return Phrase.IMPOSSIBLE_RANK if word.rank is None else word.rank
 
 
 def words_to_take_out(scheduled, waiting):
@@ -47,6 +50,10 @@ def words_to_take_out(scheduled, waiting):
     word: the rarest one that can lose its slot goes to the most frequent
     waiting word, the next rarest to the next, and so on, while the waiting
     word is more frequent.
+
+    `waiting` is in the order free slots are filled. It stops at a waiting
+    word with the same text as a word in practice or an earlier waiting
+    word: that word would take the freed slot without ever being shown.
     """
     can_lose = sorted(
         (w for w in scheduled if (w.level or 0) < LEVEL_THAT_KEEPS_ITS_SLOT),
@@ -54,10 +61,12 @@ def words_to_take_out(scheduled, waiting):
         reverse=True,
     )
     best_waiting = sorted(waiting, key=_rank)
+    texts = {w.text.lower() for w in scheduled}
 
     taken_out = []
     for out_word, in_word in zip(can_lose, best_waiting):
-        if _rank(in_word) >= _rank(out_word):
+        if _rank(in_word) >= _rank(out_word) or in_word.text.lower() in texts:
             break
+        texts.add(in_word.text.lower())
         taken_out.append(out_word)
     return taken_out
