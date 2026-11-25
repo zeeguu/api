@@ -74,10 +74,14 @@ class UserPreference(db.Model):
     NOTIFICATIONS_PERMISSIONS = ("granted", "denied", "prompt")
     STUDY_REMINDER_KEYS = (STUDY_REMINDER_ENABLED, STUDY_REMINDER_TIME, NOTIFICATIONS_PERMISSION)
 
-    # Which character the learner plays in situation lessons: "man", "woman", or
-    # "either" (alternate). Asked, never inferred -- not from the name either: a
-    # wrong guess would address them, and in many languages drill their own
-    # sentences, in the wrong gender every day. Unset behaves like "either".
+    # Which character the learner plays in situation lessons: "man" or "woman".
+    # Asked, never inferred -- not from the name either: a wrong guess would
+    # address them, and in many languages drill their own sentences, in the
+    # wrong gender every day. "either" (alternate) is no longer offered (Nov
+    # 2026): in French or Bulgarian it had a learner say "content" one day and
+    # "contente" the next. Apps already installed still send it, so it is
+    # accepted and read as unset: the lessons then keep the latest lesson's
+    # character (DailyLessonGenerator).
     AUDIO_LESSON_CHARACTER = "audio_lesson_character"
     AUDIO_LESSON_CHARACTERS = ("man", "woman", "either")
 

@@ -1,0 +1,44 @@
+-- A0 lessons: review challenges and what each lesson reviewed.
+--
+-- audio_challenge: one thing the learner answered in a lesson, written when
+-- the lesson is made from its [answer] lines (audio_lessons/lesson_script/challenges.py).
+-- A question: the Teacher's question (prompt_voice 'teacher') and the answer.
+-- An exchange: the Teacher's setup, the Other person's line (prompt_voice
+-- 'man' or 'woman') and the answer. answer_voice is the learner's voice then:
+-- a challenge is reviewed only while the learner has that voice. Stored once, so a
+-- review keeps pointing at the same challenge when the parsing changes.
+--
+-- audio_lesson_review: the challenges a lesson reviews, each at most once. Code
+-- chooses and places them (audio_lessons/lesson_review.py), spacing each
+-- challenge's reviews further apart; the model does not take part. The
+-- spacing reads this table. Lessons from before challenges get theirs from
+-- tools/backfill_a0_challenges.py.
+--
+-- marked_script: the script as the model wrote it, with markers
+-- (audio_lessons/lesson_script). The stored script is its expansion, with
+-- the review added.
+
+CREATE TABLE audio_challenge (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    dialogue_id INT NOT NULL,
+    position INT NOT NULL,
+    setup VARCHAR(500) NULL,
+    prompt_voice VARCHAR(9) NOT NULL,
+    prompt VARCHAR(500) NOT NULL,
+    answer_voice VARCHAR(5) NOT NULL,
+    answer VARCHAR(500) NOT NULL,
+    UNIQUE KEY uq_challenge_position (dialogue_id, position),
+    FOREIGN KEY (dialogue_id) REFERENCES audio_lesson_dialogue(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE audio_lesson_review (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    dialogue_id INT NOT NULL,
+    challenge_id INT NOT NULL,
+    UNIQUE KEY uq_review_challenge (dialogue_id, challenge_id),
+    KEY idx_review_challenge (challenge_id),
+    FOREIGN KEY (dialogue_id) REFERENCES audio_lesson_dialogue(id),
+    FOREIGN KEY (challenge_id) REFERENCES audio_challenge(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE audio_lesson_dialogue ADD COLUMN marked_script TEXT NULL;

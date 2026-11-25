@@ -1,0 +1,91 @@
+Create an audio lesson in {target_language} for an absolute beginner, set in this situation: "{suggestion}", around the dialogue given below.
+
+THE ONE RULE ABOVE ALL OTHERS
+Everything said in {target_language} is what native speakers would actually say in this situation: every sentence, and every exchange, where each line is a natural answer to the line before it. And it means exactly what the Teacher says it means. The learner will copy all of it and cannot tell what is wrong from what is right, so a lesson with one unnatural sentence or exchange is worse than a shorter lesson without it. Everything below is in service of this rule; where anything below would push you to break it, do less instead.
+
+WHO THE LEARNER IS
+The learner is at level A0: they had never learned {target_language} before starting these lessons. They know only what they heard in their earlier lessons, listed below. They listen without seeing any text, so everything must be learnable by ear.
+
+WHAT THEY HAVE HEARD SO FAR
+{history}
+
+THE PEOPLE
+- The Learner: a {learner_gender}. In the dialogue, the Learner's lines are the ones the learner learns to SAY.
+- The Other person: a {other_gender}, the one the Learner talks to (the shopkeeper, the waiter, the neighbor). Their lines the learner only has to UNDERSTAND.
+- If words in {target_language} change with the gender of the person speaking or of the person spoken to (adjectives, participles, past forms, forms of address), everything the Learner says uses the forms for a {learner_gender} speaking to a {other_gender}, and everything the Other person says uses the forms for a {other_gender} speaking to a {learner_gender}.
+- If the people have names (in the dialogue or anywhere in the lesson), keep each name with its person: the Learner's name is a {learner_gender}'s name, the Other person's a {other_gender}'s. The same goes for titles (Mr, Mrs).
+
+HOW THE LESSON WORKS
+This lesson follows the method of Pimsleur's first lessons: very few new words, each heard and recalled many times, spread across the whole lesson.
+
+1. THE DIALOGUE is given, below. Use it exactly as it is: do not change, shorten or extend it. The whole lesson is built around it. Play it at the start, after the Teacher sets the scene, and tell the learner they will understand it by the end of the lesson. Play it again at the very end. To play it, write the line [dialogue]: do not write the dialogue out.
+
+{dialogue}
+
+2. THE NEW WORDS are what the dialogue contains that is not in the table above, function words included; some are best taught as short fixed chunks (e.g. "jeg forstår ikke"). They are of two kinds:
+   - words TO SAY: those in the Learner's lines;
+   - words TO UNDERSTAND: those only in the Other person's lines.
+   All other sentences in the lesson use only the new words and the words in the table.
+
+3. TEACHING THEM, in the order the dialogue needs them:
+   - Each word TO SAY: the Teacher says in {source_language} what it means and when you say it. Then the word, once, said by the Learner and marked [drill]: it will be said slowly and then at normal speed, with time to repeat it. Always the whole word: the voices are synthesized, and a piece of a word comes out as a wrong sound. Then a QUESTION (see below).
+   - Each line TO UNDERSTAND: the Teacher says in {source_language} what the Other person will say and what it means. The Other person says the line once, marked [understand]: it will be said slowly and then at normal speed. The learner does not repeat it.
+
+4. RECALL: after each new item, the learner recalls one or two things learned earlier, in this lesson or in the earlier ones:
+   - words TO SAY, about {recalls_to_say} times over the lesson, at growing distances, each as a QUESTION;
+   - lines TO UNDERSTAND, about {recalls_to_understand} times, each as an EXCHANGE (see below), so the lesson ends up practicing the whole conversation.
+
+5. NEW SENTENCES: where the words allow it, ask the learner for short sentences that are not in the dialogue but that someone in the situation would say ("Ask the shopkeeper whether he speaks English"), as QUESTIONS or EXCHANGES. With only a few words there are only a few such sentences; then recall more and combine less.
+
+6. THE EARLIER LESSONS: words from the most recent lessons in the table come back {earlier_words_recalls} in the recalls of step 4, words from older lessons now and then, so they are not forgotten. When they belong to another situation, the Teacher sets that situation in one sentence ("You are at the café again. Order a coffee."). If the table is empty, this is the first lesson.
+
+7. THE END: the Teacher tells the learner, in {source_language}, to listen to the conversation again and notice that they understand it now. Then the dialogue from step 1 once more.
+
+THE TWO WAYS THE LEARNER ANSWERS
+- A QUESTION: the Teacher asks, in {source_language}, for something to say ("How do you say a ticket?"). Right after it, the Learner's answer, once, marked [answer].
+- An EXCHANGE: first the Teacher says, in {source_language}, what is about to happen and what to answer ("The shopkeeper tells you the price. Say okay, and ask for a ticket."). Then the Other person's line, as in a real conversation. Right after it, the Learner's answer, once, marked [answer]. The learner answers the Other person, not the Teacher.
+The line right before an [answer] is its PROMPT: the Teacher's question, or the Other person's line. The time to answer is added after the prompt, so write the answer right after it, with nothing in between, and do not write the time.
+A prompt never says the answer, or any part of it, in {target_language}: the learner has to recall it. Say in {source_language} what to say, never how to say it. New words are given before, when they are taught, not in a prompt.
+
+THE TEACHER
+- Speaks {source_language}, and says more than in lessons for advanced learners: about half of the lesson. Short sentences, warm and calm.
+- No grammar explanations. At most one short sentence about a word when it really helps ("this is also what you say to get someone's attention").
+- When the Teacher says a {target_language} word or phrase inside a {source_language} sentence, put it in chevrons: "The word for coffee is «kaffe»." It is then said in {target_language}. Never write {target_language} in a Teacher line without chevrons.
+- Every challenge makes clear WHO speaks and to WHOM: "Ask the waiter...", "Say that you...", "Tell the shopkeeper that you...". The learner must never have to guess whether "you" means themselves or someone else.
+- The Teacher names the Other person by their role in the situation (the shopkeeper, the waiter, the neighbor), never with he, she, him or her.
+
+LENGTH
+Write only what is described above; do not fill time with more recalls of the same words. A review of the learner's earlier lessons is added to it afterwards, before the end, to make the lesson as long as they want: do not write one.
+
+IMPORTANT: On the very first line, output a short descriptive title for this lesson IN {source_language} (5-10 words, describing what happens in the conversation). Then a blank line, then the script. Do not include any other explanations or preamble.
+
+Use this exact format:
+
+    <title in {source_language}>
+
+    Teacher: <setting the scene, in {source_language}>
+    [dialogue]
+
+    Teacher: <explanation of a word TO SAY, in {source_language}>
+    Learner: <the word> [drill]
+    Teacher: <"How do you say ...?", in {source_language}>
+    Learner: <the word> [answer]
+
+    Teacher: <what the Other person will say, in {source_language}>
+    Other: <their line> [understand]
+    ...
+    Teacher: <what is about to happen and what to answer, naming the Other person by role, in {source_language}>
+    Other: <their line>
+    Learner: <the answer> [answer]
+    ...
+    Teacher: <listen again, in {source_language}>
+    [dialogue]
+
+RULES:
+- Use only the labels "Teacher:", "Learner:", "Other:"
+- Write each line on one line, starting with its plain label: no bold, no line breaks inside a line
+- Write no pauses and no timings: they are added after you. The only markers are [drill], [answer], [understand] at the end of a line, and the line [dialogue]
+- Each line is written once: never repeat a line to have it said twice; the markers do that
+- CRITICAL: Teacher MUST speak {source_language} for ALL lines, except words in «chevrons». Learner and Other speak {target_language}
+- Do NOT include greetings like "welcome to today's lesson": this script is one segment of a larger lesson.
+- No explanatory text, notes or translations outside the voice lines
