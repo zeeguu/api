@@ -16,7 +16,9 @@ from zeeguu.core.audio_lessons import lesson_review
 from zeeguu.core.audio_lessons.lesson_markup import (
     Card,
     MarkupError,
+    card_lines,
     cards,
+    time_to_answer,
     expand,
     review_lines,
     with_review,
@@ -97,7 +99,7 @@ def test_a_card_gives_the_meaning_then_time_to_answer_then_the_answer():
     assert lines == [
         "",
         "Woman: Den koster tolv kroner. [1 seconds]",
-        "Teacher: Answer her: say okay, and ask for a ticket. [5 seconds]",
+        "Teacher: Answer her: say okay, and ask for a ticket. [6 seconds]",  # a four-word answer
         "Man: Okay. En billet, tak. [3 seconds]",
         "Man: Okay. En billet, tak. [3 seconds]",
     ]
@@ -108,7 +110,7 @@ def test_a_lesson_without_cards_reviews_its_dialogue_answered_and_not_replayed()
     assert lines == [
         "",
         "Teacher: Buying a bus ticket. [1 seconds]",
-        "Woman: Hej. [5 seconds]",          # the learner (man) answers next
+        "Woman: Hej. [6 seconds]",          # the learner (man) answers next, in four words
         "Man: Hej. En billet, tak. [3 seconds]",
         "Woman: Værsgo. [1 seconds]",       # nothing to answer after it
     ]
@@ -211,3 +213,21 @@ def test_two_answers_to_one_question_make_one_card():
 def test_a_cue_only_counts_right_before_the_question():
     script = "Woman: Tolv kroner. [cue]\nTeacher: Listen.\nTeacher: Answer her.\nMan: Okay. [answer]"
     assert cards(script) == [Card(None, "Answer her.", ("man", "Okay."))]
+
+
+@pytest.mark.parametrize("answer,seconds", [
+    ("Hej.", 5),                                  # one word: thinking time only
+    ("En kaffe, tak.", 6),                        # three: 0.7 s more, rounded to 1
+    ("Okay. En billet, tak.", 6),                 # four: 1.4 s more
+    ("Undskyld, hvad koster en billet?", 7),      # five: 2.1 s more
+    (" ".join(["ord"] * 30), 11),                 # capped at 6 s more
+])
+def test_the_time_to_answer_grows_with_the_answer(answer, seconds):
+    assert time_to_answer(answer, VALUES) == seconds
+
+
+def test_a_longer_answer_gets_a_longer_pause_wherever_the_learner_answers():
+    lesson = expand("Teacher: Ask what a ticket costs.\nMan: Undskyld, hvad koster en billet? [answer]", VALUES, DIALOGUE)
+    assert lesson.splitlines()[0] == "Teacher: Ask what a ticket costs. [7 seconds]"
+    card = Card(None, "Ask what a ticket costs.", ("man", "Undskyld, hvad koster en billet?"))
+    assert card_lines(card, VALUES)[0] == "Teacher: Ask what a ticket costs. [7 seconds]"

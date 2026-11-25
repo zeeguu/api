@@ -42,6 +42,24 @@ _KNOWN_INLINE = ("slow",)
 _PLAIN = re.compile(r"\s*\[(?:plain|no marker|none)\]\s*$", re.IGNORECASE)
 
 
+# The time to answer is thinking time plus saying time. Thinking time is the
+# pace setting's answer pause, tuned on answers of one or two words; each word
+# beyond those adds the time a beginner takes to say it, slowly. A learner
+# asked for it: "Undskyld, hvad koster en billet?" had the same 5 seconds as
+# "Hej" (Nov 2026).
+WORDS_IN_THINKING_TIME = 2
+SECONDS_PER_EXTRA_WORD = 0.7
+MAX_EXTRA_SECONDS = 6
+_ANSWER_WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
+
+
+def time_to_answer(answer, values):
+    """Seconds of silence after a question whose answer is `answer`."""
+    words = len(_ANSWER_WORD.findall(answer))
+    extra = SECONDS_PER_EXTRA_WORD * max(0, words - WORDS_IN_THINKING_TIME)
+    return values["answer_pause"] + round(min(extra, MAX_EXTRA_SECONDS))
+
+
 class MarkupError(ValueError):
     """The script uses a marker wrongly; the message says how, for a rewrite."""
 
@@ -69,7 +87,8 @@ def respond_lines(dialogue, learner, values):
             out.append(_line(label, text, values["repeat_pause"]))
         else:
             learner_next = i + 1 < len(dialogue) and dialogue[i + 1][0] == learner
-            out.append(_line(label, text, values["answer_pause"] if learner_next else 1))
+            pause = time_to_answer(dialogue[i + 1][1], values) if learner_next else 1
+            out.append(_line(label, text, pause))
     return out
 
 
@@ -132,7 +151,7 @@ def expand(script, values, dialogue):
             # refused like any unknown marker, and the script rewritten.
             previous = next((i for i in range(len(out) - 1, -1, -1) if out[i]), None)
             if previous is not None and out[previous].startswith("Teacher:"):
-                out[previous] = _PAUSE.sub("", out[previous]) + f" [{values['answer_pause']} seconds]"
+                out[previous] = _PAUSE.sub("", out[previous]) + f" [{time_to_answer(text, values)} seconds]"
             out += [_line(voice, text, values["repeat_pause"])] * 2
         elif kind == "cue":
             out.append(_line(voice, text, 1))
@@ -223,7 +242,7 @@ def card_lines(card, values):
     out = []
     if card.context:
         out.append(_line(card.context[0].capitalize(), card.context[1], 1))
-    out.append(_line("Teacher", card.prompt, values["answer_pause"]))
+    out.append(_line("Teacher", card.prompt, time_to_answer(card.answer[1], values)))
     out += [_line(card.answer[0].capitalize(), card.answer[1], values["repeat_pause"])] * 2
     return out
 
