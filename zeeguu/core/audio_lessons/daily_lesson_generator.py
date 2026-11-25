@@ -810,9 +810,14 @@ class DailyLessonGenerator:
             if user_word:
                 words.append(user_word.as_dictionary())
             else:
+                # The owner's view renders each word with the web's <Word>,
+                # which reads from/to; a word the owner no longer has would
+                # otherwise crash the page.
                 words.append({
                     "origin": meaning.origin.content,
                     "translation": meaning.translation.content,
+                    "from": meaning.origin.content,
+                    "to": meaning.translation.content,
                 })
         return words
 
