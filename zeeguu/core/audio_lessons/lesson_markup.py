@@ -7,12 +7,27 @@ the learner's tuning says (lesson_tuning.prompt_values), rather than what the
 model made of "about 5 recalls" and "[4 seconds]", and the model writes about
 a quarter fewer lines. Design: docs future-work/a0-lesson-script-functions.md.
 
-    Woman: Kaffe. [drill]                  slow once, then at normal speed
-    Teacher: How do you say coffee?        the question: the Teacher line before an
-    Woman: En kaffe. [answer]              [answer] gets the time to answer; the
-                                           answer is said twice
-    Man: Hvad skal det være? [understand]  slow once, then at normal speed
-    Woman: Den koster tolv kroner. [cue]   a line the next question answers
+    Teacher lines are in the learner's own language and carry no marker. The
+    learned language is marked by what the learner does with it:
+
+    Woman: Kaffe. [drill]                  a word to SAY: slow once, then at
+                                           normal speed, with time to repeat it
+    Man: Hvad skal det være? [understand]  a line only to UNDERSTAND (the other
+                                           person's): slow once, then normal
+    Teacher: How do you say coffee?        a question: the Teacher line right
+    Woman: En kaffe. [answer]              before an [answer] gets the time to
+                                           answer; the answer is said twice
+
+    A [cue] is what the other person says that the learner then replies to.
+    It only comes as part of a question:
+
+    Man: Den koster tolv kroner. [cue]     he says something
+    Teacher: Answer him. Say okay.         the question
+    Woman: Okay. En billet, tak. [answer]  the learner's reply
+
+    The cue is said once. It matters for review: a card made from this
+    question plays the cue first, so "Answer him" has something to answer.
+
     [dialogue]                             this lesson's dialogue
 
 A line with no marker is said once, followed by one second (or by the pause
