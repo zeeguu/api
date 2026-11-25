@@ -136,10 +136,6 @@ def test_a_marker_meaning_no_marker_is_a_plain_line(marker):
     assert _expand(f"Learner: Tak. {marker}") == "Woman: Tak. [1 seconds]\n"
 
 
-def test_text_that_is_no_ones_line_is_dropped():
-    assert _expand("Here is your lesson:\n\nTeacher: Hello.") == "Teacher: Hello. [1 seconds]\n"
-
-
 # Learned-language words inside a Teacher sentence
 
 def test_a_chevron_span_is_said_by_the_teachers_learned_language_voice():
@@ -353,19 +349,10 @@ def test_a_review_asks_each_answer_once_the_most_overdue():
 
 # From the review of #978
 
-def test_a_bold_or_upper_case_teacher_label_is_kept():
-    lines = _expand("**Teacher:** How do you say coffee?\nTEACHER: Say it.").splitlines()
-    assert lines == ["Teacher: How do you say coffee? [1 seconds]", "Teacher: Say it. [1 seconds]"]
-
-
-def test_a_wrapped_line_is_joined_to_the_line_it_continues():
-    lines = _expand("Teacher: The waiter asks what you want.\nAsk for a coffee.\nLearner: En kaffe. [answer]").splitlines()
-    assert lines[0].startswith("Teacher: The waiter asks what you want. Ask for a coffee. [")
-
-
-def test_a_challenge_reads_a_bold_teacher_question():
-    marked = roles_to_voices("**Teacher:** How do you say coffee?\nLearner: En kaffe. [answer]", LEARNER)
-    assert challenges(marked, LEARNER)[0].prompt == Utterance("teacher", "How do you say coffee?")
+@pytest.mark.parametrize("line", ["**Teacher:** How do you say coffee?", "Ask for a coffee.", "Here is your lesson:"])
+def test_a_line_without_a_voice_label_is_refused_for_a_rewrite(line):
+    with pytest.raises(MarkupError, match="without a voice label"):
+        _expand(f"Teacher: The waiter asks what you want.\n{line}\nLearner: En kaffe. [answer]")
 
 
 def test_a_marker_before_a_pause_the_model_wrote_is_still_read():
@@ -386,3 +373,22 @@ def test_the_review_goes_before_a_closing_sentence_with_chevrons_not_into_it():
 def test_a_sentence_with_chevrons_counts_as_one_line():
     lines = _expand("Teacher: The word for coffee is «kaffe». Say it.\nTeacher: Good.").splitlines()
     assert len(lines) == 4 and voice_line_count(lines) == 2
+
+
+@pytest.mark.parametrize("raw, title", [
+    ("At the café\n\nTeacher: Hi.\n[dialogue]", "At the café"),
+    ("**At the café**\nTeacher: Hi.\n[dialogue]", "At the café"),
+    ("Woman: Kaffe. [drill]\nTeacher: Hi.", None),  # no title: the first line is a voice line
+])
+def test_the_title_is_the_first_line_when_it_is_not_a_voice_line(raw, title):
+    from unittest.mock import patch
+
+    from zeeguu.core.audio_lessons import script_generator
+
+    a0 = {"values": VALUES, "dialogue": DIALOGUE, "learner": LEARNER, "heard": []}
+    with patch.object(script_generator, "generate_script_in_languages", return_value=(raw, "model")):
+        got, *_ = script_generator._write_dialogue_lesson(
+            "prompt", a0, origin_language="da", translation_language="en", suggestion="café",
+            max_tokens=100, short_lines=True,
+        )
+    assert (got.strip("*") if got else got) == title

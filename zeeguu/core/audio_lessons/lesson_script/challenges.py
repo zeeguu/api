@@ -9,7 +9,6 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from zeeguu.core.audio_lessons.lesson_script.expand import clean_script
 from zeeguu.core.audio_lessons.lesson_script.markers import LINE_MARKER, VOICE_LINE
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine, spoken_lines
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
@@ -50,7 +49,7 @@ def marked_lines(marked) -> list:
     """The voice lines of a marked script, in order; the title, blank lines
     and [dialogue] are left out."""
     lines = []
-    for raw in clean_script(marked).split("\n"):
+    for raw in (marked or "").split("\n"):
         voice_line = VOICE_LINE.match(raw.strip())
         if not voice_line:
             continue

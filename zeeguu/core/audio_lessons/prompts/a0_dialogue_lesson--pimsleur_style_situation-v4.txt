@@ -83,6 +83,7 @@ Use this exact format:
 
 RULES:
 - Use only the labels "Teacher:", "Learner:", "Other:"
+- Write each line on one line, starting with its plain label: no bold, no line breaks inside a line
 - Write no pauses and no timings: they are added after you. The only markers are [drill], [answer], [understand] at the end of a line, and the line [dialogue]
 - Each line is written once: never repeat a line to have it said twice; the markers do that
 - CRITICAL: Teacher MUST speak {source_language} for ALL lines, except words in «chevrons». Learner and Other speak {target_language}

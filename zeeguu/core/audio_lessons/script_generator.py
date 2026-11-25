@@ -13,6 +13,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
 )
 from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
 from zeeguu.core.audio_lessons.lesson_script.challenges import challenges
+from zeeguu.core.audio_lessons.lesson_script.markers import VOICE_LINE
 from zeeguu.core.audio_lessons.lesson_script.roles import roles_to_voices, voices_to_roles
 from zeeguu.core.audio_lessons.lesson_script.voices import other_voice
 from zeeguu.core.audio_lessons.words_heard import history_table
@@ -614,7 +615,8 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
         title = None
         script = raw
         lines = raw.strip().split("\n", 1)
-        if len(lines) == 2 and not lines[0].strip().startswith("Teacher:"):
+        # The title: a first line that is not a voice line or a marker.
+        if len(lines) == 2 and not VOICE_LINE.match(lines[0].strip()) and not lines[0].strip().startswith("["):
             title = lines[0].strip().lstrip("#").strip()[:200]
             script = lines[1].strip()
 

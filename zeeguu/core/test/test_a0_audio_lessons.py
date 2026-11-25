@@ -318,7 +318,7 @@ class StoredDialogueTest(ModelTestMixIn):
         daily = DailyAudioLesson(self.user, "test", language=self.user.learned_language)
         daily.created_at = datetime.utcnow() - timedelta(hours=hours_ago)
         db.session.add_all([dialogue, daily])
-        db.session.add(DailyAudioLessonSegment(daily, "dialogue", audio_lesson_dialogue=dialogue))
+        db.session.add(DailyAudioLessonSegment(daily, "dialogue_lesson", audio_lesson_dialogue=dialogue))
         db.session.flush()
 
 
