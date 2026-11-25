@@ -38,6 +38,7 @@ future-work/a0-lesson-script-functions.md.
 
 The modules, in the order a script goes through them:
 
+    voices          the voice names, and how they are written in a script
     roles           Learner/Other <-> Man/Woman
     markers         the line patterns the others share
     spoken_line     SpokenLine, one line of the expanded script; «chevrons»

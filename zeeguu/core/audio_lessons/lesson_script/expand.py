@@ -10,6 +10,7 @@ from dataclasses import replace
 from zeeguu.core.audio_lessons.lesson_script.markers import DIALOGUE_MARKER, LINE_MARKER, VOICE_LINE
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine, spoken_lines, without_chevrons
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
+from zeeguu.core.audio_lessons.lesson_script.voices import TEACHER
 
 _PAUSE = re.compile(r"\s*\[([0-9.]+)\s*seconds?\]\s*$", re.IGNORECASE)
 _ANY_MARKER = re.compile(r"\[([a-z][a-z ]*\d*)\]", re.IGNORECASE)
@@ -77,7 +78,7 @@ def expand(script, values, dialogue, learner):
             problems.append(f"{line!r}: unknown marker [{unknown[0]}]")
             continue
         text = re.sub(r"\s*\[slow\]", "", text, flags=re.IGNORECASE)
-        if voice != "teacher":
+        if voice != TEACHER:
             text = without_chevrons(text)
 
         if kind == "drill":

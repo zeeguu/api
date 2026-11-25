@@ -7,6 +7,7 @@ from zeeguu.core.audio_lessons.lesson_script.challenges import challenge_lines
 from zeeguu.core.audio_lessons.lesson_script.markers import VOICE_LINE
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine, spoken_lines
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
+from zeeguu.core.audio_lessons.lesson_script.voices import TEACHER
 
 
 def respond_lines(dialogue, learner, values):
@@ -41,7 +42,7 @@ def review_lines(items, values):
         if item.challenge is not None:
             out += challenge_lines(item.challenge, values)
         else:
-            out += spoken_lines("teacher", f"{item.lesson.title}.", 1)
+            out += spoken_lines(TEACHER, f"{item.lesson.title}.", 1)
             out += respond_lines(item.lesson.dialogue, item.lesson.learner, values)
     return out
 

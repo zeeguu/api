@@ -12,6 +12,7 @@ from typing import Optional
 from zeeguu.core.audio_lessons.lesson_script.markers import LINE_MARKER, VOICE_LINE
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine, spoken_lines
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
+from zeeguu.core.audio_lessons.lesson_script.voices import PEOPLE, TEACHER, TEACHERS
 
 
 @dataclass(frozen=True)
@@ -32,7 +33,7 @@ class Challenge:
 
     @property
     def kind(self):
-        return "question" if self.prompt.voice in ("teacher", "teacherl2") else "exchange"
+        return "question" if self.prompt.voice in TEACHERS else "exchange"
 
 
 @dataclass(frozen=True)
@@ -87,9 +88,9 @@ def challenges(marked, learner):
         answers_seen.add(line.text.lower())
 
         setup = None
-        if prompt.voice in ("man", "woman"):
+        if prompt.voice in PEOPLE:
             before = lines[i - 2] if i >= 2 else None
-            setup = before.text if before and before.voice == "teacher" else None
+            setup = before.text if before and before.voice == TEACHER else None
 
         found.append(Challenge(
             setup=setup,
@@ -104,7 +105,7 @@ def challenge_lines(challenge, values):
     answers, the time to answer, then the answer twice."""
     out = []
     if challenge.setup:
-        out += spoken_lines("teacher", challenge.setup, 1)
+        out += spoken_lines(TEACHER, challenge.setup, 1)
     out += spoken_lines(challenge.prompt.voice, challenge.prompt.text, time_to_answer(challenge.answer.text, values))
     out += [SpokenLine(challenge.answer.voice, challenge.answer.text, values["repeat_pause"])] * 2
     return out

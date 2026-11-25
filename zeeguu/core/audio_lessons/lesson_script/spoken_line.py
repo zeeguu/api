@@ -10,6 +10,8 @@ SSML to switch language within a sentence, so the switch is made in segments.
 import re
 from dataclasses import dataclass
 
+from zeeguu.core.audio_lessons.lesson_script.voices import TEACHER, TEACHER_L2, label
+
 # One «…» span, with the punctuation right after it: "«kaffe». Say it." is
 # "kaffe." then "Say it.", not "kaffe" then a lone ".".
 CHEVRON_SPAN = re.compile(r"«([^»]+)»([.,!?;:…]*)")
@@ -38,13 +40,6 @@ class SpokenLine:
         return f"{label(self.voice)}: {self.text}{slow} [{_seconds(self.pause)} seconds]"
 
 
-def label(voice):
-    """How a voice is written at the start of a script line: "teacherl2" ->
-    "TeacherL2". Voices are lowercase everywhere else; only the written-out
-    script has labels."""
-    return "TeacherL2" if voice == "teacherl2" else voice.capitalize()
-
-
 def _seconds(value):
     return int(value) if float(value).is_integer() else value
 
@@ -57,7 +52,7 @@ def spoken_lines(voice, text, pause) -> list:
     (TeacherL2), joined by PAUSE_AT_LANGUAGE_SWITCH. In any other line the
     chevrons are just dropped.
     """
-    if voice != "teacher" or "«" not in text:
+    if voice != TEACHER or "«" not in text:
         return [SpokenLine(voice, without_chevrons(text), pause)]
 
     segments = []
@@ -65,13 +60,13 @@ def spoken_lines(voice, text, pause) -> list:
     for span in CHEVRON_SPAN.finditer(text):
         teacher_text = text[position:span.start()].strip()
         if teacher_text:
-            segments.append(("teacher", teacher_text))
+            segments.append((TEACHER, teacher_text))
         learned_text, punctuation = span.groups()
-        segments.append(("teacherl2", learned_text.strip() + punctuation))
+        segments.append((TEACHER_L2, learned_text.strip() + punctuation))
         position = span.end()
     rest = text[position:].strip()
     if rest:
-        segments.append(("teacher", rest))
+        segments.append((TEACHER, rest))
 
     *joined, last = segments
     return [SpokenLine(v, t, PAUSE_AT_LANGUAGE_SWITCH) for v, t in joined] + [SpokenLine(*last, pause)]

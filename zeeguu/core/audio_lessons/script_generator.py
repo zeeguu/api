@@ -12,7 +12,8 @@ from zeeguu.core.audio_lessons.script_language_validator import (
 )
 from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
 from zeeguu.core.audio_lessons.lesson_script.challenges import challenges
-from zeeguu.core.audio_lessons.lesson_script.roles import other_voice, roles_to_voices, voices_to_roles
+from zeeguu.core.audio_lessons.lesson_script.roles import roles_to_voices, voices_to_roles
+from zeeguu.core.audio_lessons.lesson_script.voices import other_voice
 from zeeguu.core.audio_lessons.words_heard import history_table
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
