@@ -177,7 +177,7 @@ def test_the_language_check_does_not_read_chevron_spans_as_the_teachers_language
     ("En kaffe, tak.", 6),                        # 2 + 3.6
     ("Okay. En billet, tak.", 7),                 # 2 + 4.8
     ("Undskyld, hvad koster en billet?", 8),      # 2 + 6
-    (" ".join(["ord"] * 30), 15),                 # capped
+    (" ".join(["ord"] * 30), 12),                 # capped
 ])
 def test_the_time_to_answer_grows_with_the_answer(answer, seconds):
     assert time_to_answer(answer, VALUES) == seconds

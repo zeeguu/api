@@ -96,7 +96,9 @@ _PLAIN = re.compile(r"\s*\[(?:plain|no marker|none)\]\s*$", re.IGNORECASE)
 SECONDS_TO_START = 2
 SECONDS_PER_WORD = 1.2
 DEFAULT_ANSWER_PAUSE = 5
-MIN_SECONDS, MAX_SECONDS = 2, 15
+# 12 s at most: at the default pace no A0 answer in the evaluation needed
+# more (8 words: 12 s); the slowest pace hit 15 s only for 4 answers of 293.
+MIN_SECONDS, MAX_SECONDS = 2, 12
 _ANSWER_WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")
 
 
@@ -125,32 +127,37 @@ _CHEVRONS = re.compile(r"«([^»]+)»")
 PAUSE_AROUND_LEARNED_WORDS = 0
 
 
+# One «…» span, with the punctuation right after it: "«kaffe». Say it." is
+# "kaffe." then "Say it.", not "kaffe" then a lone ".".
+_LEARNED_SPAN = re.compile(r"«([^»]+)»([.,!?;:…]*)")
+
+
 def spoken(voice, text, pause):
     """
     The voice lines that say `text`, followed by `pause` seconds. A Teacher
-    line with «…» in it becomes Teacher / TeacherL2 segments joined without a
-    pause; in any other line the chevrons are just dropped.
+    line with «…» in it becomes segments: the text between the spans in the
+    Teacher's voice, each span in the teacher's learned-language voice
+    (TeacherL2), joined by PAUSE_AROUND_LEARNED_WORDS. In any other line the
+    chevrons are just dropped.
     """
     if voice != "Teacher" or "«" not in text:
         return [_line(voice, _CHEVRONS.sub(r"\1", text), pause)]
-    parts = _CHEVRONS.split(text)
+
     segments = []
-    for i, part in enumerate(parts):
-        part = part.strip()
-        # Punctuation right after a learned-language word belongs to it:
-        # "«kaffe». Say it." is "kaffe." then "Say it.", not a lone ".".
-        if segments and segments[-1][0] == "TeacherL2" and i % 2 == 0:
-            punctuation = re.match(r"^[.,!?;:…]+", part)
-            if punctuation:
-                segments[-1] = ("TeacherL2", segments[-1][1] + punctuation.group(0))
-                part = part[punctuation.end():].strip()
-        if part:
-            segments.append(("TeacherL2" if i % 2 else "Teacher", part))
-    if not segments:
-        return []
-    return [_line(v, t, PAUSE_AROUND_LEARNED_WORDS) for v, t in segments[:-1]] + [
-        _line(*segments[-1], pause)
-    ]
+    position = 0
+    for span in _LEARNED_SPAN.finditer(text):
+        teacher_text = text[position:span.start()].strip()
+        if teacher_text:
+            segments.append(("Teacher", teacher_text))
+        learned_text, punctuation = span.groups()
+        segments.append(("TeacherL2", learned_text.strip() + punctuation))
+        position = span.end()
+    rest = text[position:].strip()
+    if rest:
+        segments.append(("Teacher", rest))
+
+    *joined, last = segments
+    return [_line(v, t, PAUSE_AROUND_LEARNED_WORDS) for v, t in joined] + [_line(*last, pause)]
 
 
 def _line(voice, text, pause):
@@ -202,10 +209,11 @@ def expand(script, values, dialogue, learner):
             continue
 
         if line.startswith("["):
-            if _PAUSE.fullmatch(line):
-                out.append(line)
-            else:
-                problems.append(f"{line!r}: not a marker that stands on its own line")
+            # Only [dialogue] stands on a line of its own (handled above), and
+            # the model writes no pauses. Anything else would be skipped
+            # silently by the parser: a [drill] on its own line, say, would
+            # leave its word undrilled.
+            problems.append(f"{line!r}: not a marker that stands on its own line")
             continue
 
         voice_line = _VOICE_LINE.match(line)
