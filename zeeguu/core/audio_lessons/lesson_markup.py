@@ -17,16 +17,22 @@ a quarter fewer lines. Design: docs future-work/a0-lesson-script-functions.md.
                                              normal speed, with time to repeat it
     Other: Hvad skal det være? [understand]  a line only to UNDERSTAND: slow
                                              once, then at normal speed
-    Teacher: How do you say coffee?          a QUESTION: the line right before
-    Learner: En kaffe. [answer]              an [answer] gets the time to answer;
-                                             the answer is said twice
+    Teacher: How do you say coffee?          a QUESTION: the Teacher asks
+    Learner: En kaffe. [answer]              the answer, said twice
 
     An EXCHANGE: the Teacher sets it up, the Other person speaks, and the
     learner replies to them, as in a real conversation:
 
     Teacher: The shopkeeper tells you the price. Say okay, and ask for a ticket.
-    Other: Den koster tolv kroner.           the line the learner answers
+    Other: Den koster tolv kroner.           the PROMPT
     Learner: Okay. En billet, tak. [answer]
+
+    The line right before an [answer] is its PROMPT: the Teacher's question,
+    or the Other person's line in an exchange. Only a prompt gets the time to
+    answer; every other line is followed by one second. There is no marker
+    for it: a marker the model had to place ([ask]) was put in the wrong place
+    in three different ways, and an answer placed after what it answers is
+    the one thing the model gets right every time.
 
     [dialogue]                             this lesson's dialogue
 
