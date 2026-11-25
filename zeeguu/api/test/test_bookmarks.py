@@ -143,3 +143,20 @@ def test_deleting_the_last_bookmark_takes_the_word_out_of_study(client):
 
     db.session.expire_all()
     assert db.session.get(UserWord, user_word_id).fit_for_study is False
+
+
+def test_a_word_without_a_preferred_bookmark_gets_its_latest_one_in_the_words_list(client):
+    add_context_types()
+    add_source_types()
+    from fixtures import add_one_bookmark
+    from zeeguu.api.endpoints.exercises import user_words_as_dicts
+    from zeeguu.core.model import db
+    from zeeguu.core.model.bookmark import Bookmark
+
+    bookmark = db.session.get(Bookmark, add_one_bookmark(client))
+    user_word = bookmark.user_word
+    user_word.preferred_bookmark = None
+    db.session.commit()
+
+    assert len(user_words_as_dicts([user_word], tokenize=False)) == 1
+    assert user_word.preferred_bookmark_id == bookmark.id

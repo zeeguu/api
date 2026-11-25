@@ -18,6 +18,11 @@ usual tokenization cost.
 Usage:
     python -m tools.cleanup_tokenization_cache [--days N]
     python -m tools.cleanup_tokenization_cache --language da [--dry-run]
+
+On the server, run --language in the run_task container, which talks to
+stanza_crawl instead of the Stanza service live readers use (tens of
+thousands of calls for Danish):
+    docker compose run --rm run_task python -m tools.cleanup_tokenization_cache --language da
 """
 import argparse
 import sys
@@ -44,9 +49,13 @@ def retokenize_language(code, dry_run):
         return
 
     retokenize.clear_rebuildable(db.session, language)
-    print("Articles, pasted texts and bookmark contexts cleared; they re-tokenize on next read.")
-    done, kept = retokenize.retokenize_level_adapted(db.session, language)
-    print(f"Level-adapted texts re-tokenized: {done}, kept old tokens: {kept}.")
+    print("Articles and pasted texts cleared; they re-tokenize on next read.")
+    for what, run in (
+        ("Bookmark contexts", retokenize.retokenize_bookmark_contexts),
+        ("Level-adapted texts", retokenize.retokenize_level_adapted),
+    ):
+        done, kept = run(db.session, language)
+        print(f"{what} re-tokenized: {done}, kept old tokens: {kept}.")
 
 
 def main():

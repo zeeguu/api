@@ -3,7 +3,7 @@ redone; other languages are left alone."""
 
 import pytest
 
-from fixtures import add_context_types, add_source_types, create_and_get_article
+from fixtures import add_context_types, add_one_bookmark, add_source_types, create_and_get_article
 from fixtures import logged_in_client as client
 
 GERMAN = "Das Training morgen fällt leider aus."
@@ -83,3 +83,19 @@ def test_a_level_adapted_text_that_fails_keeps_its_old_tokens(client, monkeypatc
 
     assert (done, kept) == (0, 1)
     assert row.tokenized_summary == ["old"]
+
+
+def test_exercise_sentences_are_retokenized_in_place(client):
+    from zeeguu.core.model import db
+    from zeeguu.core.model.bookmark import Bookmark
+    from zeeguu.core.model.language import Language
+    from zeeguu.core.tokenization import retokenize
+
+    context = db.session.get(Bookmark, add_one_bookmark(client)).context
+    context.cached_tokenized = ["old"]
+    db.session.commit()
+
+    done, kept = retokenize.retokenize_bookmark_contexts(db.session, Language.find("de"), progress=lambda _: None)
+
+    assert (done, kept) == (1, 0)
+    assert context.cached_tokenized != ["old"]

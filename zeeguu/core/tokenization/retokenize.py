@@ -6,15 +6,19 @@ old grouping.
 
 Four caches hold tokens:
   articles             dropped; rebuilt on next read
-  pasted texts         cleared; rebuilt on next read
-  bookmark contexts    cleared; rebuilt on next read (the exercise sentences)
+  pasted texts         cleared; rebuilt on next read (a handful)
+  bookmark contexts    re-tokenized here: rebuilt on read, an exercise
+    (exercise sentences) session would make one Stanza call per word
   level-adapted        re-tokenized here: nothing rebuilds them, and a row
     summaries/titles   without tokens is not shown
+A text that fails to re-tokenize keeps its old tokens.
 
-Run through tools/cleanup_tokenization_cache.py --language CODE.
+Run through tools/cleanup_tokenization_cache.py --language CODE, in the
+run_task container: it talks to stanza_crawl, so tens of thousands of calls
+stay off the Stanza service live readers wait on.
 """
 
-from sqlalchemy import null, select
+from sqlalchemy import select
 
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.article_tokenization_cache import ArticleTokenizationCache
@@ -56,42 +60,64 @@ def count_cached(session, language):
 
 
 def clear_rebuildable(session, language):
-    """Drop the tokens that are rebuilt on next read."""
+    """Drop the tokens that are rebuilt on next read: articles, pasted texts."""
     ArticleTokenizationCache.delete_for_language(session, language.code)
-    # null(), not None: on a JSON column None stores the JSON value null
     _short_texts(language).update(
-        {ShortText.tokenized_paragraphs: null()}, synchronize_session=False
-    )
-    _bookmark_contexts(language).update(
-        {BookmarkContext.cached_tokenized: null()}, synchronize_session=False
+        {ShortText.tokenized_paragraphs: None}, synchronize_session=False
     )
     session.commit()
 
 
-def retokenize_level_adapted(session, language, progress=print):
-    """Re-tokenize level-adapted summaries and titles in place. A row that fails
-    keeps its old tokens: without them it would not be shown at all.
-    Returns (re-tokenized, kept old)."""
-    from zeeguu.core.mwe import tokenize_for_reading
-
-    def tokenized(text):
-        return tokenize_for_reading(text, language, mode="stanza") if text else None
-
-    rows = _level_adapted(language).all()
+def _retokenize_rows(session, rows, retokenize_row, what, progress):
+    """retokenize_row(row) sets the new tokens, or raises and the row keeps
+    its old ones. Returns (re-tokenized, kept old)."""
     failed = 0
     for i, row in enumerate(rows, 1):
         try:
-            summary, title = tokenized(row.summary), tokenized(row.title)
+            retokenize_row(row)
         except Exception as e:
             failed += 1
-            progress(f"  level-adapted text {row.id}: kept old tokens ({e})")
-            continue
+            progress(f"  {what} {row.id}: kept old tokens ({e})")
+        if i % 50 == 0:
+            session.commit()
+            progress(f"  {i}/{len(rows)} {what}")
+    session.commit()
+    return len(rows) - failed, failed
+
+
+def retokenize_bookmark_contexts(session, language, progress=print):
+    """Re-tokenize the cached exercise sentences in place."""
+    from zeeguu.core.mwe import tokenize_for_reading
+
+    def retokenize(context):
+        if not context.text:
+            raise ValueError("its text was deleted")
+        context.cached_tokenized = tokenize_for_reading(
+            context.get_content(),
+            context.language,
+            mode="stanza",
+            start_token_i=context.token_i,
+            start_sentence_i=context.sentence_i,
+        )
+
+    return _retokenize_rows(
+        session, _bookmark_contexts(language).all(), retokenize, "bookmark contexts", progress
+    )
+
+
+def retokenize_level_adapted(session, language, progress=print):
+    """Re-tokenize level-adapted summaries and titles in place: without tokens
+    a row is not shown at all."""
+    from zeeguu.core.mwe import tokenize_for_reading
+
+    def retokenize(row):
+        summary = tokenize_for_reading(row.summary, language, mode="stanza") if row.summary else None
+        title = tokenize_for_reading(row.title, language, mode="stanza") if row.title else None
         if summary:
             row.tokenized_summary = summary
         if title:
             row.tokenized_title = title
-        if i % 50 == 0:
-            session.commit()
-            progress(f"  {i}/{len(rows)} level-adapted texts")
-    session.commit()
-    return len(rows) - failed, failed
+
+    return _retokenize_rows(
+        session, _level_adapted(language).all(), retokenize, "level-adapted texts", progress
+    )
