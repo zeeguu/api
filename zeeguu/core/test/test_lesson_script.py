@@ -114,7 +114,7 @@ def test_no_marker_is_left_in_the_expanded_script():
 
 @pytest.mark.parametrize("script,problem", [
     ("Learner: Kaffe. [shout]", "unknown marker [shout]"),
-    ("[review]", "not a marker that stands on its own line"),
+    ("[rehearse]", "not a marker that stands on its own line"),
     # No [ask] and no [cue]: what the learner answers is the line before [answer].
     ("Teacher: How do you say coffee? [ask]", "unknown marker [ask]"),
     ("Other: Den koster tolv kroner. [cue]", "unknown marker [cue]"),
@@ -424,3 +424,47 @@ def test_the_shared_parser_keeps_guillemets_in_teacher_lines():
     from zeeguu.core.audio_lessons.script_parser import parse_script
 
     assert "«Bahnhof»" in parse_script("Teacher: Le mot «Bahnhof» veut dire gare.")[0][1]
+
+
+# Prompt v5: [review], chevrons checked, the scene set first
+
+V5 = (
+    "Teacher: You are at the café.\n[dialogue]\nLearner: Kaffe. [drill]\n\n"
+    "Teacher: Now some things from your earlier lessons.\n[review]\n\n"
+    "Teacher: Listen again.\n[dialogue]"
+)
+
+
+def test_the_review_goes_where_the_model_put_review_after_its_introduction():
+    lines = with_review(_expand(V5), review_lines([ORDER_COFFEE], VALUES)).splitlines()
+    intro = lines.index("Teacher: Now some things from your earlier lessons. [1 seconds]")
+    assert lines[intro + 1:intro + 3] == ["", "Teacher: The waiter asks what you want. Ask for a coffee. [1 seconds]"]
+    assert "[review]" not in lines
+
+
+def test_with_nothing_to_review_the_introduction_goes_too():
+    text = with_review(_expand(V5), [])
+    assert "earlier lessons" not in text and "[review]" not in text
+    assert "Teacher: Listen again. [1 seconds]" in text
+
+
+def test_a_chevron_span_must_be_a_learned_language_word_of_this_lesson_or_an_earlier_one():
+    script = roles_to_voices(
+        "Teacher: Hi.\n[dialogue]\nTeacher: You know «tak». The word for «very» is «mange».\nLearner: Mange tak. [drill]",
+        LEARNER,
+    )
+    with pytest.raises(MarkupError, match="very is not one"):
+        expand_lines(script, VALUES, DIALOGUE, LEARNER, known_words={"tak"})
+    ok = script.replace("«very»", "very")
+    assert expand_lines(ok, VALUES, DIALOGUE, LEARNER, known_words={"tak"})
+
+
+def test_a_transliteration_in_chevrons_is_refused():
+    script = roles_to_voices("Teacher: Hi.\n[dialogue]\nTeacher: You know «blagodarya».\nLearner: Благодаря. [drill]", LEARNER)
+    with pytest.raises(MarkupError, match="blagodarya"):
+        expand_lines(script, VALUES, (("man", "Благодаря."),), LEARNER, known_words=set())
+
+
+def test_the_dialogue_is_not_played_before_the_teacher_sets_the_scene():
+    with pytest.raises(MarkupError, match="set the scene first"):
+        _expand("[dialogue]\nTeacher: Hi.\nLearner: Kaffe. [drill]")

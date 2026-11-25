@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Optional
 
-from zeeguu.core.audio_lessons.lesson_script.markers import DIALOGUE_MARKER, LINE_MARKER, VOICE_LINE
+from zeeguu.core.audio_lessons.lesson_script.markers import DIALOGUE_MARKER, LINE_MARKER, REVIEW_MARKER, VOICE_LINE
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import SpokenLine, spoken_lines, without_chevrons
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
 from zeeguu.core.audio_lessons.lesson_script.voices import PEOPLE, TEACHER, TEACHERS
@@ -55,7 +55,7 @@ def marked_lines(marked) -> list:
     """
     lines = []
     for raw in (marked or "").split("\n"):
-        if DIALOGUE_MARKER.match(raw.strip()):
+        if DIALOGUE_MARKER.match(raw.strip()) or REVIEW_MARKER.match(raw.strip()):
             lines.append(MarkedLine(None, "", "dialogue"))
             continue
         voice_line = VOICE_LINE.match(raw.strip())

@@ -455,7 +455,7 @@ def test_each_of_the_two_calls_records_its_own_model(monkeypatch):
         "da", "en", "at a café", "situation", cefr_level="A0", heard=[], learner_character="man"
     )
     assert generated.model_name == "claude-sonnet-5-5"
-    assert generated.prompt_version == "a0_dialogue_lesson-v4"
+    assert generated.prompt_version == "a0_dialogue_lesson-v5"
     assert generated.dialogue.model_name == "deepseek-chat"
     assert generated.dialogue.script.startswith("Woman: Hej!")
 
