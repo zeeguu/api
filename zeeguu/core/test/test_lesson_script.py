@@ -140,8 +140,8 @@ def test_a_marker_meaning_no_marker_is_a_plain_line(marker):
     assert _expand(f"Learner: Tak. {marker}") == "Woman: Tak. [1 seconds]\n"
 
 
-def test_a_title_line_is_kept():
-    assert _expand("At the café\n\nTeacher: Hello.").startswith("At the café\n")
+def test_text_that_is_no_ones_line_is_dropped():
+    assert _expand("Here is your lesson:\n\nTeacher: Hello.") == "Teacher: Hello. [1 seconds]\n"
 
 
 # Learned-language words inside a Teacher sentence

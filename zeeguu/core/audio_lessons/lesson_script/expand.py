@@ -26,8 +26,8 @@ class MarkupError(ValueError):
 def expand(script, values, dialogue, learner):
     """
     The full script from a marked one, its lines already labeled with voices.
-    Built as SpokenLines (and the title and blank lines as they are), written
-    out as text at the end.
+    Built as SpokenLines (and blank lines as they are), written out as text
+    at the end.
 
     values: lesson_tuning.prompt_values; dialogue: this lesson's dialogue as
     [(voice, text)]; learner: the learner's voice, "man" or "woman".
@@ -55,8 +55,9 @@ def expand(script, values, dialogue, learner):
 
         voice_line = VOICE_LINE.match(line)
         if not voice_line:
-            # The title: kept as it is.
-            out.append(line)
+            # Text that is no one's line ("Here is your lesson:"): nobody would
+            # say it, so it is not kept. The title is not here: it was taken
+            # off the first line before expanding (_write_dialogue_lesson).
             continue
 
         voice, text = voice_line.groups()
