@@ -56,6 +56,9 @@ def get_count_of_all_scheduled_user_words():
 def get_user_words_recommended_for_practice():
 
     user = User.find_by_id(flask.g.user_id)
+    # Here and not in user_words_to_study: it writes, and the count below
+    # must not change the schedule it counts.
+    BasicSRSchedule.give_slots_to_more_frequent_words(user)
     to_study = BasicSRSchedule.user_words_to_study(user)
     # A context that is not a good exercise sentence (cut short, too long,
     # above the learner's level or of unknown level) gives way to a generated

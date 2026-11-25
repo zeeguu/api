@@ -46,6 +46,15 @@ class UserPreference(db.Model):
     SHOW_MWE_HINTS = "show_mwe_hints"  # Show hints for multi-word expressions
     SHOW_READING_TIMER = "show_reading_timer"  # Show timer in reader and exercises
     EMAIL_ON_ARTICLE_SHARED = "email_on_article_shared"  # Email me when a friend shares an article
+    # How practice slots are given out (word_scheduling/basicSR/frequency_slots.py).
+    # Both fill a free slot with the most frequent waiting word; they differ
+    # in whether a slot, once given, is kept.
+    WORD_SCHEDULING_STRATEGY = "word_scheduling_strategy"
+    # a word keeps its slot until it is learned (unset means this)
+    FIRST_COME = "first_come"
+    # a more frequent waiting word takes the slot of a rarer word below level 2
+    FREQUENCY_PRIORITY = "frequency_priority"
+    WORD_SCHEDULING_STRATEGIES = (FIRST_COME, FREQUENCY_PRIORITY)
 
     # Minutes of study a day that count the day for the streak, counted in each
     # language separately; Aiki mode and the study reminder (on the phone) read
@@ -179,6 +188,16 @@ class UserPreference(db.Model):
             user_id=user.id, key=cls.FILTER_DISTURBING_CONTENT
         ).first()
         return filter_setting and filter_setting.value == "true"
+
+    @classmethod
+    def get_word_scheduling_strategy(cls, user: User):
+        """One of WORD_SCHEDULING_STRATEGIES; FIRST_COME when unset."""
+        setting = UserPreference.query.filter_by(
+            user_id=user.id, key=cls.WORD_SCHEDULING_STRATEGY
+        ).first()
+        if setting and setting.value in cls.WORD_SCHEDULING_STRATEGIES:
+            return setting.value
+        return cls.FIRST_COME
 
     @classmethod
     def is_email_on_article_shared_enabled(cls, user: User):
