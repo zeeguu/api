@@ -29,6 +29,9 @@ redis==7.4.1  # Shared rate-limit counters (RATELIMIT_STORAGE_URI=redis://...); 
 # Cloud services
 google-cloud-texttospeech==2.3.0
 azure-cognitiveservices-speech==1.40.0
+# Pulled in unpinned by python_translators. 2.0 dropped include_alignment,
+# which azure_alignment.py needs, and has no replacement for it.
+azure-ai-translation-text~=1.0
 
 # Search
 elasticsearch==8.12.1
@@ -62,7 +65,7 @@ requests_mock
 # emSign root removed after the eMudhra intermediate incident (Oct 2026)
 certifi>=2026.10.19
 anthropic>=1,<2
-deepl>=1.18.0
+deepl>=1.18.0,<2  # 2.0 renamed Translator to DeepLClient (deepl_translate.py)
 
 # Utilities
 markupsafe
