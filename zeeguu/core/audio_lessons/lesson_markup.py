@@ -141,7 +141,7 @@ def spoken(voice, text, pause):
     chevrons are just dropped.
     """
     if voice != "Teacher" or "«" not in text:
-        return [_line(voice, _CHEVRON_SPAN.sub(r"\1\2", text), pause)]
+        return [_script_line(voice, _CHEVRON_SPAN.sub(r"\1\2", text), pause)]
 
     segments = []
     position = 0
@@ -157,10 +157,11 @@ def spoken(voice, text, pause):
         segments.append(("Teacher", rest))
 
     *joined, last = segments
-    return [_line(v, t, PAUSE_AT_LANGUAGE_SWITCH) for v, t in joined] + [_line(*last, pause)]
+    return [_script_line(v, t, PAUSE_AT_LANGUAGE_SWITCH) for v, t in joined] + [_script_line(*last, pause)]
 
 
-def _line(voice, text, pause):
+def _script_line(voice, text, pause):
+    """One line of the expanded script: "Teacher: Say it. [1 seconds]"."""
     return f"{voice}: {text} [{_seconds(pause)} seconds]"
 
 
@@ -180,11 +181,11 @@ def respond_lines(dialogue, learner, values):
     for i, (voice, text) in enumerate(dialogue):
         label = voice.capitalize()
         if voice == learner:
-            out.append(_line(label, text, values["repeat_pause"]))
+            out.append(_script_line(label, text, values["repeat_pause"]))
         else:
             learner_next = i + 1 < len(dialogue) and dialogue[i + 1][0] == learner
             pause = time_to_answer(dialogue[i + 1][1], values) if learner_next else 1
-            out.append(_line(label, text, pause))
+            out.append(_script_line(label, text, pause))
     return out
 
 
@@ -205,7 +206,7 @@ def expand(script, values, dialogue, learner):
             continue
 
         if _DIALOGUE.match(line):
-            out += [_line(voice.capitalize(), text, 1) for voice, text in dialogue]
+            out += [_script_line(voice.capitalize(), text, 1) for voice, text in dialogue]
             continue
 
         if line.startswith("["):
@@ -243,7 +244,7 @@ def expand(script, values, dialogue, learner):
 
         if kind == "drill":
             out.append(f"{voice}: {text} [slow] [{values['repeat_pause']} seconds]")
-            out += [_line(voice, text, values["repeat_pause"])] * values["normal_speed_repeat_count"]
+            out += [_script_line(voice, text, values["repeat_pause"])] * values["normal_speed_repeat_count"]
         elif kind == "answer":
             # The line right before the answer is what the learner answers: a
             # Teacher question, or the Other person's line in an exchange. It
@@ -252,10 +253,10 @@ def expand(script, values, dialogue, learner):
             previous = next((i for i in range(len(out) - 1, -1, -1) if out[i]), None)
             if previous is not None and not out[previous].startswith(f"{learner.capitalize()}:"):
                 out[previous] = _PAUSE.sub("", out[previous]) + f" [{time_to_answer(text, values)} seconds]"
-            out += [_line(voice, text, values["repeat_pause"])] * 2
+            out += [_script_line(voice, text, values["repeat_pause"])] * 2
         elif kind == "understand":
             out.append(f"{voice}: {text} [slow] [1 seconds]")
-            out.append(_line(voice, text, 1))
+            out.append(_script_line(voice, text, 1))
         else:
             out += spoken(voice, text, own_pause.group(1) if own_pause else 1)
 
@@ -356,7 +357,7 @@ def card_lines(card, values):
     if card.setup:
         out += spoken("Teacher", card.setup, 1)
     out += spoken(_LABELS[card.prompt[0]], card.prompt[1], time_to_answer(card.answer[1], values))
-    out += [_line(_LABELS[card.answer[0]], card.answer[1], values["repeat_pause"])] * 2
+    out += [_script_line(_LABELS[card.answer[0]], card.answer[1], values["repeat_pause"])] * 2
     return out
 
 
