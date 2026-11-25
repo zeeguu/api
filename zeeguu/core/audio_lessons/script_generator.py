@@ -79,7 +79,7 @@ def get_prompt_template(file_name) -> str:
         return f.read()
 
 
-def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man", "Woman")) -> str:
+def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man", "Woman"), chevrons=False) -> str:
     """
     The two-language rule, as a system prompt.
 
@@ -89,12 +89,15 @@ def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man
     scripts with a non-English teacher held the rule 1 time in 9 that way, and 7
     times in 9 with the rule stated here instead.
     """
+    teacher_rule = f"Lines labelled 'Teacher:' are ALWAYS written in {source_lang_name}"
+    if chevrons:
+        teacher_rule += f", except words in «chevrons», which are {target_lang_name}"
     return (
         f"You write audio lesson scripts for language learners. The learner speaks "
         f"{source_lang_name} natively and is studying {target_lang_name}.\n"
         f"Lines labelled '{voices[0]}:', '{voices[1]}:' and 'TeacherL2:' are ALWAYS written in "
         f"{target_lang_name}. Never in {source_lang_name}.\n"
-        f"Lines labelled 'Teacher:' are ALWAYS written in {source_lang_name}.\n"
+        f"{teacher_rule}.\n"
         f"Keeping these two languages apart is the entire purpose of the script. A "
         f"script whose {voices[0]}/{voices[1]} lines are in {source_lang_name} is worthless to the "
         f"learner and must never be produced."
@@ -156,6 +159,7 @@ def generate_script_in_languages(
     deepseek_first: bool = False,
     voice_labels=("Man", "Woman"),
     relabel=None,
+    chevrons=False,
 ) -> tuple:
     """
     Generate a lesson script and verify it came back in the languages we asked for.
@@ -177,7 +181,7 @@ def generate_script_in_languages(
         kwargs["deepseek_first"] = True
     target_lang_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
     source_lang_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
-    kwargs["system"] = language_contract(target_lang_name, source_lang_name, voice_labels)
+    kwargs["system"] = language_contract(target_lang_name, source_lang_name, voice_labels, chevrons)
 
     attempt_prompt = prompt
     mismatches = []
@@ -587,6 +591,7 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
                 dict(
                     voice_labels=("Learner", "Other"),
                     relabel=lambda raw: roles_to_voices(raw, a0["learner"]),
+                    chevrons=True,
                 )
                 if a0
                 else {}

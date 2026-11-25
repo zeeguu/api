@@ -49,7 +49,7 @@ A prompt never says the answer, or any part of it, in {target_language}: the lea
 THE TEACHER
 - Speaks {source_language}, and says more than in lessons for advanced learners: about half of the lesson. Short sentences, warm and calm.
 - No grammar explanations. At most one short sentence about a word when it really helps ("this is also what you say to get someone's attention").
-- When the Teacher needs to say a {target_language} word inside a {source_language} sentence, use a separate TeacherL2 line for it.
+- When the Teacher says a {target_language} word or phrase inside a {source_language} sentence, put it in chevrons: "The word for coffee is «kaffe»." It is then said in {target_language}. Never write {target_language} in a Teacher line without chevrons.
 - Every challenge makes clear WHO speaks and to WHOM: "Ask the waiter...", "Say that you...", "Tell the shopkeeper that you...". The learner must never have to guess whether "you" means themselves or someone else.
 - The Teacher names the Other person by their role in the situation (the shopkeeper, the waiter, the neighbor), never with he, she, him or her.
 
@@ -81,10 +81,9 @@ Use this exact format:
     [dialogue]
 
 RULES:
-- Use only the labels "Teacher:", "TeacherL2:", "Learner:", "Other:"
-- TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
+- Use only the labels "Teacher:", "Learner:", "Other:"
 - Write no pauses and no timings: they are added after you. The only markers are [drill], [answer], [understand] at the end of a line, and the line [dialogue]
 - Each line is written once: never repeat a line to have it said twice; the markers do that
-- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Learner, Other and TeacherL2 speak {target_language}
+- CRITICAL: Teacher MUST speak {source_language} for ALL lines, except words in «chevrons». Learner and Other speak {target_language}
 - Do NOT include greetings like "welcome to today's lesson": this script is one segment of a larger lesson.
 - No explanatory text, notes or translations outside the voice lines

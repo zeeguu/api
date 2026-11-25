@@ -112,6 +112,40 @@ class MarkupError(ValueError):
     """The script uses a marker wrongly; the message says how, for a rewrite."""
 
 
+# A learned-language word inside a Teacher sentence: «kaffe». Said by the
+# teacher's own voice in the learned language (TeacherL2), joined to the rest
+# of the sentence with no pause: "The word for coffee is «kaffe»." is three
+# segments, not three lines the model has to write. Chirp 3 HD voices take no
+# SSML to switch language within a sentence, so the switch is made in segments.
+_CHEVRONS = re.compile(r"«([^»]+)»")
+
+
+def spoken(voice, text, pause):
+    """
+    The voice lines that say `text`, followed by `pause` seconds. A Teacher
+    line with «…» in it becomes Teacher / TeacherL2 segments joined without a
+    pause; in any other line the chevrons are just dropped.
+    """
+    if voice != "Teacher" or "«" not in text:
+        return [_line(voice, _CHEVRONS.sub(r"\1", text), pause)]
+    parts = _CHEVRONS.split(text)
+    segments = []
+    for i, part in enumerate(parts):
+        part = part.strip()
+        # Punctuation right after a learned-language word belongs to it:
+        # "«kaffe». Say it." is "kaffe." then "Say it.", not a lone ".".
+        if segments and segments[-1][0] == "TeacherL2" and i % 2 == 0:
+            punctuation = re.match(r"^[.,!?;:…]+", part)
+            if punctuation:
+                segments[-1] = ("TeacherL2", segments[-1][1] + punctuation.group(0))
+                part = part[punctuation.end():].strip()
+        if part:
+            segments.append(("TeacherL2" if i % 2 else "Teacher", part))
+    if not segments:
+        return []
+    return [_line(v, t, 0) for v, t in segments[:-1]] + [_line(*segments[-1], pause)]
+
+
 def _line(voice, text, pause):
     return f"{voice}: {text} [{_seconds(pause)} seconds]"
 
@@ -189,6 +223,8 @@ def expand(script, values, dialogue, learner):
             problems.append(f"{line!r}: unknown marker [{unknown[0]}]")
             continue
         text = re.sub(r"\s*\[slow\]", "", text, flags=re.IGNORECASE)
+        if voice != "Teacher":
+            text = _CHEVRONS.sub(r"\1", text)
 
         if kind == "drill":
             out.append(f"{voice}: {text} [slow] [{values['repeat_pause']} seconds]")
@@ -206,7 +242,7 @@ def expand(script, values, dialogue, learner):
             out.append(f"{voice}: {text} [slow] [1 seconds]")
             out.append(_line(voice, text, 1))
         else:
-            out.append(_line(voice, text, own_pause.group(1) if own_pause else 1))
+            out += spoken(voice, text, own_pause.group(1) if own_pause else 1)
 
     if problems:
         raise MarkupError("; ".join(problems))
@@ -303,8 +339,8 @@ def card_lines(card, values):
     time to answer, then the answer twice."""
     out = []
     if card.setup:
-        out.append(_line("Teacher", card.setup, 1))
-    out.append(_line(_LABELS[card.prompt[0]], card.prompt[1], time_to_answer(card.answer[1], values)))
+        out += spoken("Teacher", card.setup, 1)
+    out += spoken(_LABELS[card.prompt[0]], card.prompt[1], time_to_answer(card.answer[1], values))
     out += [_line(_LABELS[card.answer[0]], card.answer[1], values["repeat_pause"])] * 2
     return out
 
@@ -321,7 +357,7 @@ def review_lines(items, values):
         if item.card is not None:
             out += card_lines(item.card, values)
         else:
-            out.append(_line("Teacher", f"{item.lesson.title}.", 1))
+            out += spoken("Teacher", f"{item.lesson.title}.", 1)
             out += respond_lines(item.lesson.dialogue, item.lesson.learner, values)
     return out
 

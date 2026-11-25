@@ -20,6 +20,7 @@ from zeeguu.core.audio_lessons.lesson_markup import (
     expand,
     review_lines,
     roles_to_voices,
+    spoken,
     time_to_answer,
     voices_to_roles,
     with_review,
@@ -141,6 +142,32 @@ def test_a_marker_meaning_no_marker_is_a_plain_line(marker):
 
 def test_a_title_line_is_kept():
     assert _expand("At the café\n\nTeacher: Hello.").startswith("At the café\n")
+
+
+# Learned-language words inside a Teacher sentence
+
+def test_a_chevron_span_is_said_by_the_teachers_learned_language_voice_without_a_pause():
+    assert spoken("Teacher", "The word for coffee is «kaffe». Say it.", 1) == [
+        "Teacher: The word for coffee is [0 seconds]",
+        "TeacherL2: kaffe. [0 seconds]",  # its punctuation comes with it
+        "Teacher: Say it. [1 seconds]",
+    ]
+
+
+def test_a_teacher_line_ending_in_a_chevron_span_ends_with_the_pause():
+    assert _expand("Teacher: Listen: «Hvad skal det være?»") == (
+        "Teacher: Listen: [0 seconds]\nTeacherL2: Hvad skal det være? [1 seconds]\n"
+    )
+
+
+def test_chevrons_in_a_learned_language_line_are_just_dropped():
+    assert _expand("Learner: «Tak». [answer]").splitlines()[0] == "Woman: Tak. [3 seconds]"
+
+
+def test_the_language_check_does_not_read_chevron_spans_as_the_teachers_language():
+    from zeeguu.core.audio_lessons.script_parser import parse_script
+
+    assert parse_script("Teacher: The word for coffee is «kaffe».")[0][1] == "The word for coffee is."
 
 
 # Time to answer

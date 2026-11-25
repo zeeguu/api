@@ -73,6 +73,8 @@ def test_the_prompt_writes_roles_and_says_who_is_who(learner, other):
     # No voices and no pronouns for the model to get wrong.
     assert "Man:" not in prompt and "Woman:" not in prompt
     assert "never with he, she, him or her" in prompt
+    # Learned-language words in a Teacher line go in chevrons, not on TeacherL2 lines.
+    assert "«kaffe»" in prompt and "TeacherL2" not in prompt
 
 
 def test_the_prompt_names_the_exchange_and_has_no_cue():
