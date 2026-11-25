@@ -262,9 +262,9 @@ class BasicSRSchedule(db.Model):
     @classmethod
     def give_slots_to_more_frequent_words(cls, user):
         """
-        With the frequency_priority strategy and every slot taken, a waiting word more
-        frequent than a word in practice below level 2 takes its slot
-        (frequency_slots.py). Writes, so only the endpoint that hands out a
+        With the frequency_priority strategy and every slot taken, a waiting
+        word more frequent than a word in practice below level 2 takes its
+        slot (frequency_slots.py). Writes, so only the endpoint that hands out a
         session calls it, before user_words_to_study; not the counts.
 
         The word taken out stays fit for study and goes back to waiting. Its

@@ -10,9 +10,8 @@ projects/villum/exercises-requests.md, R1).
 With the learner's word scheduling strategy set to frequency_priority
 (UserPreference.WORD_SCHEDULING_STRATEGY; the default, first_come, keeps
 today's behavior), a more frequent waiting word takes the slot of a rarer
-word in practice. One exception: a word that has reached
-level 2 keeps its slot, so the learner never sees a word they are getting
-right vanish. A frequent word the learner already knows leaves practice for
+word in practice. One exception: a word that has reached level 2 keeps its
+slot, so the learner never sees a word they are getting right vanish. A frequent word the learner already knows leaves practice for
 good when they say so ("I know this word": study_choice KNOWN, unfit).
 
 A plain function on records, tested without a database
