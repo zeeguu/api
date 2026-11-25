@@ -13,6 +13,7 @@ THE PEOPLE
 - The Learner: a {learner_gender}. In the dialogue, the Learner's lines are the ones the learner learns to SAY.
 - The Other person: a {other_gender}, the one the Learner talks to (the shopkeeper, the waiter, the neighbor). Their lines the learner only has to UNDERSTAND.
 - If words in {target_language} change with the gender of the person speaking or of the person spoken to (adjectives, participles, past forms, forms of address), everything the Learner says uses the forms for a {learner_gender} speaking to a {other_gender}, and everything the Other person says uses the forms for a {other_gender} speaking to a {learner_gender}.
+- If the people have names (in the dialogue or anywhere in the lesson), keep each name with its person: the Learner's name is a {learner_gender}'s name, the Other person's a {other_gender}'s. The same goes for titles (Mr, Mrs).
 
 HOW THE LESSON WORKS
 This lesson follows the method of Pimsleur's first lessons: very few new words, each heard and recalled many times, spread across the whole lesson.

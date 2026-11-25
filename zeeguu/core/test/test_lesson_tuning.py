@@ -69,6 +69,7 @@ def test_the_prompt_writes_roles_and_says_who_is_who(learner, other):
     prompt = _lesson_prompt(prompt_values(LessonTuning(), 10), learner)
     assert f"The Learner: a {learner}." in prompt and f"The Other person: a {other}," in prompt
     assert f"forms for a {learner} speaking to a {other}" in prompt
+    assert f"the Learner's name is a {learner}'s name, the Other person's a {other}'s" in prompt
     assert "Learner: <the answer> [answer]" in prompt
     # No voices and no pronouns for the model to get wrong.
     assert "Man:" not in prompt and "Woman:" not in prompt
