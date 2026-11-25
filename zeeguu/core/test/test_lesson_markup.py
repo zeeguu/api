@@ -99,7 +99,7 @@ def test_a_card_gives_the_meaning_then_time_to_answer_then_the_answer():
     assert lines == [
         "",
         "Woman: Den koster tolv kroner. [1 seconds]",
-        "Teacher: Answer her: say okay, and ask for a ticket. [6 seconds]",  # a four-word answer
+        "Teacher: Answer her: say okay, and ask for a ticket. [7 seconds]",  # a four-word answer
         "Man: Okay. En billet, tak. [3 seconds]",
         "Man: Okay. En billet, tak. [3 seconds]",
     ]
@@ -110,7 +110,7 @@ def test_a_lesson_without_cards_reviews_its_dialogue_answered_and_not_replayed()
     assert lines == [
         "",
         "Teacher: Buying a bus ticket. [1 seconds]",
-        "Woman: Hej. [6 seconds]",          # the learner (man) answers next, in four words
+        "Woman: Hej. [7 seconds]",          # the learner (man) answers next, in four words
         "Man: Hej. En billet, tak. [3 seconds]",
         "Woman: Værsgo. [1 seconds]",       # nothing to answer after it
     ]
@@ -198,9 +198,10 @@ def test_a_cue_is_said_once_like_a_plain_line():
     assert expand("Woman: Den koster tolv kroner. [cue]", VALUES, DIALOGUE) == "Woman: Den koster tolv kroner. [1 seconds]\n"
 
 
-def test_the_teacher_line_before_an_answer_is_the_question_marked_or_not():
+def test_the_teacher_line_before_an_answer_is_the_question():
     script = "Teacher: How do you say coffee?\nWoman: En kaffe. [answer]"
-    assert expand(script, VALUES, DIALOGUE).splitlines()[0] == "Teacher: How do you say coffee? [5 seconds]"
+    # "En kaffe." is two words: 2 + 2.4 s.
+    assert expand(script, VALUES, DIALOGUE).splitlines()[0] == "Teacher: How do you say coffee? [4 seconds]"
 
 
 
@@ -216,11 +217,11 @@ def test_a_cue_only_counts_right_before_the_question():
 
 
 @pytest.mark.parametrize("answer,seconds", [
-    ("Hej.", 5),                                  # one word: thinking time only
-    ("En kaffe, tak.", 6),                        # three: 0.7 s more, rounded to 1
-    ("Okay. En billet, tak.", 6),                 # four: 1.4 s more
-    ("Undskyld, hvad koster en billet?", 7),      # five: 2.1 s more
-    (" ".join(["ord"] * 30), 11),                 # capped at 6 s more
+    ("Hej.", 3),                                  # 2 + 1.2
+    ("En kaffe, tak.", 6),                        # 2 + 3.6
+    ("Okay. En billet, tak.", 7),                 # 2 + 4.8
+    ("Undskyld, hvad koster en billet?", 8),      # 2 + 6
+    (" ".join(["ord"] * 30), 15),                 # capped
 ])
 def test_the_time_to_answer_grows_with_the_answer(answer, seconds):
     assert time_to_answer(answer, VALUES) == seconds
@@ -228,6 +229,13 @@ def test_the_time_to_answer_grows_with_the_answer(answer, seconds):
 
 def test_a_longer_answer_gets_a_longer_pause_wherever_the_learner_answers():
     lesson = expand("Teacher: Ask what a ticket costs.\nMan: Undskyld, hvad koster en billet? [answer]", VALUES, DIALOGUE)
-    assert lesson.splitlines()[0] == "Teacher: Ask what a ticket costs. [7 seconds]"
+    assert lesson.splitlines()[0] == "Teacher: Ask what a ticket costs. [8 seconds]"
     card = Card(None, "Ask what a ticket costs.", ("man", "Undskyld, hvad koster en billet?"))
-    assert card_lines(card, VALUES)[0] == "Teacher: Ask what a ticket costs. [7 seconds]"
+    assert card_lines(card, VALUES)[0] == "Teacher: Ask what a ticket costs. [8 seconds]"
+
+
+def test_the_learners_pace_scales_the_time_to_answer():
+    slowest = prompt_values(LessonTuning(pace=-2), 10)
+    fastest = prompt_values(LessonTuning(pace=2), 10)
+    assert time_to_answer("Undskyld, hvad koster en billet?", slowest) == 11  # 1.4 x 8
+    assert time_to_answer("Hej.", fastest) == 2  # 0.6 x 3.2, at least 2
