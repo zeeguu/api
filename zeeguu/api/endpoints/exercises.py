@@ -397,6 +397,8 @@ def user_words_as_dicts(user_words, tokenize=True):
     words_to_delete = []
 
     for user_word in user_words:
+        if not user_word.ensure_preferred_bookmark(db.session):
+            continue
         try:
             # Pass pre-loaded schedule and pre-tokenized context
             schedule = schedule_map.get(user_word.id)

@@ -105,3 +105,118 @@ def test_bookmark_requires_translation_source():
 
     with pytest.raises(ValueError):
         Bookmark(None, None, None, None)
+
+
+def test_deleting_the_last_bookmark_takes_the_word_out_of_study(client):
+    # Even when that bookmark was not the word's preferred one: the check used
+    # to sit inside the preferred-bookmark branch, so such a word stayed fit
+    # for study with nothing to show, and the Words lists failed on it.
+    add_context_types()
+    add_source_types()
+    from zeeguu.core.model import db
+    from zeeguu.core.model.bookmark import Bookmark
+    from zeeguu.core.model.context_identifier import ContextIdentifier
+    from zeeguu.core.model.context_type import ContextType
+
+    article = create_and_get_article(client)
+    context_i = ContextIdentifier(ContextType.ARTICLE_TITLE, None, article["id"])
+    new_bookmark = client.post(
+        "/contribute_translation/de/en",
+        json={
+            "word": "hinter",
+            "translation": "behind",
+            "context": "stellt sich hinter Präsident",
+            "url": URL_SPIEGEL_VENEZUELA,
+            "source_id": article["source_id"],
+            "context_identifier": context_i.as_dictionary(),
+        },
+    )
+    bookmark = db.session.get(Bookmark, new_bookmark["bookmark_id"])
+    user_word = bookmark.user_word
+    user_word_id, bookmark_id = user_word.id, bookmark.id
+    user_word.preferred_bookmark = None
+    db.session.commit()
+
+    assert client.post(f"/delete_bookmark/{bookmark_id}") == b"OK"
+
+    from zeeguu.core.model.user_word import UserWord
+
+    db.session.expire_all()
+    assert db.session.get(UserWord, user_word_id).fit_for_study is False
+
+
+def test_a_word_without_a_preferred_bookmark_gets_its_latest_one_in_the_words_list(client):
+    add_context_types()
+    add_source_types()
+    from fixtures import add_one_bookmark
+    from zeeguu.api.endpoints.exercises import user_words_as_dicts
+    from zeeguu.core.model import db
+    from zeeguu.core.model.bookmark import Bookmark
+
+    bookmark = db.session.get(Bookmark, add_one_bookmark(client))
+    user_word = bookmark.user_word
+    user_word.preferred_bookmark = None
+    db.session.commit()
+
+    assert len(user_words_as_dicts([user_word], tokenize=False)) == 1
+    assert user_word.preferred_bookmark_id == bookmark.id
+
+
+def _word_without_a_bookmark(client):
+    # Deleted by hand, not through delete_bookmark, which would take the word
+    # out of study: the state "Gå ikke" was found in.
+    from fixtures import add_one_bookmark
+    from zeeguu.core.model import db
+    from zeeguu.core.model.bookmark import Bookmark
+
+    bookmark = db.session.get(Bookmark, add_one_bookmark(client))
+    user_word = bookmark.user_word
+    user_word.preferred_bookmark = None
+    db.session.flush()
+    db.session.delete(bookmark)
+    user_word.fit_for_study = True
+    db.session.commit()
+    return user_word
+
+
+def test_a_word_without_any_bookmark_leaves_the_words_list_and_study(client):
+    add_context_types()
+    add_source_types()
+    from zeeguu.api.endpoints.exercises import user_words_as_dicts
+
+    user_word = _word_without_a_bookmark(client)
+
+    assert user_words_as_dicts([user_word], tokenize=False) == []
+    assert user_word.fit_for_study is False
+
+
+def test_a_word_already_out_of_study_keeps_its_reason(client):
+    add_context_types()
+    add_source_types()
+    from zeeguu.api.endpoints.exercises import user_words_as_dicts
+    from zeeguu.core.model import db
+    from zeeguu.core.model.study_choice import UnfitReason
+
+    user_word = _word_without_a_bookmark(client)
+    reason = UnfitReason.ALL[0]
+    user_word.fit_for_study = False
+    user_word.unfit_reason = reason
+    db.session.commit()
+
+    user_words_as_dicts([user_word], tokenize=False)
+    assert user_word.unfit_reason == reason
+
+
+def test_the_learned_list_skips_a_word_without_any_bookmark(client):
+    add_context_types()
+    add_source_types()
+    from datetime import datetime
+    from zeeguu.api.endpoints.bookmarks_and_words import learned_user_words_as_dicts
+    from zeeguu.core.model import db
+
+    user_word = _word_without_a_bookmark(client)
+    user_word.learned_time = datetime.now()
+    db.session.commit()
+
+    language_id = user_word.meaning.origin.language_id
+    assert learned_user_words_as_dicts(user_word.user, 10, language_id) == []

@@ -90,7 +90,11 @@ def learned_user_words(count):
 
 
 def learned_user_words_as_dicts(user, count, language_id=None):
-    learned_words = list(user.learned_user_words(count, language_id))
+    learned_words = [
+        word
+        for word in user.learned_user_words(count, language_id)
+        if word.ensure_preferred_bookmark(db_session)
+    ]
 
     # Batch load schedules to avoid N+1 queries
     # Use FourLevelsPerWord (concrete class) not BasicSRSchedule (abstract) for get_max_interval()
@@ -270,9 +274,13 @@ def delete_bookmark(bookmark_id):
                     # preserve UserWord but mark it as not fit for study
                     # in the future we can generate an example for this user word with the help of the robots!
                     user_word.set_unfit_for_study(db_session, UnfitReason.NO_USABLE_CONTEXT)
-            else:
-                # No other bookmarks exist - ALWAYS keep the user_word for historical data
-                user_word.set_unfit_for_study(db_session, UnfitReason.NO_USABLE_CONTEXT)
+
+        # The last bookmark goes: ALWAYS keep the user_word for historical data,
+        # out of study. Checked whatever the preferred bookmark was -- inside
+        # the branch above, a word whose last bookmark wasn't its preferred one
+        # stayed fit for study with nothing to show.
+        if not other_bookmarks_for_same_user_word:
+            user_word.set_unfit_for_study(db_session, UnfitReason.NO_USABLE_CONTEXT)
 
         # Delete any ExampleSentenceContext records that reference this bookmark
         ExampleSentenceContext.query.filter(
