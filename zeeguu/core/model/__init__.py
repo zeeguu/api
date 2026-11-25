@@ -109,6 +109,7 @@ from .user_watching_session import UserWatchingSession
 from .audio_lesson_meaning import AudioLessonMeaning
 from .audio_lesson_refusal import AudioLessonRefusal
 from .audio_lesson_dialogue import AudioLessonDialogue
+from .article_dialogue import ArticleDialogue
 from .daily_audio_lesson_wrapper import DailyAudioLessonWrapper
 from .daily_audio_lesson import DailyAudioLesson
 from .daily_audio_lesson_segment import DailyAudioLessonSegment

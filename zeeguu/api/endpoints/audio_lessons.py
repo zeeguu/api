@@ -502,6 +502,45 @@ def update_lesson_state(lesson_id):
     return json_result(result), status_code
 
 
+@api.route("/lesson_dialogue_article/<int:lesson_id>", methods=["POST"])
+@cross_domain
+@requires_session
+def lesson_dialogue_article(lesson_id):
+    """
+    The dialogue of one of the learner's daily lessons, as an article to open
+    in the reader: {"article_id": ...}. Made the first time it is asked for,
+    then shared by everyone who heard that dialogue.
+
+    404 when the lesson is not the learner's or has no dialogue.
+    """
+    from zeeguu.core.audio_lessons.script_parser import dialogue_lines
+    from zeeguu.core.model import ArticleDialogue
+
+    lesson = DailyAudioLesson.query.filter_by(id=lesson_id, user_id=flask.g.user_id).one_or_none()
+    lesson_dialogue = next(
+        (s.audio_lesson_dialogue for s in lesson.segments if s.audio_lesson_dialogue),
+        None,
+    ) if lesson else None
+    if not lesson_dialogue:
+        return json_result({"error": "No dialogue in this lesson"}), 404
+
+    existing = ArticleDialogue.query.filter_by(audio_lesson_dialogue_id=lesson_dialogue.id).one_or_none()
+    if existing:
+        return json_result({"article_id": existing.article_id})
+
+    lines = dialogue_lines(lesson_dialogue.script)
+    if not lines:
+        log(f"Dialogue lesson {lesson_dialogue.id} has no dialogue in its script")
+        return json_result({"error": "No dialogue in this lesson"}), 404
+
+    try:
+        dialogue = ArticleDialogue.find_or_create(db.session, lesson_dialogue, lines)
+    except ValueError as e:
+        log(f"Dialogue lesson {lesson_dialogue.id} has a dialogue that is not one line per paragraph: {e}")
+        return json_result({"error": "No dialogue in this lesson"}), 404
+    return json_result({"article_id": dialogue.article_id})
+
+
 @api.route("/audio_lesson_feedback/<int:lesson_id>", methods=["POST"])
 @cross_domain
 @requires_session
