@@ -259,7 +259,7 @@ class StoredDialogueTest(ModelTestMixIn):
         new_challenge = Challenge("The waiter asks what you want. Ask for a coffee.", Utterance("man", "Hvad skal det være?"), Utterance("woman", "En kaffe, tak."))
         lesson = GeneratedScript(
             "Teacher: At the café. [1 seconds]", "claude-sonnet-5-5", "v4", dialogue,
-            "Teacher: At the café.", ((earlier.id, "challenge", earlier_challenge.id),), (new_challenge,),
+            "Teacher: At the café.", (earlier_challenge.id,), (new_challenge,),
         )
         generator = daily_lesson_generator.DailyLessonGenerator()
         generator._voice_synthesizer = MagicMock(get_audio_duration=MagicMock(return_value=600))
@@ -276,7 +276,7 @@ class StoredDialogueTest(ModelTestMixIn):
 
         from zeeguu.core.model.audio_lesson_review import AudioLessonReview
 
-        assert AudioLessonReview.reviewed_by({row.id}) == {row.id: ((earlier.id, earlier_challenge.id),)}
+        assert AudioLessonReview.reviewed_by({row.id}) == {row.id: (earlier_challenge.id,)}
         stored = AudioChallenge.for_dialogues({row.id})[row.id]
         assert [challenge for _, challenge in stored] == [new_challenge]
 
@@ -291,8 +291,8 @@ class StoredDialogueTest(ModelTestMixIn):
         from zeeguu.core.audio_lessons.words_heard import HeardLesson
 
         heard = [
-            HeardLesson("Earlier", Counter({"hej": 1}), (("man", "Hej."),), "man"),
-            HeardLesson("Latest", Counter({"tak": 1}), (("woman", "Tak."),), "woman"),
+            HeardLesson("Earlier", Counter({"hej": 1}), "man"),
+            HeardLesson("Latest", Counter({"tak": 1}), "woman"),
         ]
         dialogue = GeneratedScript("Man: Hej.\nWoman: Tak.", "deepseek-chat", "v1")
         lesson = GeneratedScript("Teacher: Hi. [1 seconds]", "claude-sonnet-5-5", "v4", dialogue, "Teacher: Hi.")

@@ -32,11 +32,10 @@ class HeardLesson:
 
     title: str
     words: Counter  # how often each learned-language word was said
-    dialogue: tuple = ()  # the dialogue, as (voice, text), voice "man" / "woman"
     learner: Optional[str] = None  # the voice the learner played
     dialogue_id: Optional[int] = None  # its AudioLessonDialogue
     heard_at: Optional[datetime] = None  # finished, or else made
-    reviewed: tuple = ()  # what it reviewed: (dialogue id, challenge id or None), AudioLessonReview
+    reviewed: tuple = ()  # the challenge ids it reviewed (AudioLessonReview)
     challenges: tuple = ()  # its review challenges: (challenge id, lesson_script.challenges.Challenge), AudioChallenge
 
 _TIMING = re.compile(r"\[[^\]]*\]")
@@ -150,7 +149,7 @@ def heard_lessons(user, language, limit=30) -> list:
         if words:
             heard.append(
                 HeardLesson(
-                    lesson.display_title(), words, stored_dialogue(row), row.learner_character,
+                    lesson.display_title(), words, row.learner_character,
                     row.id, lesson.last_completed_at or lesson.created_at, reviewed.get(row.id, ()),
                     lesson_challenges.get(row.id, ()),
                 )

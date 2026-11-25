@@ -100,6 +100,22 @@ def challenges(marked, learner):
     return found
 
 
+def dialogue_challenges(dialogue, learner):
+    """
+    The challenges a dialogue makes on its own: each line of the learner
+    after a line of the other person is an exchange, without a setup (hear
+    the line, answer it). For lessons written before challenges were kept:
+    tools/backfill_a0_challenges.py. dialogue: [(voice, text)].
+    """
+    found, answers_seen = [], set()
+    for (voice_before, text_before), (voice, text) in zip(dialogue, dialogue[1:]):
+        if voice != learner or voice_before == learner or text.lower() in answers_seen:
+            continue
+        answers_seen.add(text.lower())
+        found.append(Challenge(None, Utterance(voice_before, text_before), Utterance(voice, text)))
+    return found
+
+
 def challenge_lines(challenge, values):
     """A challenge said: the setup of an exchange, the line the learner
     answers, the time to answer, then the answer twice."""

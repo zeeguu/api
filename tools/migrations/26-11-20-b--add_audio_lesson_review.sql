@@ -8,11 +8,11 @@
 -- a challenge is reviewed only while the learner has that voice. Stored once, so a
 -- review keeps pointing at the same challenge when the parsing changes.
 --
--- audio_lesson_review: what a lesson reviews, in order. Code chooses it and
--- places it (audio_lessons/lesson_review.py), spacing each challenge's reviews
--- further apart; the model does not take part. kind 'challenge' (challenge_id set), or
--- 'dialogue' (a whole earlier dialogue answered in the learner's role, for a
--- lesson from before challenges; challenge_id NULL).
+-- audio_lesson_review: the challenges a lesson reviews, in order. Code
+-- chooses and places them (audio_lessons/lesson_review.py), spacing each
+-- challenge's reviews further apart; the model does not take part. The
+-- spacing reads this table. Lessons from before challenges get theirs from
+-- tools/backfill_a0_challenges.py.
 --
 -- marked_script: the script as the model wrote it, with markers
 -- (audio_lessons/lesson_script). The stored script is its expansion, with
@@ -34,14 +34,11 @@ CREATE TABLE audio_challenge (
 CREATE TABLE audio_lesson_review (
     id INT AUTO_INCREMENT PRIMARY KEY,
     dialogue_id INT NOT NULL,
-    reviewed_dialogue_id INT NOT NULL,
-    kind VARCHAR(10) NOT NULL,
-    challenge_id INT NULL,
+    challenge_id INT NOT NULL,
     position INT NOT NULL,
     UNIQUE KEY uq_review_position (dialogue_id, position),
-    KEY idx_reviewed (reviewed_dialogue_id),
+    KEY idx_review_challenge (challenge_id),
     FOREIGN KEY (dialogue_id) REFERENCES audio_lesson_dialogue(id),
-    FOREIGN KEY (reviewed_dialogue_id) REFERENCES audio_lesson_dialogue(id),
     FOREIGN KEY (challenge_id) REFERENCES audio_challenge(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

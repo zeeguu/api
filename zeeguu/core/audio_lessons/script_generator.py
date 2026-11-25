@@ -36,9 +36,8 @@ GeneratedScript = namedtuple(
     ["script", "model_name", "prompt_version", "dialogue", "marked", "reviewed", "challenges"],
     # dialogue: for a lesson written in two calls, the GeneratedScript of the
     # call that wrote its dialogue; None otherwise. marked: an A0 script as the
-    # model wrote it, with markers (lesson_script); reviewed: what it reviews
-    # of earlier lessons, in order, as (dialogue id, kind, challenge index or None)
-    # (lesson_review.py); challenges: its own challenges, for later lessons to review
+    # model wrote it, with markers (lesson_script); reviewed: the ids of the
+    # earlier lessons' challenges it reviews, in order (lesson_review.py); challenges: its own challenges, for later lessons to review
     # (lesson_script.challenges).
     defaults=[None, None, (), ()],
 )
@@ -557,8 +556,8 @@ MARKUP_ATTEMPTS = 2
 def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language, suggestion,
                            max_tokens, short_lines):
     """
-    (title, script, model, marked, reviewed) from the model; reviewed is
-    (dialogue id, kind, challenge id or None) per item reviewed, in order.
+    (title, script, model, marked, reviewed) from the model; reviewed is the
+    ids of the challenges it reviews, in order.
 
     An A0 script comes back marked (lesson_script): it is expanded here,
     and a review of earlier lessons, chosen by code (lesson_review.py), is put
@@ -621,10 +620,8 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
 
         missing = lines_for(values["min_minutes"]) - voice_line_count(expanded.split("\n"))
         reviews = lesson_review.choose(a0["heard"], missing, values, a0["learner"])
-        full = with_review(expanded, review_lines(reviews, values))
-        reviewed = tuple(
-            (item.lesson.dialogue_id, lesson_review.kind(item), item.challenge_id) for item in reviews
-        )
+        full = with_review(expanded, review_lines([challenge for _, challenge in reviews], values))
+        reviewed = tuple(challenge_id for challenge_id, _ in reviews)
         return title, full, model_name, script, reviewed
 
 

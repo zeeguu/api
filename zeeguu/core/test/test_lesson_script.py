@@ -12,23 +12,18 @@ from datetime import datetime, timedelta
 import pytest
 
 from zeeguu.core.audio_lessons import lesson_review
-from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, challenge_lines, challenges, Utterance
+from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, challenge_lines, challenges, dialogue_challenges, Utterance
 from zeeguu.core.audio_lessons.lesson_script.expand import expand, MarkupError
 from zeeguu.core.audio_lessons.lesson_script.review import review_lines, with_review
 from zeeguu.core.audio_lessons.lesson_script.roles import roles_to_voices, voices_to_roles
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import spoken_lines, SpokenLine
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
-from zeeguu.core.audio_lessons.lesson_review import ReviewItem
 from zeeguu.core.audio_lessons.lesson_tuning import LessonTuning, prompt_values
 from zeeguu.core.audio_lessons.words_heard import HeardLesson
 
 VALUES = prompt_values(LessonTuning(), 10)  # answer pause 5 s, repeat 3 s, normal speed twice
 DIALOGUE = (("man", "Hej! Hvad skal det være?"), ("woman", "En kaffe, tak."))
 LEARNER = "woman"
-BUS = HeardLesson(
-    "Buying a bus ticket", Counter({"billet": 3}),
-    (("woman", "Hej."), ("man", "Hej. En billet, tak."), ("woman", "Værsgo.")), "man",
-)
 
 
 def _expand(script, learner=LEARNER):
@@ -253,79 +248,92 @@ def test_a_question_challenge_asks_then_waits_then_answers():
 
 # Review
 
-def test_a_lesson_without_challenges_reviews_its_dialogue_answered_and_not_replayed():
-    lines = review_lines([ReviewItem(BUS, None, None)], VALUES)
-    assert lines == [
-        "",
-        SpokenLine("teacher", "Buying a bus ticket.", 1),
-        SpokenLine("woman", "Hej.", 7),          # the learner (man) answers next, in four words
-        SpokenLine("man", "Hej. En billet, tak.", 3),
-        SpokenLine("woman", "Værsgo.", 1),       # nothing to answer after it
-    ]
+ORDER_COFFEE = Challenge(
+    "The waiter asks what you want. Ask for a coffee.",
+    Utterance("man", "Hvad skal det være?"),
+    Utterance("woman", "En kaffe, tak."),
+)
+
+
+def test_the_review_says_each_challenge_after_a_blank_line():
+    assert review_lines([ORDER_COFFEE], VALUES) == [""] + challenge_lines(ORDER_COFFEE, VALUES)
 
 
 def test_the_review_goes_before_listen_again_and_the_closing_dialogue():
     expanded = _expand("Teacher: Hi.\n[dialogue]\nLearner: Kaffe. [drill]\nTeacher: Listen again.\n[dialogue]")
-    lines = with_review(expanded, review_lines([ReviewItem(BUS, None, None)], VALUES)).splitlines()
-    assert lines.index("Teacher: Buying a bus ticket. [1 seconds]") < lines.index("Teacher: Listen again. [1 seconds]")
+    lines = with_review(expanded, review_lines([ORDER_COFFEE], VALUES)).splitlines()
+    prompt = str(challenge_lines(ORDER_COFFEE, VALUES)[1])
+    assert lines.index(prompt) < lines.index("Teacher: Listen again. [1 seconds]")
     assert lines[-2:] == ["Man: Hej! Hvad skal det være? [1 seconds]", "Woman: En kaffe, tak. [1 seconds]"]
 
+
+# An old dialogue's challenges (tools/backfill_a0_challenges.py)
+
+def test_each_learner_line_after_the_other_persons_line_is_an_exchange():
+    dialogue = (("woman", "Hej."), ("man", "Hej. En billet, tak."), ("woman", "Værsgo."), ("man", "Tak."))
+    assert dialogue_challenges(dialogue, "man") == [
+        Challenge(None, Utterance("woman", "Hej."), Utterance("man", "Hej. En billet, tak.")),
+        Challenge(None, Utterance("woman", "Værsgo."), Utterance("man", "Tak.")),
+    ]
+
+
+def test_an_old_dialogue_gives_no_challenge_for_a_first_line_or_a_repeated_answer():
+    dialogue = (("man", "Hej."), ("woman", "Tak."), ("man", "Tak."), ("woman", "Hej."), ("man", "Hej."))
+    assert [c.answer.text for c in dialogue_challenges(dialogue, "man")] == ["Tak.", "Hej."]
+    assert dialogue_challenges((("man", "Hej."), ("woman", "Hej.")), "man") == []
+
+
+# Spacing
 
 NOW = datetime(2026, 11, 20, 12)
 
 
-def _lesson(i, days_ago, reviewed=(), with_challenges=False, learner="woman"):
+def _lesson(i, days_ago, reviewed=(), learner="woman"):
     # Challenge ids: 10*i + their position, as AudioChallenge rows would have them.
-    lesson_challenges = (
-        tuple((10 * i + n, challenge) for n, challenge in enumerate(_challenges(learner=learner)))
-        if with_challenges else ()
-    )
-    return HeardLesson(
-        f"Lesson {i}", Counter(), ((learner, f"Hej {i}."), ("man" if learner == "woman" else "woman", f"Tak {i}.")),
-        learner, i, NOW - timedelta(days=days_ago), reviewed, lesson_challenges,
-    )
+    lesson_challenges = tuple((10 * i + n, challenge) for n, challenge in enumerate(_challenges(learner=learner)))
+    return HeardLesson(f"Lesson {i}", Counter(), learner, i, NOW - timedelta(days=days_ago), reviewed, lesson_challenges)
 
 
-def test_the_most_overdue_item_is_reviewed_first():
+def _ids(heard, learner="woman"):
+    return [challenge_id for challenge_id, _ in lesson_review.due_challenges(heard, learner, NOW)]
+
+
+def test_the_most_overdue_challenge_is_reviewed_first():
     # Overdue = days since last seen / interval (1 day, doubled per review).
-    # Lesson 2: heard 6 days ago, never reviewed -> 6.
-    # Lesson 1: heard 10 days ago, reviewed 6 days ago (by lesson 2) -> 6 / 2 = 3.
-    # Lesson 3: heard 2 days ago, never reviewed -> 2.
-    heard = [_lesson(1, 10), _lesson(2, 6, reviewed=((1, None),)), _lesson(3, 2)]
-    assert [i.lesson.dialogue_id for i in lesson_review.due_order(heard, "woman", NOW)] == [2, 1, 3]
+    # Challenge 20 (lesson 2): heard 6 days ago, never reviewed -> 6.
+    # Challenge 10 (lesson 1): heard 10 days ago, reviewed 6 days ago (by lesson 2) -> 6 / 2 = 3.
+    # Challenge 30 (lesson 3): heard 2 days ago, never reviewed -> 2.
+    heard = [_lesson(1, 10), _lesson(2, 6, reviewed=(10,)), _lesson(3, 2)]
+    order = _ids(heard)
+    assert order.index(20) < order.index(10) < order.index(30)
 
 
 def test_each_challenge_is_spaced_on_its_own():
     # Challenge 10 of lesson 1 was reviewed 5 days ago (by lesson 2), challenge 11 never:
     # challenge 11 (9 days, interval 1) before challenge 10 (5 days, interval 2).
-    heard = [_lesson(1, 9, with_challenges=True), _lesson(2, 5, reviewed=((1, 10),))]
-    order = [i.challenge_id for i in lesson_review.due_order(heard, "woman", NOW)]
+    order = _ids([_lesson(1, 9), _lesson(2, 5, reviewed=(10,))])
     assert order.index(11) < order.index(10)
 
 
-def test_a_lesson_with_challenges_is_reviewed_by_challenges_not_by_its_dialogue():
-    items = lesson_review.items_of(_lesson(1, 3, with_challenges=True), "woman")
-    assert [i.challenge_id for i in items] == [10, 11, 12] and all(i.challenge for i in items)
-
-
-def test_only_what_was_made_in_the_learners_current_voice_is_reviewed():
+def test_only_what_was_answered_in_the_learners_current_voice_is_reviewed():
     """In many languages the learner's words depend on their gender: what they
     answered as a woman is not asked of them as a man."""
-    as_woman = _lesson(1, 5, with_challenges=True, learner="woman")
+    as_woman = _lesson(1, 5, learner="woman")
     as_man = _lesson(2, 4, learner="man")
-    assert lesson_review.due_order([as_woman, as_man], "man", NOW) == [ReviewItem(as_man, None, None)]
+    assert _ids([as_woman, as_man], "man") == [c for c, _ in as_man.challenges]
 
 
-def test_items_are_added_until_the_lesson_is_long_enough():
-    heard = [_lesson(i, 30 - i) for i in range(1, 10)]
-    # Each dialogue: title + 2 lines.
-    assert len(lesson_review.choose(heard, 7, VALUES, "woman", NOW)) == 3
+def test_challenges_are_added_until_the_lesson_is_long_enough():
+    heard = [_lesson(1, 3)]
+    first = len(challenge_lines(heard[0].challenges[0][1], VALUES))
+    assert len(lesson_review.choose(heard, first, VALUES, "woman", NOW)) == 1
+    assert len(lesson_review.choose(heard, first + 1, VALUES, "woman", NOW)) == 2
 
 
 def test_a_lesson_long_enough_reviews_nothing():
     assert lesson_review.choose([_lesson(1, 3)], 0, VALUES, "woman", NOW) == []
 
 
-def test_a_lesson_with_neither_challenges_nor_a_dialogue_offers_nothing():
-    empty = HeardLesson("Old", Counter(), (), None, 9, NOW - timedelta(days=50), ())
-    assert lesson_review.due_order([empty], "woman", NOW) == []
+def test_a_lesson_without_challenges_offers_nothing():
+    empty = HeardLesson("Old", Counter(), None, 9, NOW - timedelta(days=50))
+    assert lesson_review.due_challenges([empty], "woman", NOW) == []
