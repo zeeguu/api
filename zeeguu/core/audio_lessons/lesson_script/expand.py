@@ -64,7 +64,7 @@ def expand(script, values, dialogue, learner):
         marker = LINE_MARKER.search(text)
         kind = marker.group(1).lower() if marker else None
         text = LINE_MARKER.sub("", text)
-        own_pause = _PAUSE.search(text)
+        # Timing is code's: a pause the model wrote anyway is dropped.
         text = _PAUSE.sub("", text).strip()
 
         unknown = [
@@ -94,7 +94,7 @@ def expand(script, values, dialogue, learner):
             out.append(SpokenLine(voice, text, 1, slow=True))
             out.append(SpokenLine(voice, text, 1))
         else:
-            out += spoken_lines(voice, text, float(own_pause.group(1)) if own_pause else 1)
+            out += spoken_lines(voice, text, 1)
 
     if problems:
         raise MarkupError("; ".join(problems))

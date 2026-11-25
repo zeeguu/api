@@ -128,6 +128,13 @@ def test_a_wrong_marker_is_refused_with_a_reason(script, problem):
         _expand(script)
 
 
+def test_a_pause_written_by_the_model_is_dropped_timing_is_codes():
+    assert _expand("Teacher: Listen. [4 seconds]") == "Teacher: Listen. [1 seconds]\n"
+    assert _expand("Teacher: How do you say coffee? [9 seconds]\nLearner: En kaffe. [answer]").splitlines()[0] == (
+        "Teacher: How do you say coffee? [4 seconds]"
+    )
+
+
 @pytest.mark.parametrize("marker", ["[plain]", "[no marker]", "[None]"])
 def test_a_marker_meaning_no_marker_is_a_plain_line(marker):
     assert _expand(f"Learner: Tak. {marker}") == "Woman: Tak. [1 seconds]\n"
