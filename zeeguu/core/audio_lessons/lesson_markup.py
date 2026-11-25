@@ -123,11 +123,12 @@ class MarkupError(ValueError):
 # One «…» span, with the punctuation right after it: "«kaffe». Say it." is
 # "kaffe." then "Say it.", not "kaffe" then a lone ".".
 _CHEVRON_SPAN = re.compile(r"«([^»]+)»([.,!?;:…]*)")
-# Pause added before and after the learned-language word. None: each
-# synthesized segment already starts and ends with a little silence, and
-# listened side by side (25 Nov 2026), the sentence without an added pause
-# sounded better than with 0.3 s. Tune by ear.
-PAUSE_AROUND_LEARNED_WORDS = 0
+# Pause where a Teacher sentence switches between the teacher's two
+# languages, before and after a «…» span. None: each synthesized segment
+# already starts and ends with a little silence, and listened side by side
+# (25 Nov 2026), the sentence without an added pause sounded better than
+# with 0.3 s. Tune by ear.
+PAUSE_AT_LANGUAGE_SWITCH = 0
 
 
 
@@ -136,7 +137,7 @@ def spoken(voice, text, pause):
     The voice lines that say `text`, followed by `pause` seconds. A Teacher
     line with «…» in it becomes segments: the text between the spans in the
     Teacher's voice, each span in the teacher's learned-language voice
-    (TeacherL2), joined by PAUSE_AROUND_LEARNED_WORDS. In any other line the
+    (TeacherL2), joined by PAUSE_AT_LANGUAGE_SWITCH. In any other line the
     chevrons are just dropped.
     """
     if voice != "Teacher" or "«" not in text:
@@ -156,7 +157,7 @@ def spoken(voice, text, pause):
         segments.append(("Teacher", rest))
 
     *joined, last = segments
-    return [_line(v, t, PAUSE_AROUND_LEARNED_WORDS) for v, t in joined] + [_line(*last, pause)]
+    return [_line(v, t, PAUSE_AT_LANGUAGE_SWITCH) for v, t in joined] + [_line(*last, pause)]
 
 
 def _line(voice, text, pause):
