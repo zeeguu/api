@@ -37,7 +37,7 @@ class HeardLesson:
     dialogue_id: Optional[int] = None  # its AudioLessonDialogue
     heard_at: Optional[datetime] = None  # finished, or else made
     reviewed: tuple = ()  # what it reviewed: (dialogue id, challenge id or None), AudioLessonReview
-    challenges: tuple = ()  # its review challenges: (challenge id, lesson_markup.Challenge), AudioChallenge
+    challenges: tuple = ()  # its review challenges: (challenge id, lesson_script.challenges.Challenge), AudioChallenge
 
 _TIMING = re.compile(r"\[[^\]]*\]")
 _WORD = re.compile(r"[^\W\d_]+(?:['’-][^\W\d_]+)*")

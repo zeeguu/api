@@ -81,7 +81,7 @@ class AudioLessonDialogue(db.Model):
     dialogue_script = Column(Text, nullable=True)
 
     # A0 dialogues: the script as the model wrote it, with markers, once the
-    # review was placed (lesson_markup.py); `script` is its expansion. The
+    # review was placed (lesson_script); `script` is its expansion. The
     # lessons reviewed are in audio_lesson_review.
     marked_script = Column(Text, nullable=True)
 

@@ -21,7 +21,7 @@ _VOICE_LINE_PATTERN = re.compile(
 # [slow], and the variants a model writes for it ([slowly], [slow speed]): any
 # of them left in the text would be read aloud.
 _SLOW_MARKER = re.compile(r"\s*\[slow[a-z ]*\]", re.IGNORECASE)
-# The markers of an A0 script before it is expanded (lesson_markup.py). Only
+# The markers of an A0 script before it is expanded (lesson_script). Only
 # there: the language check reads the marked script, and must not read the
 # markers as words.
 _CHEVRON_SPAN = re.compile(r"\s*«[^»]*»")
@@ -156,7 +156,7 @@ def parse_script(script: str, with_speed: bool = False) -> List[Tuple]:
         text = _SLOW_MARKER.sub("", text)
         text = _LESSON_MARKER.sub("", text).strip()
         # A learned-language word inside a Teacher line of a marked A0 script
-        # («kaffe», lesson_markup.spoken) is not the Teacher's language: the
+        # («kaffe», lesson_script.spoken_line) is not the Teacher's language: the
         # language check must not read it. Expanded scripts have none.
         if voice_type == "teacher":
             text = _CHEVRON_SPAN.sub("", text).strip()

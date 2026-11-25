@@ -1,7 +1,7 @@
 -- A0 lessons: review challenges and what each lesson reviewed.
 --
 -- audio_challenge: one thing the learner answered in a lesson, written when
--- the lesson is made from its [answer] lines (audio_lessons/lesson_markup.challenges).
+-- the lesson is made from its [answer] lines (audio_lessons/lesson_script/challenges.py).
 -- A question: the Teacher's question (prompt_voice 'teacher') and the answer.
 -- An exchange: the Teacher's setup, the Other person's line (prompt_voice
 -- 'man' or 'woman') and the answer. answer_voice is the learner's voice then:
@@ -15,7 +15,7 @@
 -- lesson from before challenges; challenge_id NULL).
 --
 -- marked_script: the script as the model wrote it, with markers
--- (audio_lessons/lesson_markup.py). The stored script is its expansion, with
+-- (audio_lessons/lesson_script). The stored script is its expansion, with
 -- the review added.
 
 CREATE TABLE audio_challenge (

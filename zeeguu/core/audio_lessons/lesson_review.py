@@ -1,6 +1,6 @@
 """
 What an A0 lesson reviews from the learner's earlier lessons: chosen by code,
-not by the model, and placed by code (lesson_markup.with_review).
+not by the model, and placed by code (lesson_script.review.with_review).
 
 The review is retrieval, not listening again: being asked to recall
 something helps memory more than meeting it again (the testing effect,
@@ -27,7 +27,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
 
-from zeeguu.core.audio_lessons.lesson_markup import Challenge, challenge_lines, respond_lines
+from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, challenge_lines
+from zeeguu.core.audio_lessons.lesson_script.review import respond_lines
 from zeeguu.core.audio_lessons.words_heard import HeardLesson
 
 FIRST_INTERVAL_DAYS = 1

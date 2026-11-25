@@ -11,12 +11,8 @@ from zeeguu.core.audio_lessons.script_language_validator import (
     find_language_mismatches,
 )
 from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
-from zeeguu.core.audio_lessons.lesson_markup import (
-    challenges,
-    other_voice,
-    roles_to_voices,
-    voices_to_roles,
-)
+from zeeguu.core.audio_lessons.lesson_script.challenges import challenges
+from zeeguu.core.audio_lessons.lesson_script.roles import other_voice, roles_to_voices, voices_to_roles
 from zeeguu.core.audio_lessons.words_heard import history_table
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
@@ -39,10 +35,10 @@ GeneratedScript = namedtuple(
     ["script", "model_name", "prompt_version", "dialogue", "marked", "reviewed", "challenges"],
     # dialogue: for a lesson written in two calls, the GeneratedScript of the
     # call that wrote its dialogue; None otherwise. marked: an A0 script as the
-    # model wrote it, with markers (lesson_markup.py); reviewed: what it reviews
+    # model wrote it, with markers (lesson_script); reviewed: what it reviews
     # of earlier lessons, in order, as (dialogue id, kind, challenge index or None)
     # (lesson_review.py); challenges: its own challenges, for later lessons to review
-    # (lesson_markup.challenges).
+    # (lesson_script.challenges).
     defaults=[None, None, (), ()],
 )
 
@@ -167,7 +163,7 @@ def generate_script_in_languages(
     voice_labels: the labels the prompt asks for on learned-language lines;
     relabel: turns them into the voices' labels (Man/Woman) before any check
     reads the script. An A0 script is written with Learner/Other
-    (lesson_markup.roles_to_voices).
+    (lesson_script.roles.roles_to_voices).
 
     short_lines: an A0 script, made of one- and two-word lines; see
     script_language_validator.MIN_CHARS_TO_JUDGE_SHORT_LINES.
@@ -563,19 +559,14 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
     (title, script, model, marked, reviewed) from the model; reviewed is
     (dialogue id, kind, challenge id or None) per item reviewed, in order.
 
-    An A0 script comes back marked (lesson_markup.py): it is expanded here,
+    An A0 script comes back marked (lesson_script): it is expanded here,
     and a review of earlier lessons, chosen by code (lesson_review.py), is put
     before its end to make it as long as the learner asked for. A marker that
     cannot be expanded gets one rewrite, with the reason.
     """
     from zeeguu.core.audio_lessons import lesson_review
-    from zeeguu.core.audio_lessons.lesson_markup import (
-        MarkupError,
-        expand,
-        review_lines,
-        voice_line_count,
-        with_review,
-    )
+    from zeeguu.core.audio_lessons.lesson_script.expand import MarkupError, expand
+    from zeeguu.core.audio_lessons.lesson_script.review import review_lines, voice_line_count, with_review
     from zeeguu.core.audio_lessons.lesson_tuning import lines_for
 
     attempt_prompt = prompt

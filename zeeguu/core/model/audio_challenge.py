@@ -7,7 +7,7 @@ class AudioChallenge(db.Model):
     """
     One thing the learner answered in an A0 lesson, for later lessons to review
     (audio_lessons/lesson_review.py). Written when the lesson is made, from its
-    marked script (lesson_markup.challenges). A QUESTION: the Teacher's question in
+    marked script (lesson_script.challenges). A QUESTION: the Teacher's question in
     the learner's own language, then the answer. An EXCHANGE: the Teacher's
     setup, the Other person's line, then the answer. answer_voice is the voice
     the learner had: a challenge is reviewed only while the learner has that voice,
@@ -30,7 +30,7 @@ class AudioChallenge(db.Model):
     answer = Column(String(500), nullable=False)
 
     def __init__(self, dialogue_id, position, challenge):
-        """challenge: lesson_markup.Challenge."""
+        """challenge: lesson_script.challenges.Challenge."""
         self.dialogue_id = dialogue_id
         self.position = position
         self.setup = challenge.setup[:500] if challenge.setup else None
@@ -40,7 +40,7 @@ class AudioChallenge(db.Model):
         self.answer = answer[:500]
 
     def as_challenge(self):
-        from zeeguu.core.audio_lessons.lesson_markup import Challenge
+        from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge
 
         return Challenge(self.setup, (self.prompt_voice, self.prompt), (self.answer_voice, self.answer))
 

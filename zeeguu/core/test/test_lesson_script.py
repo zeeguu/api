@@ -1,5 +1,5 @@
 """
-A0 lesson scripts written with markers (lesson_markup.py): the model writes
+A0 lesson scripts written with markers (lesson_script): the model writes
 each thing once, with roles (Learner, Other), and code relabels the roles as
 voices, adds the repetitions and pauses, and turns what the learner answered
 into challenges that later lessons review (lesson_review.py).
@@ -12,20 +12,12 @@ from datetime import datetime, timedelta
 import pytest
 
 from zeeguu.core.audio_lessons import lesson_review
-from zeeguu.core.audio_lessons.lesson_markup import (
-    Challenge,
-    MarkupError,
-    challenge_lines,
-    challenges,
-    expand,
-    review_lines,
-    roles_to_voices,
-    SpokenLine,
-    spoken_lines,
-    time_to_answer,
-    voices_to_roles,
-    with_review,
-)
+from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge, challenge_lines, challenges
+from zeeguu.core.audio_lessons.lesson_script.expand import expand, MarkupError
+from zeeguu.core.audio_lessons.lesson_script.review import review_lines, with_review
+from zeeguu.core.audio_lessons.lesson_script.roles import roles_to_voices, voices_to_roles
+from zeeguu.core.audio_lessons.lesson_script.spoken_line import spoken_lines, SpokenLine
+from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
 from zeeguu.core.audio_lessons.lesson_review import ReviewItem
 from zeeguu.core.audio_lessons.lesson_tuning import LessonTuning, prompt_values
 from zeeguu.core.audio_lessons.words_heard import HeardLesson

@@ -55,7 +55,7 @@ def _lesson_prompt(values, learner="man"):
 
 
 def test_the_prompt_asks_for_recalls_as_tuned_and_no_pauses():
-    """Pauses and repeats are added by code (test_lesson_markup.py); the
+    """Pauses and repeats are added by code (test_lesson_script.py); the
     prompt only says how often to recall."""
     prompt = _lesson_prompt(prompt_values(LessonTuning(pace=2, repetition=2), 10))
     assert "about 2 times over the lesson" in prompt

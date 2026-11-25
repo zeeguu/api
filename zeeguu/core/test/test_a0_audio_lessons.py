@@ -250,7 +250,7 @@ class StoredDialogueTest(ModelTestMixIn):
         )
         db.session.add(earlier)
         db.session.flush()
-        from zeeguu.core.audio_lessons.lesson_markup import Challenge
+        from zeeguu.core.audio_lessons.lesson_script.challenges import Challenge
         from zeeguu.core.model.audio_challenge import AudioChallenge
 
         earlier_challenge = AudioChallenge(earlier.id, 0, Challenge(None, ("teacher", "How do you say bus?"), ("woman", "bus")))
