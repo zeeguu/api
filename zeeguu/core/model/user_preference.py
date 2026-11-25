@@ -46,6 +46,10 @@ class UserPreference(db.Model):
     SHOW_MWE_HINTS = "show_mwe_hints"  # Show hints for multi-word expressions
     SHOW_READING_TIMER = "show_reading_timer"  # Show timer in reader and exercises
     EMAIL_ON_ARTICLE_SHARED = "email_on_article_shared"  # Email me when a friend shares an article
+    # "true": a more frequent waiting word takes the practice slot of a rarer
+    # word below level 2 (word_scheduling/basicSR/frequency_slots.py). Unset
+    # or "false": a word keeps its slot until it is learned.
+    FREQUENT_WORDS_FIRST = "frequent_words_first"
 
     # Minutes of study a day that count the day for the streak, counted in each
     # language separately; Aiki mode and the study reminder (on the phone) read
@@ -179,6 +183,15 @@ class UserPreference(db.Model):
             user_id=user.id, key=cls.FILTER_DISTURBING_CONTENT
         ).first()
         return filter_setting and filter_setting.value == "true"
+
+    @classmethod
+    def is_frequent_words_first_enabled(cls, user: User):
+        """Whether more frequent words take practice slots from rarer ones
+        (FREQUENT_WORDS_FIRST). Default: False."""
+        setting = UserPreference.query.filter_by(
+            user_id=user.id, key=cls.FREQUENT_WORDS_FIRST
+        ).first()
+        return bool(setting) and setting.value == "true"
 
     @classmethod
     def is_email_on_article_shared_enabled(cls, user: User):

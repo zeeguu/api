@@ -7,6 +7,11 @@ from zeeguu.core.model import Phrase, ExerciseOutcome, UserPreference
 from zeeguu.core.model.db import db
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.user_word import UserWord
+from zeeguu.core.word_scheduling.basicSR.frequency_slots import (
+    LEVEL_THAT_KEEPS_ITS_SLOT,
+    SlotWord,
+    words_to_take_out,
+)
 
 ONE_DAY = 60 * 24
 
@@ -216,6 +221,9 @@ class BasicSRSchedule(db.Model):
 
         max_words_to_schedule = UserPreference.get_max_words_to_schedule(user)
 
+        if UserPreference.is_frequent_words_first_enabled(user):
+            cls._give_slots_to_more_frequent_words(user, max_words_to_schedule)
+
         scheduled_candidates = cls.scheduled_words_due_now(
             user, max_words_to_schedule
         )
@@ -253,6 +261,57 @@ class BasicSRSchedule(db.Model):
                 deduplicated.append(user_word)
 
         return deduplicated
+
+    @classmethod
+    def _give_slots_to_more_frequent_words(cls, user, max_words_to_schedule):
+        """
+        With every slot taken, a waiting word more frequent than a word in
+        practice below level 2 takes its slot (frequency_slots.py). The word
+        taken out goes back to waiting, still fit for study; the waiting word
+        then fills the free slot as any free slot is filled.
+        """
+        if cls.scheduled_user_words_count(user) < max_words_to_schedule:
+            return
+
+        def light_query(*columns):
+            return (
+                db.session.query(UserWord.id, Phrase.rank, *columns)
+                .join(Meaning, UserWord.meaning_id == Meaning.id)
+                .join(Phrase, Meaning.origin_id == Phrase.id)
+                .outerjoin(cls, cls.user_word_id == UserWord.id)
+                .filter(UserWord.user_id == user.id)
+                .filter(UserWord.fit_for_study == 1)
+                .filter(UserWord.learned_time == None)
+                .filter(Phrase.language_id == user.learned_language_id)
+            )
+
+        scheduled = [
+            SlotWord(uw_id, rank, level or 0)
+            for uw_id, rank, level in light_query(UserWord.level)
+            .filter(cls.id != None)
+            .all()
+        ]
+        can_lose = sum(1 for w in scheduled if w.level < LEVEL_THAT_KEEPS_ITS_SLOT)
+        if can_lose == 0:
+            return
+
+        waiting = [
+            SlotWord(uw_id, rank)
+            for uw_id, rank in light_query()
+            .filter(cls.id == None)
+            .filter(Phrase.rank != None)
+            .order_by(Phrase.rank)
+            .limit(can_lose)
+            .all()
+        ]
+
+        taken_out = words_to_take_out(scheduled, waiting)
+        if not taken_out:
+            return
+        cls.query.filter(
+            cls.user_word_id.in_([w.user_word_id for w in taken_out])
+        ).delete(synchronize_session=False)
+        db.session.commit()
 
     @classmethod
     def _scheduled_user_words_query(cls, user, language=None):

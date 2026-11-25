@@ -162,6 +162,16 @@ def save_user_preferences():
         show_reading_timer.value = show_reading_timer_value
         db_session.add(show_reading_timer)
 
+    frequent_words_first_value = data.get(UserPreference.FREQUENT_WORDS_FIRST, None)
+    if frequent_words_first_value is not None:
+        frequent_words_first = UserPreference.find_or_create(
+            db_session,
+            user,
+            UserPreference.FREQUENT_WORDS_FIRST,
+        )
+        frequent_words_first.value = frequent_words_first_value
+        db_session.add(frequent_words_first)
+
     email_on_article_shared_value = data.get(UserPreference.EMAIL_ON_ARTICLE_SHARED, None)
     if email_on_article_shared_value is not None:
         email_on_article_shared = UserPreference.find_or_create(
