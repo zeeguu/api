@@ -405,10 +405,14 @@ class DailyLessonGenerator:
 
         if builds_on_history:
             heard = heard_lessons(user, learned_lang)
-            # The character the learner chose; when they did not, the man and
-            # the woman take turns, counted over all their lessons of this kind.
-            learner_character = UserPreference.get_audio_lesson_character(user) or (
-                "man" if history_lesson_count(user, learned_lang) % 2 == 0 else "woman"
+            # The character the learner chose. Unset (or the old "either"):
+            # the one of their latest lesson, so nobody changes gender from one
+            # lesson to the next; in many languages the words they say depend
+            # on it. Only a first lesson with nothing chosen has to pick.
+            learner_character = (
+                UserPreference.get_audio_lesson_character(user)
+                or next((h.learner for h in reversed(heard) if h.learner), None)
+                or ("man" if history_lesson_count(user, learned_lang) % 2 == 0 else "woman")
             )
             # What the learner said about their earlier lessons: pace,
             # repetition, length (lesson_tuning.py).

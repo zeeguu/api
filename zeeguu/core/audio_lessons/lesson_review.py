@@ -40,15 +40,24 @@ class ReviewItem:
     card: Optional[Card]  # None: the whole dialogue (a lesson from before cards)
     card_id: Optional[int]  # its AudioLessonCard
 
-CARD = "card"
+CARD = "card"  # AudioLessonReview.kind
 DIALOGUE = "dialogue"
 
 
-def items_of(lesson):
-    """A lesson's cards; or, when it has none, its dialogue as one item."""
+def items_of(lesson, learner):
+    """
+    A lesson's cards; or, when it has none, its dialogue as one item. Only
+    what was made with the learner's current voice: in many languages a
+    learner's words depend on their gender, so a card answered as a woman is
+    not asked of the same learner as a man.
+    """
     if lesson.cards:
-        return [ReviewItem(lesson, card, card_id) for card_id, card in lesson.cards]
-    if lesson.dialogue and lesson.learner:
+        return [
+            ReviewItem(lesson, card, card_id)
+            for card_id, card in lesson.cards
+            if card.answer[0] == learner
+        ]
+    if lesson.dialogue and lesson.learner == learner:
         return [ReviewItem(lesson, None, None)]
     return []
 
@@ -57,11 +66,14 @@ def kind(item):
     return DIALOGUE if item.card is None else CARD
 
 
-def due_order(heard, now=None):
+def due_order(heard, learner, now=None):
     """Everything the earlier lessons offer for review, most overdue first."""
     now = now or datetime.utcnow()
     items = [
-        item for lesson in heard if lesson.dialogue_id is not None for item in items_of(lesson)
+        item
+        for lesson in heard
+        if lesson.dialogue_id is not None
+        for item in items_of(lesson, learner)
     ]
 
     def overdue(item):
@@ -85,10 +97,10 @@ def lines_of(item, values):
     return 1 + len(respond_lines(item.lesson.dialogue, item.lesson.learner, values))
 
 
-def choose(heard, lines_needed, values, now=None):
+def choose(heard, lines_needed, values, learner, now=None):
     """The items to review, in order, until they add `lines_needed` voice lines."""
     chosen, lines = [], 0
-    for item in due_order(heard, now):
+    for item in due_order(heard, learner, now):
         if lines >= lines_needed:
             break
         chosen.append(item)

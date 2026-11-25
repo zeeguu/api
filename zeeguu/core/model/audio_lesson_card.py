@@ -5,11 +5,13 @@ from zeeguu.core.model.db import db
 
 class AudioLessonCard(db.Model):
     """
-    One question and answer of an A0 lesson, for later lessons to review
+    One thing the learner answered in an A0 lesson, for later lessons to review
     (audio_lessons/lesson_review.py). Written when the lesson is made, from its
-    marked script (lesson_markup.cards): the Teacher's question in the
-    learner's own language, so the meaning is always given; the answer; and the
-    line the question answers ("Answer her."), when the model marked one [cue].
+    marked script (lesson_markup.cards). A QUESTION: the Teacher's question in
+    the learner's own language, then the answer. An EXCHANGE: the Teacher's
+    setup, the Other person's line, then the answer. answer_voice is the voice
+    the learner had: a card is reviewed only while the learner has that voice,
+    since in many languages the words depend on the speaker's gender.
     """
 
     __tablename__ = "audio_lesson_card"
@@ -21,28 +23,26 @@ class AudioLessonCard(db.Model):
     id = Column(Integer, primary_key=True)
     dialogue_id = Column(Integer, ForeignKey("audio_lesson_dialogue.id"), nullable=False)
     position = Column(Integer, nullable=False)
-    question = Column(String(500), nullable=False)
+    setup = Column(String(500), nullable=True)
+    prompt_voice = Column(String(9), nullable=False)
+    prompt = Column(String(500), nullable=False)
     answer_voice = Column(String(5), nullable=False)
     answer = Column(String(500), nullable=False)
-    cue_voice = Column(String(5), nullable=True)
-    cue = Column(String(500), nullable=True)
 
     def __init__(self, dialogue_id, position, card):
         """card: lesson_markup.Card."""
         self.dialogue_id = dialogue_id
         self.position = position
-        self.question = card.prompt[:500]
+        self.setup = card.setup[:500] if card.setup else None
+        self.prompt_voice, prompt = card.prompt
+        self.prompt = prompt[:500]
         self.answer_voice, answer = card.answer
         self.answer = answer[:500]
-        if card.context:
-            self.cue_voice, cue = card.context
-            self.cue = cue[:500]
 
     def as_card(self):
         from zeeguu.core.audio_lessons.lesson_markup import Card
 
-        context = (self.cue_voice, self.cue) if self.cue else None
-        return Card(context, self.question, (self.answer_voice, self.answer))
+        return Card(self.setup, (self.prompt_voice, self.prompt), (self.answer_voice, self.answer))
 
     @classmethod
     def for_dialogues(cls, dialogue_ids):

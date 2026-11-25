@@ -213,7 +213,7 @@ class AudioLessonCharacterTest(ModelTestMixIn):
         super().setUp()
         self.user = UserRule().user
 
-    def test_unset_and_either_mean_alternate(self):
+    def test_unset_and_either_mean_not_chosen(self):
         from zeeguu.core.model.user_preference import UserPreference
 
         assert UserPreference.get_audio_lesson_character(self.user) is None
@@ -253,10 +253,10 @@ class StoredDialogueTest(ModelTestMixIn):
         from zeeguu.core.audio_lessons.lesson_markup import Card
         from zeeguu.core.model.audio_lesson_card import AudioLessonCard
 
-        earlier_card = AudioLessonCard(earlier.id, 0, Card(None, "How do you say bus?", ("man", "bus")))
+        earlier_card = AudioLessonCard(earlier.id, 0, Card(None, ("teacher", "How do you say bus?"), ("woman", "bus")))
         db.session.add(earlier_card)
         db.session.flush()
-        new_card = Card(("man", "Hvad skal det være?"), "Answer him.", ("woman", "En kaffe, tak."))
+        new_card = Card("The waiter asks what you want. Ask for a coffee.", ("man", "Hvad skal det være?"), ("woman", "En kaffe, tak."))
         lesson = GeneratedScript(
             "Teacher: At the café. [1 seconds]", "claude-sonnet-5-5", "v4", dialogue,
             "Teacher: At the café.", ((earlier.id, "card", earlier_card.id),), (new_card,),
@@ -273,11 +273,39 @@ class StoredDialogueTest(ModelTestMixIn):
         assert row.learner_character == "woman"
         assert row.dialogue_script == dialogue.script
         assert row.marked_script == "Teacher: At the café."
+
         from zeeguu.core.model.audio_lesson_review import AudioLessonReview
 
         assert AudioLessonReview.reviewed_by({row.id}) == {row.id: ((earlier.id, earlier_card.id),)}
         stored = AudioLessonCard.for_dialogues({row.id})[row.id]
         assert [card for _, card in stored] == [new_card]
+
+    def test_with_no_character_chosen_the_latest_lessons_character_is_kept(self):
+        """No alternating: in many languages the learner's words depend on
+        their gender, so an unchosen character stays what it last was."""
+        from collections import Counter
+        from unittest.mock import MagicMock, patch
+
+        from zeeguu.core.audio_lessons import daily_lesson_generator
+        from zeeguu.core.audio_lessons.script_generator import GeneratedScript
+        from zeeguu.core.audio_lessons.words_heard import HeardLesson
+
+        heard = [
+            HeardLesson("Earlier", Counter({"hej": 1}), (("man", "Hej."),), "man"),
+            HeardLesson("Latest", Counter({"tak": 1}), (("woman", "Tak."),), "woman"),
+        ]
+        dialogue = GeneratedScript("Man: Hej.\nWoman: Tak.", "deepseek-chat", "v1")
+        lesson = GeneratedScript("Teacher: Hi. [1 seconds]", "claude-sonnet-5-5", "v4", dialogue, "Teacher: Hi.")
+        generator = daily_lesson_generator.DailyLessonGenerator()
+        generator._voice_synthesizer = MagicMock(get_audio_duration=MagicMock(return_value=600))
+        with patch.object(daily_lesson_generator, "heard_lessons", return_value=heard), \
+             patch.object(daily_lesson_generator, "generate_dialogue_script", return_value=("Hi", lesson)), \
+             patch.object(daily_lesson_generator, "_ai_generator_for", return_value=None):
+            row = generator.generate_audio_lesson_dialogue(
+                self.user, self.user.learned_language.code, "en", "A0", "at the café", "situation",
+                voice_variety=None,
+            )
+        assert row.learner_character == "woman"
 
 
 def test_a0_builds_on_history_and_has_no_word_lessons():

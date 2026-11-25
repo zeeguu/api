@@ -43,13 +43,12 @@ def test_situation_and_unknown_answers_do_not_tune():
     assert tuning_from(rows) == LessonTuning()
 
 
-def _lesson_prompt(values, learner_role="Man"):
-    other = "Woman" if learner_role == "Man" else "Man"
+def _lesson_prompt(values, learner="man"):
+    other = "woman" if learner == "man" else "man"
     common = dict(
         target_language="Danish", source_language="English", cefr_level="A0",
-        suggestion="at a café", history="Nothing yet.", dialogue="Man: Hej.",
-        learner_role=learner_role, other_role=other,
-        other_pronoun="her" if other == "Woman" else "him",
+        suggestion="at a café", history="Nothing yet.", dialogue="Other: Hej.",
+        learner_gender=learner, other_gender=other,
     )
     template = get_prompt_template("a0_dialogue_lesson--pimsleur_style_situation-v4.txt")
     return template.format(**common, **values)
@@ -65,12 +64,20 @@ def test_the_prompt_asks_for_recalls_as_tuned_and_no_pauses():
     assert "seconds]" not in prompt
 
 
-@pytest.mark.parametrize("learner,other,pronoun", [("Man", "Woman", "her"), ("Woman", "Man", "him")])
-def test_the_format_names_the_other_person_by_their_label_and_pronoun(learner, other, pronoun):
+@pytest.mark.parametrize("learner,other", [("man", "woman"), ("woman", "man")])
+def test_the_prompt_writes_roles_and_says_who_is_who(learner, other):
     prompt = _lesson_prompt(prompt_values(LessonTuning(), 10), learner)
-    assert f"{other}: <their line> [cue]" in prompt
-    assert f'"Answer {pronoun}."' in prompt
-    assert "<other>" not in prompt
+    assert f"The Learner: a {learner}." in prompt and f"The Other person: a {other}," in prompt
+    assert f"forms for a {learner} speaking to a {other}" in prompt
+    assert "Learner: <the answer> [answer]" in prompt
+    # No voices and no pronouns for the model to get wrong.
+    assert "Man:" not in prompt and "Woman:" not in prompt
+    assert "never with he, she, him or her" in prompt
+
+
+def test_the_prompt_names_the_exchange_and_has_no_cue():
+    prompt = _lesson_prompt(prompt_values(LessonTuning(), 10))
+    assert "An EXCHANGE" in prompt and "[cue]" not in prompt and "[ask]" not in prompt
 
 
 def test_the_prompt_leaves_the_review_to_code():

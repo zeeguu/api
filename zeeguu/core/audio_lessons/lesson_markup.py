@@ -7,26 +7,26 @@ the learner's tuning says (lesson_tuning.prompt_values), rather than what the
 model made of "about 5 recalls" and "[4 seconds]", and the model writes about
 a quarter fewer lines. Design: docs future-work/a0-lesson-script-functions.md.
 
-    Teacher lines are in the learner's own language and carry no marker. The
-    learned language is marked by what the learner does with it:
+    The model writes with roles, not voices: "Learner:" and "Other:". Code
+    knows which voice (Man or Woman) the learner has, and relabels the lines
+    (roles_to_voices) before anything else reads them. Teacher lines are in
+    the learner's own language and carry no marker. The learned language is
+    marked by what the learner does with it:
 
-    Woman: Kaffe. [drill]                  a word to SAY: slow once, then at
-                                           normal speed, with time to repeat it
-    Man: Hvad skal det være? [understand]  a line only to UNDERSTAND (the other
-                                           person's): slow once, then normal
-    Teacher: How do you say coffee?        a question: the Teacher line right
-    Woman: En kaffe. [answer]              before an [answer] gets the time to
-                                           answer; the answer is said twice
+    Learner: Kaffe. [drill]                  a word to SAY: slow once, then at
+                                             normal speed, with time to repeat it
+    Other: Hvad skal det være? [understand]  a line only to UNDERSTAND: slow
+                                             once, then at normal speed
+    Teacher: How do you say coffee?          a QUESTION: the line right before
+    Learner: En kaffe. [answer]              an [answer] gets the time to answer;
+                                             the answer is said twice
 
-    A [cue] is what the other person says that the learner then replies to.
-    It only comes as part of a question:
+    An EXCHANGE: the Teacher sets it up, the Other person speaks, and the
+    learner replies to them, as in a real conversation:
 
-    Man: Den koster tolv kroner. [cue]     he says something
-    Teacher: Answer him. Say okay.         the question
-    Woman: Okay. En billet, tak. [answer]  the learner's reply
-
-    The cue is said once. It matters for review: a card made from this
-    question plays the cue first, so "Answer him" has something to answer.
+    Teacher: The shopkeeper tells you the price. Say okay, and ask for a ticket.
+    Other: Den koster tolv kroner.           the line the learner answers
+    Learner: Okay. En billet, tak. [answer]
 
     [dialogue]                             this lesson's dialogue
 
@@ -47,7 +47,30 @@ from dataclasses import dataclass
 from typing import Optional
 
 _VOICE_LINE = re.compile(r"^(Teacher|TeacherL2|Man|Woman):\s*(.*)$")
-_LINE_MARKER = re.compile(r"\s*\[(drill|answer|understand|cue)\]\s*$", re.IGNORECASE)
+_LINE_MARKER = re.compile(r"\s*\[(drill|answer|understand)\]\s*$", re.IGNORECASE)
+_ROLE_LABEL = re.compile(r"^(\s*)\**\s*(Learner|Other)\s*\**\s*:\s*\**\s*", re.IGNORECASE)
+_VOICE_LABEL = re.compile(r"^(\s*)(Man|Woman)\s*:", re.IGNORECASE)
+
+
+def other_voice(learner):
+    """The other person's voice: "woman" for a learner who is "man", and the other way round."""
+    return "woman" if learner == "man" else "man"
+
+
+def roles_to_voices(script, learner):
+    """The script with "Learner:" and "Other:" relabeled as the voices they are."""
+    voices = {"learner": learner.capitalize(), "other": other_voice(learner).capitalize()}
+    return "\n".join(
+        _ROLE_LABEL.sub(lambda m: f"{m.group(1)}{voices[m.group(2).lower()]}: ", line)
+        for line in (script or "").split("\n")
+    )
+
+
+def voices_to_roles(script, learner):
+    """A dialogue with its Man/Woman lines relabeled "Learner:" and "Other:", for the prompt."""
+    def role(m):
+        return f"{m.group(1)}{'Learner' if m.group(2).lower() == learner else 'Other'}:"
+    return "\n".join(_VOICE_LABEL.sub(role, line) for line in (script or "").split("\n"))
 _PAUSE = re.compile(r"\s*\[([0-9.]+)\s*seconds?\]\s*$", re.IGNORECASE)
 _DIALOGUE = re.compile(r"^\[dialogue\]$", re.IGNORECASE)
 _ANY_MARKER = re.compile(r"\[([a-z][a-z ]*\d*)\]", re.IGNORECASE)
@@ -111,12 +134,13 @@ def respond_lines(dialogue, learner, values):
     return out
 
 
-def expand(script, values, dialogue):
+def expand(script, values, dialogue, learner):
     """
-    The full script from a marked one.
+    The full script from a marked one, its lines already labeled with voices.
 
     values: lesson_tuning.prompt_values; dialogue: this lesson's dialogue as
-    [(voice, text)]. Raises MarkupError on a marker it cannot expand.
+    [(voice, text)]; learner: the learner's voice, "man" or "woman".
+    Raises MarkupError on a marker it cannot expand.
     """
     out = []
     problems = []
@@ -164,16 +188,14 @@ def expand(script, values, dialogue):
             out.append(f"{voice}: {text} [slow] [{values['repeat_pause']} seconds]")
             out += [_line(voice, text, values["repeat_pause"])] * values["normal_speed_repeat_count"]
         elif kind == "answer":
-            # The question is the Teacher line before the answer: it gets the
-            # time to answer. There is no [ask] marker: the model put one in
-            # the wrong place in 3 ways (prompt drafts, 20 Nov); now it is
-            # refused like any unknown marker, and the script rewritten.
+            # The line right before the answer is what the learner answers: a
+            # Teacher question, or the Other person's line in an exchange. It
+            # gets the time to answer. Not the learner's own line before it
+            # (two answers in a row): that one already has its pause.
             previous = next((i for i in range(len(out) - 1, -1, -1) if out[i]), None)
-            if previous is not None and out[previous].startswith("Teacher:"):
+            if previous is not None and not out[previous].startswith(f"{learner.capitalize()}:"):
                 out[previous] = _PAUSE.sub("", out[previous]) + f" [{time_to_answer(text, values)} seconds]"
             out += [_line(voice, text, values["repeat_pause"])] * 2
-        elif kind == "cue":
-            out.append(_line(voice, text, 1))
         elif kind == "understand":
             out.append(f"{voice}: {text} [slow] [1 seconds]")
             out.append(_line(voice, text, 1))
@@ -187,11 +209,19 @@ def expand(script, values, dialogue):
 
 @dataclass(frozen=True)
 class Card:
-    """A question and its answer from a lesson's marked script, as review material."""
+    """
+    One thing the learner answered in a lesson, kept for review: a QUESTION
+    (the Teacher asks) or an EXCHANGE (the Other person speaks, after the
+    Teacher's setup).
+    """
 
-    context: Optional[tuple]  # (voice, text) of the [cue] line the question answers, or None
-    prompt: str  # the Teacher's question, in the learner's own language
-    answer: tuple  # (voice, text)
+    setup: Optional[str]  # the Teacher's setup of an exchange, in the learner's language; None for a question
+    prompt: tuple  # (voice, text) of the line the learner answers: "teacher", or the Other person's voice
+    answer: tuple  # (voice, text): the learner's answer
+
+    @property
+    def kind(self):
+        return "question" if self.prompt[0] in ("teacher", "teacherl2") else "exchange"
 
 
 @dataclass(frozen=True)
@@ -200,7 +230,7 @@ class MarkedLine:
 
     voice: str  # "Teacher", "TeacherL2", "Man" or "Woman"
     text: str  # what is said, without markers
-    marker: Optional[str]  # "drill", "answer", "understand", "cue", or None
+    marker: Optional[str]  # "drill", "answer", "understand", or None
 
 
 def marked_lines(marked) -> list:
@@ -217,35 +247,38 @@ def marked_lines(marked) -> list:
     return lines
 
 
-def cards(marked):
+def cards(marked, learner):
     """
-    The cards of a marked script, in order. A card is an [answer] line, the
-    Teacher line right before it (the question), and, when the line before
-    the question is marked [cue], that line too (what "Answer her." answers).
-    One card per answer: a lesson recalls the same phrase several times, and
-    its first question is usually the one that says what it means.
+    The cards of a marked script (with voices), in order. A card is an [answer]
+    by the learner and the line right before it, which the learner answers:
+    a Teacher question, or the Other person's line in an exchange, then with
+    the Teacher's setup before it when there is one. One card per answer: a
+    lesson recalls the same phrase several times, and its first question is
+    usually the one that says what it means.
 
     A second [answer] right after the first (two answers to one question)
-    makes no card of its own: the line before it is not a question.
+    makes no card of its own: the line before it is the learner's.
     """
     lines = marked_lines(marked)
     found, answers_seen = [], set()
     for i, line in enumerate(lines):
-        if line.marker != "answer":
+        if line.marker != "answer" or line.voice.lower() != learner:
             continue
-        question = lines[i - 1] if i >= 1 else None
-        if question is None or question.voice != "Teacher":
+        prompt = lines[i - 1] if i >= 1 else None
+        if prompt is None or prompt.voice.lower() == learner:
             continue
         if line.text.lower() in answers_seen:
             continue
         answers_seen.add(line.text.lower())
 
-        before_question = lines[i - 2] if i >= 2 else None
-        cue = before_question if before_question and before_question.marker == "cue" else None
+        setup = None
+        if prompt.voice in ("Man", "Woman"):
+            before = lines[i - 2] if i >= 2 else None
+            setup = before.text if before and before.voice == "Teacher" else None
 
         found.append(Card(
-            context=(cue.voice.lower(), cue.text) if cue else None,
-            prompt=question.text,
+            setup=setup,
+            prompt=(prompt.voice.lower(), prompt.text),
             answer=(line.voice.lower(), line.text),
         ))
     return found
@@ -256,13 +289,17 @@ def _clean(text):
     return text.strip()
 
 
+_LABELS = {"teacher": "Teacher", "teacherl2": "TeacherL2", "man": "Man", "woman": "Woman"}
+
+
 def card_lines(card, values):
-    """A card said: its context line, the question, time to answer, the answer twice."""
+    """A card said: the setup of an exchange, the line the learner answers, the
+    time to answer, then the answer twice."""
     out = []
-    if card.context:
-        out.append(_line(card.context[0].capitalize(), card.context[1], 1))
-    out.append(_line("Teacher", card.prompt, time_to_answer(card.answer[1], values)))
-    out += [_line(card.answer[0].capitalize(), card.answer[1], values["repeat_pause"])] * 2
+    if card.setup:
+        out.append(_line("Teacher", card.setup, 1))
+    out.append(_line(_LABELS[card.prompt[0]], card.prompt[1], time_to_answer(card.answer[1], values)))
+    out += [_line(_LABELS[card.answer[0]], card.answer[1], values["repeat_pause"])] * 2
     return out
 
 

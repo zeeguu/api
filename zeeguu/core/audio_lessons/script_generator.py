@@ -11,7 +11,12 @@ from zeeguu.core.audio_lessons.script_language_validator import (
     find_language_mismatches,
 )
 from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
-from zeeguu.core.audio_lessons.lesson_markup import cards
+from zeeguu.core.audio_lessons.lesson_markup import (
+    cards,
+    other_voice,
+    roles_to_voices,
+    voices_to_roles,
+)
 from zeeguu.core.audio_lessons.words_heard import history_table
 from zeeguu.core.language.language_check import describe_mismatches, log_mismatches
 from zeeguu.core.llm_services import generate_audio_lesson_script
@@ -74,7 +79,7 @@ def get_prompt_template(file_name) -> str:
         return f.read()
 
 
-def language_contract(target_lang_name: str, source_lang_name: str) -> str:
+def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man", "Woman")) -> str:
     """
     The two-language rule, as a system prompt.
 
@@ -87,11 +92,11 @@ def language_contract(target_lang_name: str, source_lang_name: str) -> str:
     return (
         f"You write audio lesson scripts for language learners. The learner speaks "
         f"{source_lang_name} natively and is studying {target_lang_name}.\n"
-        f"Lines labelled 'Man:', 'Woman:' and 'TeacherL2:' are ALWAYS written in "
+        f"Lines labelled '{voices[0]}:', '{voices[1]}:' and 'TeacherL2:' are ALWAYS written in "
         f"{target_lang_name}. Never in {source_lang_name}.\n"
         f"Lines labelled 'Teacher:' are ALWAYS written in {source_lang_name}.\n"
         f"Keeping these two languages apart is the entire purpose of the script. A "
-        f"script whose Man/Woman lines are in {source_lang_name} is worthless to the "
+        f"script whose {voices[0]}/{voices[1]} lines are in {source_lang_name} is worthless to the "
         f"learner and must never be produced."
     )
 
@@ -149,9 +154,16 @@ def generate_script_in_languages(
     max_tokens: int = None,
     short_lines: bool = False,
     deepseek_first: bool = False,
+    voice_labels=("Man", "Woman"),
+    relabel=None,
 ) -> tuple:
     """
     Generate a lesson script and verify it came back in the languages we asked for.
+
+    voice_labels: the labels the prompt asks for on learned-language lines;
+    relabel: turns them into the voices' labels (Man/Woman) before any check
+    reads the script. An A0 script is written with Learner/Other
+    (lesson_markup.roles_to_voices).
 
     short_lines: an A0 script, made of one- and two-word lines; see
     script_language_validator.MIN_CHARS_TO_JUDGE_SHORT_LINES.
@@ -165,13 +177,15 @@ def generate_script_in_languages(
         kwargs["deepseek_first"] = True
     target_lang_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
     source_lang_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
-    kwargs["system"] = language_contract(target_lang_name, source_lang_name)
+    kwargs["system"] = language_contract(target_lang_name, source_lang_name, voice_labels)
 
     attempt_prompt = prompt
     mismatches = []
 
     for attempt in range(1, LANGUAGE_ATTEMPTS + 1):
         script, model_name = generate_audio_lesson_script(attempt_prompt, **kwargs)
+        if relabel:
+            script = relabel(script)
 
         if not _is_a_script(script):
             # Raised, not retried, and the model's own words are carried out with it:
@@ -488,12 +502,18 @@ def generate_dialogue_script(
             **common,
             **values,
             history=history_table(heard) or "Nothing yet: this is their first lesson.",
-            dialogue=dialogue.script,
-            learner_role=learner_role,
-            other_role="Woman" if learner_role == "Man" else "Man",
-            other_pronoun="her" if learner_role == "Man" else "him",
+            # The model writes and reads roles, not voices: the Learner and the
+            # Other person. Code knows which voice the learner has.
+            dialogue=voices_to_roles(dialogue.script, learner_role.lower()),
+            learner_gender=learner_role.lower(),
+            other_gender=other_voice(learner_role.lower()),
         )
-        a0 = dict(values=values, dialogue=dialogue_lines(dialogue.script), heard=heard)
+        a0 = dict(
+            values=values,
+            dialogue=dialogue_lines(dialogue.script),
+            heard=heard,
+            learner=learner_role.lower(),
+        )
     else:
         dialogue = None
         a0 = None
@@ -522,7 +542,7 @@ def generate_dialogue_script(
         log(f"Successfully generated dialogue script, title: '{title}'")
         return title, GeneratedScript(
             script, model_name, prompt_version_of(prompt_file), dialogue, marked, reviewed,
-            tuple(cards(marked)) if marked else (),
+            tuple(cards(marked, a0["learner"])) if marked else (),
         )
 
     except Exception as e:
@@ -563,6 +583,14 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             context=f"dialogue lesson '{suggestion}'",
             max_tokens=max_tokens,
             short_lines=short_lines,
+            **(
+                dict(
+                    voice_labels=("Learner", "Other"),
+                    relabel=lambda raw: roles_to_voices(raw, a0["learner"]),
+                )
+                if a0
+                else {}
+            ),
             # Above A0, DeepSeek writes these as well as Sonnet 5.5 and about 10x
             # cheaper: on 25 prod requests (9 learned, 6 teacher languages) blind
             # A/B judges split evenly and found as many errors in each
@@ -583,7 +611,7 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             return title, script, model_name, None, ()
         try:
             values = a0["values"]
-            expanded = expand(script, values, a0["dialogue"])
+            expanded = expand(script, values, a0["dialogue"], a0["learner"])
         except MarkupError as e:
             log(f"[lesson markup] '{suggestion}' attempt {attempt}/{MARKUP_ATTEMPTS}: {e}")
             if attempt == MARKUP_ATTEMPTS:
@@ -595,7 +623,7 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             continue
 
         missing = lines_for(values["min_minutes"]) - voice_line_count(expanded.split("\n"))
-        reviews = lesson_review.choose(a0["heard"], missing, values)
+        reviews = lesson_review.choose(a0["heard"], missing, values, a0["learner"])
         full = with_review(expanded, review_lines(reviews, values))
         reviewed = tuple(
             (item.lesson.dialogue_id, lesson_review.kind(item), item.card_id) for item in reviews
