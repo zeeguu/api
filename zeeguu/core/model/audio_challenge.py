@@ -6,8 +6,10 @@ from zeeguu.core.model.db import db
 class AudioChallenge(db.Model):
     """
     One thing the learner answered in an A0 lesson, for later lessons to review
-    (audio_lessons/lesson_review.py). Written when the lesson is made, from its
-    marked script (lesson_script.challenges). A QUESTION: the Teacher's question in
+    (audio_lessons/lesson_review.py). Stored when the lesson is made, from its
+    marked script (lesson_script.challenges), but reviewed only once the learner
+    has heard that lesson: the review draws from heard_lessons(), so the
+    challenges of a lesson never played are never asked. A QUESTION: the Teacher's question in
     the learner's own language, then the answer. An EXCHANGE: the Teacher's
     setup, the Other person's line, then the answer. answer_voice is the voice
     the learner had: a challenge is reviewed only while the learner has that voice,
