@@ -14,8 +14,9 @@ Four caches hold tokens:
 A text that fails to re-tokenize keeps its old tokens.
 
 Run through tools/cleanup_tokenization_cache.py --language CODE, in the
-run_task container: it talks to stanza_crawl, so tens of thousands of calls
-stay off the Stanza service live readers wait on.
+run_task container: it talks to stanza_crawl, so the tens of thousands of
+calls made here stay off the Stanza service live readers wait on. Articles
+and pasted texts still rebuild on that service, as each is next read.
 """
 
 from sqlalchemy import select
@@ -68,21 +69,52 @@ def clear_rebuildable(session, language):
     session.commit()
 
 
-def _retokenize_rows(session, rows, retokenize_row, what, progress):
+# A Stanza service that hangs instead of refusing makes every call wait out
+# its 30s timeout: tens of thousands of rows would take days. Stop instead.
+MAX_FAILURES_IN_A_ROW = 10
+BATCH = 50
+
+
+class StanzaGaveUp(Exception):
+    pass
+
+
+def _retokenize_rows(session, query, retokenize_row, what, progress):
     """retokenize_row(row) sets the new tokens, or raises and the row keeps
-    its old ones. Returns (re-tokenized, kept old)."""
-    failed = 0
-    for i, row in enumerate(rows, 1):
-        try:
-            retokenize_row(row)
-        except Exception as e:
-            failed += 1
-            progress(f"  {what} {row.id}: kept old tokens ({e})")
-        if i % 50 == 0:
-            session.commit()
-            progress(f"  {i}/{len(rows)} {what}")
-    session.commit()
-    return len(rows) - failed, failed
+    its old ones. Each row is committed on its own: a run takes hours, and a
+    failure (Stanza, a lock wait) must cost one row, not a batch or the rest
+    of the run. Rows are loaded BATCH at a time, by id: tens of thousands of
+    rows with their token columns would not fit in memory at once.
+    Returns (re-tokenized, kept old)."""
+    model = query.column_descriptions[0]["entity"]
+    ids = [id for (id,) in query.with_entities(model.id).order_by(model.id)]
+    done = failed = in_a_row = 0
+    for start in range(0, len(ids), BATCH):
+        rows = model.query.filter(model.id.in_(ids[start:start + BATCH])).order_by(model.id).all()
+        for row in rows:
+            row_id = row.id
+            try:
+                retokenize_row(row)
+                session.commit()
+                done += 1
+                in_a_row = 0
+            except Exception as e:
+                session.rollback()
+                failed += 1
+                in_a_row += 1
+                progress(f"  {what} {row_id}: kept old tokens ({e})")
+                if in_a_row >= MAX_FAILURES_IN_A_ROW:
+                    raise StanzaGaveUp(
+                        f"{in_a_row} {what} failed in a row; stopped at id {row_id} "
+                        f"after {done} re-tokenized. Is the Stanza service up?"
+                    )
+        # Only these rows: expunge_all would also detach the caller's Language,
+        # which every commit has expired.
+        for row in rows:
+            if row in session:
+                session.expunge(row)
+        progress(f"  {min(start + BATCH, len(ids))}/{len(ids)} {what}")
+    return done, failed
 
 
 def retokenize_bookmark_contexts(session, language, progress=print):
@@ -100,9 +132,7 @@ def retokenize_bookmark_contexts(session, language, progress=print):
             start_sentence_i=context.sentence_i,
         )
 
-    return _retokenize_rows(
-        session, _bookmark_contexts(language).all(), retokenize, "bookmark contexts", progress
-    )
+    return _retokenize_rows(session, _bookmark_contexts(language), retokenize, "bookmark contexts", progress)
 
 
 def retokenize_level_adapted(session, language, progress=print):
@@ -118,6 +148,4 @@ def retokenize_level_adapted(session, language, progress=print):
         if title:
             row.tokenized_title = title
 
-    return _retokenize_rows(
-        session, _level_adapted(language).all(), retokenize, "level-adapted texts", progress
-    )
+    return _retokenize_rows(session, _level_adapted(language), retokenize, "level-adapted texts", progress)

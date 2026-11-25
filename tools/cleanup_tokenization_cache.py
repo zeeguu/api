@@ -19,9 +19,9 @@ Usage:
     python -m tools.cleanup_tokenization_cache [--days N]
     python -m tools.cleanup_tokenization_cache --language da [--dry-run]
 
-On the server, run --language in the run_task container, which talks to
-stanza_crawl instead of the Stanza service live readers use (tens of
-thousands of calls for Danish):
+On the server, run --language in the run_task container: the exercise
+sentences and level-adapted texts it re-tokenizes (tens of thousands of calls
+for Danish) then go to stanza_crawl, not the Stanza service live readers use.
     docker compose run --rm run_task python -m tools.cleanup_tokenization_cache --language da
 """
 import argparse

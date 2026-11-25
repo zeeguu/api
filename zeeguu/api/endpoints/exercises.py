@@ -394,22 +394,8 @@ def user_words_as_dicts(user_words, tokenize=True):
     words_to_delete = []
 
     for user_word in user_words:
-        # as_dictionary needs the preferred bookmark, and failed here on every
-        # load without one ("Gå ikke", 2026-11-25). With bookmarks left, the
-        # latest becomes the preferred one. Without any, the word was kept on
-        # purpose (its history stays; see delete_bookmark) but has nothing to
-        # show: out of study, so the queries stop returning it.
-        if user_word.preferred_bookmark is None:
-            bookmarks = user_word.bookmarks()
-            if bookmarks:
-                user_word.preferred_bookmark = max(bookmarks, key=lambda b: b.time)
-                db.session.add(user_word)
-                db.session.commit()
-            else:
-                from zeeguu.core.model.study_choice import UnfitReason
-                user_word.set_unfit_for_study(db.session, UnfitReason.NO_USABLE_CONTEXT)
-                db.session.commit()
-                continue
+        if not user_word.ensure_preferred_bookmark(db.session):
+            continue
         try:
             # Pass pre-loaded schedule and pre-tokenized context
             schedule = schedule_map.get(user_word.id)

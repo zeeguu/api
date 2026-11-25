@@ -90,7 +90,11 @@ def learned_user_words(count):
 
 
 def learned_user_words_as_dicts(user, count, language_id=None):
-    learned_words = list(user.learned_user_words(count, language_id))
+    learned_words = [
+        word
+        for word in user.learned_user_words(count, language_id)
+        if word.ensure_preferred_bookmark(db_session)
+    ]
 
     # Batch load schedules to avoid N+1 queries
     # Use FourLevelsPerWord (concrete class) not BasicSRSchedule (abstract) for get_max_interval()

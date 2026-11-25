@@ -160,3 +160,63 @@ def test_a_word_without_a_preferred_bookmark_gets_its_latest_one_in_the_words_li
 
     assert len(user_words_as_dicts([user_word], tokenize=False)) == 1
     assert user_word.preferred_bookmark_id == bookmark.id
+
+
+def _word_without_a_bookmark(client):
+    # Deleted by hand, not through delete_bookmark, which would take the word
+    # out of study: the state "Gå ikke" was found in.
+    from fixtures import add_one_bookmark
+    from zeeguu.core.model import db
+    from zeeguu.core.model.bookmark import Bookmark
+
+    bookmark = db.session.get(Bookmark, add_one_bookmark(client))
+    user_word = bookmark.user_word
+    user_word.preferred_bookmark = None
+    db.session.flush()
+    db.session.delete(bookmark)
+    user_word.fit_for_study = True
+    db.session.commit()
+    return user_word
+
+
+def test_a_word_without_any_bookmark_leaves_the_words_list_and_study(client):
+    add_context_types()
+    add_source_types()
+    from zeeguu.api.endpoints.exercises import user_words_as_dicts
+
+    user_word = _word_without_a_bookmark(client)
+
+    assert user_words_as_dicts([user_word], tokenize=False) == []
+    assert user_word.fit_for_study is False
+
+
+def test_a_word_already_out_of_study_keeps_its_reason(client):
+    add_context_types()
+    add_source_types()
+    from zeeguu.api.endpoints.exercises import user_words_as_dicts
+    from zeeguu.core.model import db
+    from zeeguu.core.model.study_choice import UnfitReason
+
+    user_word = _word_without_a_bookmark(client)
+    reason = UnfitReason.ALL[0]
+    user_word.fit_for_study = False
+    user_word.unfit_reason = reason
+    db.session.commit()
+
+    user_words_as_dicts([user_word], tokenize=False)
+    assert user_word.unfit_reason == reason
+
+
+def test_the_learned_list_skips_a_word_without_any_bookmark(client):
+    add_context_types()
+    add_source_types()
+    from datetime import datetime
+    from zeeguu.api.endpoints.bookmarks_and_words import learned_user_words_as_dicts
+    from zeeguu.core.model import db
+
+    user_word = _word_without_a_bookmark(client)
+    user_word.learned_time = datetime.now()
+    db.session.commit()
+
+    language_id = user_word.meaning.origin.language_id
+    assert learned_user_words_as_dicts(user_word.user, 10, language_id) == []

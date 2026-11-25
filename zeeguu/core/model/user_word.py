@@ -104,6 +104,33 @@ class UserWord(db.Model):
         if session:
             session.add(self)
 
+    def ensure_preferred_bookmark(self, session):
+        """
+        Whether this word has a bookmark to show; as_dictionary needs one.
+        Lists call it before as_dictionary, and repair what they can:
+
+        - bookmarks but no preferred one: the latest becomes the preferred one;
+        - no bookmarks at all: kept on purpose, for its history (see
+          delete_bookmark), but nothing to show. Taken out of study if it was
+          still in it, so the study queries stop returning it. A word already
+          out of study keeps its reason.
+
+        Commits when it repairs. "Gå ikke" (2026-11-25) had no bookmark and
+        was still in study.
+        """
+        if self.preferred_bookmark is not None:
+            return True
+        bookmarks = self.bookmarks()
+        if bookmarks:
+            self.preferred_bookmark = max(bookmarks, key=lambda b: b.time)
+            session.add(self)
+            session.commit()
+            return True
+        if self.fit_for_study:
+            self.set_unfit_for_study(session, UnfitReason.NO_USABLE_CONTEXT)
+            session.commit()
+        return False
+
     def update_fit_for_study(self, session=None):
         """
             Called when something happened to the bookmark,
