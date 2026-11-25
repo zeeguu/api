@@ -119,17 +119,16 @@ class MarkupError(ValueError):
 # of the sentence with no pause: "The word for coffee is «kaffe»." is three
 # segments, not three lines the model has to write. Chirp 3 HD voices take no
 # SSML to switch language within a sentence, so the switch is made in segments.
-_CHEVRONS = re.compile(r"«([^»]+)»")
+#
+# One «…» span, with the punctuation right after it: "«kaffe». Say it." is
+# "kaffe." then "Say it.", not "kaffe" then a lone ".".
+_CHEVRON_SPAN = re.compile(r"«([^»]+)»([.,!?;:…]*)")
 # Pause added before and after the learned-language word. None: each
 # synthesized segment already starts and ends with a little silence, and
 # listened side by side (25 Nov 2026), the sentence without an added pause
 # sounded better than with 0.3 s. Tune by ear.
 PAUSE_AROUND_LEARNED_WORDS = 0
 
-
-# One «…» span, with the punctuation right after it: "«kaffe». Say it." is
-# "kaffe." then "Say it.", not "kaffe" then a lone ".".
-_LEARNED_SPAN = re.compile(r"«([^»]+)»([.,!?;:…]*)")
 
 
 def spoken(voice, text, pause):
@@ -141,11 +140,11 @@ def spoken(voice, text, pause):
     chevrons are just dropped.
     """
     if voice != "Teacher" or "«" not in text:
-        return [_line(voice, _CHEVRONS.sub(r"\1", text), pause)]
+        return [_line(voice, _CHEVRON_SPAN.sub(r"\1\2", text), pause)]
 
     segments = []
     position = 0
-    for span in _LEARNED_SPAN.finditer(text):
+    for span in _CHEVRON_SPAN.finditer(text):
         teacher_text = text[position:span.start()].strip()
         if teacher_text:
             segments.append(("Teacher", teacher_text))
@@ -239,7 +238,7 @@ def expand(script, values, dialogue, learner):
             continue
         text = re.sub(r"\s*\[slow\]", "", text, flags=re.IGNORECASE)
         if voice != "Teacher":
-            text = _CHEVRONS.sub(r"\1", text)
+            text = _CHEVRON_SPAN.sub(r"\1\2", text)
 
         if kind == "drill":
             out.append(f"{voice}: {text} [slow] [{values['repeat_pause']} seconds]")
