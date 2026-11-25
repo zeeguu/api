@@ -468,3 +468,24 @@ def test_a_transliteration_in_chevrons_is_refused():
 def test_the_dialogue_is_not_played_before_the_teacher_sets_the_scene():
     with pytest.raises(MarkupError, match="set the scene first"):
         _expand("[dialogue]\nTeacher: Hi.\nLearner: Kaffe. [drill]")
+
+
+# From the review of #988
+
+def test_chevron_words_are_split_as_the_history_splits_them():
+    script = roles_to_voices("Teacher: Hi.\n[dialogue]\nTeacher: You know «c'est».\nLearner: Oui. [drill]", LEARNER)
+    assert expand_lines(script, VALUES, (("man", "Oui."),), LEARNER, known_words={"c'est"})
+
+
+def test_with_nothing_to_review_an_introduction_a_blank_line_before_review_goes_too():
+    script = V5.replace("earlier lessons.\n[review]", "earlier lessons.\n\n[review]")
+    assert "earlier lessons" not in with_review(_expand(script), [])
+
+
+def test_review_written_twice_is_refused():
+    with pytest.raises(MarkupError, match="more than once"):
+        _expand(V5.replace("[review]", "[review]\n[review]"))
+
+
+def test_a_teacher_line_all_in_chevrons_sets_the_scene():
+    assert _expand("Teacher: «Hej!»\n[dialogue]\nLearner: Kaffe. [drill]")

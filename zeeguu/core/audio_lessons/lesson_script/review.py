@@ -35,8 +35,10 @@ def with_review(expanded, review):
         # Nothing to review: both go, the introduction would promise nothing.
         at = lines.index(REVIEW_SLOT)
         if review:
-            return "\n".join(lines[:at] + review + lines[at + 1:]) + "\n"
+            return "\n".join(lines[:at] + review + [""] + lines[at + 1:]) + "\n"
         intro = at
+        while intro > 0 and not lines[intro - 1].strip():
+            intro -= 1
         while intro > 0 and _voice(lines[intro - 1]) in TEACHERS:
             intro -= 1
         return "\n".join(lines[:intro] + lines[at + 1:]).strip("\n") + "\n"

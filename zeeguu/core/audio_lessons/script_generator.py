@@ -637,8 +637,8 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             if attempt == MARKUP_ATTEMPTS:
                 raise
             attempt_prompt = prompt + (
-                f"\n\nYour previous attempt used markers wrongly: {e}. Write it again; "
-                "use only the markers described above."
+                f"\n\nYour previous attempt broke these rules: {e}. Write it again, "
+                "following the rules described above."
             )
             continue
 

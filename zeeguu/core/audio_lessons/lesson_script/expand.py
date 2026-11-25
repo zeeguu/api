@@ -12,7 +12,8 @@ from zeeguu.core.audio_lessons.lesson_script.markers import (
 )
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import CHEVRON_SPAN, SpokenLine, spoken_lines, without_chevrons
 from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
-from zeeguu.core.audio_lessons.lesson_script.voices import TEACHER
+from zeeguu.core.audio_lessons.lesson_script.voices import TEACHER, TEACHERS
+from zeeguu.core.audio_lessons.words_heard import words_of
 
 _PAUSE = re.compile(r"\s*\[([0-9.]+)\s*seconds?\]", re.IGNORECASE)
 _ANY_MARKER = re.compile(r"\[([a-z][a-z ]*\d*)\]", re.IGNORECASE)
@@ -55,11 +56,13 @@ def expand_lines(script, values, dialogue, learner, known_words=None):
             continue
 
         if REVIEW_MARKER.match(line):
+            if REVIEW_SLOT in out:
+                problems.append("[review] more than once: the review has one place")
             out.append(REVIEW_SLOT)
             continue
 
         if DIALOGUE_MARKER.match(line):
-            if not any(isinstance(l, SpokenLine) and l.voice == TEACHER for l in out):
+            if not any(isinstance(l, SpokenLine) and l.voice in TEACHERS for l in out):
                 # The Teacher sets the scene first: heard cold, the dialogue
                 # is noise to an absolute beginner.
                 problems.append("[dialogue] before any Teacher line: set the scene first")
@@ -134,8 +137,6 @@ def expand_lines(script, values, dialogue, learner, known_words=None):
     return out
 
 
-_WORD = re.compile(r"\w+")
-
 
 def foreign_chevron_spans(script, dialogue, known_words):
     """
@@ -151,9 +152,9 @@ def foreign_chevron_spans(script, dialogue, known_words):
     for raw in script.split("\n"):
         voice_line = VOICE_LINE.match(raw.strip())
         if voice_line and voice_line.group(1) not in ("Teacher", "TeacherL2"):
-            lesson_words |= set(_WORD.findall(voice_line.group(2).lower()))
+            lesson_words |= set(words_of(voice_line.group(2)))
     for _, text in dialogue:
-        lesson_words |= set(_WORD.findall(text.lower()))
+        lesson_words |= set(words_of(text))
     allowed = lesson_words | {w.lower() for w in known_words}
 
     problems = []
@@ -161,7 +162,7 @@ def foreign_chevron_spans(script, dialogue, known_words):
         if not raw.strip().startswith("Teacher:"):
             continue
         for span in CHEVRON_SPAN.finditer(raw):
-            unknown = [w for w in _WORD.findall(span.group(1).lower()) if w not in allowed]
+            unknown = [w for w in words_of(span.group(1)) if w not in allowed]
             if unknown:
                 problems.append(
                     f"«{span.group(1)}»: chevrons hold only learned-language words of this lesson "
