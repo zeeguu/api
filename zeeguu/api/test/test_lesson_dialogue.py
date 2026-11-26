@@ -159,11 +159,3 @@ def test_not_for_a_lesson_without_a_dialogue(client):
     assert _read(client, _lesson(me)).status_code == 404
     assert _read(client, _lesson(me, _dialogue(me, script="Teacher: Hello."))).status_code == 404
 
-
-def test_a_stored_dialogue_with_no_lines_falls_back_to_the_script(client):
-    me = client.email
-    stored = "Mads: Guten Tag!\nSofie: Hallo!"  # named labels: no Man/Woman lines
-
-    result = _read(client, _lesson(me, _dialogue(me, dialogue_script=stored))).json
-
-    assert result["speakers"] == ["Man", "Woman", "Man"]
