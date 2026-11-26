@@ -228,55 +228,6 @@ class UserShortText(db.Model):
         return item
 
 
-def _bookmark_token_groups(paragraphs, bookmarks):
-    """Groups of (sent_i, token_i) coordinates covered by `bookmarks`.
-
-    A contiguous word/MWE is one group (highlighted together with its inner
-    spaces); a separated MWE yields separate single-token groups.
-    """
-    sentences_by_i = {}
-    coord_index = {}
-    for paragraph in paragraphs:
-        for sentence in paragraph:
-            if not sentence:
-                continue
-            sent_i = sentence[0]["sent_i"]
-            sentences_by_i[sent_i] = sentence
-            for local_i, token in enumerate(sentence):
-                coord_index[(token["sent_i"], token["token_i"])] = local_i
-
-    groups = []
-    for bookmark in bookmarks:
-        ctx_s = (bookmark.context.sentence_i or 0) if bookmark.context else 0
-        ctx_t = (bookmark.context.token_i or 0) if bookmark.context else 0
-        target_s = ctx_s + (bookmark.sentence_i or 0)
-        target_t = ctx_t + (bookmark.token_i or 0)
-        local_i = coord_index.get((target_s, target_t))
-        if local_i is None:
-            continue
-
-        sentence = sentences_by_i[target_s]
-        if bookmark.is_mwe:
-            partner_t = bookmark.mwe_partner_token_i
-            if partner_t is not None and abs(partner_t - target_t) > 1:
-                groups.append([(target_s, target_t)])
-                if (target_s, partner_t) in coord_index:
-                    groups.append([(target_s, partner_t)])
-                continue
-            group_id = sentence[local_i].get("mwe_group_id")
-            if partner_t is None and group_id:
-                mwe_tokens = [t for t in sentence if t.get("mwe_group_id") == group_id]
-                indices = [t["token_i"] for t in mwe_tokens]
-                if any(b - a != 1 for a, b in zip(indices, indices[1:])):
-                    for t in mwe_tokens:
-                        groups.append([(t["sent_i"], t["token_i"])])
-                    continue
-
-        total = max(bookmark.total_tokens or 1, 1)
-        groups.append([(t["sent_i"], t["token_i"]) for t in sentence[local_i : local_i + total]])
-    return groups
-
-
 def _align_tokens_to_preview(preview, limit, paragraphs):
     """Map (sent_i, token_i) -> (start, end) character spans within preview[:limit]."""
     positions = {}
@@ -320,8 +271,17 @@ def _preview_parts(preview, limit, paragraphs, bookmarks):
     """Split `preview` into [{text, translated?}] if any bookmark falls in it."""
     positions = _align_tokens_to_preview(preview, limit, paragraphs)
     spans = []
-    for group in _bookmark_token_groups(paragraphs, bookmarks):
-        coords = [positions[c] for c in group if c in positions]
+    for bookmark in bookmarks:
+        ctx_s = (bookmark.context.sentence_i or 0) if bookmark.context else 0
+        ctx_t = (bookmark.context.token_i or 0) if bookmark.context else 0
+        sent_i = ctx_s + (bookmark.sentence_i or 0)
+        start_t = ctx_t + (bookmark.token_i or 0)
+        total = max(bookmark.total_tokens or 1, 1)
+        coords = [
+            positions[(sent_i, t)]
+            for t in range(start_t, start_t + total)
+            if (sent_i, t) in positions
+        ]
         if coords:
             spans.append((coords[0][0], coords[-1][1]))
     if not spans:

@@ -343,7 +343,7 @@ def test_a_message_sized_text_can_be_translated_whole(client):
     assert client.get(f"/short_texts/{text_id}")["can_translate_whole"] is True
 
 
-def _bookmark_word(client, text, word, sent_i, token_i, total_tokens=1, **extra):
+def _bookmark_word(client, text, word, sent_i, token_i, total_tokens=1):
     return client.post(
         "/translate_word/de/en",
         json={
@@ -360,53 +360,31 @@ def _bookmark_word(client, text, word, sent_i, token_i, total_tokens=1, **extra)
             "right_ellipsis": False,
             "context_identifier": {"context_type": "ShortText"},
             "translation_source": "reading",
-            **extra,
         },
     )
 
 
-def test_list_highlights_only_the_translated_occurrence_in_preview(client):
-    message = "Der Ball ist rot. Ein Ball liegt da."
+def test_list_highlights_translated_words_for_that_learner_only(client, app):
+    message = "Der Ball ist rot. Ein Ball liegt da. Das Wetter ist schön."
     text = _read(client, message)
-    # Only the second "Ball" (sent_i=1, token_i=1), not the first (sent_i=0, token_i=1)
+    # Only the second "Ball" (sent_i=1, token_i=1), not the first (sent_i=0, token_i=1),
+    # plus a contiguous multi-word phrase "Das Wetter" (sent_i=2, tokens 0..1)
     _bookmark_word(client, text, "Ball", sent_i=1, token_i=1)
+    _bookmark_word(client, text, "Das Wetter", sent_i=2, token_i=0, total_tokens=2)
 
-    [listed] = client.get("/short_texts")
-    assert listed["preview"] == message
-    assert listed["preview_parts"] == [
+    other = LoggedInClient(app.test_client(), email="other@mir.lu", username="other")
+    other.get(f"/short_texts/{_add(other, message).json['id']}")
+
+    [mine_listed] = client.get("/short_texts")
+    [other_listed] = other.get("/short_texts")
+    assert mine_listed["preview_parts"] == [
         {"text": "Der Ball ist rot. Ein "},
         {"text": "Ball", "translated": True},
-        {"text": " liegt da."},
-    ]
-
-
-def test_list_highlights_contiguous_phrase_and_separated_mwe(client):
-    message = "Er macht die Tür auf. Das Wetter ist schön."
-    text = _read(client, message)
-    # Separated MWE: "macht" (token 1) and "auf" (token 4)
-    _bookmark_word(
-        client,
-        text,
-        "macht auf",
-        sent_i=0,
-        token_i=1,
-        total_tokens=1,
-        is_mwe_expression=True,
-        mwe_partner_token_i=4,
-    )
-    # Contiguous multi-word expression: "Das Wetter" (sent 1, tokens 0..1)
-    _bookmark_word(client, text, "Das Wetter", sent_i=1, token_i=0, total_tokens=2)
-
-    [listed] = client.get("/short_texts")
-    assert listed["preview_parts"] == [
-        {"text": "Er "},
-        {"text": "macht", "translated": True},
-        {"text": " die Tür "},
-        {"text": "auf", "translated": True},
-        {"text": ". "},
+        {"text": " liegt da. "},
         {"text": "Das Wetter", "translated": True},
         {"text": " ist schön."},
     ]
+    assert "preview_parts" not in other_listed
 
 
 def test_list_omits_preview_parts_when_no_bookmarks_fall_in_preview(client):
@@ -418,18 +396,3 @@ def test_list_omits_preview_parts_when_no_bookmarks_fall_in_preview(client):
 
     [listed] = client.get("/short_texts")
     assert "preview_parts" not in listed
-
-
-def test_list_only_shows_a_learners_own_translated_words(client, app):
-    message = "Hallo zusammen! Das Training fällt aus."
-    mine = _read(client, message)
-    _bookmark_word(client, mine, "Training", sent_i=1, token_i=1)
-
-    other = LoggedInClient(app.test_client(), email="other@mir.lu", username="other")
-    other_id = _add(other, message).json["id"]
-    other.get(f"/short_texts/{other_id}")
-
-    [mine_listed] = client.get("/short_texts")
-    [other_listed] = other.get("/short_texts")
-    assert any(p.get("translated") for p in mine_listed["preview_parts"])
-    assert "preview_parts" not in other_listed
