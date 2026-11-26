@@ -9,7 +9,7 @@ Two modes:
 
   --language CODE Re-tokenize everything cached in one language, regardless
                   of age. Use after a change to tokenization itself -- an MWE
-                  rule, a lexicon entry, a parser upgrade. Covers all four
+                  rule, a lexicon entry, a parser upgrade. Covers all five
                   token caches; see zeeguu/core/tokenization/retokenize.py.
 
 The age sweep only touches articles; the first reader of each one pays the
@@ -49,7 +49,7 @@ def retokenize_language(code, dry_run):
         return
 
     retokenize.clear_rebuildable(db.session, language)
-    print("Articles and pasted texts cleared; they re-tokenize on next read.")
+    print("Articles, pasted texts and lesson dialogues cleared; they re-tokenize on next read.")
     for what, run in (
         ("Bookmark contexts", retokenize.retokenize_bookmark_contexts),
         ("Level-adapted texts", retokenize.retokenize_level_adapted),

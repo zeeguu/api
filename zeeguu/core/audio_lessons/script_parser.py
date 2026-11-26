@@ -6,6 +6,7 @@ script (e.g. the language validator) don't pull in Google TTS and pydub.
 """
 
 import re
+from dataclasses import dataclass
 from typing import List, Tuple
 
 from zeeguu.core.audio_lessons.voice_config import DEFAULT_SILENCE_SECONDS
@@ -160,3 +161,47 @@ def parse_script(script: str, with_speed: bool = False) -> List[Tuple]:
             segments.append((voice_type, text, silence_duration))
 
     return segments
+
+
+
+@dataclass(frozen=True)
+class DialogueLine:
+    speaker: str  # "Man" or "Woman"
+    text: str
+
+
+def dialogue_lines(script: str) -> List[DialogueLine]:
+    """
+    The dialogue of a dialogue lesson, line by line.
+
+    Every dialogue prompt has the Teacher set the scene and then play the whole
+    dialogue in one go, before any drill: the dialogue is the first run of Man
+    and Woman lines, silences not counting as a break. A run must have both
+    speakers: a challenge's answer is a run of one speaker saying a phrase twice
+    ("Man: Regningen, tak." / "Man: Regningen, tak."). A run of a single line is
+    skipped too: in one A0 script of 568 (checked 26 Nov 2026) the model started
+    the dialogue, had the Teacher interrupt it, and then played the real one.
+
+    Returns [] for a script with no such run, and for one whose dialogue is
+    labelled with the characters' names (see unknown_speaker_labels): its Man
+    and Woman lines are all drills.
+    """
+    if unknown_speaker_labels(script):
+        return []
+    run = []
+    for voice, text, _ in parse_script(script):
+        if voice in ("man", "woman") and text.strip():
+            run.append(DialogueLine(voice.capitalize(), text.strip()))
+        elif voice in ("man", "woman", "silence"):
+            # A line left empty once its markers are stripped ("Man: [2 seconds]")
+            # says nothing: like a silence, not a break in the dialogue.
+            continue
+        elif _is_dialogue(run):
+            return run
+        else:
+            run = []
+    return run if _is_dialogue(run) else []
+
+
+def _is_dialogue(run):
+    return len(run) >= 2 and {"Man", "Woman"} <= {line.speaker for line in run}

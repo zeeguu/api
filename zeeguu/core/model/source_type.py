@@ -15,8 +15,10 @@ class SourceType(db.Model):
     ARTICLE = "Article"
     # A text a learner brought to read: a chat message, a mail paragraph
     SHORT_TEXT = "ShortText"
+    # The dialogue of an audio lesson, read line by line
+    LESSON_DIALOGUE = "LessonDialogue"
 
-    ALL_TYPES = [VIDEO, ARTICLE, SHORT_TEXT]
+    ALL_TYPES = [VIDEO, ARTICLE, SHORT_TEXT, LESSON_DIALOGUE]
 
     __table_args__ = {"mysql_collate": "utf8_bin"}
 
