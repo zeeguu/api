@@ -798,6 +798,26 @@ class Bookmark(db.Model):
         )
 
     @classmethod
+    def find_all_for_user_by_source(cls, user, source_ids):
+        """Return `{source_id: [Bookmark]}` for `user` across `source_ids` in one query."""
+        ids = [sid for sid in source_ids if sid is not None]
+        if not ids:
+            return {}
+        from sqlalchemy.orm import joinedload
+
+        bookmarks = (
+            cls.query.filter(cls.source_id.in_(ids))
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == user.id)
+            .options(joinedload(Bookmark.context))
+            .all()
+        )
+        by_source = {}
+        for bookmark in bookmarks:
+            by_source.setdefault(bookmark.source_id, []).append(bookmark)
+        return by_source
+
+    @classmethod
     def find(cls, b_id):
         return cls.query.filter_by(id=b_id).one()
 
