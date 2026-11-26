@@ -54,7 +54,7 @@ Teacher: Bye.
     assert dialogue_lines(script) == []
 
 
-def test_a_dialogue_labelled_with_names_is_not_read():
+def test_a_dialogue_labeled_with_names_is_not_read():
     # Dialogue 525: the dialogue went unsaid, only the drills were voiced.
     script = """Teacher: Listen to Mads and Sofie.
 Mads: Hej Sofie!
@@ -64,3 +64,8 @@ Man: Hej. [3 seconds]
 Woman: Hej. [3 seconds]
 """
     assert dialogue_lines(script) == []
+
+
+def test_a_label_after_the_dialogue_does_not_hide_it():
+    script = "Teacher: Listen.\nMan: Hej.\nWoman: Hej.\nTeacher: Now a tip,\nRemember: say tak."
+    assert [line.speaker for line in dialogue_lines(script)] == ["Man", "Woman"]

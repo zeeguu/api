@@ -183,10 +183,12 @@ def dialogue_lines(script: str) -> List[DialogueLine]:
     the dialogue, had the Teacher interrupt it, and then played the real one.
 
     Returns [] for a script with no such run, and for one whose dialogue is
-    labelled with the characters' names (see unknown_speaker_labels): its Man
-    and Woman lines are all drills.
+    labeled with the characters' names (see unknown_speaker_labels): its Man
+    and Woman lines are all drills. Only labels before the first Man or Woman
+    line count: one later ("Remember: say tak.", a wrapped Teacher line) is
+    not the dialogue.
     """
-    if unknown_speaker_labels(script):
+    if unknown_speaker_labels(_before_first_man_or_woman_line(script)):
         return []
     run = []
     for voice, text, _ in parse_script(script):
@@ -205,3 +207,12 @@ def dialogue_lines(script: str) -> List[DialogueLine]:
 
 def _is_dialogue(run):
     return len(run) >= 2 and {"Man", "Woman"} <= {line.speaker for line in run}
+
+
+def _before_first_man_or_woman_line(script):
+    lines = script.split("\n")
+    for i, line in enumerate(lines):
+        voice = _VOICE_LABEL_PATTERN.match(_unbold_label(line.strip()))
+        if voice and voice.group(1).lower() in ("man", "woman"):
+            return "\n".join(lines[:i])
+    return script

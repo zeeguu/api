@@ -9,6 +9,9 @@ so the speakers never become words of the text.
 
 Made the first time a learner asks to read the dialogue, then shared by
 everyone who heard that lesson.
+
+Deleting the lesson dialogue deletes this row but not its Source, on purpose:
+the learners' bookmarks keep pointing at it.
 """
 
 import json
@@ -16,6 +19,7 @@ import unicodedata
 from datetime import datetime
 
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, UnicodeText, UniqueConstraint
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
@@ -53,7 +57,8 @@ class LessonDialogueText(db.Model):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
     # The reader's tokens as JSON, computed on the first read (see tokens).
-    tokenized_paragraphs = Column(UnicodeText)
+    # MEDIUMTEXT on MySQL, as in the migration
+    tokenized_paragraphs = Column(UnicodeText().with_variant(MEDIUMTEXT(charset="utf8mb4"), "mysql"))
 
     @property
     def content(self):
