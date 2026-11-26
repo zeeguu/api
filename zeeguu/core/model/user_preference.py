@@ -1,5 +1,5 @@
 import re
-from datetime import time
+from datetime import datetime, time
 
 import sqlalchemy
 from sqlalchemy import Column, String
@@ -50,11 +50,16 @@ class UserPreference(db.Model):
     # Both fill a free slot with the most frequent waiting word; they differ
     # in whether a slot, once given, is kept.
     WORD_SCHEDULING_STRATEGY = "word_scheduling_strategy"
-    # a word keeps its slot until it is learned (unset means this)
+    # a word keeps its slot until it is learned
     FIRST_COME = "first_come"
     # a more frequent waiting word takes the slot of a rarer word below level 2
     FREQUENCY_PRIORITY = "frequency_priority"
     WORD_SCHEDULING_STRATEGIES = (FIRST_COME, FREQUENCY_PRIORITY)
+    # Unset means FREQUENCY_PRIORITY for accounts created from this moment on,
+    # and FIRST_COME for older ones: nobody's practice changed without their
+    # asking. After the deploy (26 Nov 2026), not before it: an account made
+    # earlier that day was already practicing first_come.
+    FREQUENCY_PRIORITY_DEFAULT_FROM = datetime(2026, 11, 27)
 
     # Minutes of study a day that count the day for the streak, counted in each
     # language separately; Aiki mode and the study reminder (on the phone) read
@@ -191,12 +196,23 @@ class UserPreference(db.Model):
 
     @classmethod
     def get_word_scheduling_strategy(cls, user: User):
-        """One of WORD_SCHEDULING_STRATEGIES; FIRST_COME when unset."""
-        setting = UserPreference.query.filter_by(
-            user_id=user.id, key=cls.WORD_SCHEDULING_STRATEGY
-        ).first()
+        """One of WORD_SCHEDULING_STRATEGIES; when unset, the default for the
+        account's age (default_word_scheduling_strategy)."""
+        # the newest row, as all_for_user reads a key stored twice
+        setting = (
+            UserPreference.query.filter_by(user_id=user.id, key=cls.WORD_SCHEDULING_STRATEGY)
+            .order_by(UserPreference.id.desc())
+            .first()
+        )
         if setting and setting.value in cls.WORD_SCHEDULING_STRATEGIES:
             return setting.value
+        return cls.default_word_scheduling_strategy(user)
+
+    @classmethod
+    def default_word_scheduling_strategy(cls, user: User):
+        created_at = user.created_at
+        if created_at and created_at >= cls.FREQUENCY_PRIORITY_DEFAULT_FROM:
+            return cls.FREQUENCY_PRIORITY
         return cls.FIRST_COME
 
     @classmethod
@@ -372,6 +388,11 @@ class UserPreference(db.Model):
             )
 
             preferences_dict[cls.MAX_WORDS_TO_SCHEDULE] = DEFAULT_MAX_WORDS_TO_SCHEDULE
+
+        # Always present, so clients show the strategy the scheduler uses,
+        # which for an unset one depends on the account's age.
+        if preferences_dict.get(cls.WORD_SCHEDULING_STRATEGY) not in cls.WORD_SCHEDULING_STRATEGIES:
+            preferences_dict[cls.WORD_SCHEDULING_STRATEGY] = cls.default_word_scheduling_strategy(user)
 
         # Always present, so clients show the goal the streak is counted with.
         stored_goal = cls.parse_daily_goal_minutes(preferences_dict.get(cls.DAILY_GOAL_MINUTES))
