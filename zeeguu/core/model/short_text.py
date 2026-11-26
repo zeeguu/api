@@ -207,9 +207,9 @@ class UserShortText(db.Model):
 
     def as_list_item(self, bookmarks=None):
         content = self.short_text.content
-        full = " ".join(content.split())
-        truncated = len(full) > self.PREVIEW_CHARS
-        preview = full[: self.PREVIEW_CHARS].rstrip() + "…" if truncated else full
+        preview = " ".join(content.split())
+        if len(preview) > self.PREVIEW_CHARS:
+            preview = preview[: self.PREVIEW_CHARS].rstrip() + "…"
         item = {
             "id": self.short_text_id,
             "preview": preview,
@@ -217,83 +217,35 @@ class UserShortText(db.Model):
             "last_opened_at": self.last_opened_at.isoformat(),
         }
         if bookmarks and self.short_text.tokenized_paragraphs:
-            parts = _preview_parts(
-                preview,
-                len(preview) - 1 if truncated else len(preview),
-                json.loads(self.short_text.tokenized_paragraphs),
-                bookmarks,
+            tokenized_preview, preview_truncated = _preview_tokens(
+                json.loads(self.short_text.tokenized_paragraphs), self.PREVIEW_CHARS
             )
-            if parts:
-                item["preview_parts"] = parts
+            preview_sents = {s[0]["sent_i"] for p in tokenized_preview for s in p if s}
+            in_preview = [
+                b
+                for b in bookmarks
+                if ((b.context.sentence_i or 0) if b.context else 0) + (b.sentence_i or 0)
+                in preview_sents
+            ]
+            if in_preview:
+                item["tokenized_preview"] = tokenized_preview
+                item["past_bookmarks"] = [b.to_json(True) for b in in_preview]
+                if preview_truncated:
+                    item["preview_truncated"] = True
         return item
 
 
-def _align_tokens_to_preview(preview, limit, paragraphs):
-    """Map (sent_i, token_i) -> (start, end) character spans within preview[:limit]."""
-    positions = {}
-    cursor = 0
+def _preview_tokens(paragraphs, max_chars):
+    """First ~max_chars of tokens as a single preview paragraph, preserving each
+    token's (sent_i, token_i) so bookmark restoration anchors to it."""
+    sentences, chars, truncated = [], 0, False
     for paragraph in paragraphs:
         for sentence in paragraph:
-            for token in sentence:
-                while cursor < limit and preview[cursor] == " ":
-                    cursor += 1
-                if cursor >= limit:
-                    return positions
-                text = token["text"]
-                if not text:
-                    continue
-                if preview.startswith(text, cursor) and cursor + len(text) <= limit:
-                    start, end = cursor, cursor + len(text)
-                else:
-                    idx = preview.find(text, cursor, min(limit, cursor + len(text) + 16))
-                    if idx != -1:
-                        start, end = idx, idx + len(text)
-                    elif text.startswith(preview[cursor:limit]):
-                        start, end = cursor, limit
-                    else:
-                        continue
-                positions[(token["sent_i"], token["token_i"])] = (start, end)
-                cursor = end
-    return positions
-
-
-def _merge_spans(spans):
-    merged = []
-    for start, end in sorted(spans):
-        if merged and start <= merged[-1][1]:
-            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
-        else:
-            merged.append((start, end))
-    return merged
-
-
-def _preview_parts(preview, limit, paragraphs, bookmarks):
-    """Split `preview` into [{text, translated?}] if any bookmark falls in it."""
-    positions = _align_tokens_to_preview(preview, limit, paragraphs)
-    spans = []
-    for bookmark in bookmarks:
-        ctx_s = (bookmark.context.sentence_i or 0) if bookmark.context else 0
-        ctx_t = (bookmark.context.token_i or 0) if bookmark.context else 0
-        sent_i = ctx_s + (bookmark.sentence_i or 0)
-        start_t = ctx_t + (bookmark.token_i or 0)
-        total = max(bookmark.total_tokens or 1, 1)
-        coords = [
-            positions[(sent_i, t)]
-            for t in range(start_t, start_t + total)
-            if (sent_i, t) in positions
-        ]
-        if coords:
-            spans.append((coords[0][0], coords[-1][1]))
-    if not spans:
-        return None
-
-    parts = []
-    cursor = 0
-    for start, end in _merge_spans(spans):
-        if start > cursor:
-            parts.append({"text": preview[cursor:start]})
-        parts.append({"text": preview[start:end], "translated": True})
-        cursor = end
-    if cursor < len(preview):
-        parts.append({"text": preview[cursor:]})
-    return parts
+            if chars >= max_chars:
+                truncated = True
+                break
+            sentences.append(sentence)
+            chars += sum(len(t["text"]) + 1 for t in sentence)
+        if truncated:
+            break
+    return ([sentences] if sentences else []), truncated

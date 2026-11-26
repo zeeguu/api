@@ -364,35 +364,29 @@ def _bookmark_word(client, text, word, sent_i, token_i, total_tokens=1):
     )
 
 
-def test_list_highlights_translated_words_for_that_learner_only(client, app):
-    message = "Der Ball ist rot. Ein Ball liegt da. Das Wetter ist schön."
+def test_list_includes_tokenized_preview_and_bookmarks_for_that_learner_only(client, app):
+    message = "Der Ball ist rot. Ein Ball liegt da."
     text = _read(client, message)
-    # Only the second "Ball" (sent_i=1, token_i=1), not the first (sent_i=0, token_i=1),
-    # plus a contiguous multi-word phrase "Das Wetter" (sent_i=2, tokens 0..1)
-    _bookmark_word(client, text, "Ball", sent_i=1, token_i=1)
-    _bookmark_word(client, text, "Das Wetter", sent_i=2, token_i=0, total_tokens=2)
+    bookmark_id = _bookmark_word(client, text, "Ball", sent_i=1, token_i=1)["bookmark_id"]
 
     other = LoggedInClient(app.test_client(), email="other@mir.lu", username="other")
     other.get(f"/short_texts/{_add(other, message).json['id']}")
 
     [mine_listed] = client.get("/short_texts")
     [other_listed] = other.get("/short_texts")
-    assert mine_listed["preview_parts"] == [
-        {"text": "Der Ball ist rot. Ein "},
-        {"text": "Ball", "translated": True},
-        {"text": " liegt da. "},
-        {"text": "Das Wetter", "translated": True},
-        {"text": " ist schön."},
-    ]
-    assert "preview_parts" not in other_listed
+    assert [b["id"] for b in mine_listed["past_bookmarks"]] == [bookmark_id]
+    assert _words(mine_listed["tokenized_preview"]) == _words(text["tokenized_paragraphs"])
+    assert "tokenized_preview" not in other_listed
+    assert "past_bookmarks" not in other_listed
 
 
-def test_list_omits_preview_parts_when_no_bookmarks_fall_in_preview(client):
-    # Word past PREVIEW_CHARS (120) should not produce preview_parts
+def test_list_omits_tokenized_preview_when_no_bookmarks_fall_in_preview(client):
+    # Word past PREVIEW_CHARS (120) should not produce tokenized_preview/past_bookmarks
     long_message = ("Hallo zusammen! " * 9) + "Schluss."
     text = _read(client, long_message)
     last_sent = text["tokenized_paragraphs"][0][-1]
     _bookmark_word(client, text, "Schluss", sent_i=last_sent[0]["sent_i"], token_i=0)
 
     [listed] = client.get("/short_texts")
-    assert "preview_parts" not in listed
+    assert "tokenized_preview" not in listed
+    assert "past_bookmarks" not in listed

@@ -809,7 +809,16 @@ class Bookmark(db.Model):
             cls.query.filter(cls.source_id.in_(ids))
             .join(UserWord, Bookmark.user_word_id == UserWord.id)
             .filter(UserWord.user_id == user.id)
-            .options(joinedload(Bookmark.context))
+            .options(
+                joinedload(Bookmark.context),
+                joinedload(Bookmark.text),
+                joinedload(Bookmark.user_word)
+                .joinedload(UserWord.meaning)
+                .joinedload(Meaning.origin),
+                joinedload(Bookmark.user_word)
+                .joinedload(UserWord.meaning)
+                .joinedload(Meaning.translation),
+            )
             .all()
         )
         by_source = {}
