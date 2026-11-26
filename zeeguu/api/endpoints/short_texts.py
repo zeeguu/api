@@ -219,6 +219,25 @@ def short_text_add():
     return json_result({"id": short_text.id})
 
 
+def _bookmarks_by_source(user, source_ids):
+    if not source_ids:
+        return {}
+    from sqlalchemy.orm import joinedload
+    from zeeguu.core.model.user_word import UserWord
+
+    bookmarks = (
+        Bookmark.query.filter(Bookmark.source_id.in_(source_ids))
+        .join(UserWord, Bookmark.user_word_id == UserWord.id)
+        .filter(UserWord.user_id == user.id)
+        .options(joinedload(Bookmark.context))
+        .all()
+    )
+    by_source = {}
+    for bookmark in bookmarks:
+        by_source.setdefault(bookmark.source_id, []).append(bookmark)
+    return by_source
+
+
 # ---------------------------------------------------------------------------
 @api.route("/short_texts", methods=["GET"])
 # ---------------------------------------------------------------------------
@@ -227,7 +246,16 @@ def short_text_add():
 def short_text_list():
     """The learner's short texts, most recently opened first."""
     user = User.find_by_id(flask.g.user_id)
-    return json_result([row.as_list_item() for row in UserShortText.all_for(user)])
+    rows = UserShortText.all_for(user)
+    bookmarks_by_source = _bookmarks_by_source(
+        user, [row.short_text.source_id for row in rows]
+    )
+    return json_result(
+        [
+            row.as_list_item(bookmarks_by_source.get(row.short_text.source_id))
+            for row in rows
+        ]
+    )
 
 
 # ---------------------------------------------------------------------------

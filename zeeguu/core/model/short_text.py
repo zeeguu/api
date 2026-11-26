@@ -205,14 +205,135 @@ class UserShortText(db.Model):
         if source_text and not Source.query.filter_by(source_text_id=source_text.id).count():
             session.delete(source_text)
 
-    def as_list_item(self):
+    def as_list_item(self, bookmarks=None):
         content = self.short_text.content
-        preview = " ".join(content.split())
-        if len(preview) > self.PREVIEW_CHARS:
-            preview = preview[: self.PREVIEW_CHARS].rstrip() + "…"
-        return {
+        full = " ".join(content.split())
+        truncated = len(full) > self.PREVIEW_CHARS
+        preview = full[: self.PREVIEW_CHARS].rstrip() + "…" if truncated else full
+        item = {
             "id": self.short_text_id,
             "preview": preview,
             "language": self.short_text.language.code,
             "last_opened_at": self.last_opened_at.isoformat(),
         }
+        if bookmarks and self.short_text.tokenized_paragraphs:
+            parts = _preview_parts(
+                preview,
+                len(preview) - 1 if truncated else len(preview),
+                json.loads(self.short_text.tokenized_paragraphs),
+                bookmarks,
+            )
+            if parts:
+                item["preview_parts"] = parts
+        return item
+
+
+def _bookmark_token_groups(paragraphs, bookmarks):
+    """Groups of (sent_i, token_i) coordinates covered by `bookmarks`.
+
+    A contiguous word/MWE is one group (highlighted together with its inner
+    spaces); a separated MWE yields separate single-token groups.
+    """
+    sentences_by_i = {}
+    coord_index = {}
+    for paragraph in paragraphs:
+        for sentence in paragraph:
+            if not sentence:
+                continue
+            sent_i = sentence[0]["sent_i"]
+            sentences_by_i[sent_i] = sentence
+            for local_i, token in enumerate(sentence):
+                coord_index[(token["sent_i"], token["token_i"])] = local_i
+
+    groups = []
+    for bookmark in bookmarks:
+        ctx_s = (bookmark.context.sentence_i or 0) if bookmark.context else 0
+        ctx_t = (bookmark.context.token_i or 0) if bookmark.context else 0
+        target_s = ctx_s + (bookmark.sentence_i or 0)
+        target_t = ctx_t + (bookmark.token_i or 0)
+        local_i = coord_index.get((target_s, target_t))
+        if local_i is None:
+            continue
+
+        sentence = sentences_by_i[target_s]
+        if bookmark.is_mwe:
+            partner_t = bookmark.mwe_partner_token_i
+            if partner_t is not None and abs(partner_t - target_t) > 1:
+                groups.append([(target_s, target_t)])
+                if (target_s, partner_t) in coord_index:
+                    groups.append([(target_s, partner_t)])
+                continue
+            group_id = sentence[local_i].get("mwe_group_id")
+            if partner_t is None and group_id:
+                mwe_tokens = [t for t in sentence if t.get("mwe_group_id") == group_id]
+                indices = [t["token_i"] for t in mwe_tokens]
+                if any(b - a != 1 for a, b in zip(indices, indices[1:])):
+                    for t in mwe_tokens:
+                        groups.append([(t["sent_i"], t["token_i"])])
+                    continue
+
+        total = max(bookmark.total_tokens or 1, 1)
+        groups.append([(t["sent_i"], t["token_i"]) for t in sentence[local_i : local_i + total]])
+    return groups
+
+
+def _align_tokens_to_preview(preview, limit, paragraphs):
+    """Map (sent_i, token_i) -> (start, end) character spans within preview[:limit]."""
+    positions = {}
+    cursor = 0
+    for paragraph in paragraphs:
+        for sentence in paragraph:
+            for token in sentence:
+                while cursor < limit and preview[cursor] == " ":
+                    cursor += 1
+                if cursor >= limit:
+                    return positions
+                text = token["text"]
+                if not text:
+                    continue
+                if preview.startswith(text, cursor) and cursor + len(text) <= limit:
+                    start, end = cursor, cursor + len(text)
+                else:
+                    idx = preview.find(text, cursor, min(limit, cursor + len(text) + 16))
+                    if idx != -1:
+                        start, end = idx, idx + len(text)
+                    elif text.startswith(preview[cursor:limit]):
+                        start, end = cursor, limit
+                    else:
+                        continue
+                positions[(token["sent_i"], token["token_i"])] = (start, end)
+                cursor = end
+    return positions
+
+
+def _merge_spans(spans):
+    merged = []
+    for start, end in sorted(spans):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def _preview_parts(preview, limit, paragraphs, bookmarks):
+    """Split `preview` into [{text, translated?}] if any bookmark falls in it."""
+    positions = _align_tokens_to_preview(preview, limit, paragraphs)
+    spans = []
+    for group in _bookmark_token_groups(paragraphs, bookmarks):
+        coords = [positions[c] for c in group if c in positions]
+        if coords:
+            spans.append((coords[0][0], coords[-1][1]))
+    if not spans:
+        return None
+
+    parts = []
+    cursor = 0
+    for start, end in _merge_spans(spans):
+        if start > cursor:
+            parts.append({"text": preview[cursor:start]})
+        parts.append({"text": preview[start:end], "translated": True})
+        cursor = end
+    if cursor < len(preview):
+        parts.append({"text": preview[cursor:]})
+    return parts
