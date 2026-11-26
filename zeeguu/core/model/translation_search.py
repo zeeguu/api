@@ -50,20 +50,18 @@ class TranslationSearch(db.Model):
         return search
 
     @classmethod
-    def get_history(cls, user: User, learned_language: Language, limit: int = 50):
+    def get_history(cls, user: User, learned_language: Language, limit: int = 50, offset: int = 0):
         """
         Get recent translation searches for a user in a specific language.
         Returns most recent searches first.
         """
-        return (
-            cls.query.filter(
-                cls.user_id == user.id,
-                cls.learned_language_id == learned_language.id
-            )
-            .order_by(desc(cls.search_time))
-            .limit(limit)
-            .all()
-        )
+        query = cls.query.filter(
+            cls.user_id == user.id,
+            cls.learned_language_id == learned_language.id,
+        ).order_by(desc(cls.search_time))
+        if offset:
+            query = query.offset(offset)
+        return query.limit(limit).all()
 
     def as_dict(self):
         """Return dictionary representation for API response."""

@@ -172,8 +172,13 @@ class UserShortText(db.Model):
         return row
 
     @classmethod
-    def all_for(cls, user):
-        return cls.query.filter_by(user_id=user.id).order_by(cls.last_opened_at.desc()).all()
+    def all_for(cls, user, limit=None, offset=0):
+        query = cls.query.filter_by(user_id=user.id).order_by(cls.last_opened_at.desc())
+        if offset:
+            query = query.offset(offset)
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
 
     def forget(self, session):
         """
@@ -212,40 +217,13 @@ class UserShortText(db.Model):
             preview = preview[: self.PREVIEW_CHARS].rstrip() + "…"
         item = {
             "id": self.short_text_id,
+            "text": content,
             "preview": preview,
             "language": self.short_text.language.code,
+            "source_id": self.short_text.source_id,
             "last_opened_at": self.last_opened_at.isoformat(),
         }
-        if bookmarks and self.short_text.tokenized_paragraphs:
-            tokenized_preview, preview_truncated = _preview_tokens(
-                json.loads(self.short_text.tokenized_paragraphs), self.PREVIEW_CHARS
-            )
-            preview_sents = {s[0]["sent_i"] for p in tokenized_preview for s in p if s}
-            in_preview = [
-                b
-                for b in bookmarks
-                if ((b.context.sentence_i or 0) if b.context else 0) + (b.sentence_i or 0)
-                in preview_sents
-            ]
-            if in_preview:
-                item["tokenized_preview"] = tokenized_preview
-                item["past_bookmarks"] = [b.to_json(True) for b in in_preview]
-                if preview_truncated:
-                    item["preview_truncated"] = True
+        if self.short_text.tokenized_paragraphs:
+            item["tokenized_paragraphs"] = json.loads(self.short_text.tokenized_paragraphs)
+            item["past_bookmarks"] = [b.to_json(True) for b in (bookmarks or [])]
         return item
-
-
-def _preview_tokens(paragraphs, max_chars):
-    """First ~max_chars of tokens as a single preview paragraph, preserving each
-    token's (sent_i, token_i) so bookmark restoration anchors to it."""
-    sentences, chars, truncated = [], 0, False
-    for paragraph in paragraphs:
-        for sentence in paragraph:
-            if chars >= max_chars:
-                truncated = True
-                break
-            sentences.append(sentence)
-            chars += sum(len(t["text"]) + 1 for t in sentence)
-        if truncated:
-            break
-    return ([sentences] if sentences else []), truncated

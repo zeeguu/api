@@ -364,7 +364,7 @@ def _bookmark_word(client, text, word, sent_i, token_i, total_tokens=1):
     )
 
 
-def test_list_includes_tokenized_preview_and_bookmarks_for_that_learner_only(client, app):
+def test_list_includes_tokens_and_bookmarks_for_that_learner_only(client, app):
     message = "Der Ball ist rot. Ein Ball liegt da."
     text = _read(client, message)
     bookmark_id = _bookmark_word(client, text, "Ball", sent_i=1, token_i=1)["bookmark_id"]
@@ -374,19 +374,27 @@ def test_list_includes_tokenized_preview_and_bookmarks_for_that_learner_only(cli
 
     [mine_listed] = client.get("/short_texts")
     [other_listed] = other.get("/short_texts")
+    assert mine_listed["text"] == message
+    assert mine_listed["source_id"] == text["source_id"]
+    assert _words(mine_listed["tokenized_paragraphs"]) == _words(text["tokenized_paragraphs"])
     assert [b["id"] for b in mine_listed["past_bookmarks"]] == [bookmark_id]
-    assert _words(mine_listed["tokenized_preview"]) == _words(text["tokenized_paragraphs"])
-    assert "tokenized_preview" not in other_listed
-    assert "past_bookmarks" not in other_listed
+    assert other_listed["past_bookmarks"] == []
 
 
-def test_list_omits_tokenized_preview_when_no_bookmarks_fall_in_preview(client):
-    # Word past PREVIEW_CHARS (120) should not produce tokenized_preview/past_bookmarks
-    long_message = ("Hallo zusammen! " * 9) + "Schluss."
-    text = _read(client, long_message)
-    last_sent = text["tokenized_paragraphs"][0][-1]
-    _bookmark_word(client, text, "Schluss", sent_i=last_sent[0]["sent_i"], token_i=0)
+def test_list_paginates_with_limit_and_offset(client):
+    ids = [_add(client, f"Text Nummer {i} ist kurz.").json["id"] for i in range(3)]
+    # newest first: [ids[2], ids[1], ids[0]]
+    first_page = client.get("/short_texts?limit=2&offset=0")
+    second_page = client.get("/short_texts?limit=2&offset=2")
+    assert [each["id"] for each in first_page] == [ids[2], ids[1]]
+    assert [each["id"] for each in second_page] == [ids[0]]
 
-    [listed] = client.get("/short_texts")
-    assert "tokenized_preview" not in listed
-    assert "past_bookmarks" not in listed
+
+def test_touch_moves_text_to_the_top_without_fetching_tokens(client):
+    older = _add(client, GERMAN_MESSAGE).json["id"]
+    newer = _add(client, "Bitte Wasser mitbringen").json["id"]
+    assert [each["id"] for each in client.get("/short_texts")] == [newer, older]
+
+    assert client.response_from_post(f"/short_texts/{older}/touch").status_code == 200
+    assert [each["id"] for each in client.get("/short_texts")] == [older, newer]
+    assert client.response_from_post("/short_texts/999999/touch").status_code == 404
