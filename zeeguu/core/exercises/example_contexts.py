@@ -203,7 +203,8 @@ def why_not_a_good_exercise_context(bookmark, cefr_level):
     at or below the learner's level: an A2 learner sees A2, also in a
     generated example (most older examples were written at B1). A context of
     unknown level (a web page, a video, an unassessed article or example) is
-    not good: an example at the learner's level is the safer choice.
+    not good: an example at the learner's level is the safer choice. A line of
+    a lesson's dialogue has the level the lesson was written at.
 
     Generated examples are not held to the length: they are what a long
     sentence gets swapped for, and swapping one example for another over a
@@ -222,6 +223,11 @@ def why_not_a_good_exercise_context(bookmark, cefr_level):
         level = example_level(bookmark)
     elif context_type in ARTICLE_CONTEXTS:
         level = article_level(bookmark)
+    elif context_type == ContextType.LESSON_DIALOGUE:
+        # A line the learner heard in their own lesson, written at its level
+        from zeeguu.core.model.lesson_dialogue_text import lesson_dialogue_level
+
+        level = lesson_dialogue_level(bookmark.source_id)
     else:
         return "level unknown"
     learner, context_rank = cefr.rank(cefr_level), cefr.rank(level)

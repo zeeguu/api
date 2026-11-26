@@ -518,6 +518,7 @@ def lesson_dialogue(lesson_id):
     from zeeguu.api.endpoints.short_texts import tokenize_for_reader
     from zeeguu.core.audio_lessons.script_parser import dialogue_lines
     from zeeguu.core.model import Bookmark, LessonDialogueText
+    from zeeguu.core.model.lesson_dialogue_text import NotOneParagraphPerLine
 
     user = User.find_by_id(flask.g.user_id)
     lesson = DailyAudioLesson.query.filter_by(id=lesson_id, user_id=user.id).one_or_none()
@@ -530,13 +531,16 @@ def lesson_dialogue(lesson_id):
 
     text = LessonDialogueText.for_lesson_dialogue(lesson_dialogue)
     if not text:
-        lines = dialogue_lines(lesson_dialogue.script)
+        # An A0 lesson stores the dialogue as it was written (since 20 Nov
+        # 2026); for the others it is found in the voiced script.
+        lines = dialogue_lines(lesson_dialogue.dialogue_script or lesson_dialogue.script)
+        if not lines:
+            log(f"Dialogue lesson {lesson_dialogue.id}: no dialogue to read in its script")
+            return json_result({"error": "No dialogue in this lesson"}), 404
         try:
-            if not lines:
-                raise ValueError("no run of Man and Woman lines")
             text = LessonDialogueText.find_or_create(db.session, lesson_dialogue, lines)
-        except ValueError as e:
-            log(f"Dialogue lesson {lesson_dialogue.id}: no dialogue to read in its script: {e}")
+        except NotOneParagraphPerLine as e:
+            log(f"Dialogue lesson {lesson_dialogue.id}: {e}")
             return json_result({"error": "No dialogue in this lesson"}), 404
 
     tokens = text.tokens(db.session, tokenize_for_reader)

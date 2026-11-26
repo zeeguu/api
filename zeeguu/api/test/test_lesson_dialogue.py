@@ -30,11 +30,12 @@ def _types(app):
 
 
 # By email, not User: each request ends the session and detaches the objects.
-def _dialogue(email, script=SCRIPT):
+def _dialogue(email, script=SCRIPT, dialogue_script=None):
     dialogue = AudioLessonDialogue(
         script=script, canonical_suggestion="cafe", lesson_type="situation",
         language=User.find(email).learned_language, title="Ordering coffee", difficulty_level="A0",
     )
+    dialogue.dialogue_script = dialogue_script
     db.session.add(dialogue)
     db.session.commit()
     return dialogue
@@ -121,6 +122,29 @@ def test_tapped_word_becomes_a_bookmark_shown_again_on_reopening(client):
     assert bookmark.context.context_type.type == ContextType.LESSON_DIALOGUE
     assert bookmark.source_id == source_id
     assert [b["id"] for b in _read(client, lesson_id).json["past_bookmarks"]] == [bookmark.id]
+
+    # In exercises the line stays: it is at the lesson's level (A0, as A1)
+    from zeeguu.core.exercises.example_contexts import why_not_a_good_exercise_context
+
+    assert why_not_a_good_exercise_context(Bookmark.find(result["bookmark_id"]), "A1") is None
+
+
+def test_an_a0_lesson_reads_the_dialogue_it_stored(client):
+    me = client.email
+    stored = "Man: Guten Tag!\nWoman: Hallo!"
+
+    result = _read(client, _lesson(me, _dialogue(me, dialogue_script=stored))).json
+
+    assert [_words(p) for p in result["tokenized_paragraphs"]] == [["Guten", "Tag", "!"], ["Hallo", "!"]]
+
+
+def test_a_line_that_would_split_into_two_paragraphs_is_refused():
+    from zeeguu.core.audio_lessons.script_parser import DialogueLine
+    from zeeguu.core.model.lesson_dialogue_text import NotOneParagraphPerLine
+
+    lines = [DialogueLine("Man", "Hallo!\u2028Was möchten Sie?"), DialogueLine("Woman", "Kaffee.")]
+    with pytest.raises(NotOneParagraphPerLine):
+        LessonDialogueText.find_or_create(db.session, None, lines)
 
 
 def test_not_for_someone_elses_lesson(client):

@@ -15,7 +15,7 @@ import json
 import unicodedata
 from datetime import datetime
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, UnicodeText
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, UnicodeText, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from zeeguu.core.model.audio_lesson_dialogue import AudioLessonDialogue
@@ -28,18 +28,22 @@ from zeeguu.core.model.source_type import SourceType
 
 class LessonDialogueText(db.Model):
     __tablename__ = "lesson_dialogue_text"
-    __table_args__ = {"mysql_collate": "utf8mb4_bin"}
+    # Named as in the migration, so a create_all database has the same keys.
+    __table_args__ = (
+        UniqueConstraint("source_id", name="lesson_dialogue_text_source_unique"),
+        UniqueConstraint("audio_lesson_dialogue_id", name="lesson_dialogue_text_lesson_unique"),
+        {"mysql_collate": "utf8mb4_bin"},
+    )
 
     id = Column(Integer, primary_key=True)
 
-    source_id = Column(Integer, ForeignKey(Source.id), nullable=False, unique=True)
+    source_id = Column(Integer, ForeignKey(Source.id), nullable=False)
     source = relationship(Source)
 
     audio_lesson_dialogue_id = Column(
         Integer,
         ForeignKey(AudioLessonDialogue.id, ondelete="CASCADE"),
         nullable=False,
-        unique=True,
     )
     audio_lesson_dialogue = relationship(AudioLessonDialogue)
 
@@ -73,13 +77,14 @@ class LessonDialogueText(db.Model):
         script_parser.dialogue_lines) if there is none yet. Not committed.
 
         The content has one line per spoken line, which the reader's tokenizer
-        reads as one paragraph each. Raises ValueError for a line that is empty
-        or has a line break in it, since the speakers would then name the
-        wrong lines.
+        reads as one paragraph each. Raises NotOneParagraphPerLine for a line
+        that is empty or would split (any break str.splitlines sees, as
+        tokenize_for_reader splits with it), since the speakers would then
+        name the wrong lines.
         """
         texts = [_nfc(line.text.strip()) for line in lines]
-        if not texts or any(not text or "\n" in text for text in texts):
-            raise ValueError("Every line needs a text on one line")
+        if not texts or any(len(text.splitlines()) != 1 for text in texts):
+            raise NotOneParagraphPerLine("Every line needs a text on one line")
 
         def make():
             # A Source per dialogue, never shared: source_id is unique here,
@@ -104,6 +109,18 @@ class LessonDialogueText(db.Model):
     @classmethod
     def for_lesson_dialogue(cls, lesson_dialogue):
         return cls.query.filter_by(audio_lesson_dialogue_id=lesson_dialogue.id).one_or_none()
+
+
+class NotOneParagraphPerLine(ValueError):
+    pass
+
+
+def lesson_dialogue_level(source_id):
+    """The level the dialogue with this source was written at, as a text
+    level (A1..C2: an A0 dialogue counts as A1, the lowest), or None."""
+    text = LessonDialogueText.query.filter_by(source_id=source_id).one_or_none()
+    level = text.audio_lesson_dialogue.difficulty_level if text else None
+    return "A1" if level == "A0" else level
 
 
 def _nfc(text):
