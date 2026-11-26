@@ -1,6 +1,7 @@
 """The word scheduling strategy as a preference: /save_user_preferences."""
 
 from zeeguu.api.test.fixtures import logged_in_client
+from zeeguu.core.model import User, UserPreference
 
 
 def test_a_strategy_is_saved_by_name(logged_in_client):
@@ -16,5 +17,7 @@ def test_an_unknown_strategy_is_refused(logged_in_client):
         data={"word_scheduling_strategy": "true"},
     )
     assert response.status_code == 400
-    # nothing stored: still the default of a new account
-    assert logged_in_client.get("/user_preferences")["word_scheduling_strategy"] == "frequency_priority"
+    # nothing stored: still the default for this account, whatever its age
+    user = User.find(logged_in_client.email)
+    expected = UserPreference.default_word_scheduling_strategy(user)
+    assert logged_in_client.get("/user_preferences")["word_scheduling_strategy"] == expected
