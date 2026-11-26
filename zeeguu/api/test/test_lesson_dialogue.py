@@ -158,3 +158,4 @@ def test_not_for_a_lesson_without_a_dialogue(client):
 
     assert _read(client, _lesson(me)).status_code == 404
     assert _read(client, _lesson(me, _dialogue(me, script="Teacher: Hello."))).status_code == 404
+

@@ -532,7 +532,8 @@ def lesson_dialogue(lesson_id):
     text = LessonDialogueText.for_lesson_dialogue(lesson_dialogue)
     if not text:
         # An A0 lesson stores the dialogue as it was written (since 20 Nov
-        # 2026); for the others it is found in the voiced script.
+        # 2026), only Man and Woman lines (script_generator._dialogue_for_beginner
+        # checks that); for the others it is found in the voiced script.
         lines = dialogue_lines(lesson_dialogue.dialogue_script or lesson_dialogue.script)
         if not lines:
             log(f"Dialogue lesson {lesson_dialogue.id}: no dialogue to read in its script")
