@@ -16,4 +16,5 @@ def test_an_unknown_strategy_is_refused(logged_in_client):
         data={"word_scheduling_strategy": "true"},
     )
     assert response.status_code == 400
-    assert "word_scheduling_strategy" not in logged_in_client.get("/user_preferences")
+    # nothing stored: still the default of a new account
+    assert logged_in_client.get("/user_preferences")["word_scheduling_strategy"] == "frequency_priority"
