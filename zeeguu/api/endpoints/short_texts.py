@@ -234,7 +234,7 @@ def short_text_list():
     limit = request.args.get("limit", DEFAULT_SHORT_TEXTS_LIMIT, type=int)
     limit = max(1, min(limit, MAX_SHORT_TEXTS_LIMIT))
     offset = max(0, request.args.get("offset", 0, type=int))
-    rows = UserShortText.all_for(user, limit=limit, offset=offset)
+    rows = UserShortText.for_user(user, limit=limit, offset=offset)
     bookmarks_by_source = Bookmark.find_all_for_user_by_source(
         user, [row.short_text.source_id for row in rows]
     )

@@ -3,7 +3,7 @@ import time
 
 import sqlalchemy
 from sqlalchemy.exc import NoResultFound
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import joinedload, relationship
 
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark_context import BookmarkContext
@@ -803,7 +803,6 @@ class Bookmark(db.Model):
         ids = [sid for sid in source_ids if sid is not None]
         if not ids:
             return {}
-        from sqlalchemy.orm import joinedload
 
         bookmarks = (
             cls.query.filter(cls.source_id.in_(ids))

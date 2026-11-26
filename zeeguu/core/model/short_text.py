@@ -172,7 +172,7 @@ class UserShortText(db.Model):
         return row
 
     @classmethod
-    def all_for(cls, user, limit=None, offset=0):
+    def for_user(cls, user, limit=None, offset=0):
         query = cls.query.filter_by(user_id=user.id).order_by(cls.last_opened_at.desc())
         if offset:
             query = query.offset(offset)
