@@ -628,15 +628,8 @@ class Article(db.Model):
         # HTML block structure. See #666.
         result["tokenized_fragments"] = self._tokenize_fragments(tokenizer)
 
-        # Tokenize title (simpler, just use stanza mode). Not for the dialogue
-        # of an audio lesson: its title is the lesson's, in the learner's own
-        # language, so not a text to translate from this one.
-        from zeeguu.core.model.article_dialogue import ArticleDialogue
-
-        if ArticleDialogue.find(self.id):
-            enriched_title = []
-        else:
-            enriched_title = tokenize_for_reading(self.title, self.language, mode="stanza")
+        # Tokenize title (simpler, just use stanza mode)
+        enriched_title = tokenize_for_reading(self.title, self.language, mode="stanza")
         result["tokenized_title_new"] = {
             "context_identifier": ContextIdentifier(
                 ContextType.ARTICLE_TITLE,
@@ -937,14 +930,6 @@ class Article(db.Model):
         if with_content:
             tokenized_content = self.get_tokenized_content()
             result_dict.update(tokenized_content)
-
-            # The dialogue of an audio lesson: who says each fragment. Only for
-            # the reader: the feed would pay a query per card.
-            from zeeguu.core.model.article_dialogue import ArticleDialogue
-
-            dialogue = ArticleDialogue.find(self.id)
-            if dialogue:
-                result_dict["dialogue"] = dialogue.info()
 
         result_dict["has_uploader"] = True if self.uploader_id else False
 

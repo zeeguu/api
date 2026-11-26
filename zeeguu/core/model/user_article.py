@@ -523,7 +523,6 @@ class UserArticle(db.Model):
                         or k.startswith("tokenized")
                         or k == "paragraphs"
                         or k == "htmlContent"
-                        or k == "dialogue"
                     }
                 )
         else:

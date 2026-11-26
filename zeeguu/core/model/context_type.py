@@ -24,6 +24,8 @@ class ContextType(db.Model):
     EXAMPLE_SENTENCE = "ExampleSentence"
     # A short text the learner brought: a chat message, a mail paragraph
     SHORT_TEXT = "ShortText"
+    # The dialogue of an audio lesson
+    LESSON_DIALOGUE = "LessonDialogue"
 
     ALL_TYPES = [
         ARTICLE_FRAGMENT,
@@ -38,6 +40,7 @@ class ContextType(db.Model):
         ORPHAN_CONTEXT,
         EXAMPLE_SENTENCE,
         SHORT_TEXT,
+        LESSON_DIALOGUE,
     ]
 
     __table_args__ = {"mysql_collate": "utf8_bin"}

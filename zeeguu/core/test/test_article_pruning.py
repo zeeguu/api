@@ -27,7 +27,6 @@ CASCADE_OWNED_COLUMNS = {
     ("article", "parent_article_id"),
     ("article_broken_code_map", "article_id"),
     ("article_cefr_assessment", "article_id"),
-    ("article_dialogue", "article_id"),
     ("article_classification", "article_id"),
     ("article_fragment", "article_id"),
     ("article_public_code", "article_id"),
