@@ -172,8 +172,13 @@ class UserShortText(db.Model):
         return row
 
     @classmethod
-    def all_for(cls, user):
-        return cls.query.filter_by(user_id=user.id).order_by(cls.last_opened_at.desc()).all()
+    def for_user(cls, user, limit=None, offset=0):
+        query = cls.query.filter_by(user_id=user.id).order_by(cls.last_opened_at.desc())
+        if offset:
+            query = query.offset(offset)
+        if limit is not None:
+            query = query.limit(limit)
+        return query.all()
 
     def forget(self, session):
         """
@@ -205,14 +210,20 @@ class UserShortText(db.Model):
         if source_text and not Source.query.filter_by(source_text_id=source_text.id).count():
             session.delete(source_text)
 
-    def as_list_item(self):
+    def as_list_item(self, bookmarks=None):
         content = self.short_text.content
         preview = " ".join(content.split())
         if len(preview) > self.PREVIEW_CHARS:
             preview = preview[: self.PREVIEW_CHARS].rstrip() + "…"
-        return {
+        item = {
             "id": self.short_text_id,
+            "text": content,
             "preview": preview,
             "language": self.short_text.language.code,
+            "source_id": self.short_text.source_id,
             "last_opened_at": self.last_opened_at.isoformat(),
         }
+        if self.short_text.tokenized_paragraphs:
+            item["tokenized_paragraphs"] = json.loads(self.short_text.tokenized_paragraphs)
+            item["past_bookmarks"] = [b.to_json(True) for b in (bookmarks or [])]
+        return item

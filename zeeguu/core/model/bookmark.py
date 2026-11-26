@@ -3,7 +3,7 @@ import time
 
 import sqlalchemy
 from sqlalchemy.exc import NoResultFound
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import joinedload, relationship
 
 from zeeguu.core.model.article import Article
 from zeeguu.core.model.bookmark_context import BookmarkContext
@@ -796,6 +796,34 @@ class Bookmark(db.Model):
             .filter(UserWord.user_id == user.id)
             .all()
         )
+
+    @classmethod
+    def find_all_for_user_by_source(cls, user, source_ids):
+        """Return `{source_id: [Bookmark]}` for `user` across `source_ids` in one query."""
+        ids = [sid for sid in source_ids if sid is not None]
+        if not ids:
+            return {}
+
+        bookmarks = (
+            cls.query.filter(cls.source_id.in_(ids))
+            .join(UserWord, Bookmark.user_word_id == UserWord.id)
+            .filter(UserWord.user_id == user.id)
+            .options(
+                joinedload(Bookmark.context),
+                joinedload(Bookmark.text),
+                joinedload(Bookmark.user_word)
+                .joinedload(UserWord.meaning)
+                .joinedload(Meaning.origin),
+                joinedload(Bookmark.user_word)
+                .joinedload(UserWord.meaning)
+                .joinedload(Meaning.translation),
+            )
+            .all()
+        )
+        by_source = {}
+        for bookmark in bookmarks:
+            by_source.setdefault(bookmark.source_id, []).append(bookmark)
+        return by_source
 
     @classmethod
     def find(cls, b_id):

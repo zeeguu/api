@@ -219,6 +219,10 @@ def short_text_add():
     return json_result({"id": short_text.id})
 
 
+DEFAULT_SHORT_TEXTS_LIMIT = 20
+MAX_SHORT_TEXTS_LIMIT = 100
+
+
 # ---------------------------------------------------------------------------
 @api.route("/short_texts", methods=["GET"])
 # ---------------------------------------------------------------------------
@@ -227,7 +231,34 @@ def short_text_add():
 def short_text_list():
     """The learner's short texts, most recently opened first."""
     user = User.find_by_id(flask.g.user_id)
-    return json_result([row.as_list_item() for row in UserShortText.all_for(user)])
+    limit = request.args.get("limit", DEFAULT_SHORT_TEXTS_LIMIT, type=int)
+    limit = max(1, min(limit, MAX_SHORT_TEXTS_LIMIT))
+    offset = max(0, request.args.get("offset", 0, type=int))
+    rows = UserShortText.for_user(user, limit=limit, offset=offset)
+    bookmarks_by_source = Bookmark.find_all_for_user_by_source(
+        user, [row.short_text.source_id for row in rows]
+    )
+    return json_result(
+        [
+            row.as_list_item(bookmarks_by_source.get(row.short_text.source_id))
+            for row in rows
+        ]
+    )
+
+
+# ---------------------------------------------------------------------------
+@api.route("/short_texts/<int:short_text_id>/touch", methods=["POST"])
+# ---------------------------------------------------------------------------
+@cross_domain
+@requires_session
+def short_text_touch(short_text_id):
+    """Record reopening a text whose content the client already has."""
+    user = User.find_by_id(flask.g.user_id)
+    row = _users_short_text_or_404(user, short_text_id)
+    UserShortText.add(db_session, user, row.short_text)  # back to the top of the list
+    _log(user, EVENT_SHORT_TEXT_OPENED, row.short_text)
+    db_session.commit()
+    return "OK"
 
 
 # ---------------------------------------------------------------------------

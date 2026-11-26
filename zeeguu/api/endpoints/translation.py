@@ -279,11 +279,14 @@ def get_translation_history():
     """
     user = User.find_by_id(flask.g.user_id)
     limit = request.args.get("limit", 50, type=int)
-    # The Translate tab asks for 50. Clamped rather than refused, so a larger
-    # request still gets an answer, just not an unbounded one.
+    # Clamped rather than refused, so a larger request still gets an answer,
+    # just not an unbounded one.
     limit = max(1, min(limit, MAX_TRANSLATION_HISTORY))
+    offset = max(0, request.args.get("offset", 0, type=int))
 
-    searches = TranslationSearch.get_history(user, user.learned_language, limit=limit)
+    searches = TranslationSearch.get_history(
+        user, user.learned_language, limit=limit, offset=offset
+    )
     return json_result([s.as_dict() for s in searches])
 
 
