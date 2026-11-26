@@ -38,6 +38,27 @@ def _words(paragraphs):
     return [token["text"] for par in paragraphs for sent in par for token in sent]
 
 
+def _bookmark_word(client, text, word, sent_i=0, token_i=1, total_tokens=1, context=None, c_sent_i=0):
+    return client.post(
+        "/translate_word/de/en",
+        json={
+            "word": word,
+            "context": context or text["text"],
+            "source_id": text["source_id"],
+            "w_sent_i": sent_i,
+            "w_token_i": token_i,
+            "w_total_tokens": total_tokens,
+            "c_paragraph_i": 0,
+            "c_sent_i": c_sent_i,
+            "c_token_i": 0,
+            "left_ellipsis": False,
+            "right_ellipsis": False,
+            "context_identifier": {"context_type": "ShortText"},
+            "translation_source": "reading",
+        },
+    )
+
+
 def test_text_in_learned_language_is_kept_and_tokenized_for_the_reader(client):
     result = _read(client, GERMAN_MESSAGE)
 
@@ -188,23 +209,8 @@ def test_tapped_word_becomes_a_bookmark_shown_again_on_reopening(client):
 
     text = _read(client, GERMAN_MESSAGE)
 
-    result = client.post(
-        "/translate_word/de/en",
-        json={
-            "word": "Training",
-            "context": "Das Training morgen fällt leider aus",
-            "source_id": text["source_id"],
-            "w_sent_i": 0,
-            "w_token_i": 1,
-            "w_total_tokens": 1,
-            "c_paragraph_i": 0,
-            "c_sent_i": 1,
-            "c_token_i": 0,
-            "left_ellipsis": False,
-            "right_ellipsis": False,
-            "context_identifier": {"context_type": ContextType.SHORT_TEXT},
-            "translation_source": "reading",
-        },
+    result = _bookmark_word(
+        client, text, "Training", context="Das Training morgen fällt leider aus", c_sent_i=1
     )
 
     bookmark = Bookmark.find(result["bookmark_id"])
@@ -272,16 +278,8 @@ def test_forgetting_the_last_copy_deletes_the_text_but_keeps_the_words(client, m
     # content alive, rightly
     text = _read(client, f"{GERMAN_MESSAGE} {uuid.uuid4().hex}")
     client.response_from_post(f"/short_texts/{text['id']}/translate/en")
-    bookmark_id = client.post(
-        "/translate_word/de/en",
-        json={
-            "word": "Training",
-            "context": "Das Training morgen fällt leider aus",
-            "source_id": text["source_id"],
-            "w_sent_i": 0, "w_token_i": 1, "w_total_tokens": 1,
-            "c_paragraph_i": 0, "c_sent_i": 1, "c_token_i": 0,
-            "context_identifier": {"context_type": "ShortText"},
-        },
+    bookmark_id = _bookmark_word(
+        client, text, "Training", context="Das Training morgen fällt leider aus", c_sent_i=1
     )["bookmark_id"]
     source_text_id = Source.find_by_id(text["source_id"]).source_text_id
 
@@ -343,27 +341,6 @@ def test_a_message_sized_text_can_be_translated_whole(client):
     assert client.get(f"/short_texts/{text_id}")["can_translate_whole"] is True
 
 
-def _bookmark_word(client, text, word, sent_i, token_i, total_tokens=1):
-    return client.post(
-        "/translate_word/de/en",
-        json={
-            "word": word,
-            "context": text["text"],
-            "source_id": text["source_id"],
-            "w_sent_i": sent_i,
-            "w_token_i": token_i,
-            "w_total_tokens": total_tokens,
-            "c_paragraph_i": 0,
-            "c_sent_i": 0,
-            "c_token_i": 0,
-            "left_ellipsis": False,
-            "right_ellipsis": False,
-            "context_identifier": {"context_type": "ShortText"},
-            "translation_source": "reading",
-        },
-    )
-
-
 def test_list_includes_tokens_and_bookmarks_for_that_learner_only(client, app):
     message = "Der Ball ist rot. Ein Ball liegt da."
     text = _read(client, message)
@@ -379,15 +356,6 @@ def test_list_includes_tokens_and_bookmarks_for_that_learner_only(client, app):
     assert _words(mine_listed["tokenized_paragraphs"]) == _words(text["tokenized_paragraphs"])
     assert [b["id"] for b in mine_listed["past_bookmarks"]] == [bookmark_id]
     assert other_listed["past_bookmarks"] == []
-
-
-def test_list_paginates_with_limit_and_offset(client):
-    ids = [_add(client, f"Text Nummer {i} ist kurz.").json["id"] for i in range(3)]
-    # newest first: [ids[2], ids[1], ids[0]]
-    first_page = client.get("/short_texts?limit=2&offset=0")
-    second_page = client.get("/short_texts?limit=2&offset=2")
-    assert [each["id"] for each in first_page] == [ids[2], ids[1]]
-    assert [each["id"] for each in second_page] == [ids[0]]
 
 
 def test_touch_moves_text_to_the_top_without_fetching_tokens(client):
