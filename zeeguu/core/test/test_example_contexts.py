@@ -630,3 +630,43 @@ class RotateExerciseContextTest(ModelTestMixIn, TestCase):
 
         found = Bookmark.find_by_usermeaning_and_context(user_word, original.context)
         self.assertEqual(found.id, original.id)
+
+    def test_exercise_records_shown_bookmark_id_before_rotation_and_null_for_context_free(self):
+        from zeeguu.core.model import ExerciseOutcome, UserPreference
+
+        user_word, original, _examples = self._word_with_examples(
+            article_level="A2", examples=("Der Hund schläft.", "Der Hund spielt.")
+        )
+        UserPreference.set_dropping_duplicates(
+            session, self.user, UserPreference.VARY_EXERCISE_CONTEXTS, "true"
+        )
+        session.commit()
+        ex_session = ExerciseSessionRule(self.user).exerciseSession
+
+        with (
+            patch.object(
+                example_contexts,
+                "bookmark_for_example",
+                side_effect=lambda _s, _u, uw, ex: self._fake_example_bookmark(uw, ex),
+            ),
+            patch.object(Bookmark, "as_dictionary", return_value={}),
+        ):
+            # Context-free Match records bookmark_id=None and does not rotate
+            user_word.report_exercise_outcome(
+                session, "Match_three_L1W_to_three_L2W", ExerciseOutcome.CORRECT, 1000, ex_session.id, ""
+            )
+            # First contextual exercise sees original, then rotates to example #1
+            user_word.report_exercise_outcome(
+                session, "Recognize_L1W_in_L2T", ExerciseOutcome.CORRECT, 1000, ex_session.id, ""
+            )
+            rotated_id = user_word.preferred_bookmark_id
+            self.assertNotEqual(rotated_id, original.id)
+            # Second contextual exercise sees the rotated bookmark, then rotates again
+            user_word.report_exercise_outcome(
+                session, "Recognize_L1W_in_L2T", ExerciseOutcome.CORRECT, 1000, ex_session.id, ""
+            )
+
+        session.refresh(user_word)
+        recorded_ids = [ex.bookmark_id for ex in user_word.exercise_log]
+        self.assertEqual(recorded_ids, [None, original.id, rotated_id])
+        self.assertNotEqual(user_word.preferred_bookmark_id, rotated_id)

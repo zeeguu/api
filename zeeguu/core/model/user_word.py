@@ -442,6 +442,12 @@ class UserWord(db.Model):
         if exercise_outcome == ExerciseOutcome.OTHER_FEEDBACK:
             practiced._choose_from_exercise_feedback(db_session, other_feedback)
 
+        shown_bookmark_id = (
+            None
+            if source.source in self.CONTEXT_FREE_EXERCISE_SOURCES
+            else (bookmark.id if bookmark is not None else practiced.preferred_bookmark_id)
+        )
+
         exercise = Exercise(
             outcome,
             source,
@@ -450,6 +456,7 @@ class UserWord(db.Model):
             session_id,
             practiced,
             other_feedback,
+            bookmark_id=shown_bookmark_id,
         )
         db_session.add(exercise)
         if wrong_answers:
