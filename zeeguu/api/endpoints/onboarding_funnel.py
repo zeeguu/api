@@ -11,6 +11,7 @@ import json
 import re
 
 import flask
+from sqlalchemy.exc import OperationalError
 
 from zeeguu.api.utils.route_wrappers import cross_domain
 from zeeguu.core.constants import PLATFORM_NAMES
@@ -18,6 +19,9 @@ from zeeguu.core.model.onboarding_funnel_event import OnboardingFunnelEvent
 from zeeguu.core.model.session import Session
 from zeeguu.core.util.user_agent import parse_user_agent
 from . import api, db_session
+
+# MySQL: deadlock found, lock wait timeout exceeded
+_LOCK_ERRORS = (1213, 1205)
 
 # The client names the steps, so a new one needs no API deploy; this only
 # keeps out what isn't shaped like a step name.
@@ -117,8 +121,19 @@ def onboarding_funnel_event():
         **parse_user_agent(flask.request.headers.get("User-Agent")),
     )
     db_session.add(event)
-    if user_id:
-        OnboardingFunnelEvent.claim_funnel(funnel_id, user_id)
     db_session.commit()
+
+    if user_id:
+        # Its own transaction: right after signup the client sends several
+        # events at once, and two claims of one funnel can deadlock (MySQL
+        # 1213) on the funnel_id index. The event is already saved; the claim
+        # is idempotent, so the next event of this funnel claims it again.
+        try:
+            OnboardingFunnelEvent.claim_funnel(funnel_id, user_id)
+            db_session.commit()
+        except OperationalError as e:
+            db_session.rollback()
+            if e.orig.args[0] not in _LOCK_ERRORS:
+                raise
 
     return "OK"
