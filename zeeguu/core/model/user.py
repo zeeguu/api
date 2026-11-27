@@ -89,9 +89,18 @@ class User(db.Model):
     ]
 
     ANIMALS = [
-        "elephant", "otter", "wolf", "fox", "owl", "panther",
-        "lion", "tiger", "bear", "eagle", "rabbit", "deer",
-        "leopard", "cheetah", "badger", "beaver", "lynx", "moose"
+        "colibri", "kolibri", "beijaflor",
+        "dragonfly", "libelle", "libellula", "tonbo", "guldsmed",
+        "butterfly", "papillon", "mariposa", "farfalla",
+        "swan", "svane", "cygne", "cigno",
+        "cat", "neko", "chaton", "gatto",
+        "giraffe", "giraffa", "jirafa",
+        "hippo", "nilpferd",
+        "owl", "hibou", "eule",
+        "fox", "renard", "kitsune", "volpe",
+        "elephant", "elefant",
+        "reader", "lecteur", "leser", "listener",
+        "flaneur", "scholar", "polyglot", "traveler",
     ]
 
     # Legacy ceiling, retained for backwards compat with callers that still
@@ -114,11 +123,11 @@ class User(db.Model):
         Generate a random unique username in the format 'adjective_animal[digits]'.
 
         We try tiers in order from most-readable to least-readable:
-            tier 0: no digit       (e.g. 'clever_otter')     — 20 x 18 = 360 combos
-            tier 1: 1 digit  0..9  (e.g. 'clever_otter7')    — 3,600 combos
-            tier 2: 2 digits 0..99 (e.g. 'clever_otter42')   — 36,000 combos
-            tier 3: 3 digits       (e.g. 'clever_otter500')  — 360,000 combos
-            tier 4: 4 digits       (e.g. 'clever_otter5678') — 3,600,000 combos
+            tier 0: no digit       (e.g. 'clever_colibri')   — 20 x 42 = 840 combos
+            tier 1: 1 digit  0..9  (e.g. 'clever_colibri7')  — 8,400 combos
+            tier 2: 2 digits 0..99 (e.g. 'clever_colibri42') — 84,000 combos
+            tier 3: 3 digits       (e.g. 'clever_colibri500')
+            tier 4: 4 digits       (e.g. 'clever_colibri5678')
 
         When `prefer_no_digit=True` (the default), we start at tier 0 and only
         escalate when a tier can't find a free slot. This keeps usernames short
