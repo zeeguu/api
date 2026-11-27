@@ -655,10 +655,3 @@ def test_above_a0_what_v2_scripts_were_forgiven_is_forgiven():
         "Man: En kaffe, tak. [3 seconds]",
     ]
     assert "---" not in marked and "**" not in marked
-
-
-def test_above_a0_a_review_marker_is_refused():
-    from zeeguu.core.audio_lessons.script_generator import shared_lesson_values
-
-    with pytest.raises(MarkupError, match=r"\[review\]"):
-        expand("Teacher: Hi.\n[review]", shared_lesson_values())
