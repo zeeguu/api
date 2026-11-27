@@ -17,6 +17,9 @@ class ExerciseSource(db.Model):
     # types it, spells it, or says how it is said. The web's level-4 types
     # (web src/exercises/ExerciseTypeConstants.js); the level-3 ones translate
     # into the learner's own language, which is still recognition.
+    # The web keeps the same list (PRODUCTION_EXERCISE_TYPES) and a test there
+    # (test/exercises/productionExerciseTypes.test.js) fails if its level-4
+    # types drift from this one: change both together.
     PRODUCTION = frozenset(
         {
             "Cloze_L1_to_L2",

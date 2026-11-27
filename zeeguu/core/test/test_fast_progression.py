@@ -331,6 +331,17 @@ class FastProgressionTest(ModelTestMixIn):
         info = bookmark.user_word.as_dictionary(schedule=schedule, with_context_tokenized=False)
         self.assertIs(info["fast_track"], False)
 
+    def test_the_api_tells_the_frontend_that_learning_needs_production(self):
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        bookmark.user_word.preferred_bookmark = bookmark
+        bookmark.user_word.meaning.validated = Meaning.VALID
+        self._bring_to_level_4(bookmark)
+        schedule = SchedulerRule(bookmark.user_word.get_scheduler(), bookmark.user_word, db_session).schedule
+
+        info = bookmark.user_word.as_dictionary(schedule=schedule, with_context_tokenized=False)
+        self.assertIs(info["is_about_to_be_learned"], True)
+        self.assertIs(info["learning_needs_production"], True)
+
     def _answer(self, user, bookmark, outcome, date, source=None):
         exercise_session = ExerciseSessionRule(user).exerciseSession
         exercise = ExerciseRule(exercise_session, outcome, date).exercise
