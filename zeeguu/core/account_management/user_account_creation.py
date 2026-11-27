@@ -138,7 +138,9 @@ def create_account(
         native_language = Language.find_or_create(native_language_code)
 
         def build_user():
-            generated_username, _, animal = User.generate_unique_username()
+            generated_username, _, animal = User.generate_unique_username(
+                language_code=learned_language_code
+            )
             user = User(
                 email,
                 username,

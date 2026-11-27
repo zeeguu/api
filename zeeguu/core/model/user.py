@@ -89,19 +89,26 @@ class User(db.Model):
     ]
 
     ANIMALS = [
-        "colibri", "kolibri", "beijaflor",
-        "dragonfly", "libelle", "libellula", "tonbo", "guldsmed",
-        "butterfly", "papillon", "mariposa", "farfalla",
-        "swan", "svane", "cygne", "cigno",
-        "cat", "neko", "chaton", "gatto",
-        "giraffe", "giraffa", "jirafa",
-        "hippo", "nilpferd",
-        "owl", "hibou", "eule",
-        "fox", "renard", "kitsune", "volpe",
-        "elephant", "elefant",
-        "reader", "lecteur", "leser", "listener",
-        "flaneur", "scholar", "polyglot", "traveler",
+        "colibri", "dragonfly", "butterfly", "swan", "cat",
+        "giraffe", "hippo", "owl", "fox", "elephant",
+        "reader", "listener", "scholar", "polyglot", "traveler",
     ]
+
+    # Language-specific creature & persona words used when the learner is
+    # studying that language (each maps to a matching avatar in UserAvatar).
+    LANGUAGE_HANDLES = {
+        "da": ("kolibri", "guldsmed", "svane", "ugle", "elefant"),
+        "de": ("kolibri", "libelle", "eule", "fuchs", "nilpferd", "elefant"),
+        "es": ("colibri", "libelula", "mariposa", "cisne", "gato", "jirafa", "zorro", "lector"),
+        "fr": ("colibri", "libellule", "papillon", "cygne", "chaton", "hibou", "renard", "flaneur", "lecteur"),
+        "it": ("colibri", "libellula", "farfalla", "cigno", "gatto", "giraffa", "volpe", "gufo", "lettore"),
+        "nl": ("kolibri", "libelle", "vlinder", "zwaan", "uil", "vos", "olifant"),
+        "pt": ("beijaflor", "libelula", "borboleta", "cisne", "gato", "girafa", "raposa", "coruja", "leitor"),
+        "ro": ("colibri", "libelula", "fluture", "lebada", "pisica", "girafa", "bufnita", "vulpe"),
+        "sv": ("kolibri", "svan", "katt", "uggla", "elefant"),
+        "no": ("kolibri", "svane", "katt", "ugle", "elefant"),
+        "pl": ("kolibri", "motyl", "kot", "sowa", "lis", "zyrafa"),
+    }
 
     # Legacy ceiling, retained for backwards compat with callers that still
     # read it (e.g. tests). The tiered generator below uses its own per-tier
@@ -118,59 +125,60 @@ class User(db.Model):
     _USERNAME_TIERS_FALLBACK = (9999,)
 
     @classmethod
-    def generate_unique_username(cls, exclude: set = None, prefer_no_digit: bool = True):
+    def generate_unique_username(
+        cls,
+        exclude: set = None,
+        prefer_no_digit: bool = True,
+        language_code: str = None,
+    ):
         """
-        Generate a random unique username in the format 'adjective_animal[digits]'.
+        Generate a random unique username in the format 'adjective_noun[digits]'.
+
+        When `language_code` matches a supported target language in
+        `LANGUAGE_HANDLES`, we draw from that language's creature/persona words
+        first (e.g. 'curious_guldsmed' for Danish, 'serene_papillon' for French),
+        falling back to the default English/universal `ANIMALS` pool before
+        escalating to numeric suffixes.
 
         We try tiers in order from most-readable to least-readable:
-            tier 0: no digit       (e.g. 'clever_colibri')   — 20 x 42 = 840 combos
-            tier 1: 1 digit  0..9  (e.g. 'clever_colibri7')  — 8,400 combos
-            tier 2: 2 digits 0..99 (e.g. 'clever_colibri42') — 84,000 combos
+            tier 0: no digit       (e.g. 'clever_colibri')
+            tier 1: 1 digit  0..9  (e.g. 'clever_colibri7')
+            tier 2: 2 digits 0..99 (e.g. 'clever_colibri42')
             tier 3: 3 digits       (e.g. 'clever_colibri500')
             tier 4: 4 digits       (e.g. 'clever_colibri5678')
 
-        When `prefer_no_digit=True` (the default), we start at tier 0 and only
-        escalate when a tier can't find a free slot. This keeps usernames short
-        and memorable for users who will actually see them in the UI.
-
-        When `prefer_no_digit=False`, we jump straight to tier 4 (4-digit suffix).
-        The backfill migration uses this for inactive accounts so that the small
-        no-digit pool (360 names) is reserved for MAUs and future signups rather
-        than being consumed by dormant users who may never log in again.
-
         Args:
             exclude: optional set of usernames already reserved in the current
-                     session but not yet committed — e.g. the bulk migration
-                     assigns usernames before the UNIQUE constraint exists, so
-                     mid-run picks aren't visible to DB checks yet.
+                     session but not yet committed.
             prefer_no_digit: start at tier 0 (default) or skip to tier 4.
+            language_code: optional learned language code (e.g. 'da', 'fr') to
+                           pick language-matched creature/persona nouns.
 
         Returns:
-            (username, adjective, animal) tuple where adjective/animal are the
+            (username, adjective, noun) tuple where adjective/noun are the
             selected words used to build the username. Callers can use these
             to derive a display name and choose a matching avatar.
         """
         exclude = exclude or set()
         tiers = cls._USERNAME_TIERS_PRETTY if prefer_no_digit else cls._USERNAME_TIERS_FALLBACK
-        pair_count = len(cls.ADJECTIVES) * len(cls.ANIMALS)
+
+        lang_nouns = cls.LANGUAGE_HANDLES.get(language_code) if language_code else None
+        noun_pools = [lang_nouns, cls.ANIMALS] if lang_nouns else [cls.ANIMALS]
 
         for suffix_max in tiers:
-            # 4x pair_count attempts is overkill for tiers 1..4 (they have
-            # 10x..10000x more slots than pair_count) and gives tier 0 a
-            # reasonable chance to surface a free name even when the tier is
-            # nearly full. If we still can't find one, we fall through to
-            # the next tier rather than loop forever.
-            for _ in range(pair_count * 4):
-                adjective = random.choice(cls.ADJECTIVES)
-                animal = random.choice(cls.ANIMALS)
-                if suffix_max is None:
-                    username = f"{adjective}_{animal}"
-                else:
-                    username = f"{adjective}_{animal}{random.randint(0, suffix_max)}"
-                if username in exclude:
-                    continue
-                if not cls.query.filter_by(username=username).first():
-                    return username, adjective, animal
+            for nouns in noun_pools:
+                pair_count = len(cls.ADJECTIVES) * len(nouns)
+                for _ in range(pair_count * 4):
+                    adjective = random.choice(cls.ADJECTIVES)
+                    noun = random.choice(nouns)
+                    if suffix_max is None:
+                        username = f"{adjective}_{noun}"
+                    else:
+                        username = f"{adjective}_{noun}{random.randint(0, suffix_max)}"
+                    if username in exclude:
+                        continue
+                    if not cls.query.filter_by(username=username).first():
+                        return username, adjective, noun
 
         raise RuntimeError(
             "Username space exhausted across all tiers — expand ADJECTIVES/ANIMALS."

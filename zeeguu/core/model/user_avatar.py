@@ -36,49 +36,76 @@ class UserAvatar(db.Model):
         "#E2E8F0",  # Slate
     ]
 
-    # Maps auto-generated username nouns (including multilingual creature and
-    # learner-persona words) to matching illustrated avatar IDs in web.
+    # Maps auto-generated username nouns (default English + language-matched
+    # creature/persona words) to matching illustrated avatar IDs in web.
     HANDLE_AVATAR_MAP = {
-        # Colibri / hummingbird (FR/ES/RO, DE/DA, PT)
+        # Colibri / hummingbird
         "colibri": ("colibri", "watercolor-colibri"),
         "kolibri": ("colibri", "watercolor-colibri"),
         "beijaflor": ("colibri", "watercolor-colibri"),
-        # Dragonfly (EN, DE/FR/NL, IT, JP, DA)
+        # Dragonfly
         "dragonfly": ("dragonfly", "watercolor-dragonfly"),
         "libelle": ("dragonfly", "watercolor-dragonfly"),
+        "libellule": ("dragonfly", "watercolor-dragonfly"),
         "libellula": ("dragonfly", "watercolor-dragonfly"),
-        "tonbo": ("dragonfly", "watercolor-dragonfly"),
+        "libelula": ("dragonfly", "watercolor-dragonfly"),
         "guldsmed": ("dragonfly", "watercolor-dragonfly"),
-        # Butterfly (EN, FR, ES, IT)
+        # Butterfly
         "butterfly": ("butterfly", "watercolor-butterfly"),
         "papillon": ("butterfly", "watercolor-butterfly"),
         "mariposa": ("butterfly", "watercolor-butterfly"),
         "farfalla": ("butterfly", "watercolor-butterfly"),
-        # Swan (EN, DA, FR, IT)
+        "vlinder": ("butterfly", "watercolor-butterfly"),
+        "borboleta": ("butterfly", "watercolor-butterfly"),
+        "fluture": ("butterfly", "watercolor-butterfly"),
+        "motyl": ("butterfly", "watercolor-butterfly"),
+        # Swan
         "swan": ("swan",),
         "svane": ("swan",),
+        "svan": ("swan",),
         "cygne": ("swan",),
         "cigno": ("swan",),
-        # Cat (EN, JP, FR, IT)
+        "cisne": ("swan",),
+        "zwaan": ("swan",),
+        "lebada": ("swan",),
+        # Cat
         "cat": ("cat", "watercolor-cat"),
-        "neko": ("cat", "watercolor-cat"),
         "chaton": ("cat", "watercolor-cat"),
         "gatto": ("cat", "watercolor-cat"),
-        # Giraffe (EN, IT, ES)
+        "gato": ("cat", "watercolor-cat"),
+        "katt": ("cat", "watercolor-cat"),
+        "kot": ("cat", "watercolor-cat"),
+        "pisica": ("cat", "watercolor-cat"),
+        # Giraffe
         "giraffe": ("giraffe", "watercolor-giraffe"),
         "giraffa": ("giraffe", "watercolor-giraffe"),
         "jirafa": ("giraffe", "watercolor-giraffe"),
-        # Hippo (EN, DE)
+        "girafa": ("giraffe", "watercolor-giraffe"),
+        "zyrafa": ("giraffe", "watercolor-giraffe"),
+        # Hippo
         "hippo": ("hippo", "watercolor-hippo"),
         "nilpferd": ("hippo", "watercolor-hippo"),
-        # Owl & Fox (EN + FR/DE/JP/IT -> watercolor portraits)
+        # Owl
         "owl": ("watercolor-owl",),
         "hibou": ("watercolor-owl",),
         "eule": ("watercolor-owl",),
+        "ugle": ("watercolor-owl",),
+        "uggla": ("watercolor-owl",),
+        "uil": ("watercolor-owl",),
+        "gufo": ("watercolor-owl",),
+        "coruja": ("watercolor-owl",),
+        "bufnita": ("watercolor-owl",),
+        "sowa": ("watercolor-owl",),
+        # Fox
         "fox": ("watercolor-fox",),
         "renard": ("watercolor-fox",),
-        "kitsune": ("watercolor-fox",),
+        "fuchs": ("watercolor-fox",),
+        "zorro": ("watercolor-fox",),
         "volpe": ("watercolor-fox",),
+        "vos": ("watercolor-fox",),
+        "raposa": ("watercolor-fox",),
+        "vulpe": ("watercolor-fox",),
+        "lis": ("watercolor-fox",),
         # Elephants & Zeeguu learner personas
         "elephant": (
             "elephant-book",
@@ -93,9 +120,17 @@ class UserAvatar(db.Model):
             "watercolor-elephant-headphones",
             "watercolor-elephant-reading",
         ),
+        "olifant": (
+            "elephant-book",
+            "elephant-headphones",
+            "watercolor-elephant-headphones",
+            "watercolor-elephant-reading",
+        ),
         "reader": ("elephant-book", "zeeguu-reader", "zeeguu-newspaper", "watercolor-elephant-reading"),
         "lecteur": ("elephant-book", "zeeguu-reader", "zeeguu-newspaper"),
-        "leser": ("elephant-book", "zeeguu-newspaper", "watercolor-elephant-reading"),
+        "lector": ("elephant-book", "zeeguu-reader", "zeeguu-newspaper"),
+        "lettore": ("elephant-book", "zeeguu-reader", "zeeguu-newspaper"),
+        "leitor": ("elephant-book", "zeeguu-reader", "zeeguu-newspaper"),
         "listener": ("elephant-headphones", "zeeguu-headphones", "watercolor-elephant-headphones"),
         "flaneur": ("elephant-beret", "zeeguu-scarf"),
         "scholar": ("elephant-glasses", "zeeguu-mug"),
