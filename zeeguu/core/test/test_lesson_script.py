@@ -669,3 +669,25 @@ def test_the_daily_lesson_plays_its_own_dialogue_audio_when_it_has_one(tmp_path,
         )
         path = builder.build_daily_lesson(lesson, None, variety=None)
         assert round(AudioSegment.from_mp3(path).duration_seconds) == seconds
+
+def test_a_dialogue_above_a0_is_not_told_about_teacher_l2_but_a_word_lesson_is():
+    from unittest.mock import patch
+
+    from zeeguu.core.audio_lessons import script_generator
+
+    raw = "Title\n\n" + "\n".join(["Teacher: Ask for a coffee.\nMan: En kaffe, tak. [answer]"] * 8)
+    systems = []
+
+    def model(prompt, **kwargs):
+        systems.append(kwargs["system"])
+        return raw, "model"
+
+    with patch.object(script_generator, "generate_audio_lesson_script", model), patch.object(
+        script_generator, "find_language_mismatches", lambda *a, **k: []
+    ):
+        script_generator.generate_dialogue_script("da", "en", "café", "topic", cefr_level="B1")
+    assert "TeacherL2" not in systems[0]
+    # Meaning lessons say the taught word on a TeacherL2: line
+    assert "TeacherL2" in script_generator.language_contract("Danish", "English")
+    assert "TeacherL2" not in script_generator._labels_note(["Mette"], teacher_l2=False)
+    assert "TeacherL2" not in script_generator._correction_note([], "Danish", "English", teacher_l2=False)

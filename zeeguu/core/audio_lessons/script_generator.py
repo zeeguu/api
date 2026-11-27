@@ -79,9 +79,14 @@ def get_prompt_template(file_name) -> str:
         return f.read()
 
 
-def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man", "Woman"), chevrons=False) -> str:
+def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man", "Woman"), chevrons=False,
+                      teacher_l2=True) -> str:
     """
     The two-language rule, as a system prompt.
+
+    teacher_l2: the prompt has the Teacher say learned-language words on
+    TeacherL2: lines (meaning lessons). The dialogue prompts above A0 have no
+    such lines since v3, and are not told about them.
 
     A lesson script carries two languages at once, and which voice speaks which is
     the whole point of it. Stating that only in the user prompt leaves it competing
@@ -95,7 +100,7 @@ def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man
     return (
         f"You write audio lesson scripts for language learners. The learner speaks "
         f"{source_lang_name} natively and is studying {target_lang_name}.\n"
-        f"Lines labeled '{voices[0]}:', '{voices[1]}:' and 'TeacherL2:' are ALWAYS written in "
+        f"Lines labeled '{voices[0]}:', '{voices[1]}:'{" and 'TeacherL2:'" if teacher_l2 else ''} are ALWAYS written in "
         f"{target_lang_name}. Never in {source_lang_name}.\n"
         f"{teacher_rule}.\n"
         f"Keeping these two languages apart is the entire purpose of the script. A "
@@ -129,11 +134,11 @@ def _is_a_script(script: str) -> bool:
     )
 
 
-def _labels_note(labels, voice_labels=("Man", "Woman"), chevrons=False) -> str:
+def _labels_note(labels, voice_labels=("Man", "Woman"), chevrons=False, teacher_l2=True) -> str:
     """The rewrite note for lines under labels no voice says, in the labels
     the prompt asked for (an A0 script: Learner and Other)."""
     a, b = voice_labels
-    allowed = f"Teacher:, {a}: and {b}:" if chevrons else f"Teacher:, TeacherL2:, {a}: and {b}:"
+    allowed = f"Teacher:, TeacherL2:, {a}: and {b}:" if teacher_l2 and not chevrons else f"Teacher:, {a}: and {b}:"
     return (
         "\n\nYour previous attempt labeled lines with "
         + ", ".join(f"'{label}:'" for label in labels)
@@ -144,11 +149,11 @@ def _labels_note(labels, voice_labels=("Man", "Woman"), chevrons=False) -> str:
 
 
 def _correction_note(mismatches, target_lang_name, source_lang_name,
-                     voice_labels=("Man", "Woman"), chevrons=False) -> str:
+                     voice_labels=("Man", "Woman"), chevrons=False, teacher_l2=True) -> str:
     """The rewrite note for lines in the wrong language, in the labels the
     prompt asked for."""
     a, b = voice_labels
-    learned = f"The {a} and {b} lines" if chevrons else f"The {a}, {b} and TeacherL2 lines"
+    learned = f"The {a}, {b} and TeacherL2 lines" if teacher_l2 and not chevrons else f"The {a} and {b} lines"
     teacher = (
         f"The Teacher lines MUST be in {source_lang_name}, except words in «chevrons»."
         if chevrons
@@ -173,11 +178,13 @@ def generate_script_in_languages(
     voice_labels=("Man", "Woman"),
     relabel=None,
     chevrons=False,
+    teacher_l2=True,
 ) -> tuple:
     """
     Generate a lesson script and verify it came back in the languages we asked for.
 
     voice_labels: the labels the prompt asks for on learned-language lines;
+    teacher_l2: whether the prompt has TeacherL2: lines (language_contract).
     relabel: turns them into the voices' labels (Man/Woman) before any check
     reads the script. An A0 script is written with Learner/Other
     (lesson_script.roles.roles_to_voices).
@@ -194,7 +201,7 @@ def generate_script_in_languages(
         kwargs["deepseek_first"] = True
     target_lang_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
     source_lang_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
-    kwargs["system"] = language_contract(target_lang_name, source_lang_name, voice_labels, chevrons)
+    kwargs["system"] = language_contract(target_lang_name, source_lang_name, voice_labels, chevrons, teacher_l2)
 
     attempt_prompt = prompt
     mismatches = []
@@ -221,7 +228,7 @@ def generate_script_in_languages(
                 f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS}): lines labeled "
                 f"{labels}, which no voice says"
             )
-            attempt_prompt = prompt + _labels_note(labels, voice_labels, chevrons)
+            attempt_prompt = prompt + _labels_note(labels, voice_labels, chevrons, teacher_l2)
             continue
 
         mismatches = find_language_mismatches(
@@ -236,7 +243,7 @@ def generate_script_in_languages(
 
         log_mismatches(f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS})", mismatches)
         attempt_prompt = prompt + _correction_note(
-            mismatches, target_lang_name, source_lang_name, voice_labels, chevrons
+            mismatches, target_lang_name, source_lang_name, voice_labels, chevrons, teacher_l2
         )
 
     if labels:
@@ -611,7 +618,8 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
                     chevrons=True,
                 )
                 if a0
-                else {}
+                # A marked dialogue prompt above A0 has no TeacherL2: lines (v3)
+                else dict(teacher_l2=not marked)
             ),
             # Above A0, DeepSeek writes these as well as Sonnet 5.5 and about 10x
             # cheaper: on 25 prod requests (9 learned, 6 teacher languages) blind
