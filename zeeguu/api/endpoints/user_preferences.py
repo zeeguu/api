@@ -104,6 +104,11 @@ def save_user_preferences():
     if audio_lesson_answer_time_value is not None and audio_lesson_answer_time is None:
         return make_error(400, f"{UserPreference.AUDIO_LESSON_ANSWER_TIME} must be one of -2, -1, 0, 1, 2")
 
+    audio_lesson_repetition_value = data.get(UserPreference.AUDIO_LESSON_REPETITION) or None
+    audio_lesson_repetition = UserPreference.parse_audio_lesson_repetition(audio_lesson_repetition_value)
+    if audio_lesson_repetition_value is not None and audio_lesson_repetition is None:
+        return make_error(400, f"{UserPreference.AUDIO_LESSON_REPETITION} must be one of -2, -1, 0, 1, 2")
+
     study_reminder_values = {
         key: data[key]
         for key in UserPreference.STUDY_REMINDER_KEYS
@@ -136,6 +141,8 @@ def save_user_preferences():
         UserPreference.set_audio_lesson_minutes(db_session, user, audio_lesson_minutes)
     if audio_lesson_answer_time is not None:
         UserPreference.set_audio_lesson_answer_time(db_session, user, audio_lesson_answer_time)
+    if audio_lesson_repetition is not None:
+        UserPreference.set_audio_lesson_repetition(db_session, user, audio_lesson_repetition)
 
     max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
     if max_words_to_schedule_value:
@@ -312,6 +319,7 @@ LOGGED_PREFERENCES = UserPreference.STUDY_REMINDER_KEYS + (
     UserPreference.DAILY_GOAL_MINUTES,
     UserPreference.AUDIO_LESSON_MINUTES,
     UserPreference.AUDIO_LESSON_ANSWER_TIME,
+    UserPreference.AUDIO_LESSON_REPETITION,
     UserPreference.VARY_EXERCISE_CONTEXTS,
     UserPreference.EXERCISE_FAMILIES,
     UserPreference.FLASHCARD_SELF_GRADE,

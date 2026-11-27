@@ -68,7 +68,13 @@ def tuning_for(user, language) -> LessonTuning:
 
     tuning = tuning_from(AudioLessonFeedback.history(user, language.id))
     chosen = UserPreference.get_audio_lesson_answer_time(user)
-    return tuning if chosen is None else replace(tuning, pace=-chosen)
+    if chosen is not None:
+        tuning = replace(tuning, pace=-chosen)
+    # Repetition likewise (UserPreference.AUDIO_LESSON_REPETITION)
+    chosen = UserPreference.get_audio_lesson_repetition(user)
+    if chosen is not None:
+        tuning = replace(tuning, repetition=-chosen)
+    return tuning
 
 
 # The time to answer the learner can choose: minus the pace level, so that
@@ -86,6 +92,30 @@ def answer_time_after(pace, value) -> int:
     a step from that lesson's, within the choices."""
     moved = max(LEVELS[0], min(LEVELS[-1], pace + ASPECTS["pace"].get(value, 0)))
     return -moved
+
+
+# The repetition the learner can choose: minus the repetition level, so that
+# more is more repetition. Above A0 only three steps differ (each answer said
+# once, twice, three times), so the setting stays within them there.
+REPETITION_CHOICES = (-2, -1, 0, 1, 2)
+ABOVE_A0_REPETITION_CHOICES = (-1, 0, 1)
+
+
+def _within(level, a0):
+    choices = REPETITION_CHOICES if a0 else ABOVE_A0_REPETITION_CHOICES
+    return max(choices[0], min(choices[-1], level))
+
+
+def repetition_for(user, language, a0=True) -> int:
+    """The repetition the next lessons are said with, as set or as tuned."""
+    return _within(-tuning_for(user, language).repetition, a0)
+
+
+def repetition_after(repetition, value, a0=True) -> int:
+    """The repetition after a repetition answer on a lesson said at
+    `repetition` (the tuning level): a step from that lesson's."""
+    moved = max(LEVELS[0], min(LEVELS[-1], repetition + ASPECTS["repetition"].get(value, 0)))
+    return _within(-moved, a0)
 
 
 def as_dict(tuning: LessonTuning) -> dict:
@@ -225,3 +255,51 @@ def is_valid(aspect, value, lesson=None) -> bool:
             lesson is not None and lesson.next_situations and value in lesson.next_situations
         )
     return False
+
+
+# What each step of the two settings means for the learner, in seconds and
+# times, at their level: the one place these words are made, for the settings
+# page and for what the feedback box says after an answer.
+
+# The answers the time to answer is shown for: one word, and a long answer of
+# the level (A0 answers run to about four words; above, to about twelve).
+_SHORTEST_ANSWER = "Tak"
+_LONGEST_ANSWER = {True: "en to tre fire", False: "en to tre fire fem seks syv otte ni ti elleve tolv"}
+
+
+def _values(a0, tuning):
+    return prompt_values(tuning, DEFAULT_LESSON_MINUTES) if a0 else shared_lesson_values(tuning)
+
+
+def answer_time_label(level, a0) -> str:
+    from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
+
+    values = _values(a0, LessonTuning(pace=-level))
+    short, long = time_to_answer(_SHORTEST_ANSWER, values), time_to_answer(_LONGEST_ANSWER[a0], values)
+    return f"{short}–{long} seconds"
+
+
+def repetition_label(level, a0) -> str:
+    values = _values(a0, LessonTuning(repetition=-level))
+    if a0:
+        return f"each new word comes back {values['recalls_to_say']} times"
+    return f"each answer said {_TIMES[values['answer_repeats']]}"
+
+
+def setting_choices(a0) -> dict:
+    """{setting: [{value, label}]}, the steps in order, as strings like the
+    preferences: what the settings page offers."""
+    repetition = REPETITION_CHOICES if a0 else ABOVE_A0_REPETITION_CHOICES
+    return {
+        "answer_time": [{"value": str(l), "label": answer_time_label(l, a0)} for l in ANSWER_TIME_CHOICES],
+        "repetition": [{"value": str(l), "label": repetition_label(l, a0)} for l in repetition],
+    }
+
+
+def next_lesson_summary(user, language, a0) -> str:
+    """What the next lessons will be like, said in seconds and times:
+    "5–10 seconds to answer, each answer said twice"."""
+    return (
+        f"{answer_time_label(answer_time_for(user, language), a0)} to answer, "
+        f"{repetition_label(repetition_for(user, language, a0), a0)}"
+    )

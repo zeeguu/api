@@ -127,6 +127,10 @@ class UserPreference(db.Model):
     # (lesson_tuning.ANSWER_TIME_CHOICES). The Pace answers after a lesson
     # move it a step; the learner can also set it in the lesson settings.
     AUDIO_LESSON_ANSWER_TIME = "audio_lesson_answer_time"
+    # How much the audio lessons repeat: -2..2, more is more repetition
+    # (lesson_tuning.REPETITION_CHOICES; above A0 only -1..1). The Repetition
+    # answers after a lesson move it a step, as Pace answers move the time to answer.
+    AUDIO_LESSON_REPETITION = "audio_lesson_repetition"
 
     # Daily audio lesson preferences. Keyed PER learned-language because the daily
     # lesson is stored/queried per user.learned_language; the language code is
@@ -402,6 +406,32 @@ class UserPreference(db.Model):
         cls.set_dropping_duplicates(session, user, cls.AUDIO_LESSON_ANSWER_TIME, str(level))
 
     @classmethod
+    def parse_audio_lesson_repetition(cls, value):
+        """A repetition as sent by a client, as an int from REPETITION_CHOICES;
+        None when it is not one of them."""
+        from zeeguu.core.audio_lessons.lesson_tuning import REPETITION_CHOICES
+
+        try:
+            level = int(value)
+        except (TypeError, ValueError):
+            return None
+        return level if level in REPETITION_CHOICES else None
+
+    @classmethod
+    def get_audio_lesson_repetition(cls, user: User):
+        """The repetition the learner set, or a repetition answer set; None when neither did."""
+        row = (
+            cls.query.filter_by(user_id=user.id, key=cls.AUDIO_LESSON_REPETITION)
+            .order_by(cls.id.desc())
+            .first()
+        )
+        return cls.parse_audio_lesson_repetition(row.value if row else None)
+
+    @classmethod
+    def set_audio_lesson_repetition(cls, session, user: User, level: int):
+        cls.set_dropping_duplicates(session, user, cls.AUDIO_LESSON_REPETITION, str(level))
+
+    @classmethod
     def get_audio_lesson_character(cls, user: User):
         """'man' or 'woman' when the learner chose one; None for either or unset."""
         value = cls.get(user, cls.AUDIO_LESSON_CHARACTER)
@@ -494,6 +524,14 @@ class UserPreference(db.Model):
 
             preferences_dict[cls.AUDIO_LESSON_ANSWER_TIME] = str(
                 answer_time_for(user, user.learned_language)
+            )
+            # And the repetition, within the steps of the learner's level
+            from zeeguu.core.audio_lessons.lesson_tuning import repetition_for
+            from zeeguu.core.audio_lessons.script_generator import builds_on_history
+
+            a0 = builds_on_history(user.audio_lesson_level_for_learned_language())
+            preferences_dict[cls.AUDIO_LESSON_REPETITION] = str(
+                repetition_for(user, user.learned_language, a0)
             )
 
         # Always present so Practice style shows the effective setting
