@@ -46,6 +46,10 @@ class UserPreference(db.Model):
     SHOW_MWE_HINTS = "show_mwe_hints"  # Show hints for multi-word expressions
     SHOW_READING_TIMER = "show_reading_timer"  # Show timer in reader and exercises
     EMAIL_ON_ARTICLE_SHARED = "email_on_article_shared"  # Email me when a friend shares an article
+    # Rotate a word's exercise context through its usable sentences after each
+    # exercise, instead of keeping one sentence across reviews. Unset follows
+    # the user's 50/50 rollout arm (vary_exercise_contexts_default).
+    VARY_EXERCISE_CONTEXTS = "vary_exercise_contexts"
     # How practice slots are given out (word_scheduling/basicSR/frequency_slots.py).
     # Both fill a free slot with the most frequent waiting word; they differ
     # in whether a slot, once given, is kept.
@@ -223,6 +227,25 @@ class UserPreference(db.Model):
             user_id=user.id, key=cls.EMAIL_ON_ARTICLE_SHARED
         ).first()
         return setting is None or setting.value == "true"
+
+    @classmethod
+    def vary_exercise_contexts_default(cls, user: User):
+        """Whether varying exercise contexts defaults on for `user` when they
+        have not explicitly set the Practice style toggle (50/50 rollout arm)."""
+        return user.has_feature("vary_exercise_contexts_default")
+
+    @classmethod
+    def is_vary_exercise_contexts_enabled(cls, user: User):
+        """Whether to cycle to a different example sentence after each exercise.
+        Uses the learner's explicit choice when set, otherwise their rollout arm."""
+        row = (
+            cls.query.filter_by(user_id=user.id, key=cls.VARY_EXERCISE_CONTEXTS)
+            .order_by(cls.id.desc())
+            .first()
+        )
+        if row is not None and row.value in ("true", "false"):
+            return row.value == "true"
+        return cls.vary_exercise_contexts_default(user)
 
     @classmethod
     def is_show_easier_articles_enabled(cls, user: User):
@@ -408,6 +431,14 @@ class UserPreference(db.Model):
 
             preferences_dict[cls.AUDIO_LESSON_MINUTES] = str(
                 lesson_minutes_for(user, user.learned_language)
+            )
+
+        # Always present so Practice style shows the effective setting
+        # (including the 50/50 rollout arm) without creating a row until the
+        # learner explicitly toggles it.
+        if preferences_dict.get(cls.VARY_EXERCISE_CONTEXTS) not in ("true", "false"):
+            preferences_dict[cls.VARY_EXERCISE_CONTEXTS] = (
+                "true" if cls.vary_exercise_contexts_default(user) else "false"
             )
 
         return preferences_dict

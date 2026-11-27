@@ -50,6 +50,16 @@ def save_user_preferences():
             f"{', '.join(UserPreference.WORD_SCHEDULING_STRATEGIES)}",
         )
 
+    vary_exercise_contexts_value = data.get(UserPreference.VARY_EXERCISE_CONTEXTS, None)
+    if (
+        vary_exercise_contexts_value is not None
+        and vary_exercise_contexts_value not in ("true", "false")
+    ):
+        return make_error(
+            400,
+            f"{UserPreference.VARY_EXERCISE_CONTEXTS} must be true or false",
+        )
+
     # Empty means not sent.
     audio_lesson_minutes_value = data.get(UserPreference.AUDIO_LESSON_MINUTES) or None
     audio_lesson_minutes = UserPreference.parse_audio_lesson_minutes(audio_lesson_minutes_value)
@@ -182,6 +192,14 @@ def save_user_preferences():
         word_scheduling_strategy.value = word_scheduling_strategy_value
         db_session.add(word_scheduling_strategy)
 
+    if vary_exercise_contexts_value is not None:
+        UserPreference.set_dropping_duplicates(
+            db_session,
+            user,
+            UserPreference.VARY_EXERCISE_CONTEXTS,
+            vary_exercise_contexts_value,
+        )
+
     email_on_article_shared_value = data.get(UserPreference.EMAIL_ON_ARTICLE_SHARED, None)
     if email_on_article_shared_value is not None:
         email_on_article_shared = UserPreference.find_or_create(
@@ -231,10 +249,12 @@ def save_user_preferences():
 
 
 # Settings whose changes are logged as PREFERENCE_CHANGED events: the study
-# reminder, the notification permission, the daily goal and the lesson length.
+# reminder, the notification permission, the daily goal, the lesson length,
+# and varying exercise contexts.
 LOGGED_PREFERENCES = UserPreference.STUDY_REMINDER_KEYS + (
     UserPreference.DAILY_GOAL_MINUTES,
     UserPreference.AUDIO_LESSON_MINUTES,
+    UserPreference.VARY_EXERCISE_CONTEXTS,
 )
 
 

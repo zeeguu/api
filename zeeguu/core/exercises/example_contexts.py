@@ -100,6 +100,7 @@ def bookmark_for_example(session, user, user_word, example_sentence):
         ),
         translation_source="generated_example",
         user_word=user_word,
+        update_fit_for_study=False,
     )
 
 
@@ -278,12 +279,145 @@ def _switch_to(session, user_word, bookmark, why):
         return False
     log(
         f"[{why}] user_word {user_word.id}: bookmark "
-        f"{user_word.preferred_bookmark.id} -> example bookmark {bookmark.id}"
+        f"{user_word.preferred_bookmark.id} -> bookmark {bookmark.id}"
     )
     user_word.preferred_bookmark = bookmark
     session.add(user_word)
     session.commit()
     return True
+
+
+def _normalized_sentence(text):
+    return (text or "").strip().lower()
+
+
+def _existing_example_bookmark(user_word, example):
+    from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
+
+    return (
+        Bookmark.query.join(
+            ExampleSentenceContext,
+            ExampleSentenceContext.bookmark_id == Bookmark.id,
+        )
+        .filter(
+            Bookmark.user_word_id == user_word.id,
+            ExampleSentenceContext.example_sentence_id == example.id,
+        )
+        .order_by(Bookmark.id.asc())
+        .first()
+    )
+
+
+def _usable_contexts(user_word, level):
+    """Deterministic ordered list of usable contexts for `user_word`:
+    good reading bookmarks first, then usable generated examples at or below
+    `level`, deduplicated by sentence text. Each entry is ("bookmark", bm) or
+    ("example", example_sentence)."""
+    from sqlalchemy.orm import joinedload
+    from zeeguu.core.model.article import Article
+    from zeeguu.core.model.bookmark_context import BookmarkContext
+    from zeeguu.core.model.text import Text
+
+    contexts = []
+    seen_texts = set()
+
+    reading_bookmarks = (
+        Bookmark.query.options(
+            joinedload(Bookmark.context).joinedload(BookmarkContext.context_type),
+            joinedload(Bookmark.context).joinedload(BookmarkContext.text),
+            joinedload(Bookmark.text).joinedload(Text.article).joinedload(Article.cefr_assessment),
+        )
+        .filter(Bookmark.user_word_id == user_word.id)
+        .order_by(Bookmark.id.asc())
+        .all()
+    )
+    for bm in reading_bookmarks:
+        if not bm.context or not bm.context.text:
+            continue
+        if bm.mwe_partner_token_i is not None:
+            continue
+        context_type = bm.context.context_type.type if bm.context.context_type else None
+        if context_type == ContextType.EXAMPLE_SENTENCE:
+            continue
+        if why_not_a_good_exercise_context(bm, level) is not None:
+            continue
+        text_key = _normalized_sentence(bm.get_context())
+        if not text_key or text_key in seen_texts:
+            continue
+        seen_texts.add(text_key)
+        contexts.append(("bookmark", bm))
+
+    for example in usable_examples_query(user_word.meaning_id, level).all():
+        text_key = _normalized_sentence(example.sentence)
+        if not text_key or text_key in seen_texts:
+            continue
+        seen_texts.add(text_key)
+        contexts.append(("example", example))
+
+    return contexts
+
+
+def _find_current_context(contexts, preferred):
+    """Index of `preferred` in `contexts`, or -1 when it is not among them
+    (e.g. a fragment or above-level context). `_usable_contexts` already
+    deduplicates by sentence text, so matching normalized text is exact."""
+    if preferred.context is None and preferred.text is None:
+        return -1
+    current_text = _normalized_sentence(preferred.get_context())
+    if not current_text:
+        return -1
+    for idx, (kind, item) in enumerate(contexts):
+        item_text = item.get_context() if kind == "bookmark" else item.sentence
+        if _normalized_sentence(item_text) == current_text:
+            return idx
+    return -1
+
+
+def rotate_context_to_next_example(session, user_word):
+    """
+    Advance `user_word.preferred_bookmark` to the next usable context in a
+    round-robin over its good reading bookmarks and generated examples at or
+    below the learner's level. Used when the learner enabled varying exercise
+    contexts, so every review tests the word in a fresh sentence rather than
+    repeating one context.
+
+    Returns True if the context changed.
+    """
+    preferred = user_word.preferred_bookmark
+    if not preferred:
+        return False
+
+    level = learner_level(user_word)
+    contexts = _usable_contexts(user_word, level)
+    if not contexts:
+        return False
+
+    current_idx = _find_current_context(contexts, preferred)
+    if current_idx != -1 and len(contexts) < 2:
+        return False
+
+    steps = len(contexts) if current_idx == -1 else len(contexts) - 1
+    for offset in range(1, steps + 1):
+        kind, candidate = contexts[(current_idx + offset) % len(contexts)]
+        if kind == "bookmark":
+            bookmark = candidate
+        else:
+            bookmark = _existing_example_bookmark(user_word, candidate) or bookmark_for_example(
+                session, user_word.user, user_word, candidate
+            )
+
+        if not bookmark or bookmark.id == preferred.id:
+            continue
+        pre_tokenized = bookmark.context.get_tokenized(session=session) if bookmark.context else None
+        if bookmark.as_dictionary(
+            with_context=True,
+            with_context_tokenized=True,
+            pre_tokenized_context=pre_tokenized,
+        ).get("_unanchorable"):
+            continue
+        return _switch_to(session, user_word, bookmark, "CONTEXT rotate")
+
+    return False
 
 
 def has_default_context(user_word):

@@ -358,3 +358,161 @@ class AnchorableExamplesTest(ModelTestMixIn, TestCase):
         examples = [{"sentence": "Selv børnene kunne løse opgaven."}]
         with patch.object(example_contexts, "find_word_positions_in_text", side_effect=KeyError("bug")):
             self.assertEqual(example_contexts.anchorable_examples(examples, "selv", danish), examples)
+
+
+class RotateExerciseContextTest(ModelTestMixIn, TestCase):
+    """When vary_exercise_contexts is enabled, each completed exercise rotates
+    the word's preferred_bookmark through its usable contexts round-robin."""
+
+    def setUp(self):
+        super().setUp()
+        self.user = UserRule().user
+        user_language = UserLanguage.find_or_create(session, self.user, self.user.learned_language)
+        user_language.cefr_level = 2  # A2
+        session.commit()
+
+    def _word_with_examples(self, article_level="A2", examples=("Der Hund schläft.", "Der Hund spielt.", "Der Hund rennt.")):
+        bookmark = BookmarkRule(self.user).bookmark
+        bookmark.text.article.cefr_level = article_level
+        bookmark.context.context_type = ContextType.find_by_type(ContextType.ARTICLE_FRAGMENT)
+        bookmark.context.text.content = "Der Hund bellt."
+        user_word = bookmark.user_word
+        user_word.preferred_bookmark = bookmark
+        session.add_all([bookmark, user_word])
+        session.commit()
+
+        for item in examples:
+            sentence, level = item if isinstance(item, tuple) else (item, "A2")
+            session.add(ExampleSentence(sentence, self.user.learned_language, user_word.meaning, cefr_level=level))
+        session.commit()
+        return user_word, bookmark
+
+    def _fake_example_bookmark(self, user_word, example):
+        from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
+
+        bm = BookmarkRule(self.user).bookmark
+        bm.user_word = user_word
+        bm.context.context_type = ContextType.find_by_type(ContextType.EXAMPLE_SENTENCE)
+        bm.context.text.content = example.sentence
+        session.add(bm)
+        session.commit()
+        session.add(ExampleSentenceContext(bm, example))
+        session.commit()
+        return bm
+
+    def test_rotates_round_robin_across_good_original_and_all_examples(self):
+        user_word, original = self._word_with_examples(article_level="A2")
+
+        with (
+            patch.object(example_contexts, "bookmark_for_example", side_effect=lambda _s, _u, uw, ex: self._fake_example_bookmark(uw, ex)),
+            patch.object(Bookmark, "as_dictionary", return_value={}),
+        ):
+            visited = [user_word.preferred_bookmark.get_context()]
+            for _ in range(4):
+                self.assertTrue(example_contexts.rotate_context_to_next_example(session, user_word))
+                visited.append(user_word.preferred_bookmark.get_context())
+
+        self.assertEqual(
+            visited,
+            ["Der Hund bellt.", "Der Hund rennt.", "Der Hund spielt.", "Der Hund schläft.", "Der Hund bellt."],
+        )
+        self.assertEqual(user_word.preferred_bookmark_id, original.id)
+
+    def test_skips_above_level_and_unanchorable_contexts_and_stays_put_with_one(self):
+        user_word, _original = self._word_with_examples(
+            article_level="C1",
+            examples=[("Easy one.", "A1"), ("Too hard.", "B2"), ("Broken anchor.", "A2")],
+        )
+
+        def fake_as_dict(bm_self, **_kwargs):
+            return {"_unanchorable": True} if bm_self.get_context() == "Broken anchor." else {}
+
+        with (
+            patch.object(example_contexts, "bookmark_for_example", side_effect=lambda _s, _u, uw, ex: self._fake_example_bookmark(uw, ex)),
+            patch.object(Bookmark, "as_dictionary", fake_as_dict),
+        ):
+            # Only "Easy one." is both <= A2 and anchorable; second call stays put.
+            self.assertTrue(example_contexts.rotate_context_to_next_example(session, user_word))
+            self.assertEqual(user_word.preferred_bookmark.get_context(), "Easy one.")
+            self.assertFalse(example_contexts.rotate_context_to_next_example(session, user_word))
+
+    def test_report_exercise_outcome_respects_rollout_override_and_skips_context_free(self):
+        from zeeguu.core.model import ExerciseOutcome, UserPreference
+
+        user_word, _original = self._word_with_examples(article_level="A2")
+        ex_session = ExerciseSessionRule(self.user).exerciseSession
+
+        # Control arm does not rotate; treatment arm rotates automatically
+        with (
+            patch.object(UserPreference, "vary_exercise_contexts_default", return_value=False),
+            patch.object(example_contexts, "rotate_context_to_next_example") as rotate,
+        ):
+            user_word.report_exercise_outcome(session, "Recognize_L1W_in_L2T", ExerciseOutcome.CORRECT, 1000, ex_session.id, "")
+        rotate.assert_not_called()
+
+        with (
+            patch.object(UserPreference, "vary_exercise_contexts_default", return_value=True),
+            patch.object(example_contexts, "rotate_context_to_next_example") as rotate,
+        ):
+            user_word.report_exercise_outcome(session, "Recognize_L1W_in_L2T", ExerciseOutcome.CORRECT, 1000, ex_session.id, "")
+        rotate.assert_called_once_with(session, user_word)
+
+        # Explicit "false" overrides treatment; explicit "true" overrides control
+        UserPreference.set_dropping_duplicates(session, self.user, UserPreference.VARY_EXERCISE_CONTEXTS, "false")
+        session.commit()
+        with (
+            patch.object(UserPreference, "vary_exercise_contexts_default", return_value=True),
+            patch.object(example_contexts, "rotate_context_to_next_example") as rotate,
+        ):
+            user_word.report_exercise_outcome(session, "Recognize_L1W_in_L2T", ExerciseOutcome.CORRECT, 1000, ex_session.id, "")
+        rotate.assert_not_called()
+
+        UserPreference.set_dropping_duplicates(session, self.user, UserPreference.VARY_EXERCISE_CONTEXTS, "true")
+        session.commit()
+        with (
+            patch.object(UserPreference, "vary_exercise_contexts_default", return_value=False),
+            patch.object(example_contexts, "rotate_context_to_next_example") as rotate,
+        ):
+            user_word.report_exercise_outcome(session, "Recognize_L1W_in_L2T", ExerciseOutcome.WRONG, 1000, ex_session.id, "")
+        rotate.assert_called_once_with(session, user_word)
+
+        # Context-free sources, OTHER_FEEDBACK, and unfit words do not rotate
+        with patch.object(example_contexts, "rotate_context_to_next_example") as rotate:
+            for src, outcome in [
+                ("DAILY_AUDIO_LESSON", ExerciseOutcome.LISTENED),
+                ("Match_three_L1W_to_three_L2W", ExerciseOutcome.CORRECT),
+                ("Verbal Flashcards", ExerciseOutcome.CORRECT),
+                ("Recognize_L1W_in_L2T", ExerciseOutcome.OTHER_FEEDBACK),
+            ]:
+                user_word.report_exercise_outcome(session, src, outcome, 1000, ex_session.id, "")
+        rotate.assert_not_called()
+
+        user_word.fit_for_study = False
+        session.commit()
+        with patch.object(example_contexts, "rotate_context_to_next_example") as rotate:
+            user_word.report_exercise_outcome(session, "Recognize_L1W_in_L2T", ExerciseOutcome.CORRECT, 1000, ex_session.id, "")
+        rotate.assert_not_called()
+
+    def test_exercise_records_shown_bookmark_id_before_rotation_and_null_for_context_free(self):
+        from zeeguu.core.model import ExerciseOutcome, UserPreference
+
+        user_word, original = self._word_with_examples(
+            article_level="A2", examples=("Der Hund schläft.", "Der Hund spielt.")
+        )
+        UserPreference.set_dropping_duplicates(session, self.user, UserPreference.VARY_EXERCISE_CONTEXTS, "true")
+        session.commit()
+        ex_session = ExerciseSessionRule(self.user).exerciseSession
+
+        with (
+            patch.object(example_contexts, "bookmark_for_example", side_effect=lambda _s, _u, uw, ex: self._fake_example_bookmark(uw, ex)),
+            patch.object(Bookmark, "as_dictionary", return_value={}),
+        ):
+            user_word.report_exercise_outcome(session, "Match_three_L1W_to_three_L2W", ExerciseOutcome.CORRECT, 1000, ex_session.id, "")
+            user_word.report_exercise_outcome(session, "Recognize_L1W_in_L2T", ExerciseOutcome.CORRECT, 1000, ex_session.id, "")
+            rotated_id = user_word.preferred_bookmark_id
+            user_word.report_exercise_outcome(session, "Recognize_L1W_in_L2T", ExerciseOutcome.CORRECT, 1000, ex_session.id, "")
+
+        session.refresh(user_word)
+        self.assertEqual([ex.bookmark_id for ex in user_word.exercise_log], [None, original.id, rotated_id])
+        self.assertNotEqual(rotated_id, original.id)
+        self.assertNotEqual(user_word.preferred_bookmark_id, rotated_id)

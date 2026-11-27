@@ -35,6 +35,13 @@ class Exercise(db.Model):
         backref=db.backref("exercise_log", order_by="Exercise.id"),
     )
 
+    # Which bookmark (sentence context) was shown in this exercise, recorded
+    # before any post-exercise context rotation. Nullable plain INT (no FK) so
+    # the migration is instant on MySQL 8 and bookmark deletions keep history.
+    # NULL for historical rows and context-free sources (Match, audio lessons,
+    # verbal flashcards).
+    bookmark_id = db.Column(db.Integer, nullable=True)
+
     def __init__(
         self,
         outcome,
@@ -44,6 +51,7 @@ class Exercise(db.Model):
         session_id,
         user_word,
         feedback="",
+        bookmark_id=None,
     ):
         self.outcome = outcome
         self.source = source
@@ -52,6 +60,7 @@ class Exercise(db.Model):
         self.feedback = feedback
         self.session_id = session_id
         self.user_word = user_word
+        self.bookmark_id = bookmark_id
 
     def short_string_summary(self):
         return str(self.source.id) + self.outcome.outcome[0]

@@ -442,6 +442,12 @@ class UserWord(db.Model):
         if exercise_outcome == ExerciseOutcome.OTHER_FEEDBACK:
             practiced._choose_from_exercise_feedback(db_session, other_feedback)
 
+        shown_bookmark_id = (
+            None
+            if source.source in self.CONTEXT_FREE_EXERCISE_SOURCES
+            else (bookmark.id if bookmark is not None else practiced.preferred_bookmark_id)
+        )
+
         exercise = Exercise(
             outcome,
             source,
@@ -450,6 +456,7 @@ class UserWord(db.Model):
             session_id,
             practiced,
             other_feedback,
+            bookmark_id=shown_bookmark_id,
         )
         db_session.add(exercise)
         if wrong_answers:
@@ -460,12 +467,51 @@ class UserWord(db.Model):
             from zeeguu.core import events
             events.exercise_correct.send(None, user_id=user.id, db_session=db_session)
 
+        # Compute rotation eligibility before commit so we do not reload
+        # expired attributes or risk raising outside the try/except below.
+        # Context-free exercises never display the word's sentence, so rotating
+        # on them would skip the current sentence before the learner ever saw it.
+        should_rotate = (
+            bool(exercise_outcome)
+            and source.source not in self.CONTEXT_FREE_EXERCISE_SOURCES
+            and exercise_outcome != ExerciseOutcome.OTHER_FEEDBACK
+            and practiced.learned_time is None
+            and bool(practiced.fit_for_study)
+        )
+        practiced_id = practiced.id
+
         db_session.commit()
+
+        # Cycle to the next usable example sentence after each completed
+        # exercise when varying exercise contexts is active. Runs after the
+        # answer is committed so a rotation problem can never lose the outcome.
+        if should_rotate:
+            try:
+                from zeeguu.core.model.user_preference import UserPreference
+
+                if UserPreference.is_vary_exercise_contexts_enabled(user):
+                    from zeeguu.core.exercises.example_contexts import (
+                        rotate_context_to_next_example,
+                    )
+
+                    rotate_context_to_next_example(db_session, practiced)
+            except Exception as e:
+                db_session.rollback()
+                log(f"[CONTEXT rotate] user_word {practiced_id} not rotated: {e}")
 
         # This needs to be re-thought, currently the updates are done in
         # the BasicSRSchedule.update call.
         # self.update_fit_for_study(db_session)
         # self.update_learned_status(db_session)
+
+    # Exercise sources that never display the word's sentence context.
+    CONTEXT_FREE_EXERCISE_SOURCES = frozenset(
+        {
+            "DAILY_AUDIO_LESSON",
+            "Match_three_L1W_to_three_L2W",
+            "Verbal Flashcards",
+        }
+    )
 
     # Feedback that means the learner knows the word: "i_know_this" from the
     # exercise links, "declared_known" when an exercise's edit dialog removed
