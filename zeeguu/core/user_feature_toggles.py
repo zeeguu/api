@@ -5,6 +5,7 @@ This module contains the core logic for determining which features
 are enabled for a user based on their cohort membership, invitation code, etc.
 """
 
+import hashlib
 import os
 from sqlalchemy.exc import NoResultFound
 
@@ -43,6 +44,7 @@ def _feature_map():
         "gamification": _gamification,
         "fast_progression": _fast_progression,
         "resolve_disagreements": _resolve_disagreements,
+        "vary_exercise_contexts_default": _vary_exercise_contexts_default,
     }
 
 
@@ -218,3 +220,19 @@ def _resolve_disagreements(user: User):
     opening by itself. Dev accounts only while we watch it.
     """
     return bool(user.is_dev)
+
+
+def _vary_exercise_contexts_default(user: User):
+    """
+    Deterministic 50/50 split on user_id for evaluating whether rotating
+    example sentences after each exercise improves context-free recall
+    (RecallTest). Uses a salted hash so assignment is independent of parity
+    or signup order; dev accounts default on. The learner's own Practice
+    style toggle overrides this.
+    """
+    if user.is_dev:
+        return True
+    if user.id is None:
+        return False
+    digest = hashlib.sha256(f"vary_exercise_contexts:{user.id}".encode()).digest()
+    return digest[0] < 128

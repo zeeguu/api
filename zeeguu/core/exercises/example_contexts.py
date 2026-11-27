@@ -272,12 +272,122 @@ def _switch_to(session, user_word, bookmark, why):
         return False
     log(
         f"[{why}] user_word {user_word.id}: bookmark "
-        f"{user_word.preferred_bookmark.id} -> example bookmark {bookmark.id}"
+        f"{user_word.preferred_bookmark.id} -> bookmark {bookmark.id}"
     )
     user_word.preferred_bookmark = bookmark
     session.add(user_word)
     session.commit()
     return True
+
+
+def _normalized_sentence(text):
+    return (text or "").strip().lower()
+
+
+def _example_id_for_bookmark(bookmark):
+    from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
+
+    link = ExampleSentenceContext.query.filter(
+        ExampleSentenceContext.bookmark_id == bookmark.id
+    ).first()
+    return link.example_sentence_id if link else None
+
+
+def _rotation_pool(user_word, level):
+    """Deterministic ordered list of usable contexts for `user_word`:
+    good reading bookmarks first, then usable generated examples at or below
+    `level`, deduplicated by sentence text. Each entry is ("bookmark", bm) or
+    ("example", example_sentence)."""
+    pool = []
+    seen_texts = set()
+
+    reading_bookmarks = (
+        Bookmark.query.filter(Bookmark.user_word_id == user_word.id)
+        .order_by(Bookmark.id.asc())
+        .all()
+    )
+    for bm in reading_bookmarks:
+        context_type = bm.context.context_type.type if bm.context and bm.context.context_type else None
+        if context_type == ContextType.EXAMPLE_SENTENCE:
+            continue
+        if why_not_a_good_exercise_context(bm, level) is not None:
+            continue
+        text_key = _normalized_sentence(bm.get_context())
+        if text_key in seen_texts:
+            continue
+        seen_texts.add(text_key)
+        pool.append(("bookmark", bm))
+
+    for example in usable_examples_query(user_word.meaning_id, level).all():
+        text_key = _normalized_sentence(example.sentence)
+        if text_key in seen_texts:
+            continue
+        seen_texts.add(text_key)
+        pool.append(("example", example))
+
+    return pool
+
+
+def _find_current_in_pool(pool, preferred):
+    """Index of `preferred` in `pool`, or -1 when it is not in the pool
+    (e.g. a fragment or above-level context)."""
+    preferred_example_id = _example_id_for_bookmark(preferred)
+    if preferred_example_id is not None:
+        for idx, (kind, item) in enumerate(pool):
+            if kind == "example" and item.id == preferred_example_id:
+                return idx
+
+    for idx, (kind, item) in enumerate(pool):
+        if kind == "bookmark" and item.id == preferred.id:
+            return idx
+
+    preferred_text = _normalized_sentence(preferred.get_context())
+    for idx, (kind, item) in enumerate(pool):
+        item_text = item.get_context() if kind == "bookmark" else item.sentence
+        if _normalized_sentence(item_text) == preferred_text:
+            return idx
+
+    return -1
+
+
+def rotate_context_to_next_example(session, user_word):
+    """
+    Advance `user_word.preferred_bookmark` to the next usable context in a
+    round-robin over its good reading bookmarks and generated examples at or
+    below the learner's level. Used when the learner enabled varying exercise
+    contexts, so every review tests the word in a fresh sentence rather than
+    repeating one context.
+
+    Returns True if the context changed.
+    """
+    preferred = user_word.preferred_bookmark
+    if not preferred:
+        return False
+
+    level = learner_level(user_word)
+    pool = _rotation_pool(user_word, level)
+    if not pool:
+        return False
+
+    current_idx = _find_current_in_pool(pool, preferred)
+    if current_idx != -1 and len(pool) < 2:
+        return False
+
+    steps = len(pool) if current_idx == -1 else len(pool) - 1
+    for offset in range(1, steps + 1):
+        kind, candidate = pool[(current_idx + offset) % len(pool)]
+        if kind == "bookmark":
+            bookmark = candidate
+        else:
+            bookmark = bookmark_for_example(session, user_word.user, user_word, candidate)
+
+        if not bookmark or bookmark.id == preferred.id:
+            continue
+        if bookmark.as_dictionary(with_context=True, with_context_tokenized=True).get("_unanchorable"):
+            continue
+        return _switch_to(session, user_word, bookmark, "CONTEXT rotate")
+
+    return False
 
 
 def has_default_context(user_word):

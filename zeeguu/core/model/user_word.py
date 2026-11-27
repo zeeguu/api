@@ -462,6 +462,29 @@ class UserWord(db.Model):
 
         db_session.commit()
 
+        # Cycle to the next usable example sentence after each completed
+        # exercise when the learner opted into varying exercise contexts.
+        # Runs after the answer is committed so a rotation problem can never
+        # lose the learner's exercise outcome.
+        if (
+            source.source != "DAILY_AUDIO_LESSON"
+            and exercise_outcome != ExerciseOutcome.OTHER_FEEDBACK
+            and practiced.learned_time is None
+        ):
+            from zeeguu.core.model.user_preference import UserPreference
+
+            if UserPreference.is_vary_exercise_contexts_enabled(user):
+                practiced_id = practiced.id
+                try:
+                    from zeeguu.core.exercises.example_contexts import (
+                        rotate_context_to_next_example,
+                    )
+
+                    rotate_context_to_next_example(db_session, practiced)
+                except Exception as e:
+                    db_session.rollback()
+                    log(f"[CONTEXT rotate] user_word {practiced_id} not rotated: {e}")
+
         # This needs to be re-thought, currently the updates are done in
         # the BasicSRSchedule.update call.
         # self.update_fit_for_study(db_session)
