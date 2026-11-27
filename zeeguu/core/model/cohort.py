@@ -23,6 +23,8 @@ class Cohort(db.Model):
     # with the class: no recommendation feed, no search, no shared inbox.
     only_classroom_texts = Column(Boolean, nullable=False, default=False)
 
+    disable_onboarding_messages = Column(Boolean, nullable=False, default=False)
+
     # When cleared, students of this cohort do not see each other: the class
     # does not appear as a leaderboard for them. Teachers still see it.
     students_see_each_other = Column(Boolean, nullable=False, default=True)

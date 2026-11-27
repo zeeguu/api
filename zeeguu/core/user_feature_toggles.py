@@ -31,6 +31,7 @@ def _feature_map():
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
         "classroom_only": _classroom_only,
+        "hide_onboarding_messages": _hide_onboarding_messages,
         # Legacy name for classroom_only, kept as of 25 Aug 2026. The native
         # apps ship a bundled web build, so a student whose app predates the
         # release that adopts the new name reads this string and nothing else.
@@ -152,6 +153,23 @@ def _classroom_only(user):
     return (
         Cohort.query.filter(Cohort.id.in_(cohort_ids))
         .filter(Cohort.only_classroom_texts.is_(True))
+        .count()
+        > 0
+    )
+
+
+def _hide_onboarding_messages(user):
+    """Hide onboarding messages for students in opted-out cohorts."""
+    if user.isTeacher():
+        return False
+
+    cohort_ids = [user_cohort.cohort_id for user_cohort in user.cohorts]
+    if not cohort_ids:
+        return False
+
+    return (
+        Cohort.query.filter(Cohort.id.in_(cohort_ids))
+        .filter(Cohort.disable_onboarding_messages.is_(True))
         .count()
         > 0
     )
