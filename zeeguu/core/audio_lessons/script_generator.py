@@ -11,7 +11,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
     TARGET_LANGUAGE_VOICES,
     find_language_mismatches,
 )
-from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
+from zeeguu.core.audio_lessons.script_parser import join_continuation_lines, parse_script, unknown_speaker_labels
 from zeeguu.core.audio_lessons.lesson_script.challenges import challenges
 from zeeguu.core.audio_lessons.lesson_script.markers import VOICE_LINE
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import without_teacher_chevron_spans
@@ -60,8 +60,9 @@ def prompt_version_of(prompt_file: str) -> str:
     than a new version — recording them would make a rename look like a version
     bump, and would not fit AIGenerator.prompt_version (VARCHAR(50)) anyway.
 
-    The two dialogue prompts both reduce to 'dialogue_lesson-v2'; which of them
-    ran is recoverable from the row's own lesson_type.
+    The two dialogue prompts both reduce to 'dialogue_lesson-v2' (and, from
+    Nov 2026, 'dialogue_lesson-v3'); which of them ran is recoverable from the
+    row's own lesson_type.
     """
     stem = os.path.basename(prompt_file).rsplit(".", 1)[0]
     family = stem.split("--")[0]
@@ -581,6 +582,23 @@ def generate_dialogue_script(
 
 MARKUP_ATTEMPTS = 2
 
+# A pause the model wrote anyway: expand_lines drops it, so the answers are
+# counted without it ("[answer] [3 seconds]" is an answer).
+_PAUSES = re.compile(r"\s*\[[0-9.]+\s*seconds?\]", re.IGNORECASE)
+# A line that only separates sections: "---", "***", "===".
+_SEPARATOR = re.compile(r"^\s*(?:[-*_=]\s*){3,}$")
+
+
+def _tidied(script):
+    """
+    A marked script above A0, with what v2 scripts were forgiven forgiven here
+    too, before expand_lines reads it strictly: section separators dropped,
+    bold labels unbolded, a line the model wrapped joined back to its voice
+    line (script_parser.join_continuation_lines).
+    """
+    kept = "\n".join(line for line in script.split("\n") if not _SEPARATOR.match(line))
+    return join_continuation_lines(kept)
+
 
 def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language, suggestion,
                            max_tokens, short_lines, marked=False):
@@ -594,8 +612,8 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
     cannot be expanded gets one rewrite, with the reason.
 
     marked: a lesson above A0 whose prompt is in MARKED_PROMPTS. It is
-    expanded the same way, at SHARED_LESSON_PACE (the lesson is shared
-    between learners), with no review.
+    tidied (_tidied), then expanded the same way, at shared_lesson_values()
+    (the lesson is shared between learners), with no review.
     """
     from zeeguu.core.audio_lessons import lesson_review
     from zeeguu.core.audio_lessons.lesson_script.expand import MarkupError, expand_lines
@@ -642,7 +660,8 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             return title, script, model_name, None, ()
         try:
             if a0 is None:
-                answers = len(re.findall(r"\[answer\]\s*$", script, re.MULTILINE | re.IGNORECASE))
+                script = _tidied(script)
+                answers = len(re.findall(r"\[answer\]\s*$", _PAUSES.sub("", script), re.MULTILINE | re.IGNORECASE))
                 if answers < MIN_MARKED_ANSWERS:
                     # An answer without its marker is said once with a second
                     # after it: no time to speak, no repetition. DeepSeek left
