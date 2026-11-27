@@ -289,7 +289,7 @@ def save_user_preferences():
 
 # Settings whose changes are logged as PREFERENCE_CHANGED events: the study
 # reminder, the notification permission, the daily goal, the lesson length,
-# and varying exercise contexts.
+# varying exercise contexts, exercise families, and flashcard self-grading.
 LOGGED_PREFERENCES = UserPreference.STUDY_REMINDER_KEYS + (
     UserPreference.DAILY_GOAL_MINUTES,
     UserPreference.AUDIO_LESSON_MINUTES,

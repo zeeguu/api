@@ -1,6 +1,5 @@
+import sqlalchemy
 from sqlalchemy.orm.exc import NoResultFound
-
-import zeeguu.core
 
 from zeeguu.core.model.db import db
 
@@ -22,19 +21,24 @@ class ExerciseSource(db.Model):
 
     @classmethod
     def find(cls, source):
-        return cls.query.filter_by(source=source).one()
+        # .first() rather than .one(): source has no unique constraint in the
+        # model, so concurrent first-seen inserts must not break future lookups
+        # with MultipleResultsFound.
+        found = cls.query.filter_by(source=source).order_by(cls.id.asc()).first()
+        if found is None:
+            raise NoResultFound()
+        return found
 
     @classmethod
     def find_or_create(cls, session, _source):
         try:
-            source = cls.find(_source)
-
-        except NoResultFound as e:
-            source = cls(_source)
-        except Exception as e:
-            raise e
-
-        session.add(source)
-        session.commit()
-
-        return source
+            return cls.find(_source)
+        except NoResultFound:
+            try:
+                source = cls(_source)
+                session.add(source)
+                session.commit()
+                return source
+            except sqlalchemy.exc.IntegrityError:
+                session.rollback()
+                return cls.find(_source)
