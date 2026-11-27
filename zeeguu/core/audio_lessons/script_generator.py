@@ -698,11 +698,14 @@ def shared_lesson_values():
     """
     The pace of a marked lesson above A0: the default, since such a lesson
     is shared between learners (AudioLessonDialogue.find_unheard) and cannot
-    follow one learner's tuning.
+    follow one learner's tuning; and 5-10 s to answer (ABOVE_A0_SECONDS).
     """
+    from zeeguu.core.audio_lessons.lesson_script.time_to_answer import ABOVE_A0_SECONDS
     from zeeguu.core.audio_lessons.lesson_tuning import DEFAULT_LESSON_MINUTES, LessonTuning, prompt_values
 
-    return prompt_values(LessonTuning(), DEFAULT_LESSON_MINUTES)
+    return {**prompt_values(LessonTuning(), DEFAULT_LESSON_MINUTES), "answer_seconds": ABOVE_A0_SECONDS}
+
+
 A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
 
 

@@ -619,3 +619,16 @@ def test_a_dialogue_above_a0_is_not_told_about_teacher_l2_but_a_word_lesson_is()
     assert "TeacherL2" in script_generator.language_contract("Danish", "English")
     assert "TeacherL2" not in script_generator._labels_note(["Mette"], teacher_l2=False)
     assert "TeacherL2" not in script_generator._correction_note([], "Danish", "English", teacher_l2=False)
+
+
+@pytest.mark.parametrize("answer, a0_seconds, above_a0_seconds", [
+    ("Tak.", 3, 5),  # one word: never under the 5 s every challenge had before
+    ("Kan jeg få regningen?", 7, 7),
+    ("Jeg vil gerne betale med kort, tak.", 10, 10),
+    ("Meiner Meinung nach hat der Schiedsrichter einen großen Fehler gemacht.", 12, 10),  # 10 s at most
+])
+def test_above_a0_the_time_to_answer_is_between_five_and_ten_seconds(answer, a0_seconds, above_a0_seconds):
+    from zeeguu.core.audio_lessons.script_generator import shared_lesson_values
+
+    assert time_to_answer(answer, VALUES) == a0_seconds  # A0: as before
+    assert time_to_answer(answer, shared_lesson_values()) == above_a0_seconds
