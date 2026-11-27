@@ -32,6 +32,7 @@ def _feature_map():
         "new_topics": _new_topics,
         "daily_feedback": _daily_feedback,
         "classroom_only": _classroom_only,
+        "hide_onboarding_messages": _hide_onboarding_messages,
         # Legacy name for classroom_only, kept as of 25 Aug 2026. The native
         # apps ship a bundled web build, so a student whose app predates the
         # release that adopts the new name reads this string and nothing else.
@@ -156,6 +157,21 @@ def _classroom_only(user):
         .filter(Cohort.only_classroom_texts.is_(True))
         .count()
         > 0
+    )
+
+
+# The group2 study compares learning with and without the onboarding
+# modals. Remove this flag (and the web check) when the study ends.
+NO_ONBOARDING_STUDY_CODES = {"group2s", "group2e", "group2d"}
+
+
+def _hide_onboarding_messages(user):
+    """Students in the group2 study classes never see the onboarding modals."""
+    if user.isTeacher():
+        return False
+    return any(
+        (uc.cohort.inv_code or "").casefold() in NO_ONBOARDING_STUDY_CODES
+        for uc in user.cohorts
     )
 
 
