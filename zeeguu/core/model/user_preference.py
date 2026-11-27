@@ -213,6 +213,24 @@ class UserPreference(db.Model):
     def is_productive_exercises_preference_enabled(cls, user: User):
         return cls.get_productive_exercises_setting(user) == "true"
 
+    # The exercise families that contain production exercises (see
+    # ExerciseSource.PRODUCTION): typing (cloze, spelling) and the
+    # "How do you say ...?" flashcards and recall.
+    PRODUCTION_FAMILIES = frozenset({"typing", "flashcards_word"})
+
+    @classmethod
+    def practices_production(cls, user: User):
+        """Whether the learner's practice includes producing words, not only
+        recognizing them. Unset families mean all of them, as in the web."""
+        row = (
+            cls.query.filter_by(user_id=user.id, key=cls.EXERCISE_FAMILIES)
+            .order_by(cls.id.desc())
+            .first()
+        )
+        families = cls.parse_exercise_families(row.value if row else None)
+        chosen = set(families.split(",")) if families else set(cls.EXERCISE_FAMILY_CHOICES)
+        return bool(chosen & cls.PRODUCTION_FAMILIES)
+
     @classmethod
     def is_filter_disturbing_content_enabled(cls, user: User):
         """Check if user has enabled filtering of disturbing content. Default: False."""

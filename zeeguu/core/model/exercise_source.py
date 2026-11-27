@@ -13,6 +13,19 @@ class ExerciseSource(db.Model):
 
     TOP_BOOKMARKS_MINI_EXERCISE = "Top Bookmarks Mini-Exercise"
 
+    # Exercises where the learner produces the word in the language they learn:
+    # types it, spells it, or says how it is said. The web's level-4 types
+    # (web src/exercises/ExerciseTypeConstants.js); the level-3 ones translate
+    # into the learner's own language, which is still recognition.
+    PRODUCTION = frozenset(
+        {
+            "Cloze_L1_to_L2",
+            "Spell_What_You_Hear",
+            "Recall_L2W_from_L1W_no_hints",
+            "Flashcard_L2W_from_L1W",
+        }
+    )
+
     def __init__(self, source):
         self.source = source
 

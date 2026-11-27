@@ -437,7 +437,7 @@ class UserWord(db.Model):
         bookmark = self.preferred_bookmark
         user = self.user
         scheduler = self.get_scheduler()
-        scheduler.update(db_session, self, exercise_outcome, time)
+        scheduler.update(db_session, self, exercise_outcome, time, source=exercise_source)
         practiced = self._survivor_of_validation(bookmark)
         if exercise_outcome == ExerciseOutcome.OTHER_FEEDBACK:
             practiced._choose_from_exercise_feedback(db_session, other_feedback)

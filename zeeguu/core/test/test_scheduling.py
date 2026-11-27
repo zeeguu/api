@@ -26,6 +26,8 @@ FOUR_DAYS_COOLING = 4 * ONE_DAY
 EIGHT_DAYS_COOLING = 8 * ONE_DAY
 
 
+PRODUCTION_SOURCE = "Flashcard_L2W_from_L1W"
+
 class SchedulerTest(ModelTestMixIn):
     """
     Scheduler tests using class-level setup to share user.
@@ -169,8 +171,9 @@ class SchedulerTest(ModelTestMixIn):
         self.assert_schedule(schedule, 0, 4, TWO_DAYS_COOLING, 11)
 
         twelth_date = eleventh_date + TWO_DAYS_LATER
+        # learning the word takes a production answer ("How do you say ...?")
         schedule = self._new_schedule_after_exercise(
-            bookmark, OutcomeRule().correct, twelth_date
+            bookmark, OutcomeRule().correct, twelth_date, source=PRODUCTION_SOURCE
         )
 
         # Should be learned!
@@ -389,12 +392,14 @@ class SchedulerTest(ModelTestMixIn):
         )
         return fifth_date, schedule
 
-    def _new_schedule_after_exercise(self, bookmark, outcome, date: datetime = None):
+    def _new_schedule_after_exercise(
+        self, bookmark, outcome, date: datetime = None, source: str = None
+    ):
         exercise_session = ExerciseSessionRule(self.four_levels_user).exerciseSession
         exercise = ExerciseRule(exercise_session, outcome, date).exercise
         bookmark.user_word.report_exercise_outcome(
             db_session,
-            exercise.source.source,
+            source or exercise.source.source,
             exercise.outcome.outcome,
             exercise.solving_speed,
             exercise_session.id,

@@ -54,8 +54,23 @@ class FourLevelsPerWord(BasicSRSchedule):
     def _fast_progression(self):
         return self.user_word.user.has_feature("fast_progression")
 
+    def _may_learn_from(self, source):
+        """Whether an answer from this exercise type can mark the word learned.
+
+        For a learner who practices production, "learned" means they can
+        produce the word, so only a production answer counts. A learner who
+        chose recognition-only practice learns words by recognizing them.
+        See docs/future-work/exercise-selection-from-reading-evidence.md, §5.
+        """
+        from zeeguu.core.model.exercise_source import ExerciseSource
+        from zeeguu.core.model.user_preference import UserPreference
+
+        if source in ExerciseSource.PRODUCTION:
+            return True
+        return not UserPreference.practices_production(self.user_word.user)
+
     def update_schedule(
-        self, db_session, correctness, exercise_time: datetime = None, outcome=None
+        self, db_session, correctness, exercise_time: datetime = None, outcome=None, source=None
     ):
 
         if not exercise_time:
@@ -74,7 +89,14 @@ class FourLevelsPerWord(BasicSRSchedule):
             clean_and_fast = (
                 outcome == ExerciseOutcome.CORRECT and self.is_on_fast_track()
             )
-            if clean_and_fast or self.cooling_interval == self.MAX_INTERVAL:
+            would_learn = level_before_this_exercises >= MAX_LEVEL and (
+                clean_and_fast or self.cooling_interval == self.MAX_INTERVAL
+            )
+            if would_learn and not self._may_learn_from(source):
+                # Right, but not a production answer: the word stays at level 4
+                # as it was, so the next production answer learns it.
+                new_cooling_interval = self.cooling_interval
+            elif clean_and_fast or self.cooling_interval == self.MAX_INTERVAL:
                 if level_before_this_exercises < MAX_LEVEL:
                     self.user_word.level = level_before_this_exercises + 1
                     db_session.add(self.user_word)
@@ -82,11 +104,14 @@ class FourLevelsPerWord(BasicSRSchedule):
 
                     # the new level starts from its first step
                     new_cooling_interval = 0
-                    if clean_and_fast:
+                    if self._fast_progression():
                         # fewer steps, same spacing: the next level waits for
-                        # tomorrow. Only the practice date moves; the interval
-                        # stays 0, so an answer with help later still needs
-                        # all three steps at this level.
+                        # tomorrow, however the word got there. Only the
+                        # practice date moves; the interval stays 0, so an
+                        # answer with help later still needs all three steps
+                        # at this level. Without it, a word that reached
+                        # level 4 the slow way could be learned by the next
+                        # clean answer the same evening.
                         min_delay = ONE_DAY
                     # (otherwise the new exercise type can be done the same day)
 
