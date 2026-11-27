@@ -1377,9 +1377,10 @@ class DailyLessonGenerator:
             # What the next lessons will be written for, shown with the answer.
             "lesson_minutes": lesson_tuning.lesson_minutes_for(user, lesson.language),
             "answer_time": lesson_tuning.answer_time_for(user, lesson.language),
-            "repetition": lesson_tuning.repetition_for(user, lesson.language, lesson.builds_on_history),
+            # Counted at the learner's level, which their next lessons are at
+            "repetition": lesson_tuning.repetition_for(user, lesson.language, lesson_tuning.learner_is_a0(user)),
             # The same in seconds and times, for the box to say after an answer
-            "next_lesson": lesson_tuning.next_lesson_summary(user, lesson.language, lesson.builds_on_history),
+            "next_lesson": lesson_tuning.next_lesson_summary(user, lesson.language, lesson_tuning.learner_is_a0(user)),
         }
 
     @staticmethod
@@ -1434,7 +1435,7 @@ class DailyLessonGenerator:
         """
         from zeeguu.core.model.user_preference import UserPreference
 
-        a0 = lesson.builds_on_history
+        a0 = lesson_tuning.learner_is_a0(user)
         repetition = DailyLessonGenerator._level_said_at(lesson, "repetition")
         if repetition is None:
             repetition = -lesson_tuning.repetition_for(user, lesson.language, a0)

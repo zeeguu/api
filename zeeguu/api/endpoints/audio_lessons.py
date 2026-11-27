@@ -779,11 +779,12 @@ def audio_lesson_settings():
     "repetition": {...}}.
     """
     from zeeguu.core.audio_lessons import lesson_tuning
-    from zeeguu.core.audio_lessons.script_generator import builds_on_history
 
     user = User.find_by_id(flask.g.user_id)
     language = user.learned_language
-    a0 = builds_on_history(user.audio_lesson_level_for_learned_language())
+    if language is None:
+        return json_result({"error": "No learned language: no audio lessons to set"}), 400
+    a0 = lesson_tuning.learner_is_a0(user)
     choices = lesson_tuning.setting_choices(a0)
     return json_result(
         {

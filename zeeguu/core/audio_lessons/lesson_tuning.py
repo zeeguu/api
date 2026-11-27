@@ -61,9 +61,10 @@ def tuning_from(rows) -> LessonTuning:
 
 def tuning_for(user, language) -> LessonTuning:
     """The learner's tuning. Its pace is their time to answer when they have
-    one (UserPreference.AUDIO_LESSON_ANSWER_TIME); before that setting
-    existed, it came from their pace answers alone, which is what it still
-    is for a learner who never gave one."""
+    one (UserPreference.AUDIO_LESSON_ANSWER_TIME), and its repetition their
+    repetition (AUDIO_LESSON_REPETITION); before those settings existed, they
+    came from their answers alone, which is what they still are for a learner
+    who never gave one."""
     from zeeguu.core.model.user_preference import UserPreference
 
     tuning = tuning_from(AudioLessonFeedback.history(user, language.id))
@@ -101,6 +102,14 @@ REPETITION_CHOICES = (-2, -1, 0, 1, 2)
 ABOVE_A0_REPETITION_CHOICES = (-1, 0, 1)
 
 
+def learner_is_a0(user) -> bool:
+    """Whether the learner's next lessons are A0 ones: what their settings are
+    counted in (A0 lessons repeat differently), whatever lesson they answer."""
+    from zeeguu.core.audio_lessons.script_generator import builds_on_history
+
+    return builds_on_history(user.audio_lesson_level_for_learned_language())
+
+
 def _within(level, a0):
     choices = REPETITION_CHOICES if a0 else ABOVE_A0_REPETITION_CHOICES
     return max(choices[0], min(choices[-1], level))
@@ -114,7 +123,11 @@ def repetition_for(user, language, a0=True) -> int:
 def repetition_after(repetition, value, a0=True) -> int:
     """The repetition after a repetition answer on a lesson said at
     `repetition` (the tuning level): a step from that lesson's."""
-    moved = max(LEVELS[0], min(LEVELS[-1], repetition + ASPECTS["repetition"].get(value, 0)))
+    # From where it is within the learner's steps: above A0 a lesson said at
+    # level -2 sounds as -1 does (three times), so a step from -2 would land
+    # on the same three times.
+    within = -_within(-repetition, a0)
+    moved = max(LEVELS[0], min(LEVELS[-1], within + ASPECTS["repetition"].get(value, 0)))
     return _within(-moved, a0)
 
 

@@ -526,12 +526,10 @@ class UserPreference(db.Model):
                 answer_time_for(user, user.learned_language)
             )
             # And the repetition, within the steps of the learner's level
-            from zeeguu.core.audio_lessons.lesson_tuning import repetition_for
-            from zeeguu.core.audio_lessons.script_generator import builds_on_history
+            from zeeguu.core.audio_lessons.lesson_tuning import learner_is_a0, repetition_for
 
-            a0 = builds_on_history(user.audio_lesson_level_for_learned_language())
             preferences_dict[cls.AUDIO_LESSON_REPETITION] = str(
-                repetition_for(user, user.learned_language, a0)
+                repetition_for(user, user.learned_language, learner_is_a0(user))
             )
 
         # Always present so Practice style shows the effective setting

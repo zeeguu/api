@@ -142,7 +142,11 @@ def save_user_preferences():
     if audio_lesson_answer_time is not None:
         UserPreference.set_audio_lesson_answer_time(db_session, user, audio_lesson_answer_time)
     if audio_lesson_repetition is not None:
-        UserPreference.set_audio_lesson_repetition(db_session, user, audio_lesson_repetition)
+        # Within the learner's steps: above A0 only once, twice, three times
+        from zeeguu.core.audio_lessons.lesson_tuning import learner_is_a0, _within
+
+        within = _within(audio_lesson_repetition, learner_is_a0(user)) if user.learned_language else audio_lesson_repetition
+        UserPreference.set_audio_lesson_repetition(db_session, user, within)
 
     max_words_to_schedule_value = data.get(UserPreference.MAX_WORDS_TO_SCHEDULE, None)
     if max_words_to_schedule_value:
@@ -311,8 +315,8 @@ def save_user_preferences():
 
 
 # Settings whose changes are logged as PREFERENCE_CHANGED events: the study
-# reminder, the notification permission, the daily goal, the lesson length and
-# time to answer,
+# reminder, the notification permission, the daily goal, the lesson length, time
+# to answer and repetition,
 # varying exercise contexts, exercise families, flashcard self-grading, and
 # showing the streak count.
 LOGGED_PREFERENCES = UserPreference.STUDY_REMINDER_KEYS + (
