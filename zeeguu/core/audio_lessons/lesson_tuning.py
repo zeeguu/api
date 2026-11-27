@@ -1,5 +1,5 @@
 """
-Tuning a learner's next A0 lessons from what they said about the earlier ones.
+Tuning a learner's next lessons from what they said about the earlier ones.
 
 After a lesson the learner can say, for each of three aspects, that it should
 go one way, the other way, or stay as it was (AudioLessonFeedback). Each aspect
@@ -9,8 +9,11 @@ moves the level one step, and the level stays within -2..+2 at every step: so
 after "faster" three times, one "slower" already slows the next lesson down.
 "Just right" leaves the level where it is.
 
-The levels fill in the numbers of the A0 lesson prompt (prompt_values). Only
-A0 lessons are tuned: the other levels' prompts have no such numbers.
+The levels fill in the numbers of the A0 lesson prompt (prompt_values). Above
+A0, pace and repetition are applied by code to the lessons written with markers
+(shared_lesson_values): a shared lesson is said again at the learner's pace
+for them. Lessons without markers (meaning lessons) are not tuned. Length is
+for A0 lessons only.
 
 Length is not a level but the learner's setting, in minutes
 (UserPreference.AUDIO_LESSON_MINUTES), which they see and can set themselves:

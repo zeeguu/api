@@ -727,3 +727,25 @@ def test_above_a0_what_v2_scripts_were_forgiven_is_forgiven():
         "Man: En kaffe, tak. [3 seconds]",
     ]
     assert "---" not in marked and "**" not in marked
+
+
+def test_when_the_learners_own_audio_fails_they_hear_the_shared_audio(monkeypatch):
+    from types import SimpleNamespace
+
+    from zeeguu.core.audio_lessons import daily_lesson_generator as generator_module
+
+    def tts_down(*args, **kwargs):
+        raise RuntimeError("TTS quota")
+
+    generator = object.__new__(generator_module.DailyLessonGenerator)
+    generator._voice_synthesizer = SimpleNamespace(generate_own_dialogue_audio=tts_down)
+    monkeypatch.setattr(generator_module, "tuning_for", lambda user, language: LessonTuning(pace=-1))
+    monkeypatch.setattr(generator_module, "db", SimpleNamespace(session=SimpleNamespace(flush=lambda: None)))
+    monkeypatch.setattr("sentry_sdk.capture_exception", lambda e: None)
+    lesson = SimpleNamespace(id=7, dialogue_tuning=None)
+    dialogue = SimpleNamespace(
+        marked_script=MARKED_B1, language=SimpleNamespace(code="da"),
+        teacher_language=SimpleNamespace(code="en"), difficulty_level="B1",
+    )
+    generator._say_at_learners_pace(None, lesson, dialogue, None)
+    assert lesson.dialogue_tuning is None  # build_daily_lesson plays the shared audio

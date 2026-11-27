@@ -195,6 +195,12 @@ class DailyAudioLesson(db.Model):
         return f"/audio/daily_lessons/{self.id}-dialogue.mp3"
 
     @property
+    def own_audio_file_paths(self):
+        """The audio files that are this lesson's alone, to delete with it; not
+        the shared dialogue's or meaning lessons' it plays."""
+        return [self.audio_file_path, self.own_dialogue_audio_path]
+
+    @property
     def takes_feedback(self):
         """Whether what the learner says about this lesson can change their next
         ones: an A0 lesson, or one whose dialogue was written with markers, so

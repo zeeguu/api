@@ -543,7 +543,8 @@ class DailyLessonGenerator:
         audio of this lesson's own. The model is not asked again, and the
         lines are already voiced (the segment cache), so this is mostly joining
         audio. A dialogue without a marked script, or a learner whose tuning
-        is the default, keeps the shared audio.
+        is the default, keeps the shared audio, and so does one whose own
+        audio cannot be made: the default pace rather than no lesson.
         """
         from zeeguu.core.audio_lessons.lesson_script.expand import expand
 
@@ -554,14 +555,21 @@ class DailyLessonGenerator:
         if values == lesson_tuning.shared_lesson_values():
             return
         db.session.flush()  # the lesson's id names its audio
-        self.voice_synthesizer.generate_own_dialogue_audio(
-            daily_lesson,
-            expand(dialogue.marked_script, values, chevrons=False),
-            language_code=dialogue.language.code,
-            teacher_language_code=dialogue.teacher_language.code,
-            cefr_level=dialogue.difficulty_level,
-            variety=voice_variety,
-        )
+        try:
+            self.voice_synthesizer.generate_own_dialogue_audio(
+                daily_lesson,
+                expand(dialogue.marked_script, values, chevrons=False),
+                language_code=dialogue.language.code,
+                teacher_language_code=dialogue.teacher_language.code,
+                cefr_level=dialogue.difficulty_level,
+                variety=voice_variety,
+            )
+        except Exception as e:
+            from sentry_sdk import capture_exception
+
+            log(f"[_say_at_learners_pace] lesson {daily_lesson.id}: shared audio instead: {e}")
+            capture_exception(e)
+            return
         daily_lesson.dialogue_tuning = lesson_tuning.as_dict(tuning)
 
     def generate_daily_lesson(
@@ -660,8 +668,11 @@ class DailyLessonGenerator:
                 daily_lesson.add_dialogue_segment(
                     audio_lesson_dialogue=audio_lesson_dialogue, sequence_order=1
                 )
-                if audio_lesson_dialogue.builds_on_history or lesson_type == "situation":
-                    # Offered when the lesson ends, next to "stay here".
+                takes_feedback = audio_lesson_dialogue.builds_on_history or audio_lesson_dialogue.marked_script
+                if takes_feedback and (audio_lesson_dialogue.builds_on_history or lesson_type == "situation"):
+                    # Offered when the lesson ends, next to "stay here". Not for
+                    # a dialogue from before markers (reused from the cache): its
+                    # lesson takes no feedback, and they would never be shown.
                     daily_lesson.next_situations = suggest_next_situations(
                         user, daily_lesson.language, canonical_suggestion, cefr_level
                     )
@@ -1137,13 +1148,13 @@ class DailyLessonGenerator:
 
         lesson_id = lesson.id
         try:
-            # Delete audio file if it exists
-            audio_path = os.path.join(
-                ZEEGUU_DATA_FOLDER, "audio", "daily_lessons", f"{lesson.id}.mp3"
-            )
-            if os.path.exists(audio_path):
-                os.remove(audio_path)
-                log(f"Deleted audio file: {audio_path}")
+            # Delete its audio files if they exist: the lesson's, and its own
+            # copy of its dialogue's (dialogue_tuning)
+            for relative in lesson.own_audio_file_paths:
+                audio_path = ZEEGUU_DATA_FOLDER + relative
+                if os.path.exists(audio_path):
+                    os.remove(audio_path)
+                    log(f"Deleted audio file: {audio_path}")
 
             # Dialogues are a cache shared across users, and deleting one
             # cascades to every segment that uses it -- i.e. it would cut a

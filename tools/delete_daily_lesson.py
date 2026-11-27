@@ -61,13 +61,12 @@ def main():
             lang_name = lesson.language.name if lesson.language else "?"
             print(f"  Deleting lesson {lesson.id} ({lang_name}, created {lesson.created_at})")
 
-            # Delete audio file
-            audio_path = os.path.join(
-                ZEEGUU_DATA_FOLDER, "audio", "daily_lessons", f"{lesson.id}.mp3"
-            )
-            if os.path.exists(audio_path):
-                os.remove(audio_path)
-                print(f"    Deleted audio file")
+            # Delete its audio files: the lesson's, and its own copy of its dialogue's
+            for relative in lesson.own_audio_file_paths:
+                audio_path = ZEEGUU_DATA_FOLDER + relative
+                if os.path.exists(audio_path):
+                    os.remove(audio_path)
+                    print(f"    Deleted {audio_path}")
 
             db.session.delete(lesson)
 
