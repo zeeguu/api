@@ -68,6 +68,7 @@ def test_feedback_is_recorded_and_can_be_changed(logged_in_client):
 
 
 def test_feedback_tunes_the_next_lessons(logged_in_client):
+    _set_level(logged_in_client.email, 0)  # an A0 learner: their repetition has five steps
     first = _lesson_for(logged_in_client.email)
     second = _lesson_for(logged_in_client.email)
     _say(logged_in_client, first, "repetition", "less")
@@ -272,3 +273,99 @@ def test_without_the_setting_the_pace_answers_still_tune_as_before(logged_in_cli
     db.session.commit()
     assert tuning_for(user, user.learned_language).pace == -1
     assert logged_in_client.get("/user_preferences")["audio_lesson_answer_time"] == "1"
+
+
+# Repetition: a setting the Repetition answers move a step (UserPreference.AUDIO_LESSON_REPETITION)
+
+
+def _set_level(email, number):
+    """The learner's level in their learned language: 0 is A0, 3 is B1."""
+    from zeeguu.core.model import UserLanguage
+
+    user = User.find(email)
+    UserLanguage.find_or_create(db.session, user, user.learned_language).cefr_level = number
+    db.session.commit()
+
+
+def test_too_little_gives_more_repetition_a_step_from_the_lessons(logged_in_client):
+    _set_level(logged_in_client.email, 0)
+    lesson = _lesson_for(logged_in_client.email, minutes=10)  # an A0 lesson said with repetition 0
+
+    response = _say(logged_in_client, lesson, "repetition", "more")
+    assert response.json["repetition"] == 1
+    assert "each new word comes back 6 times" in response.json["next_lesson"]
+    assert _say(logged_in_client, lesson, "repetition", "more").json["repetition"] == 1  # same place
+
+
+def test_above_a0_repetition_stays_within_once_twice_three_times(logged_in_client):
+    _set_level(logged_in_client.email, 3)
+    lesson = _lesson_for(logged_in_client.email, a0=False, marked=MARKED)
+    DailyAudioLesson.query.get(lesson).dialogue_tuning = {"pace": 0, "repetition": -1, "length": 0}
+    db.session.commit()
+
+    response = _say(logged_in_client, lesson, "repetition", "more")  # heard three times, asked for more
+    assert response.json["repetition"] == 1
+    assert response.json["next_lesson"] == "5–10 seconds to answer, each answer said three times"
+
+
+def test_the_settings_page_gets_each_step_in_seconds_and_times_at_the_learners_level(logged_in_client):
+    _set_level(logged_in_client.email, 3)
+    settings = logged_in_client.get("/audio_lesson_settings")
+    assert settings["a0"] is False
+    assert settings["answer_time"]["value"] == "0"
+    assert [c["label"] for c in settings["answer_time"]["choices"]] == [
+        "3–6 seconds", "4–8 seconds", "5–10 seconds", "6–12 seconds", "7–14 seconds",
+    ]
+    assert [c["label"] for c in settings["repetition"]["choices"]] == [
+        "each answer said once", "each answer said twice", "each answer said three times",
+    ]
+
+    _set_level(logged_in_client.email, 0)
+    settings = logged_in_client.get("/audio_lesson_settings")
+    assert settings["a0"] is True
+    assert settings["repetition"]["choices"][2]["label"] == "each new word comes back 5 times"
+
+
+def test_the_repetition_is_a_preference_the_learner_can_set(logged_in_client):
+    logged_in_client.post("/save_user_preferences", data={"audio_lesson_repetition": "-1"})
+    assert logged_in_client.get("/user_preferences")["audio_lesson_repetition"] == "-1"
+    user = User.find(logged_in_client.email)
+    assert tuning_for(user, user.learned_language).repetition == 1
+
+    response = logged_in_client.client.post(
+        logged_in_client.append_session("/save_user_preferences"), data={"audio_lesson_repetition": "5"}
+    )
+    assert response.status_code == 400
+
+
+def test_above_a0_a_step_from_a_lesson_said_beyond_three_times_still_moves(logged_in_client):
+    # Said at level -2 (three times, as -1 is), carried over from A0: "less" is twice
+    _set_level(logged_in_client.email, 3)
+    lesson = _lesson_for(logged_in_client.email, a0=False, marked=MARKED)
+    DailyAudioLesson.query.get(lesson).dialogue_tuning = {"pace": 0, "repetition": -2, "length": 0}
+    db.session.commit()
+
+    assert _say(logged_in_client, lesson, "repetition", "less").json["repetition"] == 0
+
+
+def test_the_box_counts_in_the_learners_level_not_the_answered_lessons(logged_in_client):
+    lesson = _lesson_for(logged_in_client.email, minutes=10)  # an A0 lesson...
+    _set_level(logged_in_client.email, 1)  # ...answered after moving to A1
+    response = _say(logged_in_client, lesson, "repetition", "more")
+    assert response.json["repetition"] == 1
+    assert response.json["next_lesson"].endswith("each answer said three times")
+
+
+def test_above_a0_a_repetition_saved_beyond_the_steps_is_kept_within_them(logged_in_client):
+    _set_level(logged_in_client.email, 3)
+    logged_in_client.post("/save_user_preferences", data={"audio_lesson_repetition": "2"})
+    user = User.find(logged_in_client.email)
+    assert UserPreference.get_audio_lesson_repetition(user) == 1
+
+
+def test_the_settings_need_a_learned_language(logged_in_client):
+    user = User.find(logged_in_client.email)
+    user.learned_language = None
+    db.session.commit()
+    response = logged_in_client.client.get(logged_in_client.append_session("/audio_lesson_settings"))
+    assert response.status_code == 400

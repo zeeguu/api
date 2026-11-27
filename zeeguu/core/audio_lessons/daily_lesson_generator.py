@@ -1356,6 +1356,8 @@ class DailyLessonGenerator:
                 self._move_lesson_minutes(user, lesson, value)
             if aspect == "pace":
                 self._move_answer_time(user, lesson, value)
+            if aspect == "repetition":
+                self._move_repetition(user, lesson, value)
             AudioLessonFeedback.set(user, lesson, aspect, value)
             if aspect == lesson_tuning.SITUATION:
                 self._move_daily_situation(user, lesson, value)
@@ -1375,6 +1377,10 @@ class DailyLessonGenerator:
             # What the next lessons will be written for, shown with the answer.
             "lesson_minutes": lesson_tuning.lesson_minutes_for(user, lesson.language),
             "answer_time": lesson_tuning.answer_time_for(user, lesson.language),
+            # Counted at the learner's level, which their next lessons are at
+            "repetition": lesson_tuning.repetition_for(user, lesson.language, lesson_tuning.learner_is_a0(user)),
+            # The same in seconds and times, for the box to say after an answer
+            "next_lesson": lesson_tuning.next_lesson_summary(user, lesson.language, lesson_tuning.learner_is_a0(user)),
         }
 
     @staticmethod
@@ -1413,23 +1419,48 @@ class DailyLessonGenerator:
         """
         from zeeguu.core.model.user_preference import UserPreference
 
-        pace = None
-        if lesson.dialogue_tuning:
-            pace = lesson.dialogue_tuning.get("pace", 0)
-        else:
-            for segment in lesson.segments:
-                dialogue = segment.audio_lesson_dialogue
-                if dialogue is None:
-                    continue
-                if dialogue.builds_on_history and dialogue.tuning and "pace" in dialogue.tuning:
-                    pace = dialogue.tuning["pace"]
-                elif not dialogue.builds_on_history and dialogue.marked_script:
-                    pace = 0
+        pace = DailyLessonGenerator._level_said_at(lesson, "pace")
         if pace is None:
             pace = -lesson_tuning.answer_time_for(user, lesson.language)
         UserPreference.set_audio_lesson_answer_time(
             db.session, user, lesson_tuning.answer_time_after(pace, value)
         )
+
+    @staticmethod
+    def _move_repetition(user, lesson, value):
+        """
+        "Too little" / "too much" set the learner's repetition
+        (UserPreference.AUDIO_LESSON_REPETITION) a step from the repetition
+        this lesson was said with, as pace answers move the time to answer.
+        """
+        from zeeguu.core.model.user_preference import UserPreference
+
+        a0 = lesson_tuning.learner_is_a0(user)
+        repetition = DailyLessonGenerator._level_said_at(lesson, "repetition")
+        if repetition is None:
+            repetition = -lesson_tuning.repetition_for(user, lesson.language, a0)
+        UserPreference.set_audio_lesson_repetition(
+            db.session, user, lesson_tuning.repetition_after(repetition, value, a0)
+        )
+
+    @staticmethod
+    def _level_said_at(lesson, aspect):
+        """The tuning level of `aspect` ("pace", "repetition") this lesson was
+        said with: its own copy of a shared dialogue's (dialogue_tuning), an
+        A0 dialogue's (its tuning), the default for a shared dialogue said as
+        it is; None for a lesson from before any of those."""
+        if lesson.dialogue_tuning:
+            return lesson.dialogue_tuning.get(aspect, 0)
+        level = None
+        for segment in lesson.segments:
+            dialogue = segment.audio_lesson_dialogue
+            if dialogue is None:
+                continue
+            if dialogue.builds_on_history and dialogue.tuning and aspect in dialogue.tuning:
+                level = dialogue.tuning[aspect]
+            elif not dialogue.builds_on_history and dialogue.marked_script:
+                level = 0
+        return level
 
     @staticmethod
     def _move_daily_situation(user, lesson, value):

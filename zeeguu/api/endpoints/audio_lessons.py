@@ -762,3 +762,40 @@ def configure_daily_subscription():
         )
     db.session.commit()
     return json_result(_subscription_to_dict(sub)), 200
+
+
+@api.route("/audio_lesson_settings", methods=["GET"])
+@cross_domain
+@requires_session
+def audio_lesson_settings():
+    """
+    The settings of how the learner's audio lessons are said, for the
+    settings page: each with the step in effect and the steps to choose
+    from, labeled in seconds and times at the learner's level (A0 lessons
+    count differently). Saved with /save_user_preferences, under the same keys
+    (audio_lesson_answer_time, audio_lesson_repetition).
+
+    Returns {"a0", "answer_time": {"value", "choices": [{value, label}]},
+    "repetition": {...}}.
+    """
+    from zeeguu.core.audio_lessons import lesson_tuning
+
+    user = User.find_by_id(flask.g.user_id)
+    language = user.learned_language
+    if language is None:
+        return json_result({"error": "No learned language: no audio lessons to set"}), 400
+    a0 = lesson_tuning.learner_is_a0(user)
+    choices = lesson_tuning.setting_choices(a0)
+    return json_result(
+        {
+            "a0": a0,
+            "answer_time": {
+                "value": str(lesson_tuning.answer_time_for(user, language)),
+                "choices": choices["answer_time"],
+            },
+            "repetition": {
+                "value": str(lesson_tuning.repetition_for(user, language, a0)),
+                "choices": choices["repetition"],
+            },
+        }
+    )
