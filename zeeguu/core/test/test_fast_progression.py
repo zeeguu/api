@@ -16,6 +16,7 @@ from zeeguu.core.model.db import db
 from zeeguu.core.model.exercise_outcome import ExerciseOutcome
 from zeeguu.core.model.meaning import Meaning
 from zeeguu.core.model.user import User
+from zeeguu.core.model.user_preference import UserPreference
 from zeeguu.core.test.model_test_mixin import ModelTestMixIn
 from zeeguu.core.test.rules.bookmark_rule import BookmarkRule
 from zeeguu.core.test.rules.exercise_rule import ExerciseRule
@@ -29,6 +30,9 @@ db_session = db.session
 
 ONE_DAY_LATER = timedelta(days=1, seconds=1)
 TWO_DAYS_LATER = timedelta(days=2, seconds=1)
+
+PRODUCTION = "Flashcard_L2W_from_L1W"     # "How do you say ...?"
+RECOGNITION = "Flashcard_L1W_from_L2W"    # "What does it mean?"
 
 
 class FastProgressionTest(ModelTestMixIn):
@@ -144,8 +148,75 @@ class FastProgressionTest(ModelTestMixIn):
             self.assertIsNone(bookmark.user_word.learned_time)
             day += ONE_DAY_LATER
 
-        # the fourth clean answer, a day after reaching level 4
-        self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)
+        # the fourth clean answer, a day after reaching level 4, producing the word
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct, day, source=PRODUCTION)
+        self.assertIsNotNone(bookmark.user_word.learned_time)
+
+    # ---- learning: on a later day, and by producing the word ---------------------
+
+    def _bring_to_level_4(self, bookmark):
+        day = datetime.now()
+        for _ in range(3):
+            schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)
+            day += ONE_DAY_LATER
+        self.assertEqual(schedule.user_word.level, 4)
+        return day
+
+    def test_recognizing_the_word_does_not_learn_it(self):
+        # the learner practices production (all families, the default), so a
+        # "What does it mean?" answer leaves the word at level 4
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        day = self._bring_to_level_4(bookmark)
+
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct, day, source=RECOGNITION)
+        self.assertIsNone(bookmark.user_word.learned_time)
+        self.assertEqual(schedule.user_word.level, 4)
+
+        # ... and the next production answer learns it
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct, day + ONE_DAY_LATER,
+                     source=PRODUCTION)
+        self.assertIsNotNone(bookmark.user_word.learned_time)
+
+    def test_without_production_in_the_practice_recognizing_learns_the_word(self):
+        user = UserRule().user
+        user.is_dev = True
+        db_session.add(user)
+        UserPreference.set(db_session, user, UserPreference.EXERCISE_FAMILIES,
+                           "multiple_choice,flashcards_meaning")
+        db_session.commit()
+        self.assertFalse(UserPreference.practices_production(user))
+
+        bookmark = BookmarkRule(user).bookmark
+        day = datetime.now()
+        for _ in range(4):
+            self._answer(user, bookmark, OutcomeRule().correct, day, source=RECOGNITION)
+            day += ONE_DAY_LATER
+        self.assertIsNotNone(bookmark.user_word.learned_time)
+
+    def test_a_word_that_reached_level_4_the_slow_way_is_not_learned_the_same_day(self):
+        # level 3 with help, three spaced answers: it moves up to level 4 on
+        # that third answer, and the next clean answer must wait for tomorrow
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        day = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0)
+        for _ in range(2):
+            self._answer(self.fast_user, bookmark, OutcomeRule().correct, day)
+            day += ONE_DAY_LATER
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct_after_hint, day)   # level 3, off track
+        day += ONE_DAY_LATER
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct_after_hint, day)
+        day += TWO_DAYS_LATER
+        schedule = self._answer(self.fast_user, bookmark, OutcomeRule().correct_after_hint, day)
+        self.assertEqual(schedule.user_word.level, 4)
+        self.assertGreaterEqual(schedule.next_practice_time, day + timedelta(days=1))
+
+        # a clean production answer the same evening changes nothing
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct, day + timedelta(hours=2),
+                     source=PRODUCTION)
+        self.assertIsNone(bookmark.user_word.learned_time)
+
+        # the next day it learns the word
+        self._answer(self.fast_user, bookmark, OutcomeRule().correct, day + ONE_DAY_LATER,
+                     source=PRODUCTION)
         self.assertIsNotNone(bookmark.user_word.learned_time)
 
     def test_two_clean_answers_on_the_same_day_count_once(self):
@@ -260,12 +331,23 @@ class FastProgressionTest(ModelTestMixIn):
         info = bookmark.user_word.as_dictionary(schedule=schedule, with_context_tokenized=False)
         self.assertIs(info["fast_track"], False)
 
-    def _answer(self, user, bookmark, outcome, date):
+    def test_the_api_tells_the_frontend_that_learning_needs_production(self):
+        bookmark = BookmarkRule(self.fast_user).bookmark
+        bookmark.user_word.preferred_bookmark = bookmark
+        bookmark.user_word.meaning.validated = Meaning.VALID
+        self._bring_to_level_4(bookmark)
+        schedule = SchedulerRule(bookmark.user_word.get_scheduler(), bookmark.user_word, db_session).schedule
+
+        info = bookmark.user_word.as_dictionary(schedule=schedule, with_context_tokenized=False)
+        self.assertIs(info["is_about_to_be_learned"], True)
+        self.assertIs(info["learning_needs_production"], True)
+
+    def _answer(self, user, bookmark, outcome, date, source=None):
         exercise_session = ExerciseSessionRule(user).exerciseSession
         exercise = ExerciseRule(exercise_session, outcome, date).exercise
         bookmark.user_word.report_exercise_outcome(
             db_session,
-            exercise.source.source,
+            source or exercise.source.source,
             exercise.outcome.outcome,
             exercise.solving_speed,
             exercise_session.id,

@@ -274,6 +274,14 @@ class UserWord(db.Model):
             consecutive_correct_answers = schedule.consecutive_correct_answers
             is_last_in_cycle = schedule.get_max_interval() == schedule.cooling_interval
             is_about_to_be_learned = schedule.is_about_to_be_learned()
+            # only a production answer can learn it (see _may_learn_from): the
+            # frontend must not celebrate a word that a recognition answer
+            # leaves at level 4
+            from zeeguu.core.model.user_preference import UserPreference
+
+            learning_needs_production = bool(
+                is_about_to_be_learned and UserPreference.practices_production(self.user)
+            )
             # a clean answer now moves the word up a level (fast progression)
             fast_track = schedule.is_on_fast_track()
         else:
@@ -282,6 +290,7 @@ class UserWord(db.Model):
             consecutive_correct_answers = None
             is_last_in_cycle = None
             is_about_to_be_learned = None
+            learning_needs_production = None
             fast_track = None
             next_practice_time = None
 
@@ -302,6 +311,7 @@ class UserWord(db.Model):
             cooling_interval=cooling_interval_in_days,
             is_last_in_cycle=is_last_in_cycle,
             is_about_to_be_learned=is_about_to_be_learned,
+            learning_needs_production=learning_needs_production,
             fast_track=fast_track,
             can_update_schedule=can_update_schedule,
             consecutive_correct_answers=consecutive_correct_answers,
@@ -437,7 +447,7 @@ class UserWord(db.Model):
         bookmark = self.preferred_bookmark
         user = self.user
         scheduler = self.get_scheduler()
-        scheduler.update(db_session, self, exercise_outcome, time)
+        scheduler.update(db_session, self, exercise_outcome, time, source=exercise_source)
         practiced = self._survivor_of_validation(bookmark)
         if exercise_outcome == ExerciseOutcome.OTHER_FEEDBACK:
             practiced._choose_from_exercise_feedback(db_session, other_feedback)
