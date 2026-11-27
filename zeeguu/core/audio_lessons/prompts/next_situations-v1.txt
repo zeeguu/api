@@ -1,0 +1,16 @@
+A learner at CEFR level {cefr_level} is learning {target_language} with short daily audio lessons. Each lesson is a conversation set in a situation, and the learner practices saying the phrases it needs.
+
+Their lessons so far, oldest first, with how many lessons they had in each situation:
+{past_situations}
+
+Their latest lesson was in: "{current_situation}".
+
+Suggest three situations they could move on to next. Good next situations:
+- are moments a {cefr_level} learner living among {target_language} speakers really meets, and has enough {target_language} to handle: at A1-A2 everyday errands and short exchanges, at B1-B2 also conversations with more at stake (explaining a problem, disagreeing politely, negotiating, telling what happened), at C1-C2 also work and social situations with nuance;
+- are concrete (who talks to whom, about what), not broad topics;
+- build on what they know: at least one stays close to the latest situation, the others open something new;
+- are not one they already had.
+
+Write each one in {native_language}, lowercase, 2 to 6 words, the way a learner would name it (for example: "returning a faulty phone", "calling in sick to work", "asking for directions").
+
+Reply with ONLY a JSON array of three strings, no other text.

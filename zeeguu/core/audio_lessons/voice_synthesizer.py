@@ -245,6 +245,14 @@ class VoiceSynthesizer:
         output_path = os.path.join(self.lessons_dir, f"dialogue-{dialogue_id}-{teacher_language_code}.mp3")
         return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, on_progress, variety=variety)
 
+    def generate_own_dialogue_audio(self, daily_lesson, script, language_code, teacher_language_code, cefr_level=None, *, variety):
+        """Audio of a shared dialogue said for one learner (DailyAudioLesson.dialogue_tuning).
+        Its lines are in the segment cache from when the dialogue was voiced,
+        so this mostly joins them with other silences."""
+        output_path = self.audio_dir + daily_lesson.own_dialogue_audio_path[len("/audio"):]
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        return self._synthesize_script_to_file(script, output_path, language_code, teacher_language_code, cefr_level, variety=variety)
+
     def get_audio_duration(self, audio_path: str) -> int:
         """Get the duration of an audio file in seconds."""
         try:

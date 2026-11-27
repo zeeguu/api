@@ -1,7 +1,8 @@
 """
 Feedback after a daily audio lesson: /audio_lesson_feedback.
 
-Pace, repetition and length are recorded per lesson and tune the next A0
+Pace and repetition are recorded per lesson and tune the next lessons that
+can be tuned (A0, and marked lessons above it); length tunes the next A0
 lessons; a situation moves the daily lessons on (or back, with "stay").
 """
 
@@ -17,7 +18,7 @@ from zeeguu.core.model.db import db
 from zeeguu.core.model.user_preference import UserPreference
 
 
-def _lesson_for(email, situation="grocery shopping", a0=True, minutes=None):
+def _lesson_for(email, situation="grocery shopping", a0=True, minutes=None, marked=None):
     user = User.find(email)
     lesson = DailyAudioLesson(
         user=user, created_by="test", duration_seconds=300,
@@ -29,6 +30,7 @@ def _lesson_for(email, situation="grocery shopping", a0=True, minutes=None):
         script="Man: Hej.", canonical_suggestion=situation, lesson_type="situation",
         language=user.learned_language, builds_on_history=a0,
     )
+    dialogue.marked_script = marked
     if minutes:
         dialogue.tuning = {"pace": 0, "repetition": 0, "length": 0, "minutes": minutes}
     db.session.add(dialogue)
@@ -188,9 +190,23 @@ def test_a_situation_answer_on_yesterdays_lesson_counts_while_nothing_moved(logg
     assert DailyAudioSubscription.query.get(sub_id).raw_suggestion == "at the bakery"
 
 
-def test_only_a0_lessons_take_feedback(logged_in_client):
+def test_a_lesson_that_cannot_be_tuned_takes_no_feedback(logged_in_client):
+    # Above A0 and written without markers (topic and meaning lessons, and
+    # situation lessons before dialogue_lesson--situation-v3): pauses are the model's.
     lesson = _lesson_for(logged_in_client.email, a0=False)
 
+    assert _say(logged_in_client, lesson, "pace", "slower").status_code == 400
+    assert not DailyAudioLesson.query.get(lesson).takes_feedback
+
+
+def test_a_marked_lesson_above_a0_takes_pace_repetition_and_situation_but_not_length(logged_in_client):
+    lesson = _lesson_for(logged_in_client.email, a0=False, marked="Teacher: Hi.\nMan: Hej. [answer]")
+
+    assert DailyAudioLesson.query.get(lesson).takes_feedback
+    assert _say(logged_in_client, lesson, "pace", "slower").status_code == 200
+    assert _say(logged_in_client, lesson, "repetition", "more").status_code == 200
+    assert _say(logged_in_client, lesson, "situation", "at the bakery").status_code == 200
+    # The length is a setting of A0 lessons; above A0 the prompt sets it.
     assert _say(logged_in_client, lesson, "length", "shorter").status_code == 400
 
 

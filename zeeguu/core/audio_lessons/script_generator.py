@@ -587,13 +587,13 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
     cannot be expanded gets one rewrite, with the reason.
 
     marked: a lesson above A0 whose prompt is in MARKED_PROMPTS. It is
-    expanded the same way, at SHARED_LESSON_PACE (the lesson is shared
-    between learners), with no review.
+    expanded the same way, at the default pace (lesson_tuning.shared_lesson_values:
+    the lesson is shared between learners), with no review.
     """
     from zeeguu.core.audio_lessons import lesson_review
     from zeeguu.core.audio_lessons.lesson_script.expand import MarkupError, expand_lines
     from zeeguu.core.audio_lessons.lesson_script.review import review_lines, said_line_count, with_review
-    from zeeguu.core.audio_lessons.lesson_tuning import lines_for
+    from zeeguu.core.audio_lessons.lesson_tuning import lines_for, shared_lesson_values
 
     attempt_prompt = prompt
     for attempt in range(1, MARKUP_ATTEMPTS + 1):
@@ -682,16 +682,6 @@ MARKED_PROMPTS = {SITUATION_LESSON_PROMPT}
 # for at least 12 challenges.
 MIN_MARKED_ANSWERS = 8
 
-
-def shared_lesson_values():
-    """
-    The pace of a marked lesson above A0: the default, since such a lesson
-    is shared between learners (AudioLessonDialogue.find_unheard) and cannot
-    follow one learner's tuning.
-    """
-    from zeeguu.core.audio_lessons.lesson_tuning import DEFAULT_LESSON_MINUTES, LessonTuning, prompt_values
-
-    return prompt_values(LessonTuning(), DEFAULT_LESSON_MINUTES)
 A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
 
 

@@ -1,5 +1,6 @@
 """
-The situations an A0 learner could move on to after a lesson.
+The situations a learner could move on to after a situation lesson (A0, or
+above A0 since Nov 2026, with a prompt of its own).
 
 An A0 learner's daily lessons stay in the situation they chose until they
 choose another. Mayar moved on herself; Marvel had eleven lessons in "grocery
@@ -14,12 +15,14 @@ import json
 import re
 from collections import Counter
 
-from zeeguu.core.audio_lessons.script_generator import get_prompt_template
+from zeeguu.core.audio_lessons.script_generator import builds_on_history, get_prompt_template
 from zeeguu.core.model.daily_audio_lesson import DailyAudioLesson
 from zeeguu.core.model.language import Language
 from zeeguu.logging import log
 
 PROMPT = "a0_next_situations-v1.txt"
+# Above A0: the A0 prompt asks for a newcomer's first weeks ("at the bakery").
+PROMPT_ABOVE_A0 = "next_situations-v1.txt"
 HOW_MANY = 3
 
 
@@ -83,13 +86,15 @@ def parse_suggestions(text, already_had=()):
     return result[:HOW_MANY]
 
 
-def suggest_next_situations(user, language, current_situation):
-    """Up to three situation names in the learner's native language, or []."""
+def suggest_next_situations(user, language, current_situation, cefr_level="A0"):
+    """Up to three situation names in the learner's native language, or [].
+    cefr_level: the lesson's level; above A0 the situations suit it."""
     from zeeguu.core.llm_services import get_llm_service
 
     past = past_situations(user, language)
     native = user.native_language.name if user.native_language else "English"
-    prompt = get_prompt_template(PROMPT).format(
+    prompt = get_prompt_template(PROMPT if builds_on_history(cefr_level) else PROMPT_ABOVE_A0).format(
+        cefr_level=cefr_level,
         target_language=Language.LANGUAGE_NAMES.get(language.code, language.code),
         native_language=native,
         past_situations="\n".join(f"- {name} ({n})" for name, n in past) or "- none yet",
