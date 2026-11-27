@@ -285,13 +285,6 @@ def _normalized_sentence(text):
     return (text or "").strip().lower()
 
 
-def _example_id_for_bookmark(bookmark):
-    from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
-
-    link = ExampleSentenceContext.find_by_bookmark(bookmark)
-    return link.example_sentence_id if link else None
-
-
 def _existing_example_bookmark(user_word, example):
     from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
 
@@ -360,25 +353,17 @@ def _usable_contexts(user_word, level):
 
 def _find_current_context(contexts, preferred):
     """Index of `preferred` in `contexts`, or -1 when it is not among them
-    (e.g. a fragment or above-level context)."""
-    preferred_example_id = _example_id_for_bookmark(preferred)
-    if preferred_example_id is not None:
-        for idx, (kind, item) in enumerate(contexts):
-            if kind == "example" and item.id == preferred_example_id:
-                return idx
-
+    (e.g. a fragment or above-level context). `_usable_contexts` already
+    deduplicates by sentence text, so matching normalized text is exact."""
+    if preferred.context is None and preferred.text is None:
+        return -1
+    current_text = _normalized_sentence(preferred.get_context())
+    if not current_text:
+        return -1
     for idx, (kind, item) in enumerate(contexts):
-        if kind == "bookmark" and item.id == preferred.id:
+        item_text = item.get_context() if kind == "bookmark" else item.sentence
+        if _normalized_sentence(item_text) == current_text:
             return idx
-
-    if preferred.context is not None or preferred.text is not None:
-        preferred_text = _normalized_sentence(preferred.get_context())
-        if preferred_text:
-            for idx, (kind, item) in enumerate(contexts):
-                item_text = item.get_context() if kind == "bookmark" else item.sentence
-                if _normalized_sentence(item_text) == preferred_text:
-                    return idx
-
     return -1
 
 

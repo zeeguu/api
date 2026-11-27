@@ -194,6 +194,8 @@ class BookmarkContext(db.Model):
                     session.rollback()
                     t = (
                         cls.query.filter(cls.text == text_row)
+                        .filter(cls.context_type == context_type)
+                        .filter(cls.language == language)
                         .order_by(cls.id.asc())
                         .first()
                     )
@@ -204,5 +206,4 @@ class BookmarkContext(db.Model):
                     print(
                         "exception of second degree in BookmarkContext..." + str(i)
                     )
-                    time.sleep(0.3)
-                    continue
+                time.sleep(0.3)
