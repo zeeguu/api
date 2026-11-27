@@ -27,13 +27,13 @@ class MarkupError(ValueError):
     """The script uses a marker wrongly; the message says how, for a rewrite."""
 
 
-def expand(script, values, dialogue, learner, known_words=None):
+def expand(script, values, dialogue=None, learner=None, known_words=None, chevrons=True):
     """The expanded script as text (expand_lines, written out)."""
-    lines = expand_lines(script, values, dialogue, learner, known_words)
+    lines = expand_lines(script, values, dialogue, learner, known_words, chevrons)
     return "\n".join(str(line) for line in lines).strip() + "\n"
 
 
-def expand_lines(script, values, dialogue, learner, known_words=None):
+def expand_lines(script, values, dialogue=None, learner=None, known_words=None, chevrons=True):
     """
     The full script from a marked one, its lines already labeled with voices,
     as SpokenLines (and blank lines as ""). [review] stays as REVIEW_SLOT,
@@ -43,6 +43,12 @@ def expand_lines(script, values, dialogue, learner, known_words=None):
     [(voice, text)]; learner: the learner's voice, "man" or "woman";
     known_words: the learned-language words the learner heard before, which
     the Teacher may quote in «chevrons» (None: not checked).
+
+    Lessons above A0 are shared between learners and written without a given
+    dialogue or a learner's role: dialogue None (the script writes its
+    dialogue out, and [dialogue] is refused), learner None (an answer's prompt
+    is the line before it in another voice), chevrons False (« » are plain
+    quotation marks, as French and Danish write them, and stay in the text).
     Raises MarkupError on a script it cannot expand.
     """
     out = []
@@ -62,6 +68,9 @@ def expand_lines(script, values, dialogue, learner, known_words=None):
             continue
 
         if DIALOGUE_MARKER.match(line):
+            if dialogue is None:
+                problems.append("[dialogue]: write the dialogue out, line by line")
+                continue
             if not any(isinstance(l, SpokenLine) and l.voice in TEACHERS for l in out):
                 # The Teacher sets the scene first: heard cold, the dialogue
                 # is noise to an absolute beginner.
@@ -111,7 +120,7 @@ def expand_lines(script, values, dialogue, learner, known_words=None):
             problems.append(f"{line!r}: [{kind}] on a Teacher line")
             continue
         text = re.sub(r"\s*\[slow\]", "", text, flags=re.IGNORECASE)
-        if voice != TEACHER:
+        if voice != TEACHER and chevrons:
             text = without_chevrons(text)
 
         if kind == "drill":
@@ -123,14 +132,16 @@ def expand_lines(script, values, dialogue, learner, known_words=None):
             # time to answer. Not the learner's own line before it (two
             # answers in a row): that one already has its pause.
             prompt = next((i for i in range(len(out) - 1, -1, -1) if out[i]), None)
-            if prompt is not None and isinstance(out[prompt], SpokenLine) and out[prompt].voice != learner:
+            if prompt is not None and isinstance(out[prompt], SpokenLine) and out[prompt].voice != (learner or voice):
                 out[prompt] = replace(out[prompt], pause=time_to_answer(text, values))
             out += [SpokenLine(voice, text, values["repeat_pause"])] * 2
         elif kind == "understand":
             out.append(SpokenLine(voice, text, 1, slow=True))
             out.append(SpokenLine(voice, text, 1))
-        else:
+        elif chevrons:
             out += spoken_lines(voice, text, 1)
+        else:
+            out.append(SpokenLine(voice, text, 1))
 
     if problems:
         raise MarkupError("; ".join(problems))

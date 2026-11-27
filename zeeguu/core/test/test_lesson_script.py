@@ -489,3 +489,108 @@ def test_review_written_twice_is_refused():
 
 def test_a_teacher_line_all_in_chevrons_sets_the_scene():
     assert _expand("Teacher: «Hej!»\n[dialogue]\nLearner: Kaffe. [drill]")
+
+
+# Lessons above A0: shared between learners, written without a given
+# dialogue or a learner's role (prompt dialogue_lesson--situation-v3)
+
+def test_above_a0_a_long_answer_gets_more_time_than_a_short_one():
+    script = (
+        "Teacher: Ask the waiter for the bill.\n"
+        "Man: Kan jeg få regningen? [answer]\n"
+        "Teacher: Tell the waiter that you would like to pay by card, please.\n"
+        "Man: Jeg vil gerne betale med kort, tak. [answer]"
+    )
+    lines = expand(script, VALUES).splitlines()
+    # 4 words: 2 + 4.8 s; 7 words: 2 + 8.4 s.
+    assert lines == [
+        "Teacher: Ask the waiter for the bill. [7 seconds]",
+        "Man: Kan jeg få regningen? [3 seconds]",
+        "Man: Kan jeg få regningen? [3 seconds]",
+        "Teacher: Tell the waiter that you would like to pay by card, please. [10 seconds]",
+        "Man: Jeg vil gerne betale med kort, tak. [3 seconds]",
+        "Man: Jeg vil gerne betale med kort, tak. [3 seconds]",
+    ]
+
+
+def test_above_a0_the_dialogue_is_written_out_and_said_once():
+    script = "Teacher: At the café.\nWoman: Hej! Hvad skal det være?\nMan: En kaffe, tak."
+    assert expand(script, VALUES).splitlines() == [
+        "Teacher: At the café. [1 seconds]",
+        "Woman: Hej! Hvad skal det være? [1 seconds]",
+        "Man: En kaffe, tak. [1 seconds]",
+    ]
+
+
+def test_above_a0_a_dialogue_marker_is_refused():
+    with pytest.raises(MarkupError, match=r"\[dialogue\]"):
+        expand("Teacher: At the café.\n[dialogue]", VALUES)
+
+
+def test_without_chevrons_guillemets_are_plain_quotation_marks():
+    script = "Teacher: Dites «merci» au serveur.\nWoman: «Merci», dit-elle. [answer]"
+    assert expand(script, VALUES, chevrons=False).splitlines() == [
+        "Teacher: Dites «merci» au serveur. [4 seconds]",  # "dit-elle" is one word
+        "Woman: «Merci», dit-elle. [3 seconds]",
+        "Woman: «Merci», dit-elle. [3 seconds]",
+    ]
+
+
+def test_a_marked_lesson_above_a0_is_expanded_at_the_default_pace():
+    from unittest.mock import patch
+
+    from zeeguu.core.audio_lessons import script_generator
+
+    raw = "At the café\n\n" + "\n".join(["Teacher: Ask for a coffee. [5 seconds]\nMan: En kaffe, tak. [answer]"] * 8)
+    with patch.object(script_generator, "generate_script_in_languages", return_value=(raw, "model")):
+        title, script, _, marked, reviewed = script_generator._write_dialogue_lesson(
+            "prompt", None, origin_language="da", translation_language="en", suggestion="café",
+            max_tokens=100, short_lines=False, marked=True,
+        )
+    assert title == "At the café"
+    assert script.splitlines()[:3] == [
+        "Teacher: Ask for a coffee. [6 seconds]",  # the model's 5 s dropped: 2 + 3.6 s
+        "Man: En kaffe, tak. [3 seconds]",
+        "Man: En kaffe, tak. [3 seconds]",
+    ]
+    assert marked.startswith("Teacher: Ask for a coffee. [5 seconds]\nMan: En kaffe, tak. [answer]")
+    assert reviewed == ()
+
+
+def test_the_situation_prompt_is_marked_and_writes_no_pauses():
+    from zeeguu.core.audio_lessons.script_generator import MARKED_PROMPTS, SITUATION_LESSON_PROMPT, get_prompt_template
+
+    prompt = get_prompt_template(SITUATION_LESSON_PROMPT)
+    assert SITUATION_LESSON_PROMPT in MARKED_PROMPTS
+    assert "[answer]" in prompt and not re.search(r"\[[0-9.]+ seconds?\]", prompt)
+
+
+@pytest.mark.parametrize("lesson_type, expanded", [("situation", True), ("topic", False)])
+def test_a_b1_situation_lesson_is_expanded_and_a_topic_lesson_is_not_yet(lesson_type, expanded):
+    from unittest.mock import patch
+
+    from zeeguu.core.audio_lessons import script_generator
+
+    raw = "At the café\n\n" + "\n".join(["Teacher: Ask for a coffee.\nMan: En kaffe, tak. [answer]"] * 8)
+    with patch.object(script_generator, "generate_script_in_languages", return_value=(raw, "model")):
+        title, generated = script_generator.generate_dialogue_script("da", "en", "café", lesson_type, cefr_level="B1")
+    assert title == "At the café"
+    assert (generated.marked is not None) == expanded
+    assert ("[answer]" not in generated.script) == expanded
+    assert generated.challenges == ()
+
+
+def test_a_marked_lesson_above_a0_without_its_answer_markers_is_rewritten_then_refused():
+    from unittest.mock import patch
+
+    from zeeguu.core.audio_lessons import script_generator
+
+    unmarked = "Title\n\n" + "\n".join("Teacher: Ask for a coffee.\nMan: En kaffe, tak." for _ in range(12))
+    with patch.object(script_generator, "generate_script_in_languages", return_value=(unmarked, "model")) as model:
+        with pytest.raises(MarkupError, match=r"\[answer\]"):
+            script_generator._write_dialogue_lesson(
+                "prompt", None, origin_language="da", translation_language="en", suggestion="café",
+                max_tokens=100, short_lines=False, marked=True,
+            )
+    assert model.call_count == script_generator.MARKUP_ATTEMPTS
+    assert "[answer]" in model.call_args_list[-1].args[0]  # the rewrite is told why

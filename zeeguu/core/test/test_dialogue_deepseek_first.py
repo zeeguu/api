@@ -28,7 +28,7 @@ def _dialogue_asks(cefr_level):
     with patch.object(script_generator, "generate_audio_lesson_script", generate), patch.object(
         script_generator, "find_language_mismatches", lambda *a, **k: []
     ), patch.object(script_generator, "_dialogue_for_beginner", lambda *a: script_generator.GeneratedScript("Man: Hej", "m", "v1")):
-        script_generator.generate_dialogue_script("da", "en", "at the café", "situation", cefr_level=cefr_level)
+        script_generator.generate_dialogue_script("da", "en", "at the café", "topic", cefr_level=cefr_level)  # topic: an unmarked script; situation lessons need [answer] markers
     return seen.get("deepseek_first", False)
 
 

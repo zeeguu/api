@@ -539,7 +539,7 @@ def generate_dialogue_script(
         dialogue = None
         a0 = None
         if lesson_type == "situation":
-            prompt_file = "dialogue_lesson--situation-v2.txt"
+            prompt_file = SITUATION_LESSON_PROMPT
         else:
             prompt_file = "dialogue_lesson--topic-v2.txt"
         prompt = get_prompt_template(prompt_file).format(**common)
@@ -559,11 +559,12 @@ def generate_dialogue_script(
             suggestion=suggestion,
             max_tokens=max_tokens,
             short_lines=builds_on_history(cefr_level),
+            marked=prompt_file in MARKED_PROMPTS,
         )
         log(f"Successfully generated dialogue script, title: '{title}'")
         return title, GeneratedScript(
             script, model_name, prompt_version_of(prompt_file), dialogue, marked, reviewed,
-            tuple(challenges(marked, a0["learner"])) if marked else (),
+            tuple(challenges(marked, a0["learner"])) if marked and a0 else (),  # reviewed by later A0 lessons only
         )
 
     except Exception as e:
@@ -575,7 +576,7 @@ MARKUP_ATTEMPTS = 2
 
 
 def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language, suggestion,
-                           max_tokens, short_lines):
+                           max_tokens, short_lines, marked=False):
     """
     (title, script, model, marked, reviewed) from the model; reviewed is the
     ids of the challenges it reviews, in order.
@@ -584,6 +585,10 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
     and a review of earlier lessons, chosen by code (lesson_review.py), is put
     before its end to make it as long as the learner asked for. A marker that
     cannot be expanded gets one rewrite, with the reason.
+
+    marked: a lesson above A0 whose prompt is in MARKED_PROMPTS. It is
+    expanded the same way, at SHARED_LESSON_PACE (the lesson is shared
+    between learners), with no review.
     """
     from zeeguu.core.audio_lessons import lesson_review
     from zeeguu.core.audio_lessons.lesson_script.expand import MarkupError, expand_lines
@@ -625,12 +630,25 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             title = lines[0].strip().lstrip("#").strip()[:200]
             script = lines[1].strip()
 
-        if a0 is None:
+        if a0 is None and not marked:
             return title, script, model_name, None, ()
         try:
-            values = a0["values"]
-            known = {word for lesson in a0["heard"] for word in lesson.words}
-            expanded_lines = expand_lines(script, values, a0["dialogue"], a0["learner"], known)
+            if a0 is None:
+                answers = len(re.findall(r"\[answer\]\s*$", script, re.MULTILINE | re.IGNORECASE))
+                if answers < MIN_MARKED_ANSWERS:
+                    # An answer without its marker is said once with a second
+                    # after it: no time to speak, no repetition. DeepSeek left
+                    # the markers out of 14 of 16 lessons in the eval
+                    # (zeeguu-experiments audio-lessons/2026-11-27-b1-answer-time).
+                    raise MarkupError(
+                        f"only {answers} lines end with [answer]: the answer line of every "
+                        "challenge ends with [answer]"
+                    )
+                expanded_lines = expand_lines(script, shared_lesson_values(), chevrons=False)
+            else:
+                values = a0["values"]
+                known = {word for lesson in a0["heard"] for word in lesson.words}
+                expanded_lines = expand_lines(script, values, a0["dialogue"], a0["learner"], known)
             expanded = "\n".join(str(line) for line in expanded_lines).strip() + "\n"
         except MarkupError as e:
             log(f"[lesson markup] '{suggestion}' attempt {attempt}/{MARKUP_ATTEMPTS}: {e}")
@@ -642,6 +660,9 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             )
             continue
 
+        if a0 is None:
+            return title, expanded, model_name, script, ()
+
         missing = lines_for(values["min_minutes"]) - said_line_count(expanded_lines)
         reviews = lesson_review.choose(a0["heard"], missing, values, a0["learner"])
         full = with_review(expanded, review_lines([challenge for _, challenge in reviews], values))
@@ -650,6 +671,27 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
 
 
 A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v5.txt"
+
+# v3 writes [answer] markers instead of pauses: code gives each challenge the
+# time its answer needs (lesson_script.time_to_answer), where v2's fixed
+# 5 seconds was too short to repeat a long phrase (a B1 learner, Nov 2026).
+SITUATION_LESSON_PROMPT = "dialogue_lesson--situation-v3.txt"
+# The lessons above A0 written with markers and expanded by code, like A0's.
+MARKED_PROMPTS = {SITUATION_LESSON_PROMPT}
+# Fewer marked answers than this and the markers were left out: the prompt asks
+# for at least 12 challenges.
+MIN_MARKED_ANSWERS = 8
+
+
+def shared_lesson_values():
+    """
+    The pace of a marked lesson above A0: the default, since such a lesson
+    is shared between learners (AudioLessonDialogue.find_unheard) and cannot
+    follow one learner's tuning.
+    """
+    from zeeguu.core.audio_lessons.lesson_tuning import DEFAULT_LESSON_MINUTES, LessonTuning, prompt_values
+
+    return prompt_values(LessonTuning(), DEFAULT_LESSON_MINUTES)
 A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
 
 
