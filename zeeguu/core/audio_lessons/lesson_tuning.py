@@ -24,7 +24,7 @@ done sooner: a lesson that came out shorter than asked made one learner miss
 their 10-minute daily goal (20 Nov 2026).
 """
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
 from zeeguu.core.model.audio_lesson_feedback import AudioLessonFeedback
 
@@ -60,7 +60,32 @@ def tuning_from(rows) -> LessonTuning:
 
 
 def tuning_for(user, language) -> LessonTuning:
-    return tuning_from(AudioLessonFeedback.history(user, language.id))
+    """The learner's tuning. Its pace is their time to answer when they have
+    one (UserPreference.AUDIO_LESSON_ANSWER_TIME); before that setting
+    existed, it came from their pace answers alone, which is what it still
+    is for a learner who never gave one."""
+    from zeeguu.core.model.user_preference import UserPreference
+
+    tuning = tuning_from(AudioLessonFeedback.history(user, language.id))
+    chosen = UserPreference.get_audio_lesson_answer_time(user)
+    return tuning if chosen is None else replace(tuning, pace=-chosen)
+
+
+# The time to answer the learner can choose: minus the pace level, so that
+# more is more time ("Too fast" moves it up a step). 0 is the default.
+ANSWER_TIME_CHOICES = (-2, -1, 0, 1, 2)
+
+
+def answer_time_for(user, language) -> int:
+    """The time to answer the next lessons are said with, as set or as tuned."""
+    return -tuning_for(user, language).pace
+
+
+def answer_time_after(pace, value) -> int:
+    """The time to answer after a pace answer on a lesson said at `pace`:
+    a step from that lesson's, within the choices."""
+    moved = max(LEVELS[0], min(LEVELS[-1], pace + ASPECTS["pace"].get(value, 0)))
+    return -moved
 
 
 def as_dict(tuning: LessonTuning) -> dict:
@@ -172,17 +197,21 @@ def prompt_values(tuning: LessonTuning, minutes: int) -> dict:
 def shared_lesson_values(tuning: LessonTuning = None) -> dict:
     """
     The numbers a marked lesson above A0 is expanded with (lesson_script):
-    pace, 5-10 s to answer (time_to_answer.ABOVE_A0_SECONDS), and how often
+    pace, 5-10 s to answer at the default pace (time_to_answer.ABOVE_A0_SECONDS;
+    7-14 s at the slowest, 3-6 s at the fastest), and how often
     each answer is said. Without a tuning, the default:
     what the shared lesson is stored and voiced with. With the learner's, what
     their own copy of its audio is said with (DailyAudioLesson.dialogue_tuning).
     """
     tuning = tuning or LessonTuning()
     values = prompt_values(tuning, DEFAULT_LESSON_MINUTES)
-    from zeeguu.core.audio_lessons.lesson_script.time_to_answer import ABOVE_A0_SECONDS
+    from zeeguu.core.audio_lessons.lesson_script.time_to_answer import ABOVE_A0_SECONDS, DEFAULT_ANSWER_PAUSE
 
     values["answer_repeats"] = _ANSWER_REPEATS[tuning.repetition + 2]
-    values["answer_seconds"] = ABOVE_A0_SECONDS
+    # The bounds move with the pace: "much more" time would otherwise give a
+    # long answer nothing more than the default's 10 s.
+    scale = values["answer_pause"] / DEFAULT_ANSWER_PAUSE
+    values["answer_seconds"] = tuple(round(bound * scale) for bound in ABOVE_A0_SECONDS)
     return values
 
 
