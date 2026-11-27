@@ -46,7 +46,7 @@ def expand_lines(script, values, dialogue=None, learner=None, known_words=None, 
 
     Lessons above A0 are shared between learners and written without a given
     dialogue or a learner's role: dialogue None (the script writes its
-    dialogue out, and [dialogue] and [review] are refused), learner None (an answer's prompt
+    dialogue out, and [dialogue] is refused), learner None (an answer's prompt
     is the line before it in another voice), chevrons False (« » are plain
     quotation marks, as French and Danish write them, and stay in the text).
     Raises MarkupError on a script it cannot expand.
@@ -62,12 +62,6 @@ def expand_lines(script, values, dialogue=None, learner=None, known_words=None, 
             continue
 
         if REVIEW_MARKER.match(line):
-            if dialogue is None:
-                # A lesson above A0 has no review to put there (only A0
-                # lessons review their earlier ones), and the slot would be
-                # stored unfilled.
-                problems.append("[review]: this lesson has no review of earlier lessons")
-                continue
             if REVIEW_SLOT in out:
                 problems.append("[review] more than once: the review has one place")
             out.append(REVIEW_SLOT)
