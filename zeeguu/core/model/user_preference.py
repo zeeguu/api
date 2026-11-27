@@ -221,7 +221,13 @@ class UserPreference(db.Model):
     @classmethod
     def practices_production(cls, user: User):
         """Whether the learner's practice includes producing words, not only
-        recognizing them. Unset families mean all of them, as in the web."""
+        recognizing them. Unset families mean all of them, as in the web.
+
+        Remembered on the user object for the rest of the request: a word list
+        asks it for every word about to be learned."""
+        cached = getattr(user, "_practices_production", None)
+        if cached is not None:
+            return cached
         row = (
             cls.query.filter_by(user_id=user.id, key=cls.EXERCISE_FAMILIES)
             .order_by(cls.id.desc())
@@ -229,7 +235,8 @@ class UserPreference(db.Model):
         )
         families = cls.parse_exercise_families(row.value if row else None)
         chosen = set(families.split(",")) if families else set(cls.EXERCISE_FAMILY_CHOICES)
-        return bool(chosen & cls.PRODUCTION_FAMILIES)
+        user._practices_production = bool(chosen & cls.PRODUCTION_FAMILIES)
+        return user._practices_production
 
     @classmethod
     def is_filter_disturbing_content_enabled(cls, user: User):
