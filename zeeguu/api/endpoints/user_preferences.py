@@ -83,6 +83,10 @@ def save_user_preferences():
             f"{UserPreference.FLASHCARD_SELF_GRADE} must be true or false",
         )
 
+    show_streak_count_value = data.get(UserPreference.SHOW_STREAK_COUNT, None)
+    if show_streak_count_value is not None and show_streak_count_value not in ("true", "false"):
+        return make_error(400, f"{UserPreference.SHOW_STREAK_COUNT} must be true or false")
+
     # Empty means not sent.
     audio_lesson_minutes_value = data.get(UserPreference.AUDIO_LESSON_MINUTES) or None
     audio_lesson_minutes = UserPreference.parse_audio_lesson_minutes(audio_lesson_minutes_value)
@@ -239,6 +243,11 @@ def save_user_preferences():
             flashcard_self_grade_value,
         )
 
+    if show_streak_count_value is not None:
+        UserPreference.set_dropping_duplicates(
+            db_session, user, UserPreference.SHOW_STREAK_COUNT, show_streak_count_value
+        )
+
     email_on_article_shared_value = data.get(UserPreference.EMAIL_ON_ARTICLE_SHARED, None)
     if email_on_article_shared_value is not None:
         email_on_article_shared = UserPreference.find_or_create(
@@ -289,13 +298,15 @@ def save_user_preferences():
 
 # Settings whose changes are logged as PREFERENCE_CHANGED events: the study
 # reminder, the notification permission, the daily goal, the lesson length,
-# varying exercise contexts, exercise families, and flashcard self-grading.
+# varying exercise contexts, exercise families, flashcard self-grading, and
+# showing the streak count.
 LOGGED_PREFERENCES = UserPreference.STUDY_REMINDER_KEYS + (
     UserPreference.DAILY_GOAL_MINUTES,
     UserPreference.AUDIO_LESSON_MINUTES,
     UserPreference.VARY_EXERCISE_CONTEXTS,
     UserPreference.EXERCISE_FAMILIES,
     UserPreference.FLASHCARD_SELF_GRADE,
+    UserPreference.SHOW_STREAK_COUNT,
 )
 
 

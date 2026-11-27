@@ -62,6 +62,9 @@ class UserPreference(db.Model):
     # Whether flashcard exercises use tap-to-flip self-grading instead of typing.
     # Unset means False.
     FLASHCARD_SELF_GRADE = "flashcard_self_grade"
+    # Whether the streak's count of days is shown next to its flame (web:
+    # showsStreakCount). Unset means True.
+    SHOW_STREAK_COUNT = "show_streak_count"
     # How practice slots are given out (word_scheduling/basicSR/frequency_slots.py).
     # Both fill a free slot with the most frequent waiting word; they differ
     # in whether a slot, once given, is kept.
@@ -470,6 +473,9 @@ class UserPreference(db.Model):
 
         if preferences_dict.get(cls.FLASHCARD_SELF_GRADE) not in ("true", "false"):
             preferences_dict[cls.FLASHCARD_SELF_GRADE] = "false"
+
+        if preferences_dict.get(cls.SHOW_STREAK_COUNT) not in ("true", "false"):
+            preferences_dict[cls.SHOW_STREAK_COUNT] = "true"
 
         return preferences_dict
 
