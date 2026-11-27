@@ -60,6 +60,29 @@ def save_user_preferences():
             f"{UserPreference.VARY_EXERCISE_CONTEXTS} must be true or false",
         )
 
+    exercise_families_raw = data.get(UserPreference.EXERCISE_FAMILIES, None)
+    exercise_families_value = (
+        UserPreference.parse_exercise_families(exercise_families_raw)
+        if exercise_families_raw is not None
+        else None
+    )
+    if exercise_families_raw is not None and exercise_families_value is None:
+        return make_error(
+            400,
+            f"{UserPreference.EXERCISE_FAMILIES} must be a non-empty comma-separated subset of "
+            f"{', '.join(UserPreference.EXERCISE_FAMILY_CHOICES)}",
+        )
+
+    flashcard_self_grade_value = data.get(UserPreference.FLASHCARD_SELF_GRADE, None)
+    if (
+        flashcard_self_grade_value is not None
+        and flashcard_self_grade_value not in ("true", "false")
+    ):
+        return make_error(
+            400,
+            f"{UserPreference.FLASHCARD_SELF_GRADE} must be true or false",
+        )
+
     # Empty means not sent.
     audio_lesson_minutes_value = data.get(UserPreference.AUDIO_LESSON_MINUTES) or None
     audio_lesson_minutes = UserPreference.parse_audio_lesson_minutes(audio_lesson_minutes_value)
@@ -200,6 +223,22 @@ def save_user_preferences():
             vary_exercise_contexts_value,
         )
 
+    if exercise_families_value is not None:
+        UserPreference.set_dropping_duplicates(
+            db_session,
+            user,
+            UserPreference.EXERCISE_FAMILIES,
+            exercise_families_value,
+        )
+
+    if flashcard_self_grade_value is not None:
+        UserPreference.set_dropping_duplicates(
+            db_session,
+            user,
+            UserPreference.FLASHCARD_SELF_GRADE,
+            flashcard_self_grade_value,
+        )
+
     email_on_article_shared_value = data.get(UserPreference.EMAIL_ON_ARTICLE_SHARED, None)
     if email_on_article_shared_value is not None:
         email_on_article_shared = UserPreference.find_or_create(
@@ -250,11 +289,13 @@ def save_user_preferences():
 
 # Settings whose changes are logged as PREFERENCE_CHANGED events: the study
 # reminder, the notification permission, the daily goal, the lesson length,
-# and varying exercise contexts.
+# varying exercise contexts, exercise families, and flashcard self-grading.
 LOGGED_PREFERENCES = UserPreference.STUDY_REMINDER_KEYS + (
     UserPreference.DAILY_GOAL_MINUTES,
     UserPreference.AUDIO_LESSON_MINUTES,
     UserPreference.VARY_EXERCISE_CONTEXTS,
+    UserPreference.EXERCISE_FAMILIES,
+    UserPreference.FLASHCARD_SELF_GRADE,
 )
 
 

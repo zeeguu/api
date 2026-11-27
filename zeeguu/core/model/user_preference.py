@@ -50,6 +50,18 @@ class UserPreference(db.Model):
     # exercise, instead of keeping one sentence across reviews. Unset follows
     # the user's 50/50 rollout arm (vary_exercise_contexts_default).
     VARY_EXERCISE_CONTEXTS = "vary_exercise_contexts"
+    # Which exercise families are enabled in Practice (comma-separated subset of
+    # EXERCISE_FAMILY_CHOICES, non-empty). Unset means all families enabled.
+    EXERCISE_FAMILIES = "exercise_families"
+    EXERCISE_FAMILY_CHOICES = (
+        "multiple_choice",
+        "typing",
+        "flashcards_meaning",
+        "flashcards_word",
+    )
+    # Whether flashcard exercises use tap-to-flip self-grading instead of typing.
+    # Unset means False.
+    FLASHCARD_SELF_GRADE = "flashcard_self_grade"
     # How practice slots are given out (word_scheduling/basicSR/frequency_slots.py).
     # Both fill a free slot with the most frequent waiting word; they differ
     # in whether a slot, once given, is kept.
@@ -233,6 +245,18 @@ class UserPreference(db.Model):
         """Whether varying exercise contexts defaults on for `user` when they
         have not explicitly set the Practice style toggle (50/50 rollout arm)."""
         return user.has_feature("vary_exercise_contexts_default")
+
+    @classmethod
+    def parse_exercise_families(cls, value):
+        """Canonical comma-separated subset of EXERCISE_FAMILY_CHOICES (at least
+        one), or None when empty or containing unknown family names."""
+        if not isinstance(value, str):
+            return None
+        tokens = [token.strip() for token in value.split(",") if token.strip()]
+        if not tokens or any(token not in cls.EXERCISE_FAMILY_CHOICES for token in tokens):
+            return None
+        chosen = set(tokens)
+        return ",".join(f for f in cls.EXERCISE_FAMILY_CHOICES if f in chosen)
 
     @classmethod
     def is_vary_exercise_contexts_enabled(cls, user: User):
@@ -440,6 +464,12 @@ class UserPreference(db.Model):
             preferences_dict[cls.VARY_EXERCISE_CONTEXTS] = (
                 "true" if cls.vary_exercise_contexts_default(user) else "false"
             )
+
+        parsed_families = cls.parse_exercise_families(preferences_dict.get(cls.EXERCISE_FAMILIES))
+        preferences_dict[cls.EXERCISE_FAMILIES] = parsed_families or ",".join(cls.EXERCISE_FAMILY_CHOICES)
+
+        if preferences_dict.get(cls.FLASHCARD_SELF_GRADE) not in ("true", "false"):
+            preferences_dict[cls.FLASHCARD_SELF_GRADE] = "false"
 
         return preferences_dict
 
