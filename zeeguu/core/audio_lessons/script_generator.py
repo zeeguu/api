@@ -95,13 +95,14 @@ def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man
     scripts with a non-English teacher held the rule 1 time in 9 that way, and 7
     times in 9 with the rule stated here instead.
     """
+    learned_labels = f"'{voices[0]}:', '{voices[1]}:'" + (" and 'TeacherL2:'" if teacher_l2 else "")
     teacher_rule = f"Lines labeled 'Teacher:' are ALWAYS written in {source_lang_name}"
     if chevrons:
         teacher_rule += f", except words in «chevrons», which are {target_lang_name}"
     return (
         f"You write audio lesson scripts for language learners. The learner speaks "
         f"{source_lang_name} natively and is studying {target_lang_name}.\n"
-        f"Lines labeled '{voices[0]}:', '{voices[1]}:'{" and 'TeacherL2:'" if teacher_l2 else ''} are ALWAYS written in "
+        f"Lines labeled {learned_labels} are ALWAYS written in "
         f"{target_lang_name}. Never in {source_lang_name}.\n"
         f"{teacher_rule}.\n"
         f"Keeping these two languages apart is the entire purpose of the script. A "
