@@ -7,6 +7,7 @@ are enabled for a user based on their cohort membership, invitation code, etc.
 
 import hashlib
 import os
+from datetime import datetime
 from sqlalchemy.exc import NoResultFound
 
 from .model.cohort import Cohort
@@ -205,16 +206,39 @@ def _verbal_flashcards(user):
     return False
 
 
+# Accounts created from this date on are split 50/50 for fast progression.
+FAST_PROGRESSION_AB_START = datetime(2026, 11, 28)
+
+
 def _fast_progression(user: User):
     """
     A clean answer (first try, no hint) moves a word up a level, instead of
     waiting for three spaced correct answers at that level. See
     docs/future-work/exercise-selection-from-reading-evidence.md, section 5.
 
-    Dev accounts only while we watch it; next, half of new users, to compare
-    against the other half.
+    Dev accounts always. A/B: half of the accounts created from
+    FAST_PROGRESSION_AB_START on, by a salted hash of the user id, so the split
+    is independent of the other experiments; the other half of those accounts
+    is the comparison group. Older accounts stay out: their words from before
+    10 Oct 2026 are all on the fast track (the migration could not know their
+    history), so one clean answer would learn a level-4 word.
+
+    What to compare (doc §5): exercises and days to "learned", how often a
+    learned word is looked up again while reading, session completion.
     """
-    return bool(user.is_dev)
+    if user.is_dev:
+        return True
+    return in_fast_progression_arm(user)
+
+
+def in_fast_progression_arm(user: User):
+    """The A/B arm alone, without the dev override: for the analysis."""
+    if user.id is None or user.created_at is None:
+        return False
+    if user.created_at < FAST_PROGRESSION_AB_START:
+        return False
+    digest = hashlib.sha256(f"fast_progression:{user.id}".encode()).digest()
+    return digest[0] < 128
 
 
 def _gamification(user: User):

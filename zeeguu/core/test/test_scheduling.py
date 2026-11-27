@@ -46,6 +46,11 @@ class SchedulerTest(ModelTestMixIn):
             init_fixtures_once()
 
             cls.user_rule = UserRule()
+            # an account from before the fast-progression A/B, so these tests
+            # see the scheduler every learner had before (and the control arm)
+            cls.user_rule.user.created_at = datetime(2026, 1, 1)
+            db_session.add(cls.user_rule.user)
+            db_session.commit()
             cls._user_id = cls.user_rule.user.id
 
     @classmethod
