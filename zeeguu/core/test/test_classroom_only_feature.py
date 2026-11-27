@@ -23,9 +23,6 @@ class ClassroomOnlyFeatureTest(ModelTestMixIn, TestCase):
     def _classroom_only_for(self, user):
         return is_feature_enabled_for_user("classroom_only", user)
 
-    def _hide_onboarding_messages_for(self, user):
-        return is_feature_enabled_for_user("hide_onboarding_messages", user)
-
     def test_off_by_default(self):
         self.assertFalse(self._classroom_only_for(self.student))
 
@@ -63,28 +60,3 @@ class ClassroomOnlyFeatureTest(ModelTestMixIn, TestCase):
         db_session.commit()
 
         self.assertFalse(self._classroom_only_for(self.teacher))
-
-    def test_onboarding_messages_off_by_default(self):
-        self.assertFalse(self._hide_onboarding_messages_for(self.student))
-
-    def test_onboarding_messages_disabled_for_opted_out_cohort(self):
-        self.cohort.disable_onboarding_messages = True
-        db_session.commit()
-
-        self.assertTrue(self._hide_onboarding_messages_for(self.student))
-
-    def test_onboarding_messages_disabled_if_any_cohort_opts_out(self):
-        self.cohort.disable_onboarding_messages = True
-        other_cohort = CohortRule().cohort
-        self.student.add_user_to_cohort(other_cohort, db_session)
-        db_session.commit()
-
-        self.assertTrue(self._hide_onboarding_messages_for(self.student))
-
-    def test_teachers_are_not_marked_for_onboarding_suppression(self):
-        db_session.add(Teacher(self.teacher))
-        self.cohort.disable_onboarding_messages = True
-        self.teacher.add_user_to_cohort(self.cohort, db_session)
-        db_session.commit()
-
-        self.assertFalse(self._hide_onboarding_messages_for(self.teacher))

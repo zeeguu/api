@@ -158,20 +158,18 @@ def _classroom_only(user):
     )
 
 
+# The group2 study compares learning with and without the onboarding
+# modals. Remove this flag (and the web check) when the study ends.
+NO_ONBOARDING_STUDY_CODES = {"group2s", "group2e", "group2d"}
+
+
 def _hide_onboarding_messages(user):
-    """Hide onboarding messages for students in opted-out cohorts."""
+    """Students in the group2 study classes never see the onboarding modals."""
     if user.isTeacher():
         return False
-
-    cohort_ids = [user_cohort.cohort_id for user_cohort in user.cohorts]
-    if not cohort_ids:
-        return False
-
-    return (
-        Cohort.query.filter(Cohort.id.in_(cohort_ids))
-        .filter(Cohort.disable_onboarding_messages.is_(True))
-        .count()
-        > 0
+    return any(
+        (uc.cohort.inv_code or "").casefold() in NO_ONBOARDING_STUDY_CODES
+        for uc in user.cohorts
     )
 
 
