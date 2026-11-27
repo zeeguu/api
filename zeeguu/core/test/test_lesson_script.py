@@ -648,27 +648,38 @@ def test_a_learner_who_asked_for_slower_and_more_gets_their_own_audio(monkeypatc
 def test_the_daily_lesson_plays_its_own_dialogue_audio_when_it_has_one(tmp_path, monkeypatch):
     from types import SimpleNamespace
 
-    from pydub import AudioSegment
+    from zeeguu.core.audio_lessons import lesson_builder
 
-    from zeeguu.core.audio_lessons.lesson_builder import LessonBuilder
+    # Which file the builder reads, without decoding audio (CI has no ffmpeg)
+    read = []
 
-    builder = object.__new__(LessonBuilder)
+    class _Audio:
+        def __add__(self, other):
+            return self
+
+        def export(self, path, format):
+            return path
+
+    monkeypatch.setattr(lesson_builder, "AudioSegment", SimpleNamespace(
+        from_mp3=lambda path: read.append(path) or _Audio(), silent=lambda duration: _Audio(),
+    ))
+    builder = object.__new__(lesson_builder.LessonBuilder)
     builder.audio_dir = str(tmp_path)
     builder.daily_lessons_dir = str(tmp_path / "daily_lessons")
-    (tmp_path / "daily_lessons").mkdir()
-    (tmp_path / "lessons").mkdir()
-    AudioSegment.silent(duration=1000).export(tmp_path / "lessons" / "dialogue-3-en.mp3", format="mp3")
-    AudioSegment.silent(duration=3000).export(tmp_path / "daily_lessons" / "7-dialogue.mp3", format="mp3")
+    for path in ("lessons/dialogue-3-en.mp3", "daily_lessons/7-dialogue.mp3"):
+        (tmp_path / path).parent.mkdir(exist_ok=True)
+        (tmp_path / path).write_bytes(b"")
     dialogue = SimpleNamespace(audio_file_path="/audio/lessons/dialogue-3-en.mp3")
     segment = SimpleNamespace(segment_type="dialogue_lesson", audio_lesson_dialogue=dialogue, audio_lesson_meaning=None)
 
-    for tuning, seconds in ((None, 1), ({"pace": -1}, 3)):
+    for tuning, played in ((None, "lessons/dialogue-3-en.mp3"), ({"pace": -1}, "daily_lessons/7-dialogue.mp3")):
+        read.clear()
         lesson = SimpleNamespace(
             id=7, user=None, segments=[segment], dialogue_tuning=tuning,
             own_dialogue_audio_path="/audio/daily_lessons/7-dialogue.mp3",
         )
-        path = builder.build_daily_lesson(lesson, None, variety=None)
-        assert round(AudioSegment.from_mp3(path).duration_seconds) == seconds
+        builder.build_daily_lesson(lesson, None, variety=None)
+        assert read == [str(tmp_path / played)]
 
 def test_a_dialogue_above_a0_is_not_told_about_teacher_l2_but_a_word_lesson_is():
     from unittest.mock import patch
