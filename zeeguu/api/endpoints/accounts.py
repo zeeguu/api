@@ -170,7 +170,9 @@ def add_anon_user():
         return bad_request("Could not create anon user: invalid learned_cefr_level.")
 
     try:
-        generated_username, adjective, animal = User.generate_unique_username()
+        generated_username, adjective, animal = User.generate_unique_username(
+            language_code=language_code
+        )
         generated_display_name = f"{adjective.capitalize()} {animal.capitalize()}"
         new_user = User.create_anonymous(
             uuid,
@@ -186,7 +188,8 @@ def add_anon_user():
         db_session.commit()
 
         character_color, background_color = UserAvatar.random_colors()
-        user_avatar = UserAvatar(new_user.id, animal, character_color, background_color)
+        avatar_image = UserAvatar.image_name_for_handle(animal)
+        user_avatar = UserAvatar(new_user.id, avatar_image, character_color, background_color)
         db_session.add(user_avatar)
         db_session.commit()
 

@@ -138,7 +138,9 @@ def create_account(
         native_language = Language.find_or_create(native_language_code)
 
         def build_user():
-            generated_username, _, animal = User.generate_unique_username()
+            generated_username, _, animal = User.generate_unique_username(
+                language_code=learned_language_code
+            )
             user = User(
                 email,
                 username,
@@ -176,7 +178,8 @@ def create_account(
 
         # TODO Only run this if username is not provided, but rather auto-generated. Implement it when username is implemented
         character_color, background_color = UserAvatar.random_colors()
-        user_avatar = UserAvatar(new_user.id, animal, character_color, background_color)
+        avatar_image = UserAvatar.image_name_for_handle(animal)
+        user_avatar = UserAvatar(new_user.id, avatar_image, character_color, background_color)
         db_session.add(user_avatar)
         # The avatar used to ride along on the verification code's commit below.
         # That commit is now conditional, so it needs its own.
@@ -257,7 +260,8 @@ def create_basic_account(
 
         # TODO Only run this if username is not provided, but rather auto-generated. Implement it when username is implemented
         character_color, background_color = UserAvatar.random_colors()
-        user_avatar = UserAvatar(new_user.id, animal, character_color, background_color)
+        avatar_image = UserAvatar.image_name_for_handle(animal)
+        user_avatar = UserAvatar(new_user.id, avatar_image, character_color, background_color)
         db_session.add(user_avatar)
         # The avatar used to ride along on the verification code's commit below.
         # That commit is now conditional, so it needs its own.
