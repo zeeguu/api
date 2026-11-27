@@ -541,7 +541,7 @@ def generate_dialogue_script(
         if lesson_type == "situation":
             prompt_file = SITUATION_LESSON_PROMPT
         else:
-            prompt_file = "dialogue_lesson--topic-v2.txt"
+            prompt_file = TOPIC_LESSON_PROMPT
         prompt = get_prompt_template(prompt_file).format(**common)
 
     if past_titles:
@@ -675,9 +675,12 @@ A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v5.txt"
 # v3 writes [answer] markers instead of pauses: code gives each challenge the
 # time its answer needs (lesson_script.time_to_answer), where v2's fixed
 # 5 seconds was too short to repeat a long phrase (a B1 learner, Nov 2026).
+# v3 also drops TeacherL2, which v2 allowed but never asked for, and which no
+# dialogue in the evals used: it was copied from the meaning lesson prompt.
 SITUATION_LESSON_PROMPT = "dialogue_lesson--situation-v3.txt"
+TOPIC_LESSON_PROMPT = "dialogue_lesson--topic-v3.txt"
 # The lessons above A0 written with markers and expanded by code, like A0's.
-MARKED_PROMPTS = {SITUATION_LESSON_PROMPT}
+MARKED_PROMPTS = {SITUATION_LESSON_PROMPT, TOPIC_LESSON_PROMPT}
 # Fewer marked answers than this and the markers were left out: the prompt asks
 # for at least 12 challenges.
 MIN_MARKED_ANSWERS = 8

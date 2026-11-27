@@ -70,13 +70,12 @@ Use this exact format:
 
 
 RULES:
-- Use only "Teacher:", "TeacherL2:", "Man:", "Woman:" labels
-- TeacherL2 is the same person as Teacher but speaking {target_language} (used to pronounce {target_language} words)
+- Use only "Teacher:", "Man:", "Woman:" labels
 - Write each line on one line, starting with its plain label: no bold, no line breaks inside a line
 - Write no pauses and no timings: they are added after you
 - The only marker is [answer]: it ends the answer line of every challenge, and no other line
 - Each line is written once: never repeat a line to have it said twice; the marker does that
-- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman/TeacherL2 speak {target_language}
+- CRITICAL: Teacher MUST speak {source_language} for ALL lines. Man/Woman speak {target_language}
 - Man and Woman must be adults. Never create child characters — dialogues are voiced by TTS and we only have adult voices available, so even fictional or imagined children cannot speak.
 - Every dialogue is between exactly one man ("Man:") and one woman ("Woman:") — we have only one male and one female TTS voice available for dialogue speakers. Names and gender-marked titles MUST reflect this pairing: the "Man:" character takes a male name/title (e.g. Herr Schmidt, Mr Jones, Señor García, Monsieur Dupont), the "Woman:" character takes a female name/title (e.g. Frau Jensen, Mrs Smith, Señora García, Madame Dupont). Keep each name attached to the same speaker label throughout.
 - Do NOT include greetings like "welcome to today's lesson" — this script is one segment of a larger lesson.
