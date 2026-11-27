@@ -169,13 +169,17 @@ def prompt_values(tuning: LessonTuning, minutes: int) -> dict:
 def shared_lesson_values(tuning: LessonTuning = None) -> dict:
     """
     The numbers a marked lesson above A0 is expanded with (lesson_script):
-    pace, and how often each answer is said. Without a tuning, the default:
+    pace, 5-10 s to answer (time_to_answer.ABOVE_A0_SECONDS), and how often
+    each answer is said. Without a tuning, the default:
     what the shared lesson is stored and voiced with. With the learner's, what
     their own copy of its audio is said with (DailyAudioLesson.dialogue_tuning).
     """
     tuning = tuning or LessonTuning()
     values = prompt_values(tuning, DEFAULT_LESSON_MINUTES)
+    from zeeguu.core.audio_lessons.lesson_script.time_to_answer import ABOVE_A0_SECONDS
+
     values["answer_repeats"] = _ANSWER_REPEATS[tuning.repetition + 2]
+    values["answer_seconds"] = ABOVE_A0_SECONDS
     return values
 
 
