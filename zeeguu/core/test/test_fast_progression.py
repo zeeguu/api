@@ -52,7 +52,12 @@ class FastProgressionTest(ModelTestMixIn):
             db_session.add(fast_user)
             db_session.commit()
             cls._fast_user_id = fast_user.id
-            cls._normal_user_id = UserRule().user.id
+            normal_user = UserRule().user
+            # from before the A/B, so it is outside the experiment
+            normal_user.created_at = datetime(2026, 1, 1)
+            db_session.add(normal_user)
+            db_session.commit()
+            cls._normal_user_id = normal_user.id
 
     @classmethod
     def tearDownClass(cls):
@@ -341,6 +346,33 @@ class FastProgressionTest(ModelTestMixIn):
         info = bookmark.user_word.as_dictionary(schedule=schedule, with_context_tokenized=False)
         self.assertIs(info["is_about_to_be_learned"], True)
         self.assertIs(info["learning_needs_production"], True)
+
+    # ---- the A/B for new accounts ------------------------------------------------
+
+    def test_accounts_from_before_the_ab_are_outside_it(self):
+        from zeeguu.core.user_feature_toggles import in_fast_progression_arm
+
+        self.assertFalse(in_fast_progression_arm(self.normal_user))
+        self.assertFalse(self.normal_user.has_feature("fast_progression"))
+
+    def test_half_of_the_new_accounts_get_fast_progression(self):
+        from zeeguu.core.user_feature_toggles import (
+            FAST_PROGRESSION_AB_START,
+            in_fast_progression_arm,
+        )
+
+        new_users = []
+        for _ in range(60):
+            user = UserRule().user
+            user.created_at = FAST_PROGRESSION_AB_START + timedelta(hours=1)
+            new_users.append(user)
+        arm = [in_fast_progression_arm(u) for u in new_users]
+
+        self.assertTrue(10 < sum(arm) < 50)   # a split, not all or nothing
+        # the same account always lands in the same arm
+        self.assertEqual(arm, [in_fast_progression_arm(u) for u in new_users])
+        for user, in_arm in zip(new_users, arm):
+            self.assertEqual(user.has_feature("fast_progression"), in_arm)
 
     def _answer(self, user, bookmark, outcome, date, source=None):
         exercise_session = ExerciseSessionRule(user).exerciseSession
