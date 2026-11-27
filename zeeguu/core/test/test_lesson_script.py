@@ -704,3 +704,33 @@ def test_above_a0_the_time_to_answer_is_between_five_and_ten_seconds(answer, a0_
 
     assert time_to_answer(answer, VALUES) == a0_seconds  # A0: as before
     assert time_to_answer(answer, shared_lesson_values()) == above_a0_seconds
+
+
+def _written_above_a0(raw):
+    from unittest.mock import patch
+
+    from zeeguu.core.audio_lessons import script_generator
+
+    with patch.object(script_generator, "generate_script_in_languages", return_value=(raw, "model")):
+        return script_generator._write_dialogue_lesson(
+            "prompt", None, origin_language="da", translation_language="en", suggestion="café",
+            max_tokens=100, short_lines=False, marked=True,
+        )
+
+
+def test_above_a0_what_v2_scripts_were_forgiven_is_forgiven():
+    challenge = "**Teacher:** Ask for a coffee,\nplease.\n---\nMan: En kaffe, tak. [answer] [3 seconds]\n"
+    _, script, _, marked, _ = _written_above_a0("Title\n\n" + challenge * 8)
+    assert script.splitlines()[:3] == [
+        "Teacher: Ask for a coffee, please. [6 seconds]",  # unbolded, the wrapped line joined
+        "Man: En kaffe, tak. [3 seconds]",  # an answer, though the model wrote a pause after it
+        "Man: En kaffe, tak. [3 seconds]",
+    ]
+    assert "---" not in marked and "**" not in marked
+
+
+def test_above_a0_a_review_marker_is_refused():
+    from zeeguu.core.audio_lessons.lesson_tuning import shared_lesson_values
+
+    with pytest.raises(MarkupError, match=r"\[review\]"):
+        expand("Teacher: Hi.\n[review]", shared_lesson_values())
