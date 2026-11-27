@@ -220,3 +220,55 @@ def test_lessons_per_situation(logged_in_client):
     assert sorted((r["raw_suggestion"], r["lessons"]) for r in response.json) == [
         ("at the bakery", 1), ("grocery shopping", 2),
     ]
+
+
+# Time to answer: a setting the Pace answers move a step (UserPreference.AUDIO_LESSON_ANSWER_TIME)
+
+MARKED = "Teacher: Hi.\nMan: Hej. [answer]"
+
+
+def test_too_fast_gives_more_time_to_answer_a_step_from_the_lessons(logged_in_client):
+    lesson = _lesson_for(logged_in_client.email, minutes=10)  # an A0 lesson said at pace 0
+
+    assert _say(logged_in_client, lesson, "pace", "slower").json["answer_time"] == 1
+    # Changed on the same lesson: from the same place, not a step further
+    assert _say(logged_in_client, lesson, "pace", "slower").json["answer_time"] == 1
+    assert _say(logged_in_client, lesson, "pace", "just_right").json["answer_time"] == 0
+    assert _say(logged_in_client, lesson, "pace", "faster").json["answer_time"] == -1
+    assert logged_in_client.get("/user_preferences")["audio_lesson_answer_time"] == "-1"
+
+
+def test_above_a0_the_step_is_from_the_pace_the_learner_heard(logged_in_client):
+    shared = _lesson_for(logged_in_client.email, a0=False, marked=MARKED)  # said as shared: pace 0
+    assert _say(logged_in_client, shared, "pace", "slower").json["answer_time"] == 1
+
+    own = _lesson_for(logged_in_client.email, a0=False, marked=MARKED)
+    DailyAudioLesson.query.get(own).dialogue_tuning = {"pace": -1, "repetition": 0, "length": 0}
+    db.session.commit()
+    assert _say(logged_in_client, own, "pace", "slower").json["answer_time"] == 2
+
+
+def test_the_time_to_answer_is_a_preference_the_learner_can_set_and_it_tunes_the_pace(logged_in_client):
+    assert logged_in_client.get("/user_preferences")["audio_lesson_answer_time"] == "0"
+    logged_in_client.post("/save_user_preferences", data={"audio_lesson_answer_time": "2"})
+
+    assert logged_in_client.get("/user_preferences")["audio_lesson_answer_time"] == "2"
+    user = User.find(logged_in_client.email)
+    assert tuning_for(user, user.learned_language).pace == -2
+
+
+def test_a_time_to_answer_that_is_not_a_choice_is_refused(logged_in_client):
+    response = logged_in_client.client.post(
+        logged_in_client.append_session("/save_user_preferences"), data={"audio_lesson_answer_time": "3"}
+    )
+    assert response.status_code == 400
+
+
+def test_without_the_setting_the_pace_answers_still_tune_as_before(logged_in_client):
+    # A learner whose answers predate the setting: their pace is still their answers'
+    user = User.find(logged_in_client.email)
+    lesson = DailyAudioLesson.query.get(_lesson_for(logged_in_client.email))
+    AudioLessonFeedback.set(user, lesson, "pace", "slower")
+    db.session.commit()
+    assert tuning_for(user, user.learned_language).pace == -1
+    assert logged_in_client.get("/user_preferences")["audio_lesson_answer_time"] == "1"

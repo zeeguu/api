@@ -211,3 +211,19 @@ def test_next_situations_are_asked_for_at_the_lessons_level(level, prompt, monke
     assert used == [prompt]
     if level != "A0":
         assert "B1" in asked["prompt"]
+
+
+@pytest.mark.parametrize("answer_time, bounds", [(0, (5, 10)), (2, (7, 14)), (1, (6, 12)), (-2, (3, 6))])
+def test_above_a0_the_bounds_of_the_time_to_answer_move_with_it(answer_time, bounds):
+    from zeeguu.core.audio_lessons.lesson_tuning import shared_lesson_values
+
+    assert shared_lesson_values(LessonTuning(pace=-answer_time))["answer_seconds"] == bounds
+
+
+def test_a_pace_answer_moves_the_time_to_answer_a_step_within_the_choices():
+    from zeeguu.core.audio_lessons.lesson_tuning import answer_time_after
+
+    assert answer_time_after(0, "slower") == 1
+    assert answer_time_after(0, "faster") == -1
+    assert answer_time_after(-2, "slower") == 2  # already the most time
+    assert answer_time_after(1, "just_right") == -1

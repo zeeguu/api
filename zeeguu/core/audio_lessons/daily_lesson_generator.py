@@ -1354,6 +1354,8 @@ class DailyLessonGenerator:
             # (web#1405). Moved before storing: the default counts stored ones.
             if aspect == "length":
                 self._move_lesson_minutes(user, lesson, value)
+            if aspect == "pace":
+                self._move_answer_time(user, lesson, value)
             AudioLessonFeedback.set(user, lesson, aspect, value)
             if aspect == lesson_tuning.SITUATION:
                 self._move_daily_situation(user, lesson, value)
@@ -1372,6 +1374,7 @@ class DailyLessonGenerator:
             "feedback": AudioLessonFeedback.for_lesson(lesson),
             # What the next lessons will be written for, shown with the answer.
             "lesson_minutes": lesson_tuning.lesson_minutes_for(user, lesson.language),
+            "answer_time": lesson_tuning.answer_time_for(user, lesson.language),
         }
 
     @staticmethod
@@ -1395,6 +1398,37 @@ class DailyLessonGenerator:
             minutes = lesson_tuning.lesson_minutes_for(user, lesson.language)
         UserPreference.set_audio_lesson_minutes(
             db.session, user, lesson_tuning.lesson_minutes_after(minutes, value)
+        )
+
+    @staticmethod
+    def _move_answer_time(user, lesson, value):
+        """
+        "Too fast" / "too slow" set the learner's time to answer
+        (UserPreference.AUDIO_LESSON_ANSWER_TIME) a step from the pace this
+        lesson was said at, as length answers move the length: changing the
+        answer on one lesson moves from the same place. The pace it was said
+        at: its own copy of a shared dialogue's (dialogue_tuning), an A0
+        dialogue's (its tuning), the default for a shared dialogue said as
+        it is; for a lesson from before any of those, the current setting.
+        """
+        from zeeguu.core.model.user_preference import UserPreference
+
+        pace = None
+        if lesson.dialogue_tuning:
+            pace = lesson.dialogue_tuning.get("pace", 0)
+        else:
+            for segment in lesson.segments:
+                dialogue = segment.audio_lesson_dialogue
+                if dialogue is None:
+                    continue
+                if dialogue.builds_on_history and dialogue.tuning and "pace" in dialogue.tuning:
+                    pace = dialogue.tuning["pace"]
+                elif not dialogue.builds_on_history and dialogue.marked_script:
+                    pace = 0
+        if pace is None:
+            pace = -lesson_tuning.answer_time_for(user, lesson.language)
+        UserPreference.set_audio_lesson_answer_time(
+            db.session, user, lesson_tuning.answer_time_after(pace, value)
         )
 
     @staticmethod
