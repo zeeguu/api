@@ -161,3 +161,53 @@ def test_a_fence_on_one_line_is_stripped():
 def test_an_answer_that_is_not_a_list_fails():
     with pytest.raises(Exception):
         parse_suggestions('{"situations": []}')
+
+
+# Lessons above A0 (lesson_tuning.shared_lesson_values)
+
+def test_above_a0_repetition_is_how_often_each_answer_is_said():
+    from zeeguu.core.audio_lessons.lesson_tuning import shared_lesson_values
+
+    assert shared_lesson_values()["answer_repeats"] == 2
+    assert shared_lesson_values(LessonTuning(repetition=1))["answer_repeats"] == 1  # "Too much"
+    assert shared_lesson_values(LessonTuning(repetition=-1))["answer_repeats"] == 3  # "Too little"
+
+
+def test_above_a0_pace_is_the_time_to_answer_and_between_repeats():
+    from zeeguu.core.audio_lessons.lesson_script.time_to_answer import time_to_answer
+    from zeeguu.core.audio_lessons.lesson_tuning import shared_lesson_values
+
+    answer = "Kan jeg få regningen?"
+    slower = shared_lesson_values(LessonTuning(pace=-1))
+    assert time_to_answer(answer, slower) > time_to_answer(answer, shared_lesson_values())
+    assert slower["repeat_pause"] >= shared_lesson_values()["repeat_pause"]
+
+
+def test_a0_lessons_keep_saying_each_answer_twice_whatever_the_repetition():
+    for repetition in range(-2, 3):
+        assert prompt_values(LessonTuning(repetition=repetition), 10)["answer_repeats"] == 2
+
+
+@pytest.mark.parametrize("level, prompt", [("A0", "a0_next_situations-v1.txt"), ("B1", "next_situations-v1.txt")])
+def test_next_situations_are_asked_for_at_the_lessons_level(level, prompt, monkeypatch):
+    from zeeguu.core.audio_lessons import next_situations
+
+    asked = {}
+
+    class _LLM:
+        def generate_text(self, text, **_):
+            asked["prompt"] = text
+            return '["a", "b", "c"]'
+
+    used = []
+    real = next_situations.get_prompt_template
+    monkeypatch.setattr(next_situations, "get_prompt_template", lambda name: used.append(name) or real(name))
+    monkeypatch.setattr(next_situations, "past_situations", lambda user, language: [])
+    monkeypatch.setattr("zeeguu.core.llm_services.get_llm_service", lambda kind: _LLM())
+    user = SimpleNamespace(id=1, native_language=SimpleNamespace(name="English"))
+    language = SimpleNamespace(code="da")
+
+    assert next_situations.suggest_next_situations(user, language, "at the café", level) == ["a", "b", "c"]
+    assert used == [prompt]
+    if level != "A0":
+        assert "B1" in asked["prompt"]

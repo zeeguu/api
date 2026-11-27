@@ -63,6 +63,12 @@ class DailyAudioLesson(db.Model):
     # are there without waiting when the lesson ends. NULL for other lessons.
     next_situations = Column(JSON, nullable=True)
 
+    # Lessons above A0 whose shared dialogue is said at the learner's own pace
+    # and repetition (lesson_tuning.LessonTuning, as a dict): its marked script
+    # expanded again for them, into audio of this lesson's own
+    # (own_dialogue_audio_path). NULL: the shared dialogue's audio as it is.
+    dialogue_tuning = Column(JSON, nullable=True)
+
     # NULL until the owner first generates a share link.
     share_uuid = Column(db.String(36), unique=True, nullable=True)
 
@@ -181,6 +187,29 @@ class DailyAudioLesson(db.Model):
         # High-water mark: only ever grows, so a rewind-then-pause can't erase
         # the fact that the learner already heard further. Engagement reads this.
         self.max_position_seconds = max(self.max_position_seconds or 0, clamped)
+
+    @property
+    def own_dialogue_audio_path(self):
+        """Where this lesson's own copy of its dialogue's audio is, when it has
+        one (dialogue_tuning)."""
+        return f"/audio/daily_lessons/{self.id}-dialogue.mp3"
+
+    @property
+    def own_audio_file_paths(self):
+        """The audio files that are this lesson's alone, to delete with it; not
+        the shared dialogue's or meaning lessons' it plays."""
+        return [self.audio_file_path, self.own_dialogue_audio_path]
+
+    @property
+    def takes_feedback(self):
+        """Whether what the learner says about this lesson can change their next
+        ones: an A0 lesson, or one whose dialogue was written with markers, so
+        that code sets its pace and repetition (lesson_script)."""
+        return any(
+            s.audio_lesson_dialogue is not None
+            and (s.audio_lesson_dialogue.builds_on_history or s.audio_lesson_dialogue.marked_script)
+            for s in self.segments
+        )
 
     @property
     def builds_on_history(self):

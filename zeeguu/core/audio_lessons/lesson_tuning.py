@@ -1,5 +1,5 @@
 """
-Tuning a learner's next A0 lessons from what they said about the earlier ones.
+Tuning a learner's next lessons from what they said about the earlier ones.
 
 After a lesson the learner can say, for each of three aspects, that it should
 go one way, the other way, or stay as it was (AudioLessonFeedback). Each aspect
@@ -9,8 +9,11 @@ moves the level one step, and the level stays within -2..+2 at every step: so
 after "faster" three times, one "slower" already slows the next lesson down.
 "Just right" leaves the level where it is.
 
-The levels fill in the numbers of the A0 lesson prompt (prompt_values). Only
-A0 lessons are tuned: the other levels' prompts have no such numbers.
+The levels fill in the numbers of the A0 lesson prompt (prompt_values). Above
+A0, pace and repetition are applied by code to the lessons written with markers
+(shared_lesson_values): a shared lesson is said again at the learner's pace
+for them. Lessons without markers (meaning lessons) are not tuned. Length is
+for A0 lessons only.
 
 Length is not a level but the learner's setting, in minutes
 (UserPreference.AUDIO_LESSON_MINUTES), which they see and can set themselves:
@@ -78,6 +81,11 @@ _REPEAT_PAUSE = (4, 4, 3, 3, 2)
 _RECALLS_TO_SAY = (7, 6, 5, 4, 2)
 _RECALLS_TO_UNDERSTAND = (4, 4, 3, 2, 1)
 _NORMAL_SPEED_REPEATS = (2, 2, 2, 2, 1)
+# Above A0 the model writes the challenges, and the lesson is shared, so
+# repetition is how often each answer is said after the time to answer. A0
+# lessons keep saying it twice: their repetition is in the recalls.
+_ANSWER_REPEATS = (3, 3, 2, 1, 1)
+DEFAULT_ANSWER_REPEATS = 2
 _TIMES = {1: "once", 2: "twice", 3: "three times"}
 _EARLIER_WORDS_RECALLS = (
     "many times", "several times", "several times", "two or three times", "once",
@@ -152,12 +160,30 @@ def prompt_values(tuning: LessonTuning, minutes: int) -> dict:
         recalls_to_understand=_RECALLS_TO_UNDERSTAND[r],
         normal_speed_repeats=_TIMES[_NORMAL_SPEED_REPEATS[r]],
         normal_speed_repeat_count=_NORMAL_SPEED_REPEATS[r],
+        answer_repeats=DEFAULT_ANSWER_REPEATS,
         earlier_words_recalls=_EARLIER_WORDS_RECALLS[r],
         min_lines=lines_for(min_minutes),
         max_lines=lines_for(max_minutes),
         min_minutes=min_minutes,
         max_minutes=max_minutes,
     )
+
+
+def shared_lesson_values(tuning: LessonTuning = None) -> dict:
+    """
+    The numbers a marked lesson above A0 is expanded with (lesson_script):
+    pace, 5-10 s to answer (time_to_answer.ABOVE_A0_SECONDS), and how often
+    each answer is said. Without a tuning, the default:
+    what the shared lesson is stored and voiced with. With the learner's, what
+    their own copy of its audio is said with (DailyAudioLesson.dialogue_tuning).
+    """
+    tuning = tuning or LessonTuning()
+    values = prompt_values(tuning, DEFAULT_LESSON_MINUTES)
+    from zeeguu.core.audio_lessons.lesson_script.time_to_answer import ABOVE_A0_SECONDS
+
+    values["answer_repeats"] = _ANSWER_REPEATS[tuning.repetition + 2]
+    values["answer_seconds"] = ABOVE_A0_SECONDS
+    return values
 
 
 def is_valid(aspect, value, lesson=None) -> bool:

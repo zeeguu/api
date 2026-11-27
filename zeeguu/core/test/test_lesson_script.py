@@ -598,6 +598,89 @@ def test_a_marked_lesson_above_a0_without_its_answer_markers_is_rewritten_then_r
     assert "[answer]" in model.call_args_list[-1].args[0]  # the rewrite is told why
 
 
+# A shared lesson said at one learner's pace (DailyLessonGenerator._say_at_learners_pace)
+
+MARKED_B1 = "Teacher: Ask for the bill.\nMan: Kan jeg få regningen? [answer]"
+
+
+def _said_at_pace(tuning, marked=MARKED_B1, monkeypatch=None):
+    from types import SimpleNamespace
+
+    from zeeguu.core.audio_lessons import daily_lesson_generator as generator_module
+
+    made = []
+    generator = object.__new__(generator_module.DailyLessonGenerator)
+    generator._voice_synthesizer = SimpleNamespace(
+        generate_own_dialogue_audio=lambda lesson, script, **kwargs: made.append(script)
+    )
+    monkeypatch.setattr(generator_module, "tuning_for", lambda user, language: tuning)
+    monkeypatch.setattr(generator_module, "db", SimpleNamespace(session=SimpleNamespace(flush=lambda: None)))
+    lesson = SimpleNamespace(id=7, dialogue_tuning=None)
+    dialogue = SimpleNamespace(
+        marked_script=marked, language=SimpleNamespace(code="da"),
+        teacher_language=SimpleNamespace(code="en"), difficulty_level="B1",
+    )
+    generator._say_at_learners_pace(None, lesson, dialogue, None)
+    return lesson, made
+
+
+def test_a_learner_with_the_default_tuning_hears_the_shared_audio(monkeypatch):
+    lesson, made = _said_at_pace(LessonTuning(), monkeypatch=monkeypatch)
+    assert made == [] and lesson.dialogue_tuning is None
+
+
+def test_a_dialogue_without_markers_cannot_be_said_at_another_pace(monkeypatch):
+    lesson, made = _said_at_pace(LessonTuning(pace=-1), marked=None, monkeypatch=monkeypatch)
+    assert made == [] and lesson.dialogue_tuning is None
+
+
+def test_a_learner_who_asked_for_slower_and_more_gets_their_own_audio(monkeypatch):
+    lesson, made = _said_at_pace(LessonTuning(pace=-1, repetition=-1), monkeypatch=monkeypatch)
+    assert made[0].splitlines() == [
+        "Teacher: Ask for the bill. [8 seconds]",  # 1.2 x (2 + 4.8) s: pace -1 is 6 s against 5
+        "Man: Kan jeg få regningen? [4 seconds]",
+        "Man: Kan jeg få regningen? [4 seconds]",
+        "Man: Kan jeg få regningen? [4 seconds]",  # three times: "Too little" repetition
+    ]
+    assert lesson.dialogue_tuning == {"pace": -1, "repetition": -1, "length": 0}
+
+
+def test_the_daily_lesson_plays_its_own_dialogue_audio_when_it_has_one(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from zeeguu.core.audio_lessons import lesson_builder
+
+    # Which file the builder reads, without decoding audio (CI has no ffmpeg)
+    read = []
+
+    class _Audio:
+        def __add__(self, other):
+            return self
+
+        def export(self, path, format):
+            return path
+
+    monkeypatch.setattr(lesson_builder, "AudioSegment", SimpleNamespace(
+        from_mp3=lambda path: read.append(path) or _Audio(), silent=lambda duration: _Audio(),
+    ))
+    builder = object.__new__(lesson_builder.LessonBuilder)
+    builder.audio_dir = str(tmp_path)
+    builder.daily_lessons_dir = str(tmp_path / "daily_lessons")
+    for path in ("lessons/dialogue-3-en.mp3", "daily_lessons/7-dialogue.mp3"):
+        (tmp_path / path).parent.mkdir(exist_ok=True)
+        (tmp_path / path).write_bytes(b"")
+    dialogue = SimpleNamespace(audio_file_path="/audio/lessons/dialogue-3-en.mp3")
+    segment = SimpleNamespace(segment_type="dialogue_lesson", audio_lesson_dialogue=dialogue, audio_lesson_meaning=None)
+
+    for tuning, played in ((None, "lessons/dialogue-3-en.mp3"), ({"pace": -1}, "daily_lessons/7-dialogue.mp3")):
+        read.clear()
+        lesson = SimpleNamespace(
+            id=7, user=None, segments=[segment], dialogue_tuning=tuning,
+            own_dialogue_audio_path="/audio/daily_lessons/7-dialogue.mp3",
+        )
+        builder.build_daily_lesson(lesson, None, variety=None)
+        assert read == [str(tmp_path / played)]
+
 def test_a_dialogue_above_a0_is_not_told_about_teacher_l2_but_a_word_lesson_is():
     from unittest.mock import patch
 
@@ -628,7 +711,7 @@ def test_a_dialogue_above_a0_is_not_told_about_teacher_l2_but_a_word_lesson_is()
     ("Meiner Meinung nach hat der Schiedsrichter einen großen Fehler gemacht.", 12, 10),  # 10 s at most
 ])
 def test_above_a0_the_time_to_answer_is_between_five_and_ten_seconds(answer, a0_seconds, above_a0_seconds):
-    from zeeguu.core.audio_lessons.script_generator import shared_lesson_values
+    from zeeguu.core.audio_lessons.lesson_tuning import shared_lesson_values
 
     assert time_to_answer(answer, VALUES) == a0_seconds  # A0: as before
     assert time_to_answer(answer, shared_lesson_values()) == above_a0_seconds
@@ -655,3 +738,25 @@ def test_above_a0_what_v2_scripts_were_forgiven_is_forgiven():
         "Man: En kaffe, tak. [3 seconds]",
     ]
     assert "---" not in marked and "**" not in marked
+
+
+def test_when_the_learners_own_audio_fails_they_hear_the_shared_audio(monkeypatch):
+    from types import SimpleNamespace
+
+    from zeeguu.core.audio_lessons import daily_lesson_generator as generator_module
+
+    def tts_down(*args, **kwargs):
+        raise RuntimeError("TTS quota")
+
+    generator = object.__new__(generator_module.DailyLessonGenerator)
+    generator._voice_synthesizer = SimpleNamespace(generate_own_dialogue_audio=tts_down)
+    monkeypatch.setattr(generator_module, "tuning_for", lambda user, language: LessonTuning(pace=-1))
+    monkeypatch.setattr(generator_module, "db", SimpleNamespace(session=SimpleNamespace(flush=lambda: None)))
+    monkeypatch.setattr("sentry_sdk.capture_exception", lambda e: None)
+    lesson = SimpleNamespace(id=7, dialogue_tuning=None)
+    dialogue = SimpleNamespace(
+        marked_script=MARKED_B1, language=SimpleNamespace(code="da"),
+        teacher_language=SimpleNamespace(code="en"), difficulty_level="B1",
+    )
+    generator._say_at_learners_pace(None, lesson, dialogue, None)
+    assert lesson.dialogue_tuning is None  # build_daily_lesson plays the shared audio

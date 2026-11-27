@@ -613,13 +613,13 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
     cannot be expanded gets one rewrite, with the reason.
 
     marked: a lesson above A0 whose prompt is in MARKED_PROMPTS. It is
-    tidied (_tidied), then expanded the same way, at shared_lesson_values()
+    tidied (_tidied), then expanded the same way, at lesson_tuning.shared_lesson_values()
     (the lesson is shared between learners), with no review.
     """
     from zeeguu.core.audio_lessons import lesson_review
     from zeeguu.core.audio_lessons.lesson_script.expand import MarkupError, expand_lines
     from zeeguu.core.audio_lessons.lesson_script.review import review_lines, said_line_count, with_review
-    from zeeguu.core.audio_lessons.lesson_tuning import lines_for
+    from zeeguu.core.audio_lessons.lesson_tuning import lines_for, shared_lesson_values
 
     attempt_prompt = prompt
     for attempt in range(1, MARKUP_ATTEMPTS + 1):
@@ -712,19 +712,6 @@ MARKED_PROMPTS = {SITUATION_LESSON_PROMPT, TOPIC_LESSON_PROMPT}
 # Fewer marked answers than this and the markers were left out: the prompt asks
 # for at least 12 challenges.
 MIN_MARKED_ANSWERS = 8
-
-
-def shared_lesson_values():
-    """
-    The pace of a marked lesson above A0: the default, since such a lesson
-    is shared between learners (AudioLessonDialogue.find_unheard) and cannot
-    follow one learner's tuning; and 5-10 s to answer (ABOVE_A0_SECONDS).
-    """
-    from zeeguu.core.audio_lessons.lesson_script.time_to_answer import ABOVE_A0_SECONDS
-    from zeeguu.core.audio_lessons.lesson_tuning import DEFAULT_LESSON_MINUTES, LessonTuning, prompt_values
-
-    return {**prompt_values(LessonTuning(), DEFAULT_LESSON_MINUTES), "answer_seconds": ABOVE_A0_SECONDS}
-
 
 A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
 

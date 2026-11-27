@@ -134,7 +134,7 @@ def expand_lines(script, values, dialogue=None, learner=None, known_words=None, 
             prompt = next((i for i in range(len(out) - 1, -1, -1) if out[i]), None)
             if prompt is not None and isinstance(out[prompt], SpokenLine) and out[prompt].voice != (learner or voice):
                 out[prompt] = replace(out[prompt], pause=time_to_answer(text, values))
-            out += [SpokenLine(voice, text, values["repeat_pause"])] * 2
+            out += [SpokenLine(voice, text, values["repeat_pause"])] * values["answer_repeats"]
         elif kind == "understand":
             out.append(SpokenLine(voice, text, 1, slow=True))
             out.append(SpokenLine(voice, text, 1))

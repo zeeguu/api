@@ -382,7 +382,11 @@ class LessonBuilder:
                     audio_segments.append(intro)
                     audio_segments.append(AudioSegment.silent(duration=1500))
 
-                relative_path = segment.audio_lesson_dialogue.audio_file_path
+                relative_path = (
+                    daily_lesson.own_dialogue_audio_path
+                    if daily_lesson.dialogue_tuning
+                    else segment.audio_lesson_dialogue.audio_file_path
+                )
                 if relative_path.startswith("/audio/"):
                     relative_path = relative_path[7:]
                 audio_path = os.path.join(self.audio_dir, relative_path)

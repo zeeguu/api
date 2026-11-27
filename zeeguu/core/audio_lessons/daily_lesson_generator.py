@@ -536,6 +536,42 @@ class DailyLessonGenerator:
 
         return dialogue
 
+    def _say_at_learners_pace(self, user, daily_lesson, dialogue, voice_variety):
+        """
+        A shared dialogue above A0, said at the pace and repetition the learner
+        asked for: its marked script expanded again with their tuning, into
+        audio of this lesson's own. The model is not asked again, and the
+        lines are already voiced (the segment cache), so this is mostly joining
+        audio. A dialogue without a marked script, or a learner whose tuning
+        is the default, keeps the shared audio, and so does one whose own
+        audio cannot be made: the default pace rather than no lesson.
+        """
+        from zeeguu.core.audio_lessons.lesson_script.expand import expand
+
+        if not dialogue.marked_script:
+            return
+        tuning = tuning_for(user, dialogue.language)
+        values = lesson_tuning.shared_lesson_values(tuning)
+        if values == lesson_tuning.shared_lesson_values():
+            return
+        db.session.flush()  # the lesson's id names its audio
+        try:
+            self.voice_synthesizer.generate_own_dialogue_audio(
+                daily_lesson,
+                expand(dialogue.marked_script, values, chevrons=False),
+                language_code=dialogue.language.code,
+                teacher_language_code=dialogue.teacher_language.code,
+                cefr_level=dialogue.difficulty_level,
+                variety=voice_variety,
+            )
+        except Exception as e:
+            from sentry_sdk import capture_exception
+
+            log(f"[_say_at_learners_pace] lesson {daily_lesson.id}: shared audio instead: {e}")
+            capture_exception(e)
+            return
+        daily_lesson.dialogue_tuning = lesson_tuning.as_dict(tuning)
+
     def generate_daily_lesson(
         self,
         user: User,
@@ -632,11 +668,16 @@ class DailyLessonGenerator:
                 daily_lesson.add_dialogue_segment(
                     audio_lesson_dialogue=audio_lesson_dialogue, sequence_order=1
                 )
-                if audio_lesson_dialogue.builds_on_history:
-                    # Offered when the lesson ends, next to "stay here".
+                takes_feedback = audio_lesson_dialogue.builds_on_history or audio_lesson_dialogue.marked_script
+                if takes_feedback and (audio_lesson_dialogue.builds_on_history or lesson_type == "situation"):
+                    # Offered when the lesson ends, next to "stay here". Not for
+                    # a dialogue from before markers (reused from the cache): its
+                    # lesson takes no feedback, and they would never be shown.
                     daily_lesson.next_situations = suggest_next_situations(
-                        user, daily_lesson.language, canonical_suggestion
+                        user, daily_lesson.language, canonical_suggestion, cefr_level
                     )
+                if not audio_lesson_dialogue.builds_on_history:
+                    self._say_at_learners_pace(user, daily_lesson, audio_lesson_dialogue, voice_variety)
             else:
                 # Auto mode: generate individual meaning lessons per word
                 for idx, user_word in enumerate(selected_words):
@@ -852,11 +893,18 @@ class DailyLessonGenerator:
         }
 
     def _feedback_fields(self, lesson):
-        """Only A0 lessons take feedback: other lessons are spared the queries
-        on every poll of today's lesson."""
-        if not lesson.builds_on_history:
-            return {"feedback": {}, "next_situations": [], "situation_lesson_count": None}
+        """Only lessons that can be tuned take feedback (takes_feedback): the
+        others are spared the queries on every poll of today's lesson. The app
+        shows the feedback box on takes_feedback, and the lesson length, a
+        setting of A0 lessons only, on builds_on_history."""
+        if not lesson.takes_feedback:
+            return {
+                "takes_feedback": False, "builds_on_history": False,
+                "feedback": {}, "next_situations": [], "situation_lesson_count": None,
+            }
         return {
+            "takes_feedback": True,
+            "builds_on_history": lesson.builds_on_history,
             "feedback": AudioLessonFeedback.for_lesson(lesson),
             "next_situations": lesson.next_situations or [],
             "situation_lesson_count": self._situation_lesson_count(lesson),
@@ -1100,13 +1148,13 @@ class DailyLessonGenerator:
 
         lesson_id = lesson.id
         try:
-            # Delete audio file if it exists
-            audio_path = os.path.join(
-                ZEEGUU_DATA_FOLDER, "audio", "daily_lessons", f"{lesson.id}.mp3"
-            )
-            if os.path.exists(audio_path):
-                os.remove(audio_path)
-                log(f"Deleted audio file: {audio_path}")
+            # Delete its audio files if they exist: the lesson's, and its own
+            # copy of its dialogue's (dialogue_tuning)
+            for relative in lesson.own_audio_file_paths:
+                audio_path = ZEEGUU_DATA_FOLDER + relative
+                if os.path.exists(audio_path):
+                    os.remove(audio_path)
+                    log(f"Deleted audio file: {audio_path}")
 
             # Dialogues are a cache shared across users, and deleting one
             # cascades to every segment that uses it -- i.e. it would cut a
@@ -1280,10 +1328,11 @@ class DailyLessonGenerator:
 
     def record_lesson_feedback(self, user, lesson_id, aspect, value):
         """
-        Record what the learner said about an A0 lesson (AudioLessonFeedback).
+        Record what the learner said about a lesson that takes feedback
+        (AudioLessonFeedback, DailyAudioLesson.takes_feedback).
 
-        Pace, repetition and length tune their next A0 lessons
-        (lesson_tuning.py). A situation moves the daily lessons: one of the
+        Pace and repetition tune their next lessons, A0 or above (lesson_tuning.py);
+        length, their next A0 lessons. A situation moves the daily lessons: one of the
         lesson's next_situations becomes the subscription's subject, and "stay"
         puts back this lesson's own, undoing an earlier choice.
         """
@@ -1294,10 +1343,11 @@ class DailyLessonGenerator:
             return {"error": "Lesson not found", "status_code": 404}
         if not lesson_tuning.is_valid(aspect, value, lesson):
             return {"error": f"Invalid feedback: {aspect}={value}", "status_code": 400}
-        # Only A0 lessons are tuned: recorded on another lesson, an answer would
-        # still move the learner's next A0 lessons (tuning_for reads them all).
-        if not lesson.builds_on_history:
-            return {"error": "Only A0 lessons take feedback", "status_code": 400}
+        # Recorded on a lesson that cannot be tuned, an answer would still move
+        # the learner's next lessons (tuning_for reads them all) while the box
+        # said nothing of the kind. Length is a setting of A0 lessons only.
+        if not lesson.takes_feedback or (aspect == "length" and not lesson.builds_on_history):
+            return {"error": "This lesson takes no feedback", "status_code": 400}
 
         def record():
             # Length answers come only from apps from before the length slider
