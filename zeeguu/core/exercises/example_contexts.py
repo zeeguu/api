@@ -309,7 +309,7 @@ def _existing_example_bookmark(user_word, example):
     )
 
 
-def _rotation_pool(user_word, level):
+def _usable_contexts(user_word, level):
     """Deterministic ordered list of usable contexts for `user_word`:
     good reading bookmarks first, then usable generated examples at or below
     `level`, deduplicated by sentence text. Each entry is ("bookmark", bm) or
@@ -319,7 +319,7 @@ def _rotation_pool(user_word, level):
     from zeeguu.core.model.bookmark_context import BookmarkContext
     from zeeguu.core.model.text import Text
 
-    pool = []
+    contexts = []
     seen_texts = set()
 
     reading_bookmarks = (
@@ -346,35 +346,35 @@ def _rotation_pool(user_word, level):
         if not text_key or text_key in seen_texts:
             continue
         seen_texts.add(text_key)
-        pool.append(("bookmark", bm))
+        contexts.append(("bookmark", bm))
 
     for example in usable_examples_query(user_word.meaning_id, level).all():
         text_key = _normalized_sentence(example.sentence)
         if not text_key or text_key in seen_texts:
             continue
         seen_texts.add(text_key)
-        pool.append(("example", example))
+        contexts.append(("example", example))
 
-    return pool
+    return contexts
 
 
-def _find_current_in_pool(pool, preferred):
-    """Index of `preferred` in `pool`, or -1 when it is not in the pool
+def _find_current_context(contexts, preferred):
+    """Index of `preferred` in `contexts`, or -1 when it is not among them
     (e.g. a fragment or above-level context)."""
     preferred_example_id = _example_id_for_bookmark(preferred)
     if preferred_example_id is not None:
-        for idx, (kind, item) in enumerate(pool):
+        for idx, (kind, item) in enumerate(contexts):
             if kind == "example" and item.id == preferred_example_id:
                 return idx
 
-    for idx, (kind, item) in enumerate(pool):
+    for idx, (kind, item) in enumerate(contexts):
         if kind == "bookmark" and item.id == preferred.id:
             return idx
 
     if preferred.context is not None or preferred.text is not None:
         preferred_text = _normalized_sentence(preferred.get_context())
         if preferred_text:
-            for idx, (kind, item) in enumerate(pool):
+            for idx, (kind, item) in enumerate(contexts):
                 item_text = item.get_context() if kind == "bookmark" else item.sentence
                 if _normalized_sentence(item_text) == preferred_text:
                     return idx
@@ -397,17 +397,17 @@ def rotate_context_to_next_example(session, user_word):
         return False
 
     level = learner_level(user_word)
-    pool = _rotation_pool(user_word, level)
-    if not pool:
+    contexts = _usable_contexts(user_word, level)
+    if not contexts:
         return False
 
-    current_idx = _find_current_in_pool(pool, preferred)
-    if current_idx != -1 and len(pool) < 2:
+    current_idx = _find_current_context(contexts, preferred)
+    if current_idx != -1 and len(contexts) < 2:
         return False
 
-    steps = len(pool) if current_idx == -1 else len(pool) - 1
+    steps = len(contexts) if current_idx == -1 else len(contexts) - 1
     for offset in range(1, steps + 1):
-        kind, candidate = pool[(current_idx + offset) % len(pool)]
+        kind, candidate = contexts[(current_idx + offset) % len(contexts)]
         if kind == "bookmark":
             bookmark = candidate
         else:
