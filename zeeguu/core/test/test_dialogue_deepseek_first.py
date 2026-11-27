@@ -12,10 +12,10 @@ from zeeguu.core.llm_services.llm_service import UnifiedLLMService
 
 SCRIPT = """A Title
 
-Teacher: Two friends meet. [0.5 seconds]
-Man: Hej! [1 seconds]
-Woman: Hej! [1 seconds]
-"""
+Teacher: Two friends meet.
+Man: Hej!
+Woman: Hej!
+""" + "Teacher: Say hello.\nMan: Hej! [answer]\n" * 8  # marked, as the prompts above A0 ask
 
 
 def _dialogue_asks(cefr_level):

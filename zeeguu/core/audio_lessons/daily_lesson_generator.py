@@ -491,10 +491,13 @@ class DailyLessonGenerator:
                 _ai_generator_for(generated.dialogue) if generated.dialogue else None
             ),
         )
+        # The script as the model wrote it, with markers: A0 lessons, and those
+        # above A0 on a marked prompt. Expanded again from it, a shared lesson
+        # can be said at another learner's pace without asking the model again.
+        dialogue.marked_script = generated.marked
         if builds_on_history:
             dialogue.learner_character = learner_character
             dialogue.dialogue_script = generated.dialogue.script if generated.dialogue else None
-            dialogue.marked_script = generated.marked
         if tuning is not None:
             # "minutes" is the length asked for; "length" stays for the study,
             # which reads the lessons written before length was a setting.

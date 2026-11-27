@@ -1,5 +1,7 @@
 """
-A0 lesson scripts: written by the model with markers, expanded by code.
+Lesson scripts written by the model with markers, expanded by code: A0 lessons,
+and the situation lessons above A0 (script_generator.MARKED_PROMPTS), which
+use only [answer] and are expanded at the default pace, being shared.
 
 The model writes each thing once and marks what kind of line it is; code adds
 the repetitions and every pause. So pace and repetition are exactly what the

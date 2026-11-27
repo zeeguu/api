@@ -11,7 +11,7 @@ from zeeguu.core.audio_lessons.script_language_validator import (
     TARGET_LANGUAGE_VOICES,
     find_language_mismatches,
 )
-from zeeguu.core.audio_lessons.script_parser import parse_script, unknown_speaker_labels
+from zeeguu.core.audio_lessons.script_parser import join_continuation_lines, parse_script, unknown_speaker_labels
 from zeeguu.core.audio_lessons.lesson_script.challenges import challenges
 from zeeguu.core.audio_lessons.lesson_script.markers import VOICE_LINE
 from zeeguu.core.audio_lessons.lesson_script.spoken_line import without_teacher_chevron_spans
@@ -60,8 +60,9 @@ def prompt_version_of(prompt_file: str) -> str:
     than a new version — recording them would make a rename look like a version
     bump, and would not fit AIGenerator.prompt_version (VARCHAR(50)) anyway.
 
-    The two dialogue prompts both reduce to 'dialogue_lesson-v2'; which of them
-    ran is recoverable from the row's own lesson_type.
+    The two dialogue prompts both reduce to 'dialogue_lesson-v2' (and, from
+    Nov 2026, 'dialogue_lesson-v3'); which of them ran is recoverable from the
+    row's own lesson_type.
     """
     stem = os.path.basename(prompt_file).rsplit(".", 1)[0]
     family = stem.split("--")[0]
@@ -79,9 +80,14 @@ def get_prompt_template(file_name) -> str:
         return f.read()
 
 
-def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man", "Woman"), chevrons=False) -> str:
+def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man", "Woman"), chevrons=False,
+                      teacher_l2=True) -> str:
     """
     The two-language rule, as a system prompt.
+
+    teacher_l2: the prompt has the Teacher say learned-language words on
+    TeacherL2: lines (meaning lessons). The dialogue prompts above A0 have no
+    such lines since v3, and are not told about them.
 
     A lesson script carries two languages at once, and which voice speaks which is
     the whole point of it. Stating that only in the user prompt leaves it competing
@@ -89,13 +95,14 @@ def language_contract(target_lang_name: str, source_lang_name: str, voices=("Man
     scripts with a non-English teacher held the rule 1 time in 9 that way, and 7
     times in 9 with the rule stated here instead.
     """
+    learned_labels = f"'{voices[0]}:', '{voices[1]}:'" + (" and 'TeacherL2:'" if teacher_l2 else "")
     teacher_rule = f"Lines labeled 'Teacher:' are ALWAYS written in {source_lang_name}"
     if chevrons:
         teacher_rule += f", except words in «chevrons», which are {target_lang_name}"
     return (
         f"You write audio lesson scripts for language learners. The learner speaks "
         f"{source_lang_name} natively and is studying {target_lang_name}.\n"
-        f"Lines labeled '{voices[0]}:', '{voices[1]}:' and 'TeacherL2:' are ALWAYS written in "
+        f"Lines labeled {learned_labels} are ALWAYS written in "
         f"{target_lang_name}. Never in {source_lang_name}.\n"
         f"{teacher_rule}.\n"
         f"Keeping these two languages apart is the entire purpose of the script. A "
@@ -129,11 +136,11 @@ def _is_a_script(script: str) -> bool:
     )
 
 
-def _labels_note(labels, voice_labels=("Man", "Woman"), chevrons=False) -> str:
+def _labels_note(labels, voice_labels=("Man", "Woman"), chevrons=False, teacher_l2=True) -> str:
     """The rewrite note for lines under labels no voice says, in the labels
     the prompt asked for (an A0 script: Learner and Other)."""
     a, b = voice_labels
-    allowed = f"Teacher:, {a}: and {b}:" if chevrons else f"Teacher:, TeacherL2:, {a}: and {b}:"
+    allowed = f"Teacher:, TeacherL2:, {a}: and {b}:" if teacher_l2 and not chevrons else f"Teacher:, {a}: and {b}:"
     return (
         "\n\nYour previous attempt labeled lines with "
         + ", ".join(f"'{label}:'" for label in labels)
@@ -144,11 +151,11 @@ def _labels_note(labels, voice_labels=("Man", "Woman"), chevrons=False) -> str:
 
 
 def _correction_note(mismatches, target_lang_name, source_lang_name,
-                     voice_labels=("Man", "Woman"), chevrons=False) -> str:
+                     voice_labels=("Man", "Woman"), chevrons=False, teacher_l2=True) -> str:
     """The rewrite note for lines in the wrong language, in the labels the
     prompt asked for."""
     a, b = voice_labels
-    learned = f"The {a} and {b} lines" if chevrons else f"The {a}, {b} and TeacherL2 lines"
+    learned = f"The {a}, {b} and TeacherL2 lines" if teacher_l2 and not chevrons else f"The {a} and {b} lines"
     teacher = (
         f"The Teacher lines MUST be in {source_lang_name}, except words in «chevrons»."
         if chevrons
@@ -173,11 +180,13 @@ def generate_script_in_languages(
     voice_labels=("Man", "Woman"),
     relabel=None,
     chevrons=False,
+    teacher_l2=True,
 ) -> tuple:
     """
     Generate a lesson script and verify it came back in the languages we asked for.
 
     voice_labels: the labels the prompt asks for on learned-language lines;
+    teacher_l2: whether the prompt has TeacherL2: lines (language_contract).
     relabel: turns them into the voices' labels (Man/Woman) before any check
     reads the script. An A0 script is written with Learner/Other
     (lesson_script.roles.roles_to_voices).
@@ -194,7 +203,7 @@ def generate_script_in_languages(
         kwargs["deepseek_first"] = True
     target_lang_name = Language.LANGUAGE_NAMES.get(target_language, target_language)
     source_lang_name = Language.LANGUAGE_NAMES.get(source_language, source_language)
-    kwargs["system"] = language_contract(target_lang_name, source_lang_name, voice_labels, chevrons)
+    kwargs["system"] = language_contract(target_lang_name, source_lang_name, voice_labels, chevrons, teacher_l2)
 
     attempt_prompt = prompt
     mismatches = []
@@ -221,7 +230,7 @@ def generate_script_in_languages(
                 f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS}): lines labeled "
                 f"{labels}, which no voice says"
             )
-            attempt_prompt = prompt + _labels_note(labels, voice_labels, chevrons)
+            attempt_prompt = prompt + _labels_note(labels, voice_labels, chevrons, teacher_l2)
             continue
 
         mismatches = find_language_mismatches(
@@ -236,7 +245,7 @@ def generate_script_in_languages(
 
         log_mismatches(f"{context} (attempt {attempt}/{LANGUAGE_ATTEMPTS})", mismatches)
         attempt_prompt = prompt + _correction_note(
-            mismatches, target_lang_name, source_lang_name, voice_labels, chevrons
+            mismatches, target_lang_name, source_lang_name, voice_labels, chevrons, teacher_l2
         )
 
     if labels:
@@ -539,9 +548,9 @@ def generate_dialogue_script(
         dialogue = None
         a0 = None
         if lesson_type == "situation":
-            prompt_file = "dialogue_lesson--situation-v2.txt"
+            prompt_file = SITUATION_LESSON_PROMPT
         else:
-            prompt_file = "dialogue_lesson--topic-v2.txt"
+            prompt_file = TOPIC_LESSON_PROMPT
         prompt = get_prompt_template(prompt_file).format(**common)
 
     if past_titles:
@@ -559,11 +568,12 @@ def generate_dialogue_script(
             suggestion=suggestion,
             max_tokens=max_tokens,
             short_lines=builds_on_history(cefr_level),
+            marked=prompt_file in MARKED_PROMPTS,
         )
         log(f"Successfully generated dialogue script, title: '{title}'")
         return title, GeneratedScript(
             script, model_name, prompt_version_of(prompt_file), dialogue, marked, reviewed,
-            tuple(challenges(marked, a0["learner"])) if marked else (),
+            tuple(challenges(marked, a0["learner"])) if marked and a0 else (),  # reviewed by later A0 lessons only
         )
 
     except Exception as e:
@@ -573,9 +583,26 @@ def generate_dialogue_script(
 
 MARKUP_ATTEMPTS = 2
 
+# A pause the model wrote anyway: expand_lines drops it, so the answers are
+# counted without it ("[answer] [3 seconds]" is an answer).
+_PAUSES = re.compile(r"\s*\[[0-9.]+\s*seconds?\]", re.IGNORECASE)
+# A line that only separates sections: "---", "***", "===".
+_SEPARATOR = re.compile(r"^\s*(?:[-*_=]\s*){3,}$")
+
+
+def _tidied(script):
+    """
+    A marked script above A0, with what v2 scripts were forgiven forgiven here
+    too, before expand_lines reads it strictly: section separators dropped,
+    bold labels unbolded, a line the model wrapped joined back to its voice
+    line (script_parser.join_continuation_lines).
+    """
+    kept = "\n".join(line for line in script.split("\n") if not _SEPARATOR.match(line))
+    return join_continuation_lines(kept)
+
 
 def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language, suggestion,
-                           max_tokens, short_lines):
+                           max_tokens, short_lines, marked=False):
     """
     (title, script, model, marked, reviewed) from the model; reviewed is the
     ids of the challenges it reviews, in order.
@@ -584,6 +611,10 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
     and a review of earlier lessons, chosen by code (lesson_review.py), is put
     before its end to make it as long as the learner asked for. A marker that
     cannot be expanded gets one rewrite, with the reason.
+
+    marked: a lesson above A0 whose prompt is in MARKED_PROMPTS. It is
+    tidied (_tidied), then expanded the same way, at shared_lesson_values()
+    (the lesson is shared between learners), with no review.
     """
     from zeeguu.core.audio_lessons import lesson_review
     from zeeguu.core.audio_lessons.lesson_script.expand import MarkupError, expand_lines
@@ -606,7 +637,8 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
                     chevrons=True,
                 )
                 if a0
-                else {}
+                # A marked dialogue prompt above A0 has no TeacherL2: lines (v3)
+                else dict(teacher_l2=not marked)
             ),
             # Above A0, DeepSeek writes these as well as Sonnet 5.5 and about 10x
             # cheaper: on 25 prod requests (9 learned, 6 teacher languages) blind
@@ -625,12 +657,26 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             title = lines[0].strip().lstrip("#").strip()[:200]
             script = lines[1].strip()
 
-        if a0 is None:
+        if a0 is None and not marked:
             return title, script, model_name, None, ()
         try:
-            values = a0["values"]
-            known = {word for lesson in a0["heard"] for word in lesson.words}
-            expanded_lines = expand_lines(script, values, a0["dialogue"], a0["learner"], known)
+            if a0 is None:
+                script = _tidied(script)
+                answers = len(re.findall(r"\[answer\]\s*$", _PAUSES.sub("", script), re.MULTILINE | re.IGNORECASE))
+                if answers < MIN_MARKED_ANSWERS:
+                    # An answer without its marker is said once with a second
+                    # after it: no time to speak, no repetition. DeepSeek left
+                    # the markers out of 14 of 16 lessons in the eval
+                    # (zeeguu-experiments audio-lessons/2026-11-27-b1-answer-time).
+                    raise MarkupError(
+                        f"only {answers} lines end with [answer]: the answer line of every "
+                        "challenge ends with [answer]"
+                    )
+                expanded_lines = expand_lines(script, shared_lesson_values(), chevrons=False)
+            else:
+                values = a0["values"]
+                known = {word for lesson in a0["heard"] for word in lesson.words}
+                expanded_lines = expand_lines(script, values, a0["dialogue"], a0["learner"], known)
             expanded = "\n".join(str(line) for line in expanded_lines).strip() + "\n"
         except MarkupError as e:
             log(f"[lesson markup] '{suggestion}' attempt {attempt}/{MARKUP_ATTEMPTS}: {e}")
@@ -642,6 +688,9 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
             )
             continue
 
+        if a0 is None:
+            return title, expanded, model_name, script, ()
+
         missing = lines_for(values["min_minutes"]) - said_line_count(expanded_lines)
         reviews = lesson_review.choose(a0["heard"], missing, values, a0["learner"])
         full = with_review(expanded, review_lines([challenge for _, challenge in reviews], values))
@@ -650,6 +699,33 @@ def _write_dialogue_lesson(prompt, a0, *, origin_language, translation_language,
 
 
 A0_LESSON_PROMPT = "a0_dialogue_lesson--pimsleur_style_situation-v5.txt"
+
+# v3 writes [answer] markers instead of pauses: code gives each challenge the
+# time its answer needs (lesson_script.time_to_answer), where v2's fixed
+# 5 seconds was too short to repeat a long phrase (a B1 learner, Nov 2026).
+# v3 also drops TeacherL2, which v2 allowed but never asked for, and which no
+# dialogue in the evals used: it was copied from the meaning lesson prompt.
+SITUATION_LESSON_PROMPT = "dialogue_lesson--situation-v3.txt"
+TOPIC_LESSON_PROMPT = "dialogue_lesson--topic-v3.txt"
+# The lessons above A0 written with markers and expanded by code, like A0's.
+MARKED_PROMPTS = {SITUATION_LESSON_PROMPT, TOPIC_LESSON_PROMPT}
+# Fewer marked answers than this and the markers were left out: the prompt asks
+# for at least 12 challenges.
+MIN_MARKED_ANSWERS = 8
+
+
+def shared_lesson_values():
+    """
+    The pace of a marked lesson above A0: the default, since such a lesson
+    is shared between learners (AudioLessonDialogue.find_unheard) and cannot
+    follow one learner's tuning; and 5-10 s to answer (ABOVE_A0_SECONDS).
+    """
+    from zeeguu.core.audio_lessons.lesson_script.time_to_answer import ABOVE_A0_SECONDS
+    from zeeguu.core.audio_lessons.lesson_tuning import DEFAULT_LESSON_MINUTES, LessonTuning, prompt_values
+
+    return {**prompt_values(LessonTuning(), DEFAULT_LESSON_MINUTES), "answer_seconds": ABOVE_A0_SECONDS}
+
+
 A0_DIALOGUE_PROMPT = "a0_dialogue--natural_exchange-v1.txt"
 
 
