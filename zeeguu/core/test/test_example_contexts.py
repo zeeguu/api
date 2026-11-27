@@ -531,15 +531,37 @@ class RotateExerciseContextTest(ModelTestMixIn, TestCase):
             )
         rotate.assert_called_once_with(session, user_word)
 
-        # Daily audio lessons and OTHER_FEEDBACK do not rotate
+        # Daily audio lessons, Match, Verbal Flashcards, empty outcome, and OTHER_FEEDBACK do not rotate
         with patch.object(example_contexts, "rotate_context_to_next_example") as rotate:
             user_word.report_exercise_outcome(
                 session, "DAILY_AUDIO_LESSON", ExerciseOutcome.LISTENED, 1000, ex_session.id, ""
             )
             user_word.report_exercise_outcome(
+                session, "Match_three_L1W_to_three_L2W", ExerciseOutcome.CORRECT, 1000, ex_session.id, ""
+            )
+            user_word.report_exercise_outcome(
+                session, "Verbal Flashcards", ExerciseOutcome.CORRECT, 1000, ex_session.id, ""
+            )
+            user_word.report_exercise_outcome(
+                session, "Recognize_L1W_in_L2T", "", 1000, ex_session.id, ""
+            )
+            user_word.report_exercise_outcome(
                 session, "Recognize_L1W_in_L2T", ExerciseOutcome.OTHER_FEEDBACK, 1000, ex_session.id, "too_easy"
             )
         rotate.assert_not_called()
+
+        # Unfit words (e.g. after VALIDATOR_GAVE_UP) do not rotate
+        user_word.fit_for_study = False
+        session.add(user_word)
+        session.commit()
+        with patch.object(example_contexts, "rotate_context_to_next_example") as rotate:
+            user_word.report_exercise_outcome(
+                session, "Recognize_L1W_in_L2T", ExerciseOutcome.CORRECT, 1000, ex_session.id, ""
+            )
+        rotate.assert_not_called()
+        user_word.fit_for_study = True
+        session.add(user_word)
+        session.commit()
 
         # Rotation failure never loses the recorded exercise outcome
         exercises_before = len(user_word.exercise_log)
@@ -550,3 +572,61 @@ class RotateExerciseContextTest(ModelTestMixIn, TestCase):
         session.refresh(user_word)
         self.assertEqual(len(user_word.exercise_log), exercises_before + 1)
         self.assertEqual(user_word.preferred_bookmark_id, original.id)
+
+    def test_reuses_existing_example_bookmark_and_passes_cached_tokens(self):
+        from zeeguu.core.model.bookmark_context import BookmarkContext
+
+        user_word, _original, examples = self._word_with_examples(
+            article_level="A2", examples=("Der Hund schläft.",)
+        )
+        existing_bm = self._fake_example_bookmark(user_word, examples[0])
+
+        with (
+            patch.object(example_contexts, "bookmark_for_example") as create_bm,
+            patch.object(BookmarkContext, "get_tokenized", return_value=[[{"text": "Der"}]]) as get_tok,
+            patch.object(Bookmark, "as_dictionary", return_value={}) as as_dict,
+        ):
+            self.assertTrue(example_contexts.rotate_context_to_next_example(session, user_word))
+
+        create_bm.assert_not_called()
+        get_tok.assert_called_once()
+        self.assertEqual(as_dict.call_args.kwargs["pre_tokenized_context"], [[{"text": "Der"}]])
+        self.assertEqual(user_word.preferred_bookmark_id, existing_bm.id)
+
+    def test_skips_deleted_and_separated_mwe_reading_bookmarks(self):
+        user_word, original, examples = self._word_with_examples(
+            article_level="A2", examples=("Der Hund schläft.",)
+        )
+        deleted_bm = BookmarkRule(self.user).bookmark
+        deleted_bm.user_word = user_word
+        deleted_bm.context.text = None
+        deleted_bm.context.context_type = ContextType.find_by_type(ContextType.LEVEL_ADAPTED_ARTICLE_SUMMARY)
+
+        separated_mwe_bm = BookmarkRule(self.user).bookmark
+        separated_mwe_bm.user_word = user_word
+        separated_mwe_bm.mwe_partner_token_i = 3
+        separated_mwe_bm.text.article.cefr_level = "A2"
+        separated_mwe_bm.context.context_type = ContextType.find_by_type(ContextType.ARTICLE_FRAGMENT)
+        separated_mwe_bm.context.text.content = "Der Hund macht die Tür auf."
+        session.add_all([deleted_bm, separated_mwe_bm])
+        session.commit()
+
+        pool = example_contexts._rotation_pool(user_word, "A2")
+        pool_bookmarks = [item.id for kind, item in pool if kind == "bookmark"]
+        self.assertEqual(pool_bookmarks, [original.id])
+
+    def test_find_by_usermeaning_and_context_survives_duplicate_rows(self):
+        user_word, original, _examples = self._word_with_examples(article_level="A2", examples=())
+        duplicate = Bookmark(
+            user_word,
+            original.source,
+            original.text,
+            original.time,
+            context=original.context,
+            translation_source=original.translation_source,
+        )
+        session.add(duplicate)
+        session.commit()
+
+        found = Bookmark.find_by_usermeaning_and_context(user_word, original.context)
+        self.assertEqual(found.id, original.id)

@@ -163,39 +163,46 @@ class BookmarkContext(db.Model):
         if context_type:
             context_type = ContextType.find_by_type(context_type)
 
+        existing = (
+            cls.query.filter(cls.text == text_row)
+            .filter(cls.context_type == context_type)
+            .filter(cls.language == language)
+            .order_by(cls.id.asc())
+            .first()
+        )
+        if existing is not None:
+            return existing
+
         try:
-            return (
-                cls.query.filter(cls.text == text_row)
-                .filter(cls.context_type == context_type)
-                .filter(cls.language == language)
-                .one()
+            new = cls(
+                text_row,
+                context_type,
+                language,
+                sentence_i,
+                token_i,
+                left_ellipsis,
+                right_ellipsis,
             )
-        except sqlalchemy.orm.exc.NoResultFound:
-            try:
-                new = cls(
-                    text_row,
-                    context_type,
-                    language,
-                    sentence_i,
-                    token_i,
-                    left_ellipsis,
-                    right_ellipsis,
-                )
-                session.add(new)
-                if commit:
-                    session.commit()
-                return new
-            except Exception as e:
-                print("Exception was: ", e)
-                for i in range(10):
-                    try:
-                        session.rollback()
-                        t = cls.query.filter(cls.text == text_row).one()
+            session.add(new)
+            if commit:
+                session.commit()
+            return new
+        except Exception as e:
+            print("Exception was: ", e)
+            for i in range(10):
+                try:
+                    session.rollback()
+                    t = (
+                        cls.query.filter(cls.text == text_row)
+                        .order_by(cls.id.asc())
+                        .first()
+                    )
+                    if t is not None:
                         print("found text after recovering from race")
                         return t
-                    except:
-                        print(
-                            "exception of second degree in BookmarkContext..." + str(i)
-                        )
-                        time.sleep(0.3)
-                        continue
+                except Exception:
+                    print(
+                        "exception of second degree in BookmarkContext..." + str(i)
+                    )
+                    time.sleep(0.3)
+                    continue

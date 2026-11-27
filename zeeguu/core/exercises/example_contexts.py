@@ -100,6 +100,7 @@ def bookmark_for_example(session, user, user_word, example_sentence):
         ),
         translation_source="generated_example",
         user_word=user_word,
+        update_fit_for_study=False,
     )
 
 
@@ -287,10 +288,25 @@ def _normalized_sentence(text):
 def _example_id_for_bookmark(bookmark):
     from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
 
-    link = ExampleSentenceContext.query.filter(
-        ExampleSentenceContext.bookmark_id == bookmark.id
-    ).first()
+    link = ExampleSentenceContext.find_by_bookmark(bookmark)
     return link.example_sentence_id if link else None
+
+
+def _existing_example_bookmark(user_word, example):
+    from zeeguu.core.model.example_sentence_context import ExampleSentenceContext
+
+    return (
+        Bookmark.query.join(
+            ExampleSentenceContext,
+            ExampleSentenceContext.bookmark_id == Bookmark.id,
+        )
+        .filter(
+            Bookmark.user_word_id == user_word.id,
+            ExampleSentenceContext.example_sentence_id == example.id,
+        )
+        .order_by(Bookmark.id.asc())
+        .first()
+    )
 
 
 def _rotation_pool(user_word, level):
@@ -298,29 +314,43 @@ def _rotation_pool(user_word, level):
     good reading bookmarks first, then usable generated examples at or below
     `level`, deduplicated by sentence text. Each entry is ("bookmark", bm) or
     ("example", example_sentence)."""
+    from sqlalchemy.orm import joinedload
+    from zeeguu.core.model.article import Article
+    from zeeguu.core.model.bookmark_context import BookmarkContext
+    from zeeguu.core.model.text import Text
+
     pool = []
     seen_texts = set()
 
     reading_bookmarks = (
-        Bookmark.query.filter(Bookmark.user_word_id == user_word.id)
+        Bookmark.query.options(
+            joinedload(Bookmark.context).joinedload(BookmarkContext.context_type),
+            joinedload(Bookmark.context).joinedload(BookmarkContext.text),
+            joinedload(Bookmark.text).joinedload(Text.article).joinedload(Article.cefr_assessment),
+        )
+        .filter(Bookmark.user_word_id == user_word.id)
         .order_by(Bookmark.id.asc())
         .all()
     )
     for bm in reading_bookmarks:
-        context_type = bm.context.context_type.type if bm.context and bm.context.context_type else None
+        if not bm.context or not bm.context.text:
+            continue
+        if bm.mwe_partner_token_i is not None:
+            continue
+        context_type = bm.context.context_type.type if bm.context.context_type else None
         if context_type == ContextType.EXAMPLE_SENTENCE:
             continue
         if why_not_a_good_exercise_context(bm, level) is not None:
             continue
         text_key = _normalized_sentence(bm.get_context())
-        if text_key in seen_texts:
+        if not text_key or text_key in seen_texts:
             continue
         seen_texts.add(text_key)
         pool.append(("bookmark", bm))
 
     for example in usable_examples_query(user_word.meaning_id, level).all():
         text_key = _normalized_sentence(example.sentence)
-        if text_key in seen_texts:
+        if not text_key or text_key in seen_texts:
             continue
         seen_texts.add(text_key)
         pool.append(("example", example))
@@ -341,11 +371,13 @@ def _find_current_in_pool(pool, preferred):
         if kind == "bookmark" and item.id == preferred.id:
             return idx
 
-    preferred_text = _normalized_sentence(preferred.get_context())
-    for idx, (kind, item) in enumerate(pool):
-        item_text = item.get_context() if kind == "bookmark" else item.sentence
-        if _normalized_sentence(item_text) == preferred_text:
-            return idx
+    if preferred.context is not None or preferred.text is not None:
+        preferred_text = _normalized_sentence(preferred.get_context())
+        if preferred_text:
+            for idx, (kind, item) in enumerate(pool):
+                item_text = item.get_context() if kind == "bookmark" else item.sentence
+                if _normalized_sentence(item_text) == preferred_text:
+                    return idx
 
     return -1
 
@@ -379,11 +411,18 @@ def rotate_context_to_next_example(session, user_word):
         if kind == "bookmark":
             bookmark = candidate
         else:
-            bookmark = bookmark_for_example(session, user_word.user, user_word, candidate)
+            bookmark = _existing_example_bookmark(user_word, candidate) or bookmark_for_example(
+                session, user_word.user, user_word, candidate
+            )
 
         if not bookmark or bookmark.id == preferred.id:
             continue
-        if bookmark.as_dictionary(with_context=True, with_context_tokenized=True).get("_unanchorable"):
+        pre_tokenized = bookmark.context.get_tokenized(session=session) if bookmark.context else None
+        if bookmark.as_dictionary(
+            with_context=True,
+            with_context_tokenized=True,
+            pre_tokenized_context=pre_tokenized,
+        ).get("_unanchorable"):
             continue
         return _switch_to(session, user_word, bookmark, "CONTEXT rotate")
 

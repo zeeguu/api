@@ -583,6 +583,7 @@ class Bookmark(db.Model):
         mwe_partner_token_i: int = None,
         user_word=None,
         translation_service: str = None,
+        update_fit_for_study: bool = True,
     ):
         """
         if the bookmark does not exist, it creates it and returns it
@@ -725,11 +726,14 @@ class Bookmark(db.Model):
             user_word.preferred_bookmark = bookmark
             session.add(user_word)
 
-        # Update fit_for_study after bookmark is created
-        log(f"[BOOKMARK-TIMING] Calling update_fit_for_study")
-        fit_start = time.time()
-        user_word.update_fit_for_study(session)
-        log(f"[BOOKMARK-TIMING] update_fit_for_study took {time.time() - fit_start:.3f}s")
+        # Update fit_for_study after bookmark is created (skipped when merely
+        # attaching a generated example to an existing word, so rotation cannot
+        # undo a validator decision like VALIDATOR_GAVE_UP).
+        if update_fit_for_study:
+            log(f"[BOOKMARK-TIMING] Calling update_fit_for_study")
+            fit_start = time.time()
+            user_word.update_fit_for_study(session)
+            log(f"[BOOKMARK-TIMING] update_fit_for_study took {time.time() - fit_start:.3f}s")
 
         log(f"[BOOKMARK-TIMING] Final commit")
         final_commit_start = time.time()
@@ -803,7 +807,18 @@ class Bookmark(db.Model):
 
     @classmethod
     def find_by_usermeaning_and_context(cls, user_word, context):
-        return cls.query.filter_by(user_word=user_word, context=context).one()
+        # .first() rather than .one(): bookmark(user_word_id, context_id) has
+        # no unique constraint, so concurrent requests (e.g. /report_exercise_outcome
+        # rotating alongside /alternative_sentences) can insert two rows; a
+        # duplicate must not break future lookups with MultipleResultsFound.
+        bookmark = (
+            cls.query.filter_by(user_word=user_word, context=context)
+            .order_by(cls.id.asc())
+            .first()
+        )
+        if bookmark is None:
+            raise NoResultFound()
+        return bookmark
 
     @classmethod
     def exists(cls, source, text, context, user_word):
