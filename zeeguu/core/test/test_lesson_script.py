@@ -557,16 +557,18 @@ def test_a_marked_lesson_above_a0_is_expanded_at_the_default_pace():
     assert reviewed == ()
 
 
-def test_the_situation_prompt_is_marked_and_writes_no_pauses():
-    from zeeguu.core.audio_lessons.script_generator import MARKED_PROMPTS, SITUATION_LESSON_PROMPT, get_prompt_template
+@pytest.mark.parametrize("prompt_file", ["dialogue_lesson--situation-v3.txt", "dialogue_lesson--topic-v3.txt"])
+def test_the_dialogue_prompts_above_a0_are_marked_and_write_no_pauses(prompt_file):
+    from zeeguu.core.audio_lessons.script_generator import MARKED_PROMPTS, get_prompt_template
 
-    prompt = get_prompt_template(SITUATION_LESSON_PROMPT)
-    assert SITUATION_LESSON_PROMPT in MARKED_PROMPTS
+    prompt = get_prompt_template(prompt_file)
+    assert prompt_file in MARKED_PROMPTS
     assert "[answer]" in prompt and not re.search(r"\[[0-9.]+ seconds?\]", prompt)
+    assert "TeacherL2" not in prompt  # never asked for in a dialogue, never written
 
 
-@pytest.mark.parametrize("lesson_type, expanded", [("situation", True), ("topic", False)])
-def test_a_b1_situation_lesson_is_expanded_and_a_topic_lesson_is_not_yet(lesson_type, expanded):
+@pytest.mark.parametrize("lesson_type", ["situation", "topic"])
+def test_a_b1_dialogue_lesson_is_expanded(lesson_type):
     from unittest.mock import patch
 
     from zeeguu.core.audio_lessons import script_generator
@@ -575,8 +577,8 @@ def test_a_b1_situation_lesson_is_expanded_and_a_topic_lesson_is_not_yet(lesson_
     with patch.object(script_generator, "generate_script_in_languages", return_value=(raw, "model")):
         title, generated = script_generator.generate_dialogue_script("da", "en", "café", lesson_type, cefr_level="B1")
     assert title == "At the café"
-    assert (generated.marked is not None) == expanded
-    assert ("[answer]" not in generated.script) == expanded
+    assert generated.marked is not None
+    assert "[answer]" not in generated.script
     assert generated.challenges == ()
 
 
